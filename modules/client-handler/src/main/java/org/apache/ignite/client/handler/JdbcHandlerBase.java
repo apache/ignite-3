@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.sql.engine.SqlQueryType.DDL;
-import static org.apache.ignite.internal.sql.engine.SqlQueryType.DML;
 import static org.apache.ignite.internal.sql.engine.SqlQueryType.KILL;
 import static org.apache.ignite.internal.sql.engine.SqlQueryType.TX_CONTROL;
 
@@ -49,15 +48,11 @@ import org.jetbrains.annotations.Nullable;
  * Contains common methods used to process jdbc requests.
  */
 abstract class JdbcHandlerBase {
-
     /** {@link SqlQueryType}s allowed in JDBC select statements. **/
     public static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(
             SqlQueryType.QUERY,
             SqlQueryType.EXPLAIN
     );
-
-    /** {@link SqlQueryType}s allowed in JDBC update statements. **/
-    public static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, DDL, KILL);
 
     /** {@link SqlQueryType}s types that return 0 in executeUpdate and execute / getUpdateCount. **/
     public static final Set<SqlQueryType> ZERO_UPDATE_COUNT_QUERIES = Set.of(DDL, KILL, TX_CONTROL);

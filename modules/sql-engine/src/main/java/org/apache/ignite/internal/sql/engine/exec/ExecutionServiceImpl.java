@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
-import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -80,7 +79,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt.CancellationReason;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
@@ -123,7 +122,6 @@ import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -303,16 +301,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     @TestOnly
-    public ExecutableTableRegistry tableRegistry() {
-        return tableRegistry;
-    }
-
-    @TestOnly
     public DdlCommandHandler ddlCommandHandler() {
         return ddlCmdHnd;
     }
 
-    private CompletableFuture<AsyncDataCursorExt<InternalSqlRow>> executeQuery(
+    private CompletableFuture<AsyncDataCursor<InternalSqlRow>> executeQuery(
             SqlOperationContext operationContext,
             MultiStepPlan plan
     ) {
@@ -322,16 +315,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         DistributedQueryManager old = queryManagerMap.put(executionid, queryManager);
 
         assert old == null;
-
-        QueryCancel cancelHandler = operationContext.cancel();
-
-        assert cancelHandler != null;
-
-        // This call immediately triggers a cancellation exception if operation has timed out or it has already been cancelled.
-        cancelHandler.add(timeout -> {
-            CancellationReason reason = timeout ? CancellationReason.TIMEOUT : CancellationReason.CANCEL;
-            queryManager.close(reason);
-        });
 
         QueryTransactionContext txContext = operationContext.txContext();
 
@@ -358,7 +341,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         Predicate<String> nodeExclusionFilter = operationContext.nodeExclusionFilter();
 
-        CompletableFuture<AsyncDataCursorExt<InternalSqlRow>> f = queryManager.execute(tx, plan,
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> f = queryManager.execute(tx, plan,
                 nodeExclusionFilter).thenApply(dataCursor -> new TxAwareAsyncCursor<>(
                 txWrapper,
                 dataCursor,
@@ -397,7 +380,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     @SuppressWarnings("CastConflictsWithInstanceof") // IDEA incorrectly highlights casts in EXPLAIN and DDL branches
-    public CompletableFuture<AsyncDataCursorExt<InternalSqlRow>> executePlan(
+    public CompletableFuture<AsyncDataCursor<InternalSqlRow>> executePlan(
             QueryPlan plan, SqlOperationContext operationContext
     ) {
         SqlQueryType queryType = plan.type();
@@ -406,18 +389,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             case DML:
             case QUERY:
                 if (plan instanceof ExecutablePlan) {
-                    return cast(completedFuture(executeExecutablePlan(operationContext, (ExecutablePlan) plan)));
+                    return completedFuture(executeExecutablePlan(operationContext, (ExecutablePlan) plan));
                 }
 
                 assert plan instanceof MultiStepPlan : plan.getClass();
 
                 return executeQuery(operationContext, (MultiStepPlan) plan);
             case EXPLAIN:
-                return cast(completedFuture(executeExplain((ExplainPlan) plan)));
+                return completedFuture(executeExplain((ExplainPlan) plan));
             case DDL:
-                return cast(completedFuture(executeDdl(operationContext, (DdlPlan) plan)));
+                return completedFuture(executeDdl(operationContext, (DdlPlan) plan));
             case KILL:
-                return cast(completedFuture(executeKill(operationContext, (KillPlan) plan)));
+                return completedFuture(executeKill((KillPlan) plan));
 
             default:
                 throw new AssertionError("Unexpected query type: " + plan);
@@ -428,9 +411,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             SqlOperationContext operationContext,
             ExecutablePlan plan
     ) {
-        QueryCancel queryCancel = operationContext.cancel();
-        assert queryCancel != null;
-
         ExecutionId executionId = nextExecutionId(operationContext.queryId());
         ExecutionContext<RowT> ectx = new ExecutionContext<>(
                 expressionFactory,
@@ -442,8 +422,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 handler,
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
-                operationContext.timeZoneId(),
-                operationContext.cancel()
+                operationContext.timeZoneId()
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -455,23 +434,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, true);
         operationContext.notifyTxUsed(txWrapper);
 
-        PrefetchCallback prefetchCallback = new PrefetchCallback();
-
-        AsyncCursor<InternalSqlRow> dataCursor;
+        AsyncDataCursor<InternalSqlRow> dataCursor;
 
         try {
-            dataCursor = plan.execute(ectx, txWrapper.unwrap(), tableRegistry, prefetchCallback);
+            dataCursor = plan.execute(ectx, txWrapper.unwrap(), tableRegistry);
         } catch (Throwable t) {
-            prefetchCallback.onPrefetchComplete(t);
-
-            dataCursor = new AsyncWrapper<>(CompletableFuture.failedFuture(t), Runnable::run);
+            dataCursor = new IteratorToDataCursorAdapter<>(CompletableFuture.failedFuture(t), Runnable::run);
         }
 
         return new TxAwareAsyncCursor<>(
                 txWrapper,
                 dataCursor,
-                prefetchCallback.prefetchFuture(),
-                reason -> nullCompletedFuture(),
+                dataCursor.onFirstPageReady(),
+                dataCursor::cancelAsync,
                 operationContext::notifyError
         );
     }
@@ -480,25 +455,27 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DdlPlan plan
     ) {
         CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
-                .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
+                .thenApply(activationTime -> {
+                    if (activationTime == null) {
+                        return NOT_APPLIED_ANSWER.iterator();
+                    }
+
+                    QueryTransactionContext txCtx = operationContext.txContext();
+
+                    assert txCtx != null;
+
+                    txCtx.updateObservableTime(HybridTimestamp.hybridTimestamp(activationTime));
+
+                    return APPLIED_ANSWER.iterator();
+                })
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });
-
-        QueryCancel queryCancel = operationContext.cancel();
-        assert queryCancel != null;
-
-        queryCancel.add(timeout -> {
-            if (timeout) {
-                ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
-            }
-        });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }
 
     private AsyncDataCursor<InternalSqlRow> executeKill(
-            SqlOperationContext operationContext,
             KillPlan plan
     ) {
         KillCommand cmd = plan.command();
@@ -515,15 +492,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     throw (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
                 });
-
-        QueryCancel queryCancel = operationContext.cancel();
-        assert queryCancel != null;
-
-        queryCancel.add(timeout -> {
-            if (timeout) {
-                ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
-            }
-        });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }
@@ -824,8 +792,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final @Nullable CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>> root;
 
-        private final @Nullable QueryCancel cancel;
-
         /** Mutex for {@link #remoteFragmentInitCompletion} modifications. */
         private final Object initMux = new Object();
 
@@ -852,10 +818,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 });
 
                 this.root = root;
-                this.cancel = ctx.cancel();
             } else {
                 this.root = null;
-                this.cancel = null;
             }
         }
 
@@ -969,8 +933,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     handler,
                     Commons.parametersMap(ctx.parameters()),
                     txAttributes,
-                    ctx.timeZoneId(),
-                    cancel
+                    ctx.timeZoneId()
             );
         }
 

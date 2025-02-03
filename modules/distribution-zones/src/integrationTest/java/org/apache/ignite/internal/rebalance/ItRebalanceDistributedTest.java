@@ -145,6 +145,7 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -236,7 +237,6 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -246,8 +246,9 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -1114,6 +1115,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final DataStorageManager dataStorageMgr;
 
+        private final TxStateRocksDbSharedStorage sharedTxStateStorage;
+
         private final TableManager tableManager;
 
         private final DistributionZoneManager distributionZoneManager;
@@ -1443,8 +1446,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
                     clockService,
-                    delayDurationMsSupplier,
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
+                    delayDurationMsSupplier
             );
 
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
@@ -1469,9 +1471,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                     .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
-            HybridClockImpl clock = new HybridClockImpl();
-
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
+            sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                    storagePath.resolve("tx-state"),
+                    threadPoolsManager.commonScheduler(),
+                    threadPoolsManager.tableIoExecutor(),
+                    logStorageFactory
+            );
 
             tableManager = new TableManager(
                     name,
@@ -1487,7 +1494,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
-                    storagePath,
+                    sharedTxStateStorage,
                     metaStorageManager,
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),
@@ -1526,12 +1533,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     systemDistributedConfiguration
             ) {
                 @Override
-                protected TxStateTableStorage createTxStateTableStorage(
+                protected TxStateStorage createTxStateTableStorage(
                         CatalogTableDescriptor tableDescriptor,
                         CatalogZoneDescriptor zoneDescriptor
                 ) {
                     return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
-                            ? spy(new TestTxStateTableStorage())
+                            ? spy(new TestTxStateStorage())
                             : super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
                 }
 
@@ -1609,6 +1616,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     txManager,
                     dataStorageMgr,
                     schemaManager,
+                    sharedTxStateStorage,
                     tableManager,
                     indexManager
             )).thenComposeAsync(componentFuts -> {

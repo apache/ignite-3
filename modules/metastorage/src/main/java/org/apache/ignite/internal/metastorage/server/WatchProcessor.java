@@ -41,6 +41,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -316,10 +318,17 @@ public class WatchProcessor implements ManuallyCloseable {
 
     private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e) {
         if (firedFailureOnChain.compareAndSet(false, true)) {
-            LOG.error("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
-                    + "until a restart. Notifying the FailureManager");
+            boolean nodeStopping = ExceptionUtils.hasCauseOrSuppressed(e, NodeStoppingException.class);
 
-            failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+            if (!nodeStopping) {
+                LOG.error("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
+                        + "until a restart. Notifying the FailureManager");
+
+                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+            } else {
+                LOG.info("Notification chain encountered a NodeStoppingException, so no notifications will be ever fired for "
+                        + "subsequent revisions until a restart.");
+            }
         }
     }
 

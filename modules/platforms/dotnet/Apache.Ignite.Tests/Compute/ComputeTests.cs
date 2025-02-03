@@ -345,7 +345,9 @@ namespace Apache.Ignite.Tests.Compute
         {
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
-            var tableNameExec = await Client.Compute.SubmitAsync(nodes, CreateTableJob, "drop_me");
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24258 revert change that had uppercased names.
+            var tableNameExec = await Client.Compute.SubmitAsync(nodes, CreateTableJob, "DROP_ME");
             var tableName = await tableNameExec.GetResultAsync();
 
             try
@@ -480,7 +482,7 @@ namespace Apache.Ignite.Tests.Compute
                 }
             };
 
-            var ex = Assert.ThrowsAsync<IgniteException>(
+            var ex = Assert.ThrowsAsync<ComputeException>(
                 async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
@@ -498,7 +500,7 @@ namespace Apache.Ignite.Tests.Compute
                 }
             };
 
-            var ex = Assert.ThrowsAsync<IgniteException>(
+            var ex = Assert.ThrowsAsync<ComputeException>(
                 async () => await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), job, null));
 
             StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);

@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -454,6 +455,19 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    void invokeTimesOut() throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services ignoredReceiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            // There is no message handler, so invocations will time out.
+            CompletableFuture<NetworkMessage> future = senderServices.messagingService.invoke(receiverNode, testMessage("test"), 1);
+            TimeoutException ex = assertWillThrow(future, TimeoutException.class);
+            assertThat(ex.getMessage(), is("Invocation timed out [message=org.apache.ignite.internal.network.messages.TestMessageImpl]"));
+        }
+    }
+
     private static void awaitQuietly(CountDownLatch latch) {
         try {
             latch.await();
@@ -525,6 +539,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         messagingService.setConnectionManager(connectionManager);
 
+        messagingService.start();
+
         return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
@@ -594,7 +610,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         void send(MessagingService service, TestMessage message, ClusterNode recipient);
     }
 
-    @SuppressWarnings("NonSerializableFieldInSerializableClass")
     private enum SendOperation {
         WEAK_SEND((service, message, to) -> service.weakSend(to, message), ChannelType.DEFAULT),
         SEND_DEFAULT_CHANNEL((service, message, to) -> service.send(to, message), ChannelType.DEFAULT),
@@ -620,7 +635,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         void respond(MessagingService service, NetworkMessage message, ClusterNode recipient, long correlationId);
     }
 
-    @SuppressWarnings("NonSerializableFieldInSerializableClass")
     private enum RespondOperation {
         RESPOND_DEFAULT_CHANNEL((service, message, to, corrId) -> service.respond(to, message, corrId), ChannelType.DEFAULT),
         RESPOND_CONSISTENT_ID_DEFAULT_CHANNEL((service, message, to, corrId) -> service.respond(to.name(), message, corrId),

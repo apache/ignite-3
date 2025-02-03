@@ -111,6 +111,7 @@ import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.distributed.replicator.action.RequestTypes;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -235,7 +236,7 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
@@ -362,7 +363,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private final ClockService clockService = new TestClockService(clock);
 
     /** The storage stores transaction states. */
-    private final TestTxStateStorage txStateStorage = new TestTxStateStorage();
+    private final TestTxStatePartitionStorage txStateStorage = new TestTxStatePartitionStorage();
 
     /** Local cluster node. */
     private final ClusterNode localNode = new ClusterNodeImpl(nodeId(1), "node1", NetworkAddress.from("127.0.0.1:127"));
@@ -394,6 +395,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Mock
     private CatalogService catalogService;
+
+    @Mock
+    private Catalog catalog;
 
     private final TestCatalogServiceEventProducer catalogServiceEventProducer = new TestCatalogServiceEventProducer();
 
@@ -518,8 +522,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         when(validationSchemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(nullCompletedFuture());
 
-        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
-        lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        lenient().when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+
+        lenient().when(catalog.table(anyInt())).thenReturn(tableDescriptor);
+        lenient().when(catalog.table(anyInt())).thenReturn(tableDescriptor);
 
         int pkIndexId = 1;
         int sortedIndexId = 2;
@@ -576,7 +583,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
         when(indexDescriptor.id()).thenReturn(pkIndexId);
 
-        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
+        when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
         configureTxManager(txManager);
 
@@ -2349,8 +2356,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
         when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
 
-        when(catalogService.table(TABLE_ID, txBeginTs.longValue())).thenReturn(tableVersion1);
-        when(catalogService.table(eq(TABLE_ID), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
+        Catalog catalog1 = mock(Catalog.class);
+        when(catalog1.table(TABLE_ID)).thenReturn(tableVersion1);
+
+        Catalog catalog2 = mock(Catalog.class);
+        when(catalog2.table(TABLE_ID)).thenReturn(tableVersion2);
+
+        when(catalogService.activeCatalog(txBeginTs.longValue())).thenReturn(catalog1);
+        when(catalogService.activeCatalog(gt(txBeginTs.longValue()))).thenReturn(catalog2);
     }
 
     @CartesianTest
@@ -2463,8 +2476,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
         when(tableVersion1.name()).thenReturn(TABLE_NAME);
 
-        when(catalogService.table(tableId, txBeginTs.longValue())).thenReturn(tableVersion1);
-        when(catalogService.table(eq(tableId), gt(txBeginTs.longValue()))).thenReturn(null);
+        when(catalog.table(tableId)).thenReturn(tableVersion1);
+
+        when(catalogService.activeCatalog(txBeginTs.longValue())).thenReturn(catalog);
+        when(catalogService.activeCatalog(gt(txBeginTs.longValue()))).thenReturn(mock(Catalog.class));
     }
 
     @CartesianTest
@@ -2543,7 +2558,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID txId = newTxId();
         HybridTimestamp readTs = clock.now();
 
-        when(catalogService.table(eq(TABLE_ID), anyLong())).thenReturn(null);
+        when(catalog.table(eq(TABLE_ID))).thenReturn(null);
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, readTs, key);
 
@@ -2602,7 +2617,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID txId = newTxId();
         HybridTimestamp txBeginTs = beginTimestamp(txId);
 
-        String tableNameToBeDropped = catalogService.table(tableToBeDroppedId, txBeginTs.longValue()).name();
+        String tableNameToBeDropped = catalogService.activeCatalog(txBeginTs.longValue()).table(tableToBeDroppedId).name();
 
         makeTableBeDroppedAfter(txBeginTs, tableToBeDroppedId);
 
@@ -2663,7 +2678,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
         when(tableVersion2.name()).thenReturn(TABLE_NAME_2);
 
-        when(catalogService.table(eq(TABLE_ID), anyLong())).thenReturn(tableVersion2);
+        when(catalog.table(eq(TABLE_ID))).thenReturn(tableVersion2);
     }
 
     @CartesianTest

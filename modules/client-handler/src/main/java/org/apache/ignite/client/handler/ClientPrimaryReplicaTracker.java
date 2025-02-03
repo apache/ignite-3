@@ -30,6 +30,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -249,13 +250,15 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private int partitionsNoWait(int tableId, HybridTimestamp timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
+        Catalog catalog = catalogService.activeCatalog(timestamp.longValue());
+
+        CatalogTableDescriptor table = catalog.table(tableId);
 
         if (table == null) {
             throw tableIdNotFoundException(tableId);
         }
 
-        CatalogZoneDescriptor zone = catalogService.zone(table.zoneId(), timestamp.longValue());
+        CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
         if (zone == null) {
             throw tableIdNotFoundException(tableId);
@@ -349,12 +352,15 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private static int getTablePartitionsFromCatalog(CatalogService catalogService, int catalogVersion, int tableId) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+        Catalog catalog = catalogService.catalog(catalogVersion);
+        assert catalog != null : "catalogVersion=" + catalogVersion;
+
+        CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
         assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
 
         int zoneId = tableDescriptor.zoneId();
 
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
         assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + catalogVersion;
 
         return zoneDescriptor.partitions();

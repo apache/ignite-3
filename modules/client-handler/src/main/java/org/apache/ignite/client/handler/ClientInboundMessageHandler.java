@@ -31,7 +31,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
-import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -104,6 +103,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
+import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -216,6 +216,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final Executor partitionOperationsExecutor;
 
+    private final BitSet features;
+
+    private final Map<HandshakeExtension, Object> extensions;
+
     /**
      * Constructor.
      *
@@ -228,6 +232,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
      * @param clockService Clock service.
+     * @param schemaSyncService Schema sync service.
+     * @param catalogService Catalog service.
+     * @param connectionId Connection ID.
+     * @param primaryReplicaTracker Primary replica tracker.
+     * @param partitionOperationsExecutor Partition operations executor.
+     * @param features Features.
+     * @param extensions Extensions.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -244,7 +255,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             CatalogService catalogService,
             long connectionId,
             ClientPrimaryReplicaTracker primaryReplicaTracker,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            BitSet features,
+            Map<HandshakeExtension, Object> extensions
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -260,6 +273,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert catalogService != null;
         assert primaryReplicaTracker != null;
         assert partitionOperationsExecutor != null;
+        assert features != null;
+        assert extensions != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
@@ -286,6 +301,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.connectionId = connectionId;
 
         this.primaryReplicaMaxStartTime = new AtomicLong(HybridTimestamp.MIN_VALUE.longValue());
+
+        this.features = features;
+        this.extensions = extensions;
     }
 
     @Override
@@ -364,11 +382,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         + clientVer.major() + "." + clientVer.minor() + "." + clientVer.patch());
             }
 
-            var clientCode = unpacker.unpackInt();
-            var featuresLen = unpacker.unpackBinaryHeader();
-            var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
+            int clientCode = unpacker.unpackInt();
 
-            Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
+            BitSet features = HandshakeUtils.unpackFeatures(unpacker);
+            Map<HandshakeExtension, Object> extensions = HandshakeUtils.unpackExtensions(unpacker);
 
             authenticationManager
                     .authenticateAsync(createAuthenticationRequest(extensions))
@@ -445,8 +462,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
         packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
 
-        packer.packBinaryHeader(0); // Features.
-        packer.packInt(0); // Extensions.
+        HandshakeUtils.packFeatures(packer, features);
+        HandshakeUtils.packExtensions(packer, extensions);
 
         write(packer, ctx);
 
@@ -715,34 +732,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.JDBC_CONNECT:
-                // TODO: IGNITE-24053 JDBC request ought to contain the client observation timestamp.
-                jdbcQueryEventHandler.getTimestampTracker().update(clockService.current());
-                out.meta(jdbcQueryEventHandler.getTimestampTracker().get());
-
                 return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
-                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
-                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
-                    //  where it has not gone through the meta.
-                    if (out.meta() == null) {
-                        out.meta(clockService.current());
-                    }
-                });
+                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_CANCEL:
                 return ClientJdbcCancelRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC_BATCH:
-                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
-                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
-                    //  where it has not gone through the meta.
-                    if (out.meta() == null) {
-                        out.meta(clockService.current());
-                    }
-                });
+                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
                 return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
@@ -818,14 +817,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
-                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
-                    //  where it has not gone through the meta.
-                    if (out.meta() == null) {
-                        out.meta(clockService.current());
-                    }
-                });
+                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, out, resources);
@@ -842,6 +834,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(in, queryProcessor).thenRun(() -> {
                     if (out.meta() == null) {
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-24275 Must set updated time instead of current time.
                         out.meta(clockService.current());
                     }
                 });
@@ -850,14 +843,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
 
             case ClientOp.SQL_EXEC_BATCH:
-                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
-                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
-                    //  where it has not gone through the meta.
-                    if (out.meta() == null) {
-                        out.meta(clockService.current());
-                    }
-                });
+                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources);
 
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
@@ -1000,27 +986,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
 
         ctx.close();
-    }
-
-    private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
-        EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
-        int mapSize = unpacker.unpackInt();
-        for (int i = 0; i < mapSize; i++) {
-            HandshakeExtension handshakeExtension = HandshakeExtension.fromKey(unpacker.unpackString());
-            if (handshakeExtension != null) {
-                extensions.put(handshakeExtension, unpackExtensionValue(handshakeExtension, unpacker));
-            }
-        }
-        return extensions;
-    }
-
-    private static Object unpackExtensionValue(HandshakeExtension handshakeExtension, ClientMessageUnpacker unpacker) {
-        Class<?> type = handshakeExtension.valueType();
-        if (type == String.class) {
-            return unpacker.unpackString();
-        } else {
-            throw new IllegalArgumentException("Unsupported extension type: " + type.getName());
-        }
     }
 
     private static <T> @Nullable T findException(Throwable e, Class<T> cls) {

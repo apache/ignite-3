@@ -158,7 +158,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
             long assignmentsTimestamp = catalog.time();
 
-            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
             if (zoneDescriptor == null) {
                 // Zone has been removed.
@@ -276,13 +276,15 @@ public class DistributionZoneRebalanceEngineV2 {
     // TODO: And then run the remote invoke, only if needed.
     private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
         if (recoveryRevision > 0) {
-            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
+            Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+
+            List<CompletableFuture<Void>> zonesRecoveryFutures = catalog.zones()
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndTriggerZonePartitionsRebalance(
                                     zoneDesc,
                                     recoveryRevision,
-                                    catalogService.latestCatalogVersion()
+                                    catalog.version()
                             )
                     )
                     .collect(Collectors.toUnmodifiableList());

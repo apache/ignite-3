@@ -53,7 +53,7 @@ public class PlanUtilsTest {
                 .build();
 
         AggregateCall call1 = newCall(typeFactory.createSqlType(SqlTypeName.BIGINT));
-        Accumulator acc1 = accumulators.accumulatorFactory(call1).get();
+        Accumulator acc1 = accumulators.accumulatorFactory(call1, inputType).get();
 
         RelDataType expectedType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))
@@ -83,7 +83,7 @@ public class PlanUtilsTest {
                 .build();
 
         AggregateCall call1 = newCall(typeFactory.createSqlType(SqlTypeName.BIGINT));
-        Accumulator acc1 = accumulators.accumulatorFactory(call1).get();
+        Accumulator acc1 = accumulators.accumulatorFactory(call1, inputType).get();
 
         RelDataType expectedType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))

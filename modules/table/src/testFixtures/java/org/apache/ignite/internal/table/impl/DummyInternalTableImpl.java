@@ -43,12 +43,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -77,6 +79,7 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -87,6 +90,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -109,7 +113,6 @@ import org.apache.ignite.internal.table.distributed.replicator.TransactionStateR
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -118,13 +121,14 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -256,19 +260,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             TransactionInflights transactionInflights
     ) {
         super(
-                "test",
+                QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
                 nextTableId.getAndIncrement(),
                 1,
                 new SingleClusterNodeResolver(LOCAL_NODE),
                 txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),
                 mock(MvTableStorage.class),
-                new TestTxStateTableStorage(),
+                new TestTxStateStorage(),
                 replicaSvc,
                 CLOCK_SERVICE,
                 tracker,
                 placementDriver,
                 transactionInflights,
-                3_000,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)
@@ -352,6 +355,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                         long commandIndex = raftIndex.incrementAndGet();
 
+                        HybridTimestamp safeTs = cmd instanceof SafeTimePropagatingCommand ? CLOCK.now() : null;
+
                         CompletableFuture<Serializable> res = new CompletableFuture<>();
 
                         // All read commands are handled directly throw partition replica listener.
@@ -364,7 +369,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                             /** {@inheritDoc} */
                             @Override
-                            public WriteCommand command() {
+                            public HybridTimestamp safeTimestamp() {
+                                return safeTs;
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public @Nullable WriteCommand command() {
                                 return (WriteCommand) cmd;
                             }
 
@@ -377,14 +388,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     res.complete(r);
                                 }
                             }
-
-                            @Override
-                            public void patch(HybridTimestamp safeTs) {
-                                command().patch(safeTs);
-                            }
                         };
-
-                        clo.patch(CLOCK.now());
 
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());
@@ -432,17 +436,19 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
+        Catalog catalog = mock(Catalog.class);
         CatalogService catalogService = mock(CatalogService.class);
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
-        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
-        lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        lenient().when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        lenient().when(catalog.table(anyInt())).thenReturn(tableDescriptor);
         lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
         lenient().when(indexDescriptor.id()).thenReturn(pkStorage.get().id());
 
-        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
+        lenient().when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -457,7 +463,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Map::of,
                 CLOCK_SERVICE,
                 safeTime,
-                txStateStorage().getOrCreateTxStateStorage(PART_ID),
+                txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 transactionStateResolver,
                 storageUpdateHandler,
                 new DummyValidationSchemasSource(schemaManager),
@@ -476,7 +482,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
-                txStateStorage().getOrCreateTxStateStorage(PART_ID),
+                txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 safeTime,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,

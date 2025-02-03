@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.util.StringUtils.escapeQuotes;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -108,7 +107,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
-        tableIds = catalogManager.tables(catalogManager.latestCatalogVersion()).stream()
+        tableIds = catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
                 .map(CatalogObjectDescriptor::id)
                 .collect(toSet());
 
@@ -396,7 +395,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     public void testResetPartitionTableNotFound() {
-        String tableName = canonicalName("PUBLIC", "unknown_table");
+        String tableName = "PUBLIC.unknown_table";
 
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
                 new ResetPartitionsRequest(FIRST_ZONE, tableName, Set.of()));
@@ -406,7 +405,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
 
-        assertThat(e.getMessage(), containsString("The table does not exist [name=" + escapeQuotes(tableName) + "]"));
+        assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName.toUpperCase() + "]"));
     }
 
     @Test

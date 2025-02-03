@@ -40,115 +40,115 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestSelectOneColumn() =>
-        AssertSql("select _T0.KEY from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Key).ToList());
+        AssertSql("select _T0.KEY from PUBLIC.TBL1 as _T0", q => q.Select(x => x.Key).ToList());
 
     [Test]
     public void TestSelectAllColumns() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.ToList());
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0", q => q.ToList());
 
     [Test]
     public void TestSelectAllColumnsOneColumnPoco() =>
         AssertSql(
-            "select _T0.KEY from PUBLIC.tbl1 as _T0",
+            "select _T0.KEY from PUBLIC.TBL1 as _T0",
             tbl => tbl.GetRecordView<OneColumnPoco>().AsQueryable().ToList());
 
     [Test]
     public void TestSelectAllColumnsCustomNames() =>
         AssertSql(
-            "select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.tbl1 as _T0",
+            "select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.TBL1 as _T0",
             tbl => tbl.GetRecordView<PocoCustomNames>().AsQueryable().ToList());
 
     [Test]
     public void TestSum() =>
-        AssertSql("select sum(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
+        AssertSql("select sum(_T0.KEY) from PUBLIC.TBL1 as _T0", q => q.Sum(x => x.Key));
 
     [Test]
     public void TestSumAsync() =>
-        AssertSql("select sum(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.SumAsync(x => x.Key).Result);
+        AssertSql("select sum(_T0.KEY) from PUBLIC.TBL1 as _T0", q => q.SumAsync(x => x.Key).Result);
 
     [Test]
     public void TestAvg() =>
-        AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
+        AssertSql("select avg(_T0.KEY) from PUBLIC.TBL1 as _T0", q => q.Average(x => x.Key));
 
     [Test]
     public void TestAvgAsync() =>
-        AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.AverageAsync(x => x.Key).Result);
+        AssertSql("select avg(_T0.KEY) from PUBLIC.TBL1 as _T0", q => q.AverageAsync(x => x.Key).Result);
 
     [Test]
     public void TestMin() =>
-        AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
+        AssertSql("select min(_T0.KEY) from PUBLIC.TBL1 as _T0", q => q.Min(x => x.Key));
 
     [Test]
     public void TestMinAsync() =>
-        AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.MinAsync(x => x.Key).Result);
+        AssertSql("select min(_T0.KEY) from PUBLIC.TBL1 as _T0", q => q.MinAsync(x => x.Key).Result);
 
     [Test]
     public void TestMax() =>
-        AssertSql("select max(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Max(x => x.Key));
+        AssertSql("select max(_T0.KEY) from PUBLIC.TBL1 as _T0", q => q.Max(x => x.Key));
 
     [Test]
     public void TestMaxAsync() =>
-        AssertSql("select max(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.MaxAsync(x => x.Key).Result);
+        AssertSql("select max(_T0.KEY) from PUBLIC.TBL1 as _T0", q => q.MaxAsync(x => x.Key).Result);
 
     [Test]
     public void TestCount() =>
-        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.Count());
+        AssertSql("select count(*) from PUBLIC.TBL1 as _T0", q => q.Count());
 
     [Test]
     public void TestCountAsync() =>
-        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.CountAsync().Result);
+        AssertSql("select count(*) from PUBLIC.TBL1 as _T0", q => q.CountAsync().Result);
 
     [Test]
     public void TestLongCount() =>
-        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.LongCount());
+        AssertSql("select count(*) from PUBLIC.TBL1 as _T0", q => q.LongCount());
 
     [Test]
     public void TestLongCountAsync() =>
-        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.LongCountAsync().Result);
+        AssertSql("select count(*) from PUBLIC.TBL1 as _T0", q => q.LongCountAsync().Result);
 
     [Test]
     public void TestDistinct() =>
-        AssertSql("select distinct _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Val).Distinct().ToArray());
+        AssertSql("select distinct _T0.VAL from PUBLIC.TBL1 as _T0", q => q.Select(x => x.Val).Distinct().ToArray());
 
     [Test]
     public void TestAll() =>
         AssertSql(
-            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
+            "select not exists (select 1 from PUBLIC.TBL1 as _T0 where not (_T0.KEY > ?))",
             q => q.All(x => x.Key > 10));
 
     [Test]
     public void TestAllAsync() =>
         AssertSql(
-            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
+            "select not exists (select 1 from PUBLIC.TBL1 as _T0 where not (_T0.KEY > ?))",
             q => q.AllAsync(x => x.Key > 10).Result);
 
     [Test]
     public void TestAllWithWhere() =>
         AssertSql(
-            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.VAL IS DISTINCT FROM ?) and not (_T0.KEY > ?))",
+            "select not exists (select 1 from PUBLIC.TBL1 as _T0 where (_T0.VAL IS DISTINCT FROM ?) and not (_T0.KEY > ?))",
             q => q.Where(x => x.Val != "1").All(x => x.Key > 10));
 
     [Test]
     public void TestAny() =>
-        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0)", q => q.Any());
+        AssertSql("select exists (select 1 from PUBLIC.TBL1 as _T0)", q => q.Any());
 
     [Test]
     public void TestAnyAsync() =>
-        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0)", q => q.AnyAsync().Result);
+        AssertSql("select exists (select 1 from PUBLIC.TBL1 as _T0)", q => q.AnyAsync().Result);
 
     [Test]
     public void TestAnyWithPredicate() =>
-        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
+        AssertSql("select exists (select 1 from PUBLIC.TBL1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
 
     [Test]
     public void TestAnyAsyncWithPredicate() =>
-        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.AnyAsync(x => x.Key > 10).Result);
+        AssertSql("select exists (select 1 from PUBLIC.TBL1 as _T0 where (_T0.KEY > ?))", q => q.AnyAsync(x => x.Key > 10).Result);
 
     [Test]
     public void TestSelectOrderByOffsetLimit() =>
         AssertSql(
             "select _T0.KEY, _T0.VAL, (_T0.KEY + ?) as KEY2 " +
-            "from PUBLIC.tbl1 as _T0 " +
+            "from PUBLIC.TBL1 as _T0 " +
             "order by (_T0.KEY + ?) asc, _T0.VAL desc " +
             "limit ? offset ?",
             q => q.Select(x => new { x.Key, x.Val, Key2 = x.Key + 1})
@@ -160,41 +160,41 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestFirst() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.First());
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 1", q => q.First());
 
     [Test]
     public void TestFirstAsync() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstAsync().Result);
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 1", q => q.FirstAsync().Result);
 
     [Test]
     public void TestFirstOrDefault() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstOrDefault());
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 1", q => q.FirstOrDefault());
 
     [Test]
     public void TestFirstOrDefaultAsync() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstOrDefaultAsync().Result);
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 1", q => q.FirstOrDefaultAsync().Result);
 
     [Test]
     public void TestSingle() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.Single());
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 2", q => q.Single());
 
     [Test]
     public void TestSingleAsync() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleAsync().Result);
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 2", q => q.SingleAsync().Result);
 
     [Test]
     public void TestSingleOrDefault() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleOrDefault());
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 2", q => q.SingleOrDefault());
 
     [Test]
     public void TestSingleOrDefaultAsync() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleOrDefaultAsync().Result);
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 2", q => q.SingleOrDefaultAsync().Result);
 
     [Test]
     public void TestOffsetLimitFirst() =>
         AssertSql(
             "select _T0.KEY, _T0.VAL " +
-            "from PUBLIC.tbl1 as _T0 " +
+            "from PUBLIC.TBL1 as _T0 " +
             "limit 1 offset ?",
             q => q.Skip(2).Take(3).First());
 
@@ -202,7 +202,7 @@ public partial class LinqSqlGenerationTests
     public void TestOffsetLimitSingle() =>
         AssertSql(
             "select _T0.KEY, _T0.VAL " +
-            "from PUBLIC.tbl1 as _T0 " +
+            "from PUBLIC.TBL1 as _T0 " +
             "limit 2 offset ?",
             q => q.Skip(2).Take(3).Single());
 
@@ -229,7 +229,7 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestSelectOrderDistinct() =>
         AssertSql(
-            "select * from (select distinct _T0.KEY, (_T0.KEY + ?) as KEY2 from PUBLIC.tbl1 as _T0) as _T1 order by _T1.KEY2 asc",
+            "select * from (select distinct _T0.KEY, (_T0.KEY + ?) as KEY2 from PUBLIC.TBL1 as _T0) as _T1 order by _T1.KEY2 asc",
             q => q.Select(x => new { x.Key, Key2 = x.Key + 1})
                 .Distinct()
                 .OrderBy(x => x.Key2)
@@ -263,7 +263,7 @@ public partial class LinqSqlGenerationTests
     public void TestGroupBySubQuery()
     {
         AssertSql(
-            "select (_T0.KEY + ?) as _G0, count(*) as CNT from PUBLIC.tbl1 as _T0 group by _G0",
+            "select (_T0.KEY + ?) as _G0, count(*) as CNT from PUBLIC.TBL1 as _T0 group by _G0",
             q => q.Select(x => new { x.Key, Key2 = x.Key + 1 })
                 .GroupBy(x => x.Key2)
                 .Select(g => new { g.Key, Cnt = g.Count() })
@@ -322,8 +322,8 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestUnion() =>
         AssertSql(
-            "select (_T0.KEY + ?) as KEY, _T0.VAL from PUBLIC.tbl1 as _T0 " +
-            "union (select (_T1.KEY + ?) as KEY, _T1.VAL from PUBLIC.tbl1 as _T1)",
+            "select (_T0.KEY + ?) as KEY, _T0.VAL from PUBLIC.TBL1 as _T0 " +
+            "union (select (_T1.KEY + ?) as KEY, _T1.VAL from PUBLIC.TBL1 as _T1)",
             q => q.Select(x => new { Key = x.Key + 1, x.Val })
                 .Union(q.Select(x => new { Key = x.Key + 100, x.Val }))
                 .ToList());
@@ -331,8 +331,8 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestIntersect() =>
         AssertSql(
-            "select (_T0.KEY + ?) as KEY, concat(_T0.VAL, ?) as VAL from PUBLIC.tbl1 as _T0 " +
-            "intersect (select (_T1.KEY + ?) as KEY, concat(_T1.VAL, ?) as VAL from PUBLIC.tbl1 as _T1)",
+            "select (_T0.KEY + ?) as KEY, concat(_T0.VAL, ?) as VAL from PUBLIC.TBL1 as _T0 " +
+            "intersect (select (_T1.KEY + ?) as KEY, concat(_T1.VAL, ?) as VAL from PUBLIC.TBL1 as _T1)",
             q => q.Select(x => new { Key = x.Key + 1, Val = x.Val + "_" })
                 .Intersect(q.Select(x => new { Key = x.Key + 100, Val = x.Val + "!" }))
                 .ToList());
@@ -340,7 +340,7 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestExcept() =>
         AssertSql(
-            "select (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 except (select (_T1.KEY + ?) from PUBLIC.tbl1 as _T1)",
+            "select (_T0.KEY + ?) from PUBLIC.TBL1 as _T0 except (select (_T1.KEY + ?) from PUBLIC.TBL1 as _T1)",
             q => q.Select(x => x.Key + 1)
                 .Except(q.Select(x => x.Key + 5))
                 .ToList());
@@ -354,7 +354,7 @@ public partial class LinqSqlGenerationTests
 
         const string expectedQueryText =
             "select _T0.VAL, _T0.KEY " +
-            "from PUBLIC.tbl1 as _T0 " +
+            "from PUBLIC.TBL1 as _T0 " +
             "where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))";
 
         const string expectedToString =
@@ -368,30 +368,30 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestExecuteDelete() =>
-        AssertSql("delete from PUBLIC.tbl1 as _T0", q => q.ExecuteDeleteAsync().Result);
+        AssertSql("delete from PUBLIC.TBL1 as _T0", q => q.ExecuteDeleteAsync().Result);
 
     [Test]
     public void TestExecuteDeleteWithCondition() =>
         AssertSql(
-            "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
+            "delete from PUBLIC.TBL1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
             q => q.Where(x => x.Key == 3 && x.Val != "v-2").ExecuteDeleteAsync().Result);
 
     [Test]
     public void TestExecuteDeleteWithInlineCondition() =>
         AssertSql(
-            "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
+            "delete from PUBLIC.TBL1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
             q => q.ExecuteDeleteAsync(x => x.Key == 3 && x.Val != "v-2").Result);
 
     [Test]
     public void TestExecuteUpdateWithConstantValue() =>
         AssertSql(
-            "update PUBLIC.tbl1 as _T0 set VAL = ? where (_T0.KEY IS NOT DISTINCT FROM ?)",
+            "update PUBLIC.TBL1 as _T0 set VAL = ? where (_T0.KEY IS NOT DISTINCT FROM ?)",
             q => q.Where(x => x.Key == 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, "1")).Result);
 
     [Test]
     public void TestExecuteUpdateWithComputedValue() =>
         AssertSql(
-            "update PUBLIC.tbl1 as _T0 set VAL = concat(concat(_T0.VAL, ?), cast(_T0.KEY as varchar)) where (_T0.KEY > ?)",
+            "update PUBLIC.TBL1 as _T0 set VAL = concat(concat(_T0.VAL, ?), cast(_T0.KEY as varchar)) where (_T0.KEY > ?)",
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
 
     [Test]
@@ -400,8 +400,8 @@ public partial class LinqSqlGenerationTests
         IQueryable<Poco> q2 = _table.GetRecordView<Poco>().AsQueryable();
 
         AssertSql(
-            "update PUBLIC.tbl1 as _T0 " +
-            "set VAL = (select concat(?, cast(_T1.KEY as varchar)) from PUBLIC.tbl1 as _T1 where (_T1.KEY IS NOT DISTINCT FROM (_T0.KEY + ?)) limit 1) " +
+            "update PUBLIC.TBL1 as _T0 " +
+            "set VAL = (select concat(?, cast(_T1.KEY as varchar)) from PUBLIC.TBL1 as _T1 where (_T1.KEY IS NOT DISTINCT FROM (_T0.KEY + ?)) limit 1) " +
             "where (_T0.KEY > ?)",
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(
                 row => row.SetProperty(
@@ -412,7 +412,7 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestExecuteUpdateWithMultipleSetters() =>
         AssertSql(
-            "update PUBLIC.tbl1 as _T0 set VAL = ?, KEY = (_T0.KEY + ?) where (_T0.KEY > ?)",
+            "update PUBLIC.TBL1 as _T0 set VAL = ?, KEY = (_T0.KEY + ?) where (_T0.KEY > ?)",
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(
                 row => row
                     .SetProperty(x => x.Key, x => x.Key + 1)

@@ -133,6 +133,7 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -218,7 +219,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -228,6 +228,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -675,8 +676,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockService,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                delayDurationMsSupplier
         );
 
         var indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
@@ -713,6 +713,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
+        var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve("tx-state"),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -727,7 +734,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaService,
                 txManager,
                 dataStorageManager,
-                storagePath,
+                sharedTxStateStorage,
                 metaStorageMgr,
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
@@ -800,7 +807,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
                 failureProcessor,
-                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlClusterExtensionConfiguration.KEY).sql(),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
@@ -853,6 +859,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 indexMetaStorage,
                 schemaManager,
                 distributionZoneManager,
+                sharedTxStateStorage,
                 tableManager,
                 indexManager,
                 qryEngine,
@@ -1293,7 +1300,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         boolean isPresent = false;
 
         for (TableImpl table : tables) {
-            if (table.name().equals(tableName)) {
+            if (table.qualifiedName().objectName().equals(tableName)) {
                 isPresent = true;
 
                 break;

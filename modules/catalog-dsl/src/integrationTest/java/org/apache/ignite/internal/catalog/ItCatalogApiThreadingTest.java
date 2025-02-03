@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.POJO_RECORD_TABLE_NAME;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.ZONE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -32,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
@@ -53,14 +51,8 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @AfterEach
     void clearDatabase() {
-        Ignite ignite = CLUSTER.aliveNode();
-
-        ignite.tables().tables().forEach(table -> sql("DROP TABLE " + table.name()));
-
-        CatalogManagerImpl catalogManager = (CatalogManagerImpl) unwrapIgniteImpl(ignite).catalogManager();
-        catalogManager.zones(catalogManager.latestCatalogVersion()).stream()
-                .filter(zone -> !CatalogManagerImpl.DEFAULT_ZONE_NAME.equals(zone.name()))
-                .forEach(zone -> sql("DROP ZONE " + zone.name()));
+        dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     @ParameterizedTest

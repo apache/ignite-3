@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -113,7 +114,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
@@ -201,17 +202,21 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
 
         CatalogService catalogService = mock(CatalogService.class);
+        Catalog catalog = mock(Catalog.class);
+
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());
 
-        when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
-        when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
+        when(catalog.table(anyInt())).thenReturn(tableDescriptor);
+        when(catalog.table(anyInt())).thenReturn(tableDescriptor);
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
         when(indexDescriptor.id()).thenReturn(PK_INDEX_ID);
 
-        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
+        when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
         ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
@@ -230,7 +235,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 () -> Map.of(),
                 CLOCK_SERVICE,
                 safeTime,
-                new TestTxStateStorage(),
+                new TestTxStatePartitionStorage(),
                 mock(TransactionStateResolver.class),
                 new StorageUpdateHandler(
                         PART_ID,

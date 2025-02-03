@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,7 +32,9 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -75,6 +80,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     public void checkDefaultTableSize() {
         int tableId = ThreadLocalRandom.current().nextInt();
         // Preparing:
+        when(catalogManager.catalog(anyInt())).thenReturn(mock(Catalog.class));
         when(tableManager.cachedTable(tableId)).thenReturn(null);
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
@@ -150,7 +156,9 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
             catalogDescriptors.add(new CatalogTableDescriptor(catalogVersion, 1, 1, "", 1, List.of(), List.of(), null, ""));
             catalogDescriptors.add(new CatalogTableDescriptor(catalogVersion + 1, 1, 1, "", 1, List.of(), List.of(), null, ""));
 
-            when(catalogManager.tables(catalogVersion)).thenReturn(catalogDescriptors);
+            Catalog catalog = mock(Catalog.class);
+            when(catalogManager.catalog(catalogVersion)).thenReturn(catalog);
+            when(catalog.tables()).thenReturn(catalogDescriptors);
         }
 
         when(tableManager.cachedTable(anyInt())).thenReturn(tableViewInternal);
@@ -219,6 +227,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         int tableId = ThreadLocalRandom.current().nextInt();
         long tableSize = 999_888_777L;
         // Preparing:
+        when(catalogManager.catalog(anyInt())).thenReturn(mock(Catalog.class));
+
         ArgumentCaptor<EventListener<CreateTableEventParameters>> tableCreateCapture = ArgumentCaptor.forClass(EventListener.class);
         doNothing().when(catalogManager).listen(eq(CatalogEvent.TABLE_DROP), any());
         doNothing().when(catalogManager).listen(eq(CatalogEvent.TABLE_CREATE), tableCreateCapture.capture());
@@ -240,10 +250,61 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
     }
 
+    @Test
+    void ensureStaleRequestsAreDiscarded() throws InterruptedException {
+        int tableId = ThreadLocalRandom.current().nextInt();
+        long tableSize1 = 100_000L;
+        long tableSize2 = 500_000L;
+        // Preparing:
+        prepareCatalogWithTable(tableId);
+
+        CompletableFuture<Long> staleResultFuture = new CompletableFuture<>();
+        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
+        when(tableViewInternal.internalTable()).thenReturn(internalTable);
+        when(internalTable.estimatedSize()).thenReturn(
+                staleResultFuture, // stale result goes first
+                CompletableFuture.completedFuture(tableSize2)
+        );
+
+        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        sqlStatisticManager.start();
+
+        // Test:
+        // first call results in non-completed future, therefore default size is expected 
+        assertEquals(DEFAULT_TABLE_SIZE, sqlStatisticManager.tableSize(tableId));
+
+        // Allow to refresh value.
+        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(1);
+
+        Future<?> oldUpdateFuture = sqlStatisticManager.lastUpdateStatisticFuture();
+
+        // Wait till statistics will be requested one more time.
+        assertTrue(waitForCondition(() -> {
+            sqlStatisticManager.tableSize(tableId);
+            Future<?> currentUpdateFuture = sqlStatisticManager.lastUpdateStatisticFuture();
+
+            // reference comparison on purpose
+            return oldUpdateFuture != currentUpdateFuture;
+        }, 1_000));
+
+        // Now we need obtain a new value of table size.
+        assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
+
+        staleResultFuture.complete(tableSize1);
+
+        // Forbid refreshing the statistics.
+        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
+
+        // Stale result must be discarded.
+        assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
+    }
+
     private void prepareCatalogWithTable(int tableId) {
         when(catalogManager.earliestCatalogVersion()).thenReturn(1);
         when(catalogManager.latestCatalogVersion()).thenReturn(1);
+        Catalog catalog = mock(Catalog.class);
+        when(catalogManager.catalog(1)).thenReturn(catalog);
         CatalogTableDescriptor catalogDescriptor = new CatalogTableDescriptor(tableId, 1, 1, "", 1, List.of(), List.of(), null, "");
-        when(catalogManager.tables(1)).thenReturn(List.of(catalogDescriptor));
+        when(catalog.tables()).thenReturn(List.of(catalogDescriptor));
     }
 }

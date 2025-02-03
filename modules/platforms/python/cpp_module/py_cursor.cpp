@@ -18,6 +18,7 @@
 #include <ignite/odbc/sql_statement.h>
 #include <ignite/odbc/query/data_query.h>
 
+#include "module.h"
 #include "utils.h"
 #include "py_cursor.h"
 #include "type_conversion.h"
@@ -25,10 +26,11 @@
 #include <Python.h>
 
 /**
- * Write row of the param set using provided writer.
+ * Write row of the param set using a provided writer.
  *
  * @param writer Writer.
  * @param params_row Parameter Row.
+ * @param row_size_expected Expected size of the row.
  */
 void write_row(ignite::protocol::writer &writer, PyObject *params_row, std::int32_t row_size_expected) {
     if (!params_row || params_row == Py_None) {
@@ -82,54 +84,54 @@ public:
     py_parameter_set(Py_ssize_t size, PyObject *params) : m_size(size), m_params(params) {}
 
     /**
-     * Write only first row of the param set using provided writer.
+     * Write only the first row of the param set using a provided writer.
      *
      * @param writer Writer.
      */
-    virtual void write(ignite::protocol::writer &writer) const override {
+    void write(ignite::protocol::writer &writer) const override {
         if (!m_size) {
             writer.write_nil();
             return;
         }
 
         writer.write(m_size);
-        write_row(writer, m_params, m_size);
+        write_row(writer, m_params, std::int32_t(m_size));
     }
 
     /**
-     * Write rows of the param set in interval [begin, end) using provided writer.
+     * Write rows of the param set in an interval [begin, end) using a provided writer.
      *
      * @param writer Writer.
      * @param begin Beginning of the interval.
      * @param end End of the interval.
      * @param last Last page flag.
      */
-    virtual void write(ignite::protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const override {
+    void write(ignite::protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const override {
         throw ignite::ignite_error("Execution with the batch of parameters is not implemented");
     }
 
     /**
      * Get parameter set size.
      *
-     * @return Number of rows in set.
+     * @return Number of rows in a set.
      */
-    [[nodiscard]] virtual std::int32_t get_param_set_size() const override {
+    [[nodiscard]] std::int32_t get_param_set_size() const override {
         return 1;
     }
 
     /**
-     * Set number of parameters processed in batch.
+     * Set the number of parameters processed in batch.
      *
      * @param processed Processed.
      */
-    virtual void set_params_processed(SQLULEN processed) override { m_processed = processed; }
+    void set_params_processed(SQLULEN processed) override { m_processed = processed; }
 
     /**
      * Get pointer to array in which to return the status of each set of parameters.
      *
      * @return Value.
      */
-    [[nodiscard]] virtual SQLUSMALLINT *get_params_status_ptr() const override {
+    [[nodiscard]] SQLUSMALLINT *get_params_status_ptr() const override {
         return nullptr;
     }
 
@@ -162,11 +164,11 @@ public:
         , m_params(params) {}
 
     /**
-     * Write only first row of the param set using provided writer.
+     * Write only the first row of the param set using a provided writer.
      *
      * @param writer Writer.
      */
-    virtual void write(ignite::protocol::writer &writer) const override {
+    void write(ignite::protocol::writer &writer) const override {
         PyObject *row = PySequence_GetItem(m_params, 0);
         if (!m_row_size) {
             writer.write_nil();
@@ -174,7 +176,7 @@ public:
         }
 
         writer.write(m_row_size);
-        write_row(writer, row, m_row_size);
+        write_row(writer, row, std::int32_t(m_row_size));
     }
 
     /**
@@ -185,7 +187,7 @@ public:
      * @param end End of the interval.
      * @param last Last page flag.
      */
-    virtual void write(ignite::protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const override {
+    void write(ignite::protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const override {
         Py_ssize_t interval_end = std::min(m_size, Py_ssize_t(end));
         std::int32_t rows_num = std::int32_t(interval_end) - std::int32_t(begin);
 
@@ -193,34 +195,34 @@ public:
         writer.write(rows_num);
         writer.write_bool(last);
 
-        for (Py_ssize_t i = Py_ssize_t(begin); i < interval_end; ++i) {
+        for (auto i = Py_ssize_t(begin); i < interval_end; ++i) {
             PyObject *row = PySequence_GetItem(m_params, i);
-            write_row(writer, row, m_row_size);
+            write_row(writer, row, std::int32_t(m_row_size));
         }
     }
 
     /**
      * Get parameter set size.
      *
-     * @return Number of rows in set.
+     * @return Number of rows in a set.
      */
-    [[nodiscard]] virtual std::int32_t get_param_set_size() const override {
+    [[nodiscard]] std::int32_t get_param_set_size() const override {
         return std::int32_t(m_size);
     }
 
     /**
-     * Set number of parameters processed in batch.
+     * Set the number of parameters processed in batch.
      *
      * @param processed Processed.
      */
-    virtual void set_params_processed(SQLULEN processed) override { m_processed = processed; }
+    void set_params_processed(SQLULEN processed) override { m_processed = processed; }
 
     /**
      * Get pointer to array in which to return the status of each set of parameters.
      *
      * @return Value.
      */
-    [[nodiscard]] virtual SQLUSMALLINT *get_params_status_ptr() const override {
+    [[nodiscard]] SQLUSMALLINT *get_params_status_ptr() const override {
         return nullptr;
     }
 
@@ -241,9 +243,9 @@ private:
 /**
  * Check if the cursor is open. Set error if not.
  * @param self Cursor.
- * @return @c true if open and @c false otherwise.
+ * @return @c true if open and @c false, otherwise.
  */
-static bool py_cursor_expect_open(py_cursor* self) {
+static bool py_cursor_expect_open(const py_cursor* self) {
     if (!self->m_statement) {
         PyErr_SetString(py_get_module_interface_error_class(), "Cursor is in invalid state (Already closed?)");
         return false;
@@ -438,7 +440,7 @@ static PyObject* py_cursor_fetchone(py_cursor* self, PyObject*)
         Py_RETURN_NONE;
     }
 
-    if (!check_errors(*self->m_statement)) {
+    if (!check_errors(res, *self->m_statement)) {
         return nullptr;
     }
 

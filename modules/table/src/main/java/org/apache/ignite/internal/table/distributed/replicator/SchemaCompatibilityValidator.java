@@ -111,10 +111,10 @@ class SchemaCompatibilityValidator {
     }
 
     private CompatValidationResult validateCommit(HybridTimestamp beginTimestamp, HybridTimestamp commitTimestamp, int tableId) {
-        CatalogTableDescriptor tableAtCommitTs = catalogService.table(tableId, commitTimestamp.longValue());
+        CatalogTableDescriptor tableAtCommitTs = catalogService.activeCatalog(commitTimestamp.longValue()).table(tableId);
 
         if (tableAtCommitTs == null) {
-            CatalogTableDescriptor tableAtTxStart = catalogService.table(tableId, beginTimestamp.longValue());
+            CatalogTableDescriptor tableAtTxStart = catalogService.activeCatalog(beginTimestamp.longValue()).table(tableId);
             assert tableAtTxStart != null : "No table " + tableId + " at ts " + beginTimestamp;
 
             return CompatValidationResult.tableDropped(tableAtTxStart.name(), tableAtTxStart.schemaId());
@@ -240,10 +240,10 @@ class SchemaCompatibilityValidator {
 
     void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
         HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
-        CatalogTableDescriptor tableAtBeginTs = catalogService.table(tableId, beginTs.longValue());
-        CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
+        CatalogTableDescriptor tableAtBeginTs = catalogService.activeCatalog(beginTs.longValue()).table(tableId);
+        CatalogTableDescriptor tableAtOpTs = catalogService.activeCatalog(operationTimestamp.longValue()).table(tableId);
 
-        assert tableAtBeginTs != null;
+        assert tableAtBeginTs != null : "No table " + tableId + " at ts " + tableAtBeginTs;
 
         if (tableAtOpTs == null) {
             throw IncompatibleSchemaVersionException.tableDropped(tableAtBeginTs.name());
@@ -259,7 +259,7 @@ class SchemaCompatibilityValidator {
     }
 
     void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, int tableId) {
-        CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
+        CatalogTableDescriptor tableAtOpTs = catalogService.activeCatalog(operationTimestamp.longValue()).table(tableId);
 
         if (tableAtOpTs == null) {
             throw IncompatibleSchemaVersionException.tableDropped(tableId);
@@ -276,7 +276,7 @@ class SchemaCompatibilityValidator {
      * @throws InternalSchemaVersionMismatchException Thrown if the schema versions are different.
      */
     void failIfRequestSchemaDiffersFromTxTs(HybridTimestamp txTs, int requestSchemaVersion, int tableId) {
-        CatalogTableDescriptor table = catalogService.table(tableId, txTs.longValue());
+        CatalogTableDescriptor table = catalogService.activeCatalog(txTs.longValue()).table(tableId);
 
         assert table != null : "No table " + tableId + " at " + txTs;
 

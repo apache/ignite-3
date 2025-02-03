@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
+#include "module.h"
 #include "py_connection.h"
 #include "py_cursor.h"
+#include "py_string.h"
 #include "utils.h"
 
 #include <ignite/odbc/sql_environment.h>
@@ -24,7 +26,6 @@
 #include <ignite/common/detail/defer.h>
 
 #include <memory>
-#include <cmath>
 
 #include <Python.h>
 
@@ -56,15 +57,15 @@ static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     return conn_obj;
 }
 
-static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
     static char *kwlist[] = {
         "address",
         "identity",
         "secret",
         "schema",
         "timezone",
-        "page_size",
         "timeout",
+        "page_size",
         "autocommit",
         nullptr
     };
@@ -91,28 +92,39 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
             auto item = PyList_GetItem(address, idx);
             if (!PyUnicode_Check(item)) {
                 PyErr_SetString(py_get_module_interface_error_class(),
-                    "Only list of string values is allowed in 'address' parameter");
+                    "Only a string or a list of strings are allowed in 'address' parameter");
 
                 return nullptr;
             }
 
-            auto str_array = PyUnicode_AsUTF8String(item);
-            if (!str_array) {
+            auto item_str = py_string::try_from_py_utf8(item);
+            if (!item_str) {
                 PyErr_SetString(py_get_module_interface_error_class(), "Can not convert address string to UTF-8");
                 return nullptr;
             }
-            // To be called when the scope is left.
-            auto str_array_guard = ignite::detail::defer([&] { Py_DECREF(str_array); });
 
-            auto *data = PyBytes_AsString(str_array);
-            auto len = PyBytes_Size(str_array);
-            std::string_view view(data, len);
-
-            address_builder << view;
+            address_builder << *item_str;
             if ((idx + 1) < size) {
                 address_builder << ',';
             }
         }
+    } else if (PyUnicode_Check(address)) {
+        auto item_str = py_string::try_from_py_utf8(address);
+        if (!item_str) {
+            PyErr_SetString(py_get_module_interface_error_class(), "Can not convert address string to UTF-8");
+            return nullptr;
+        }
+        address_builder << *item_str;
+    } else {
+        PyErr_SetString(py_get_module_interface_error_class(),
+            "Only a string or a list of strings are allowed in 'address' parameter");
+        return nullptr;
+    }
+
+    auto addrs_str = address_builder.str();
+    if (addrs_str.empty()) {
+        PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
+        return nullptr;
     }
 
     using namespace ignite;
@@ -124,7 +136,6 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
         return nullptr;
 
     configuration cfg;
-    auto addrs_str = address_builder.str();
     cfg.set_address(addrs_str);
 
     if (schema)
@@ -167,7 +178,7 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
 }
 
 static PyMethodDef methods[] = {
-    {"connect", (PyCFunction)pyignite3_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"connect", (PyCFunction)pyignite_dbapi_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
@@ -183,7 +194,7 @@ static struct PyModuleDef module_def = {
     nullptr,                /* m_free */
 };
 
-PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifier)
+PyMODINIT_FUNC PyInit__pyignite_dbapi_extension(void) { // NOLINT(*-reserved-identifier)
     PyObject* mod;
 
     mod = PyModule_Create(&module_def);

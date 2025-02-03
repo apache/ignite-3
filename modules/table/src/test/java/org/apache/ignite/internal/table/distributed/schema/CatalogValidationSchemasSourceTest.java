@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -90,22 +91,26 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
     void tableSchemaVersionsBetweenTimestampsWorks() {
         int tableId = 1;
 
-        CatalogTableDescriptor version3 = tableVersion(tableId, 3);
-        CatalogTableDescriptor version4 = tableVersion(tableId, 4);
-
         HybridTimestamp from = clock.now();
         HybridTimestamp to = clock.now();
 
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
         when(catalogService.activeCatalogVersion(to.longValue())).thenReturn(4);
-        when(catalogService.table(tableId, 3)).thenReturn(version3);
-        when(catalogService.table(tableId, 4)).thenReturn(version4);
+
+        mockCatalogWithSingleTable(3, tableId);
+        mockCatalogWithSingleTable(4, tableId);
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, to);
 
         assertThat(fullSchemas, hasSize(2));
         assertThat(fullSchemas.get(0).schemaVersion(), is(3));
         assertThat(fullSchemas.get(1).schemaVersion(), is(4));
+    }
+
+    private void mockCatalogWithSingleTable(int catalogVersion, int tableId) {
+        Catalog catalogV3 = mock(Catalog.class);
+        when(catalogService.catalog(catalogVersion)).thenReturn(catalogV3);
+        when(catalogV3.table(tableId)).thenReturn(tableVersion(tableId, catalogVersion));
     }
 
     private static CatalogTableDescriptor tableVersion(int tableId, int tableVersion) {
@@ -130,15 +135,13 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
     void tableSchemaVersionsBetweenTimestampsUsesCache() {
         int tableId = 1;
 
-        CatalogTableDescriptor version3 = tableVersion(tableId, 3);
-        CatalogTableDescriptor version4 = tableVersion(tableId, 4);
-
         HybridTimestamp timestamp = clock.now();
 
         when(catalogService.activeCatalogVersion(lt(timestamp.longValue()))).thenReturn(3);
         when(catalogService.activeCatalogVersion(geq(timestamp.longValue()))).thenReturn(4);
-        when(catalogService.table(tableId, 3)).thenReturn(version3);
-        when(catalogService.table(tableId, 4)).thenReturn(version4);
+
+        mockCatalogWithSingleTable(3, tableId);
+        mockCatalogWithSingleTable(4, tableId);
 
         List<FullTableSchema> fullSchemas1 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(2), timestamp);
         List<FullTableSchema> fullSchemas2 = schemas.tableSchemaVersionsBetween(
@@ -149,24 +152,21 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
 
         assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
 
-        verify(catalogService, times(1)).table(tableId, 3);
+        verify(catalogService.catalog(3), times(1)).table(tableId);
     }
 
     @Test
     void tableSchemaVersionsBetweenTimestampAndVersionWorks() {
         int tableId = 1;
 
-        CatalogTableDescriptor version3 = tableVersion(tableId, 3);
-        CatalogTableDescriptor version4 = tableVersion(tableId, 4);
-        CatalogTableDescriptor version5 = tableVersion(tableId, 5);
-
         HybridTimestamp from = clock.now();
 
         when(catalogService.latestCatalogVersion()).thenReturn(5);
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
-        when(catalogService.table(tableId, 3)).thenReturn(version3);
-        when(catalogService.table(tableId, 4)).thenReturn(version4);
-        when(catalogService.table(tableId, 5)).thenReturn(version5);
+
+        mockCatalogWithSingleTable(3, tableId);
+        mockCatalogWithSingleTable(4, tableId);
+        mockCatalogWithSingleTable(5, tableId);
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, 4);
 
@@ -179,13 +179,11 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
     void tableSchemaVersionsBetweenTimestampAndVersionReturnsEmptyListIfEndIsBeforeStart() {
         int tableId = 1;
 
-        CatalogTableDescriptor version3 = tableVersion(tableId, 3);
-
         HybridTimestamp from = clock.now();
 
         when(catalogService.latestCatalogVersion()).thenReturn(3);
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
-        when(catalogService.table(tableId, 3)).thenReturn(version3);
+        mockCatalogWithSingleTable(3, tableId);
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, 2);
 
@@ -196,21 +194,19 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
     void tableSchemaVersionsBetweenTimestampAndVersionUsesCache() {
         int tableId = 1;
 
-        CatalogTableDescriptor version3 = tableVersion(tableId, 3);
-        CatalogTableDescriptor version4 = tableVersion(tableId, 4);
-
         HybridTimestamp timestamp = clock.now();
 
         when(catalogService.latestCatalogVersion()).thenReturn(4);
         when(catalogService.activeCatalogVersion(anyLong())).thenReturn(3);
-        when(catalogService.table(tableId, 3)).thenReturn(version3);
-        when(catalogService.table(tableId, 4)).thenReturn(version4);
+
+        mockCatalogWithSingleTable(3, tableId);
+        mockCatalogWithSingleTable(4, tableId);
 
         List<FullTableSchema> fullSchemas1 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(2), 4);
         List<FullTableSchema> fullSchemas2 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(1), 4);
 
         assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
 
-        verify(catalogService, times(1)).table(tableId, 3);
+        verify(catalogService.catalog(3), times(1)).table(tableId);
     }
 }

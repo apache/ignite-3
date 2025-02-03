@@ -17,19 +17,8 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
-import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
-import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsTo;
-import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
 
-import java.util.Collection;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.worker.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,116 +28,53 @@ import org.jetbrains.annotations.Nullable;
  * @see ThreadAssertions
  */
 public class ThreadAssertingTxStateStorage implements TxStateStorage {
-    private final TxStateStorage storage;
+    private final TxStateStorage tableStorage;
 
     /** Constructor. */
-    public ThreadAssertingTxStateStorage(TxStateStorage storage) {
-        this.storage = storage;
+    public ThreadAssertingTxStateStorage(TxStateStorage tableStorage) {
+        this.tableStorage = tableStorage;
     }
 
     @Override
-    public @Nullable TxMeta get(UUID txId) {
-        assertThreadAllowsToRead();
-
-        return storage.get(txId);
-    }
-
-    @Override
-    public void putForRebalance(UUID txId, TxMeta txMeta) {
+    public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
         assertThreadAllowsToWrite();
 
-        storage.putForRebalance(txId, txMeta);
+        return new ThreadAssertingTxStatePartitionStorage(tableStorage.getOrCreatePartitionStorage(partitionId));
     }
 
     @Override
-    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
+    public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
+        TxStatePartitionStorage storage = tableStorage.getPartitionStorage(partitionId);
+
+        return storage == null ? null : new ThreadAssertingTxStatePartitionStorage(storage);
+    }
+
+    @Override
+    public void destroyTxStateStorage(int partitionId) {
         assertThreadAllowsToWrite();
 
-        return storage.compareAndSet(txId, txStateExpected, txMeta, commandIndex, commandTerm);
+        tableStorage.destroyTxStateStorage(partitionId);
     }
 
     @Override
-    public void remove(UUID txId, long commandIndex, long commandTerm) {
-        assertThreadAllowsToWrite();
-
-        storage.remove(txId, commandIndex, commandTerm);
+    public void start() {
+        tableStorage.start();
     }
 
     @Override
-    public void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm) {
-        assertThreadAllowsToWrite();
-
-        storage.removeAll(txIds, commandIndex, commandTerm);
-    }
-
-    @Override
-    public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        assertThreadAllowsTo(TX_STATE_STORAGE_ACCESS);
-
-        return new ThreadAssertingCursor<>(storage.scan());
-    }
-
-    @Override
-    public CompletableFuture<Void> flush() {
-        assertThreadAllowsToWrite();
-
-        return storage.flush();
-    }
-
-    @Override
-    public long lastAppliedIndex() {
-        return storage.lastAppliedIndex();
-    }
-
-    @Override
-    public long lastAppliedTerm() {
-        return storage.lastAppliedTerm();
-    }
-
-    @Override
-    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
-        assertThreadAllowsToWrite();
-
-        storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+    public void stop() {
+        tableStorage.stop();
     }
 
     @Override
     public void close() {
-        storage.close();
+        tableStorage.close();
     }
 
     @Override
     public void destroy() {
         assertThreadAllowsToWrite();
 
-        storage.destroy();
-    }
-
-    @Override
-    public CompletableFuture<Void> startRebalance() {
-        assertThreadAllowsToWrite();
-
-        return storage.startRebalance();
-    }
-
-    @Override
-    public CompletableFuture<Void> abortRebalance() {
-        assertThreadAllowsToWrite();
-
-        return storage.abortRebalance();
-    }
-
-    @Override
-    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
-        assertThreadAllowsToWrite();
-
-        return storage.finishRebalance(lastAppliedIndex, lastAppliedTerm);
-    }
-
-    @Override
-    public CompletableFuture<Void> clear() {
-        assertThreadAllowsToWrite();
-
-        return storage.clear();
+        tableStorage.destroy();
     }
 }

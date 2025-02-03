@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -99,7 +100,9 @@ public class SnapshotMetaUtils {
     ) {
         var nextRowIdToBuildByIndexId = new HashMap<Integer, UUID>();
 
-        for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion, partitionAccess.partitionKey().tableId())) {
+        Catalog catalog = catalogService.catalog(catalogVersion);
+        int tableId = partitionAccess.partitionKey().tableId();
+        for (CatalogIndexDescriptor index : catalog.indexes(tableId)) {
             if (index.status() == BUILDING) {
                 RowId nextRowIdToBuild = partitionAccess.getNextRowIdToBuildIndex(index.id());
 

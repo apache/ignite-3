@@ -100,7 +100,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         requested += rowsCnt;
 
         if ((waiting == -1 || rowIdx < rows.size()) && !inLoop) {
-            context().execute(this::doPush, this::onError);
+            this.execute(this::doPush);
         } else if (waiting == 0) {
             source().request(waiting = inBufSize);
         }
@@ -132,7 +132,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             requested = 0;
             downstream().end();
         } else if (requested > 0 && processed >= inBufSize) {
-            context().execute(this::doPush, this::onError);
+            this.execute(this::doPush);
         }
     }
 
@@ -167,6 +167,6 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
 
         waiting = -1;
 
-        context().execute(this::doPush, this::onError);
+        this.execute(this::doPush);
     }
 }

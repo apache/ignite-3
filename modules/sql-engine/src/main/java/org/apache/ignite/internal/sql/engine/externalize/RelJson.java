@@ -881,12 +881,6 @@ class RelJson {
                     literal = new BigDecimal(((Number) literal).longValue());
                 }
 
-                // Stub, it need to be fixed https://issues.apache.org/jira/browse/IGNITE-23873
-                if (type.getSqlTypeName() == SqlTypeName.DOUBLE && literal instanceof String
-                        && Double.isNaN(Double.parseDouble(literal.toString()))) {
-                    literal = Double.NaN;
-                }
-
                 if (literal instanceof BigInteger) {
                     // If the literal is a BigInteger, RexBuilder assumes it represents a long value
                     // within the valid range and converts it without checking the bounds. If the

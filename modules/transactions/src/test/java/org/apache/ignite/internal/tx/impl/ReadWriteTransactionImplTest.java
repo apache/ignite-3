@@ -34,11 +34,11 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -81,7 +81,9 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
-        var tx = new ReadWriteTransactionImpl(txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false);
+        var tx = new ReadWriteTransactionImpl(
+                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000
+        );
 
         assertThat(tx.startTimestamp(), is(beginTs));
     }
@@ -112,7 +114,9 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
-        var tx = new ReadWriteTransactionImpl(txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false);
+        var tx = new ReadWriteTransactionImpl(
+                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000
+        );
 
         tx.assignCommitPartition(TX_COMMIT_PART);
 

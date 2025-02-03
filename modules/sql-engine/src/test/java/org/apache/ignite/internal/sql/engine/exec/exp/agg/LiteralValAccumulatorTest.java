@@ -35,17 +35,17 @@ public class LiteralValAccumulatorTest extends BaseIgniteAbstractTest {
     public void test() {
         StatefulAccumulator accumulator = newCall();
 
+        // Literal agg accepts the same value.
         accumulator.add("1");
-        accumulator.add("2");
 
-        assertEquals(true, accumulator.end());
+        assertEquals("1", accumulator.end());
     }
 
     @Test
     public void empty() {
         StatefulAccumulator accumulator = newCall();
 
-        assertEquals(false, accumulator.end());
+        assertEquals(null, accumulator.end());
     }
 
     private StatefulAccumulator newCall() {

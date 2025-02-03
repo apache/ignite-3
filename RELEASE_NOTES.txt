@@ -1,0 +1,22 @@
+Apache Ignite 3 Release Notes
+===========================
+
+Apache Ignite In-Memory Distributed Database 3.0.0
+-----------------------------------------------------------
+
+This is the first release of Apache Ignite 3.
+This release features completely reworked source code compared to Apache Ignite 2,
+built on up-to-date technologies and designed from scratch to answer modern data storage and computing challenges.
+
+The main feature set of Ignite 3 In-Memory Distributed Database includes:
+
+* Apache Calcite-based SQL engine
+* OpenAPI-compatible REST API
+* Dynamic configuration with HOCON support
+* Improved cluster management and control tools
+* Improved transaction protocol
+* Consensus-based architecture with Raft algorithm
+* Streamlined table and schema management
+
+
+

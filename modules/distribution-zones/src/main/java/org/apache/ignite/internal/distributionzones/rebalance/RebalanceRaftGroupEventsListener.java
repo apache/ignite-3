@@ -178,7 +178,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 try {
                     Set<Assignment> stable = createAssignments(configuration);
 
-                    doStableKeySwitch(stable, tablePartitionId, metaStorageMgr, calculateAssignmentsFn);
+                    doStableKeySwitch(stable, tablePartitionId, metaStorageMgr, term, index, calculateAssignmentsFn);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -266,6 +266,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
             MetaStorageManager metaStorageMgr,
+            long configurationTerm,
+            long configurationIndex,
             BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         try {
@@ -356,7 +358,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     assignmentsChainKey,
                     assignmentsChainEntry,
                     pendingAssignments,
-                    newStableAssignments
+                    newStableAssignments,
+                    configurationTerm,
+                    configurationIndex
             );
 
             Update successCase;
@@ -449,6 +453,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                         stableFromRaft,
                         tablePartitionId,
                         metaStorageMgr,
+                        configurationTerm,
+                        configurationIndex,
                         calculateAssignmentsFn
                 );
 
@@ -493,14 +499,18 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             ByteArray assignmentsChainKey,
             Entry assignmentsChainEntry,
             Assignments pendingAssignments,
-            Assignments stableAssignments
+            Assignments stableAssignments,
+            long configurationTerm,
+            long configurationIndex
     ) {
         // We write this key only in HA mode. See TableManager.writeTableAssignmentsToMetastore.
         if (assignmentsChainEntry.value() != null) {
             AssignmentsChain updatedAssignmentsChain = updateAssignmentsChain(
                     AssignmentsChain.fromBytes(assignmentsChainEntry.value()),
                     stableAssignments,
-                    pendingAssignments
+                    pendingAssignments,
+                    configurationTerm,
+                    configurationIndex
             );
             return put(assignmentsChainKey, updatedAssignmentsChain.toBytes());
         } else {
@@ -508,11 +518,16 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
     }
 
-    private static AssignmentsChain updateAssignmentsChain(AssignmentsChain assignmentsChain, Assignments newStable,
-            Assignments pendingAssignments) {
+    private static AssignmentsChain updateAssignmentsChain(
+            AssignmentsChain assignmentsChain,
+            Assignments newStable,
+            Assignments pendingAssignments,
+            long configurationTerm,
+            long configurationIndex
+    ) {
         assert assignmentsChain != null : "Assignments chain cannot be null in HA mode.";
 
-        assert !assignmentsChain.chain().isEmpty() : "Assignments chain cannot be empty on stable switch.";
+        assert assignmentsChain.size() > 0 : "Assignments chain cannot be empty on stable switch.";
 
         /*
             This method covers the following case:
@@ -537,16 +552,15 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
               else
                 ms.chain = ms.chain + pending/stable // [A,B,C,D,E,F,G] => [A,B,C,D,E,F,G] -> [E]
         */
-        AssignmentsChain newAssignmentsChain;
         if (!pendingAssignments.force() && !pendingAssignments.fromReset()) {
-            newAssignmentsChain = AssignmentsChain.of(newStable);
+            return AssignmentsChain.of(configurationTerm, configurationIndex, newStable);
         } else if (!pendingAssignments.force() && pendingAssignments.fromReset()) {
-            newAssignmentsChain = assignmentsChain.replaceLast(newStable);
+            assignmentsChain.replaceLast(newStable, configurationTerm, configurationIndex);
         } else {
-            newAssignmentsChain = assignmentsChain.addLast(newStable);
+            assignmentsChain.addLast(newStable, configurationTerm, configurationIndex);
         }
 
-        return newAssignmentsChain;
+        return assignmentsChain;
     }
 
     /**

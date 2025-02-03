@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -59,7 +60,7 @@ public class RenameZoneCommandValidationTest extends AbstractCommandValidationTe
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Distribution zone with name 'some_zone' not found"
         );
     }
@@ -77,7 +78,7 @@ public class RenameZoneCommandValidationTest extends AbstractCommandValidationTe
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Distribution zone with name 'some_zone1' already exists"
         );
     }

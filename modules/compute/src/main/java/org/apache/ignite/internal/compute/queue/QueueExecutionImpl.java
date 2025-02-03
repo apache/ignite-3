@@ -28,6 +28,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.state.IllegalJobStatusTransition;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -91,6 +92,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     @Override
     public boolean cancel() {
+        executionLock.lock();
         try {
             stateMachine.cancelingJob(jobId);
 
@@ -101,20 +103,17 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             }
         } catch (IllegalJobStatusTransition e) {
             LOG.info("Cannot cancel the job", e);
+        } finally {
+            executionLock.unlock();
         }
         return false;
     }
 
     private void cancel(QueueEntry<R> queueEntry) {
-        executionLock.lock();
-        try {
-            if (executor.remove(queueEntry)) {
-                result.cancel(true);
-            } else {
-                queueEntry.interrupt();
-            }
-        } finally {
-            executionLock.unlock();
+        if (executor.remove(queueEntry)) {
+            result.cancel(true);
+        } else {
+            queueEntry.interrupt();
         }
     }
 
@@ -152,7 +151,19 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private void run() {
         QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
-            stateMachine.executeJob(jobId);
+            executionLock.lock();
+            try {
+                // If status is CANCELED here, then the job was in the QUEUED state when cancel was called, but executor already removed it
+                // from the queue. This could happen because the executor takes an entry without using the executionLock.
+                // Don't transition to EXECUTING state and don't run the job, throw an exception here so that we can later check it and
+                // cancel the result.
+                if (isCanceled()) {
+                    throw new QueueEntryCanceledException();
+                }
+                stateMachine.executeJob(jobId);
+            } finally {
+                executionLock.unlock();
+            }
 
             return job.call();
         }, priority);
@@ -173,22 +184,16 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
             if (throwable != null) {
-                if (retries.decrementAndGet() >= 0) {
+                if (throwable instanceof QueueEntryCanceledException) {
+                    result.completeExceptionally(new CancellationException());
+                } else if (queueEntry.isInterrupted()) {
+                    stateMachine.cancelJob(jobId);
+                    result.completeExceptionally(throwable);
+                } else if (retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
-                    try {
-                        if (queueEntry.isInterrupted()) {
-                            stateMachine.cancelJob(jobId);
-                        } else {
-                            stateMachine.failJob(jobId);
-                        }
-                    // TODO: Need to be refactored after https://issues.apache.org/jira/browse/IGNITE-23769
-                    } catch (IllegalJobStatusTransition err) {
-                        throwable.addSuppressed(err);
-                        result.completeExceptionally(throwable);
-                    }
-
+                    stateMachine.failJob(jobId);
                     result.completeExceptionally(throwable);
                 }
             } else {
@@ -201,5 +206,15 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 }
             }
         });
+    }
+
+    /**
+     * Checks if the current job state is {@link JobStatus#CANCELED}.
+     *
+     * @return {@code true} if job is in the {@link JobStatus#CANCELED} state.
+     */
+    private boolean isCanceled() {
+        JobState state = stateMachine.currentState(jobId);
+        return state != null && state.status() == JobStatus.CANCELED;
     }
 }

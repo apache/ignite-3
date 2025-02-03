@@ -91,6 +91,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -136,17 +137,18 @@ import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyn
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -216,7 +218,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private volatile MvTableStorage mvTableStorage;
 
-    private volatile TxStateTableStorage txStateTableStorage;
+    private volatile TxStateStorage txStateStorage;
 
     /** Revision updater. */
     private RevisionListenerRegistry revisionUpdater;
@@ -438,13 +440,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(0, tableManager.tables().size());
 
         verify(mvTableStorage, atMost(0)).destroy();
-        verify(txStateTableStorage, atMost(0)).destroy();
+        verify(txStateStorage, atMost(0)).destroy();
         verify(replicaMgr, atMost(0)).stopReplica(any());
 
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
         verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
-        verify(txStateTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
+        verify(txStateStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
         verify(replicaMgr, timeout(TimeUnit.SECONDS.toMillis(10)).times(PARTITIONS)).stopReplica(any());
     }
 
@@ -468,7 +470,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         dropTable(DYNAMIC_TABLE_NAME);
         createTable(DYNAMIC_TABLE_NAME);
 
-        table = tableManager.tableView(DYNAMIC_TABLE_NAME);
+        table = tableManager.tableView(table.qualifiedName());
 
         assertNotNull(table);
         assertNotEquals(oldTableId, table.tableId());
@@ -672,12 +674,12 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
-        var txStateStorage = mock(TxStateStorage.class);
+        var txStateStorage = mock(TxStatePartitionStorage.class);
         var mvPartitionStorage = mock(MvPartitionStorage.class);
 
         if (isTxStorageUnderRebalance) {
             // Emulate a situation when TX state storage was stopped in a middle of rebalance.
-            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
+            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStatePartitionStorage.REBALANCE_IN_PROGRESS);
         } else {
             // Emulate a situation when partition storage was stopped in a middle of rebalance.
             when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
@@ -696,8 +698,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
             doReturn(nullCompletedFuture()).when(mvTableStorage).clearPartition(anyInt());
         }, (txStateTableStorage) -> {
-            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
-            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getOrCreatePartitionStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getPartitionStorage(anyInt());
         });
 
         createZone(1, 1);
@@ -789,7 +791,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createTable(tableName);
 
-        TableViewInternal tbl2 = tableManager.tableView(tableName);
+        TableViewInternal tbl2 = tableManager.tableView(QualifiedName.fromSimple(tableName));
 
         assertNotNull(tbl2);
 
@@ -814,8 +816,15 @@ public class TableManagerTest extends IgniteAbstractTest {
     private TableManager createTableManager(
             CompletableFuture<TableManager> tblManagerFut,
             Consumer<MvTableStorage> tableStorageDecorator,
-            Consumer<TxStateTableStorage> txStateTableStorageDecorator
+            Consumer<TxStateStorage> txStateTableStorageDecorator
     ) {
+        var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                workDir.resolve("tx-state"),
+                scheduledExecutor,
+                partitionOperationsExecutor,
+                logSyncer
+        );
+
         var tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -830,7 +839,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 null,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir),
-                workDir,
+                sharedTxStateStorage,
                 msm,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
                 partitionOperationsExecutor,
@@ -865,15 +874,33 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(
+            protected TxStateStorage createTxStateTableStorage(
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+                txStateStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
-                txStateTableStorageDecorator.accept(txStateTableStorage);
+                txStateTableStorageDecorator.accept(txStateStorage);
 
-                return txStateTableStorage;
+                return txStateStorage;
+            }
+
+            @Override
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return sharedTxStateStorage.startAsync(componentContext)
+                        .thenCompose(unused -> super.startAsync(componentContext));
+            }
+
+            @Override
+            public void beforeNodeStop() {
+                super.beforeNodeStop();
+                sharedTxStateStorage.beforeNodeStop();
+            }
+
+            @Override
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return super.stopAsync(componentContext)
+                        .thenCompose(unused -> sharedTxStateStorage.stopAsync(componentContext));
             }
         };
 
@@ -937,10 +964,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private void dropTable(String tableName) {
         TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
-    }
-
-    private Collection<CatalogTableDescriptor> allTableDescriptors() {
-        return catalogManager.tables(catalogManager.latestCatalogVersion());
     }
 
     private CompletableFuture<Void> fireDestroyEvent() {

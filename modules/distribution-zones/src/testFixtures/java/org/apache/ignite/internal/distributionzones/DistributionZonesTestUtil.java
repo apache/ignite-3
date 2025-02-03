@@ -189,6 +189,41 @@ public class DistributionZonesTestUtil {
      *
      * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     * @param consistencyMode Consistency mode, {@code null} if not set..
+     * @param storageProfiles Storage profiles.
+     */
+    public static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            @Nullable ConsistencyMode consistencyMode,
+            String storageProfiles
+    ) {
+        createZone(
+                catalogManager,
+                zoneName,
+                null,
+                null,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                consistencyMode,
+                storageProfiles
+        );
+    }
+
+    /**
+     * Creates a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
@@ -614,17 +649,6 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Returns distributed zone by ID from catalog, {@code null} if zone is absent.
-     *
-     * @param catalogService Catalog service.
-     * @param zoneId Zone ID.
-     * @param timestamp Timestamp.
-     */
-    public static @Nullable CatalogZoneDescriptor getZoneById(CatalogService catalogService, int zoneId, long timestamp) {
-        return catalogService.zone(zoneId, timestamp);
-    }
-
-    /**
      * Returns distributed zone ID form catalog, {@code null} if zone is absent.
      *
      * @param catalogService Catalog service.
@@ -632,7 +656,7 @@ public class DistributionZonesTestUtil {
      * @param timestamp Timestamp.
      */
     public static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {
-        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
+        CatalogZoneDescriptor zone = catalogService.activeCatalog(timestamp).zone(zoneName);
 
         return zone == null ? null : zone.id();
     }

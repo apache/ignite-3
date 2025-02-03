@@ -16,6 +16,8 @@
  */
 
 #include "ignite/client/detail/compute/compute_impl.h"
+
+#include "colocated_job_target.h"
 #include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/compute/job_execution_impl.h"
 #include "ignite/client/detail/utils.h"
@@ -171,7 +173,7 @@ void write_units(protocol::writer &writer, const std::vector<deployment_unit> &u
 }
 
 /**
- * Response handler implementation for a compute.
+ * Response handler implementation for a job compute.
  */
 class response_handler_compute final : public response_handler_adapter<job_execution> {
 public:
@@ -181,7 +183,9 @@ public:
     /**
      * Constructor.
      *
+     * @param compute Compute interface.
      * @param callback Callback.
+     * @param skip_schema Indicates whether we should skip schema on read.
      */
     explicit response_handler_compute(
         const std::shared_ptr<compute_impl> &compute, ignite_callback<job_execution> callback, bool skip_schema)
@@ -208,60 +212,70 @@ public:
     }
 
     /**
+     * Processes a job execution result, submitting it to job_execution.
+     *
+     * @return Operation result.
+     */
+    ignite_result<void> process_job_result() {
+        assert(m_result_received);
+
+        this->m_handling_complete = true;
+        if (m_read_result.has_error()) {
+            m_execution->set_error(m_read_result.error());
+
+            return m_read_result;
+        }
+
+        auto handle_res = result_of_operation<void>([&]() {
+            m_execution->set_result(m_execution_result);
+            m_execution->set_final_state(m_final_state);
+        });
+
+        return handle_res;
+    }
+
+    /**
      * Handle response.
      *
      * @param msg Message.
      * @param flags Flags.
      */
     [[nodiscard]] ignite_result<void> handle(
-        std::shared_ptr<node_connection>, bytes_view msg, std::int32_t flags) final {
+        std::shared_ptr<node_connection>, bytes_view msg, std::int32_t flags) override final {
         protocol::reader reader(msg);
 
         if (!test_flag(flags, protocol::response_flag::NOTIFICATION_FLAG)) {
+            std::lock_guard<std::mutex> guard(m_state_mutex);
             auto read_res = result_of_operation<job_execution>([&]() {
                 if (m_skip_schema)
                     reader.skip();
 
                 auto id = reader.read_uuid();
-                m_execution = std::make_shared<job_execution_impl>(id, std::move(m_compute));
+                auto node = read_cluster_node(reader);
+                m_execution = std::make_shared<job_execution_impl>(id, std::move(node), std::move(m_compute));
                 return job_execution{m_execution};
             });
 
             auto handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(read_res)); });
-            if (read_res.has_error()) {
-                return ignite_result<void>{std::move(read_res).error()};
+            if (handle_res.has_error() || !m_result_received) {
+                return handle_res;
             }
 
-            return handle_res;
-        } else {
-            this->m_handling_complete = true;
-
-            std::optional<primitive> res{};
-            job_state state;
-
-            auto read_res = result_of_operation<void>([&]() {
-                res = unpack_compute_result(reader);
-                state = read_job_state(reader);
-            });
-
-            if (!m_execution) {
-                m_execution = std::make_shared<job_execution_impl>(state.id, std::move(m_compute));
-                result_of_operation<void>([&]() { this->m_callback(job_execution{m_execution}); });
-            }
-
-            if (read_res.has_error()) {
-                m_execution->set_error(read_res.error());
-
-                return read_res;
-            }
-
-            auto handle_res = result_of_operation<void>([&]() {
-                m_execution->set_result(res);
-                m_execution->set_final_state(state);
-            });
-
-            return handle_res;
+            return process_job_result();
         }
+
+        std::lock_guard<std::mutex> guard(m_state_mutex);
+        m_read_result = result_of_operation<void>([&]() {
+            m_execution_result = unpack_compute_result(reader);
+            m_final_state = read_job_state(reader);
+        });
+        m_result_received = true;
+
+        if (!m_execution) {
+            return {};
+        }
+
+        return process_job_result();
     }
 
 private:
@@ -273,9 +287,24 @@ private:
 
     /** Execution. */
     std::shared_ptr<job_execution_impl> m_execution{};
+
+    /** Indicates that we've already got a result notification. */
+    bool m_result_received{false};
+
+    /** Execution read result. */
+    ignite_result<void> m_read_result{};
+
+    /** Execution result. */
+    std::optional<primitive> m_execution_result{};
+
+    /** Final job stat. */
+    job_state m_final_state;
+
+    /** State mutex. */
+    std::mutex m_state_mutex;
 };
 
-void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
+void compute_impl::submit_to_nodes(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
     const binary_object &arg, ignite_callback<job_execution> callback) {
 
     auto writer_func = [&nodes, &descriptor, arg](protocol::writer &writer) {
@@ -299,25 +328,24 @@ void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::
         protocol::client_operation::COMPUTE_EXECUTE, nullptr, writer_func, std::move(handler));
 }
 
-void compute_impl::submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
-    std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
-    ignite_callback<job_execution> callback) {
+void compute_impl::submit_colocated_async(const colocated_job_target &target,
+    std::shared_ptr<job_descriptor> descriptor, const binary_object &arg, ignite_callback<job_execution> callback) {
     auto self = shared_from_this();
     auto conn = m_connection;
-    auto on_table_get = [self, table_name, key, descriptor, arg, conn, callback](auto &&res) mutable {
+    auto on_table_get = [self, target, descriptor, arg, conn, callback](auto &&res) mutable {
         if (res.has_error()) {
             callback({std::move(res.error())});
             return;
         }
         auto &table_opt = res.value();
         if (!table_opt) {
-            callback({ignite_error("Table does not exist: '" + table_name + "'")});
+            callback({ignite_error("Table does not exist: '" + target.get_table_name() + "'")});
             return;
         }
 
         auto table = table_impl::from_facade(*table_opt);
         table->template with_proper_schema_async<job_execution>(
-            callback, [self, table, key, descriptor, arg, conn](const schema &sch, auto callback) mutable {
+            callback, [self, table, key = target.get_key(), descriptor, arg, conn](const schema &sch, auto callback) mutable {
                 auto writer_func = [&key, &descriptor, &sch, &table, &arg](protocol::writer &writer) {
                     writer.write(table->get_id());
                     writer.write(sch.version);
@@ -338,7 +366,7 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
             });
     };
 
-    m_tables->get_table_async(table_name, std::move(on_table_get));
+    m_tables->get_table_async(target.get_table_name(), std::move(on_table_get));
 }
 
 void compute_impl::get_state_async(uuid id, ignite_callback<std::optional<job_state>> callback) {

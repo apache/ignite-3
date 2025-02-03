@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -31,6 +30,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -71,10 +71,14 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        CatalogTableDescriptor table = CatalogUtils.table(schema, tableName, !ifTableExists);
+        if (table == null) {
+            return List.of();
+        }
 
         List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
 

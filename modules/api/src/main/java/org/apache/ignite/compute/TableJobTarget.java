@@ -18,21 +18,22 @@
 package org.apache.ignite.compute;
 
 import java.util.Objects;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Partitioned broadcast execution target. Indicates that the job will be executed on nodes that hold primary replicas of the provided
  * table's partitions.
  */
 public class TableJobTarget implements BroadcastJobTarget {
-    private final String tableName;
+    private final QualifiedName tableName;
 
-    TableJobTarget(String tableName) {
+    TableJobTarget(QualifiedName tableName) {
         Objects.requireNonNull(tableName);
 
         this.tableName = tableName;
     }
 
-    public String tableName() {
+    public QualifiedName tableName() {
         return tableName;
     }
 }

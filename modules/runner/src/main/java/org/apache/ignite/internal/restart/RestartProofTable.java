@@ -23,6 +23,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -70,8 +71,8 @@ class RestartProofTable implements Table, Wrapper {
     }
 
     @Override
-    public String name() {
-        return attachmentLock.attached(ignite -> tableCache.actualFor(ignite).name());
+    public QualifiedName qualifiedName() {
+        return attachmentLock.attached(ignite -> tableCache.actualFor(ignite).qualifiedName());
     }
 
     @Override

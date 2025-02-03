@@ -33,6 +33,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
@@ -184,20 +185,23 @@ class IndexManagementUtils {
     /**
      * Returns partition count from the catalog.
      *
-     * @param catalogService Catalog service.
+     * @param catalog Catalog snapshot.
      * @param indexId Index ID.
-     * @param catalogVersion Catalog version.
      */
-    static int getPartitionCountFromCatalog(CatalogService catalogService, int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = index(catalogService, indexId, catalogVersion);
+    static int getPartitionCountFromCatalog(Catalog catalog, int indexId) {
+        assert catalog != null : "catalog";
 
-        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
+        CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
 
-        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + catalogVersion;
+        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
 
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+        CatalogTableDescriptor tableDescriptor = catalog.table(indexDescriptor.tableId());
 
-        assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
+        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + catalog.version();
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
+
+        assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalog.version();
 
         return zoneDescriptor.partitions();
     }
@@ -210,7 +214,7 @@ class IndexManagementUtils {
      * @param catalogVersion Version of the catalog in which to look for the index.
      */
     static CatalogIndexDescriptor index(CatalogService catalogService, int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
+        CatalogIndexDescriptor indexDescriptor = catalogService.catalog(catalogVersion).index(indexId);
 
         assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
         return indexDescriptor;

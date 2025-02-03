@@ -22,6 +22,10 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
+import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
+import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
+import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /** Utilities for creating {@link Loza} instances. */
@@ -57,7 +61,8 @@ public class TestLozaFactory {
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfig,
             HybridClock clock,
-            RaftGroupEventsClientListener raftGroupEventsClientListener) {
+            RaftGroupEventsClientListener raftGroupEventsClientListener
+    ) {
         return new Loza(
                 clusterNetSvc,
                 new NoOpMetricManager(),
@@ -65,6 +70,36 @@ public class TestLozaFactory {
                 clock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager()
+        );
+    }
+
+    /**
+     * Factory method for {@link Loza}.
+     *
+     * @param clusterNetSvc Cluster network service.
+     * @param raftConfig Raft configuration.
+     * @param clock A hybrid logical clock.
+     * @param raftGroupEventsClientListener Raft event listener.
+     * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
+     * @param groupStoragesContextResolver Resolver to get {@link StoragesDestructionContext}s for storage destruction.
+     */
+    public static Loza create(
+            ClusterService clusterNetSvc,
+            RaftConfiguration raftConfig,
+            HybridClock clock,
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            GroupStoragesDestructionIntents groupStoragesDestructionIntents,
+            GroupStoragesContextResolver groupStoragesContextResolver
+    ) {
+        return new Loza(
+                clusterNetSvc,
+                new NoOpMetricManager(),
+                raftConfig,
+                clock,
+                raftGroupEventsClientListener,
+                new NoOpFailureManager(),
+                groupStoragesDestructionIntents,
+                groupStoragesContextResolver
         );
     }
 }

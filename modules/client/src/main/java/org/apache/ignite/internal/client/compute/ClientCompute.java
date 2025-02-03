@@ -65,7 +65,6 @@ import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
 import org.apache.ignite.internal.compute.FailedExecution;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
@@ -74,6 +73,7 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
@@ -90,7 +90,7 @@ public class ClientCompute implements IgniteCompute {
     private final ClientTables tables;
 
     /** Cached tables. */
-    private final ConcurrentHashMap<String, ClientTable> tableCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<QualifiedName, ClientTable> tableCache = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -151,7 +151,7 @@ public class ClientCompute implements IgniteCompute {
             return mapSubmitFutures(futures, descriptor, cancellationToken);
         } else if (target instanceof TableJobTarget) {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
-            String tableName = tableJobTarget.tableName();
+            QualifiedName tableName = tableJobTarget.tableName();
             return getTable(tableName)
                     .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
                     .thenCompose(replicas -> {
@@ -214,10 +214,12 @@ public class ClientCompute implements IgniteCompute {
             ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
 
+            QualifiedName qualifiedName = colocatedTarget.tableName();
+
             if (mapper != null) {
-                return doExecuteColocatedAsync(colocatedTarget.tableName(), colocatedTarget.key(), mapper, descriptor, arg);
+                return doExecuteColocatedAsync(qualifiedName, colocatedTarget.key(), mapper, descriptor, arg);
             } else {
-                return doExecuteColocatedAsync(colocatedTarget.tableName(), (Tuple) colocatedTarget.key(), descriptor, arg);
+                return doExecuteColocatedAsync(qualifiedName, (Tuple) colocatedTarget.key(), descriptor, arg);
             }
         }
 
@@ -245,7 +247,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
-            String tableName,
+            QualifiedName tableName,
             Tuple key,
             JobDescriptor<T, R> descriptor,
             T arg
@@ -262,7 +264,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <K, T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
-            String tableName,
+            QualifiedName tableName,
             K key,
             Mapper<K> keyMapper,
             JobDescriptor<T, R> descriptor,
@@ -408,7 +410,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <T, R> CompletableFuture<SubmitResult> doExecutePartitionedAsync(
-            String tableName,
+            QualifiedName tableName,
             Partition partition,
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
@@ -448,7 +450,7 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    private CompletableFuture<ClientTable> getTable(String tableName) {
+    private CompletableFuture<ClientTable> getTable(QualifiedName tableName) {
         // Cache tables by name to avoid extra network call on every executeColocated.
         var cached = tableCache.get(tableName);
 
@@ -458,18 +460,18 @@ public class ClientCompute implements IgniteCompute {
 
         return tables.tableAsync(tableName).thenApply(t -> {
             if (t == null) {
-                throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
+                throw new TableNotFoundException(tableName);
             }
 
             ClientTable clientTable = (ClientTable) t;
-            tableCache.put(t.name(), clientTable);
+            tableCache.put(t.qualifiedName(), clientTable);
 
             return clientTable;
         });
     }
 
     private CompletableFuture<SubmitResult> handleMissingTable(
-            String tableName,
+            QualifiedName tableName,
             SubmitResult res,
             Throwable err,
             Supplier<CompletableFuture<SubmitResult>> retry

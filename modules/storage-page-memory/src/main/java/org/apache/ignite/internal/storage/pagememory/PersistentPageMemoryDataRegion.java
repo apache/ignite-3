@@ -31,6 +31,7 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
 
 /**
  * Implementation of {@link DataRegion} for persistent case.
@@ -109,7 +110,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 null,
                 (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
                 checkpointManager.checkpointTimeoutLock(),
-                pageSize
+                pageSize,
+                new OffheapReadWriteLock(128)
         );
 
         pageMemory.start();

@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -32,6 +34,7 @@ import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -66,6 +69,9 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,6 +83,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ExecutorServiceExtension.class)
 public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
+
+    protected static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     protected static final String TABLE_NAME = "test_table";
     protected static final String TABLE_NAME_2 = "test_table_2";
@@ -101,13 +109,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     protected CatalogManagerImpl manager;
 
     protected AtomicLong delayDuration = new AtomicLong();
-    protected AtomicLong partitionIdleSafeTimePropagationPeriod = new AtomicLong();
-
 
     @BeforeEach
     void setUp() {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
-        partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
         metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
@@ -119,8 +124,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         manager = new CatalogManagerImpl(
                 updateLog,
                 clockService,
-                delayDuration::get,
-                partitionIdleSafeTimePropagationPeriod::get
+                delayDuration::get
         );
 
         ComponentContext context = new ComponentContext();
@@ -140,15 +144,12 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     }
 
     protected void createSomeTable(String tableName) {
-        assertThat(
-                manager.execute(createTableCommand(
-                        tableName,
-                        List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
-                        List.of("key1"),
-                        List.of("key1")
-                )),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createTableCommand(
+                tableName,
+                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                List.of("key1"),
+                List.of("key1")
+        ));
     }
 
     protected final Catalog latestActiveCatalog() {
@@ -326,5 +327,78 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
             return falseCompletedFuture();
         };
+    }
+
+    CatalogApplyResult tryApplyAndExpectApplied(CatalogCommand cmd) {
+        return tryApplyAndCheckExpect(List.of(cmd), true);
+    }
+
+    CatalogApplyResult tryApplyAndExpectNotApplied(CatalogCommand cmd) {
+        return tryApplyAndCheckExpect(List.of(cmd), false);
+    }
+
+    CatalogApplyResult tryApplyAndCheckExpect(List<CatalogCommand> cmds, boolean... expectedResults) {
+        CatalogApplyResult applyResult = await(manager.execute(cmds));
+        assertThat(applyResult, CatalogApplyResultMatcher.fewResults(expectedResults));
+
+        return applyResult;
+    }
+
+    static <T> CompletableFutureMatcher<T> willBeApplied() {
+        return (CompletableFutureMatcher<T>) willBe(CatalogApplyResultMatcher.applyed());
+    }
+
+    static <T> CompletableFutureMatcher<T> willBeNotApplied() {
+        return (CompletableFutureMatcher<T>) willBe(CatalogApplyResultMatcher.notApplyed());
+    }
+
+    static class CatalogApplyResultMatcher extends BaseMatcher<CatalogApplyResult> {
+        BitSet expectedResult;
+
+        CatalogApplyResultMatcher(boolean expectedSingleResult) {
+            expectedResult = new BitSet(1);
+            expectedResult.set(0, expectedSingleResult);
+        }
+
+        CatalogApplyResultMatcher(BitSet expectedResult) {
+            this.expectedResult = expectedResult;
+        }
+
+        @Override
+        public boolean matches(Object o) {
+            if (o instanceof CatalogApplyResult) {
+                CatalogApplyResult catalogApplyResult = (CatalogApplyResult) o;
+                for (int i = 0; i < expectedResult.size(); i++) {
+                    if (catalogApplyResult.isApplied(i) != expectedResult.get(i)) {
+                        return false;
+                    }
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public void describeTo(Description description) {
+            description.appendText("CatalogApplyResultMatcher: " + expectedResult.toString());
+        }
+
+        static CatalogApplyResultMatcher fewResults(boolean... expectedResult) {
+            BitSet bitSet = new BitSet(expectedResult.length);
+            for (int i = 0; i < expectedResult.length; i++) {
+                bitSet.set(i, expectedResult[i]);
+            }
+
+            return new CatalogApplyResultMatcher(bitSet);
+        }
+
+        static CatalogApplyResultMatcher applyed() {
+            return new CatalogApplyResultMatcher(true);
+        }
+
+        static CatalogApplyResultMatcher notApplyed() {
+            return new CatalogApplyResultMatcher(false);
+        }
     }
 }

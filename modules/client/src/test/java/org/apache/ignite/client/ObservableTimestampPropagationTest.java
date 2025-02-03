@@ -18,10 +18,8 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,8 +29,6 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -67,7 +63,6 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @SuppressWarnings("resource")
     public void testClientPropagatesLatestKnownHybridTimestamp() {
         ReliableChannel ch = ((TcpIgniteClient) client).channel();
         TransactionOptions roOpts = new TransactionOptions().readOnly(true);
@@ -102,32 +97,6 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
         ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
         assertEquals(11, lastObservableTimestamp(ch));
-
-        Statement statement = client.sql().statementBuilder()
-                .query("CREATE TABLE t1 (id INT PRIMARY KEY, name VARCHAR)")
-                .build();
-
-        // Execution of a SQL query should propagate observable time, not the current time of the clock.
-        currentServerTimestamp.set(20);
-        AsyncResultSet<?> rs = await(client.sql().executeAsync(null, statement));
-        assertEquals(20, lastObservableTimestamp(ch));
-
-        assertNotNull(rs);
-
-        // Every fetch should propagate observable time, not the current time of the clock.
-        currentServerTimestamp.set(24);
-        await(rs.fetchNextPage());
-        assertEquals(20, lastObservableTimestamp(ch));
-
-        await(rs.fetchNextPage());
-        assertEquals(20, lastObservableTimestamp(ch));
-
-        // Closing a result set should propagate observable time as well.
-        await(rs.closeAsync());
-        assertEquals(20, lastObservableTimestamp(ch));
-
-        await(client.sql().executeAsync(null, "INSERT INTO t1 (1, 'Smith')"));
-        assertEquals(24, lastObservableTimestamp(ch));
     }
 
     private static @Nullable Long lastObservableTimestamp(ReliableChannel ch) {

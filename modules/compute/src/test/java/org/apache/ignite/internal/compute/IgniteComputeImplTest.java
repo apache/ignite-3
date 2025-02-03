@@ -63,6 +63,7 @@ import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
@@ -267,7 +268,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenAskForPrimaryReplica() {
-        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
+        when(igniteTables.tableViewAsync(eq(QualifiedName.fromSimple("TEST")))).thenReturn(completedFuture(table));
         ReplicaMeta replicaMeta = mock(ReplicaMeta.class);
         doReturn(randomUUID()).when(replicaMeta).getLeaseholderId();
         CompletableFuture<ReplicaMeta> toBeReturned = completedFuture(replicaMeta);
@@ -277,18 +278,18 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
         when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, null))
-                .thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null), localNode));
+                .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null), localNode)));
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken token) {
         when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, token))
-                .thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null), localNode));
+                .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null), localNode)));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
                 eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), any(), isNull()
-        )).thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("remoteResponse", null), remoteNode));
+        )).thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult("remoteResponse", null), remoteNode)));
     }
 
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {

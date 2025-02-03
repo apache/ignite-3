@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
@@ -97,7 +98,7 @@ class CatalogZoneDescriptorTest {
 
         var alterZoneCommand = (AlterZoneCommand) alter.apply(AlterZoneCommand.builder().zoneName(oldZone.name())).build();
 
-        var alterZoneEntry = (AlterZoneEntry) alterZoneCommand.get(catalog).get(0);
+        var alterZoneEntry = (AlterZoneEntry) alterZoneCommand.get(new UpdateContext(catalog)).get(0);
         alterZoneEntry.applyUpdate(catalog, oldZone.updateToken() + 1);
 
         CatalogZoneDescriptor newZone = alterZoneEntry.descriptor();

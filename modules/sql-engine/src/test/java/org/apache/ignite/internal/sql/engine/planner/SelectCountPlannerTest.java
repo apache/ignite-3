@@ -84,7 +84,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         int version = CLUSTER.catalogManager().latestCatalogVersion();
 
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().tables(version)) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
             commands.add(
                     DropTableCommand.builder()
                             .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
@@ -343,7 +343,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         }
 
         {
-            QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
+            QueryTransactionContext txContext = ImplicitTxContext.create();
 
             ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
             assertThat(plan.plan().explain(), containsString("SelectCount"));

@@ -29,7 +29,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * JDBC prepared statement query batch execute request.
  */
-public class JdbcBatchPreparedStmntRequest implements ClientMessage {
+public class JdbcBatchPreparedStmntRequest extends JdbcObservableTimeAwareRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 

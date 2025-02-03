@@ -64,7 +64,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAcces
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.RaftSnapshotPartitionMeta;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -386,7 +386,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     /**
-     * Requests and stores data into {@link TxStateStorage}.
+     * Requests and stores data into {@link TxStatePartitionStorage}.
      */
     private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
         if (!busyLock.enterBusy()) {

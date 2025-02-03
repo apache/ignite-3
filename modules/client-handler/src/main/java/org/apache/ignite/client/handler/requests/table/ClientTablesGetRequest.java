@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -44,9 +45,25 @@ public class ClientTablesGetRequest {
                 var tableImpl = (TableViewInternal) table;
 
                 out.packInt(tableImpl.tableId());
-                out.packString(table.name());
-                out.packString(null); // Schema placeholder.
+                out.packString(quoteTableNameIfNotAllUpper(table.qualifiedName().objectName()));
             }
         });
+    }
+
+    private static String quoteTableNameIfNotAllUpper(String name) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24301 use QualifiedName.toCanonicalForm() instead.
+        for (int i = 0; i < name.length(); i++) {
+            char ch = name.charAt(i);
+
+            if (Character.isDigit(ch) || ch == '_') {
+                continue;
+            }
+
+            if (!Character.isUpperCase(ch)) {
+                return IgniteNameUtils.quote(name);
+            }
+        }
+
+        return name;
     }
 }

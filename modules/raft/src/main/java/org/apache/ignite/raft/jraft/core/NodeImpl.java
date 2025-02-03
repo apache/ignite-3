@@ -50,7 +50,7 @@ import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.WriteCommandClosure;
+import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
@@ -303,18 +303,19 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             // Patch the command.
-            if (event.done instanceof WriteCommandClosure) {
-                WriteCommandClosure clo = (WriteCommandClosure) event.done;
+            if (event.done instanceof SafeTimeAwareCommandClosure) {
+                SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) event.done;
                 WriteCommand command = clo.command();
                 HybridTimestamp timestamp = command.initiatorTime();
 
                 if (timestamp != null) {
-                    // Tick once per batch.
                     if (safeTs == null) {
+                        safeTs = clock.update(timestamp);
+                    } else if (timestamp.compareTo(safeTs) > 0) {
                         safeTs = clock.update(timestamp);
                     }
 
-                    clo.patch(safeTs);
+                    clo.safeTimestamp(safeTs);
                 }
             }
 

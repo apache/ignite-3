@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
@@ -417,19 +416,22 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
+     * Returns table with given name.
      *
      * @param schema Schema to look up table in.
      * @param name Name of the table of interest.
-     * @return Table with given name. Never null.
-     * @throws TableNotFoundValidationException If table with given name is not exists.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code TableNotFoundValidationException} for absent table or just
+     *         return {@code null}.
+     * @return Table descriptor for given name or @{code null} in case table is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws TableNotFoundValidationException If table with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
-    public static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+    public static @Nullable CatalogTableDescriptor table(CatalogSchemaDescriptor schema, String name, boolean shouldThrowIfNotExists)
+            throws TableNotFoundValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
 
-        if (table == null) {
+        if (table == null && shouldThrowIfNotExists) {
             throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
         }
 
@@ -454,19 +456,23 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns zone with given name, or throws {@link CatalogValidationException} if zone with given name not exists.
+     * Returns zone with given name.
      *
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
-     * @return Zone with given name. Never null.
-     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code DistributionZoneNotFoundValidationException} for
+     *         absent zone or just return {@code null}.
+     * @return Zone descriptor for given name or @{code null} in case zone is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
+     *         set to {@code true}.
      */
-    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws DistributionZoneNotFoundValidationException {
+    public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
+            throws DistributionZoneNotFoundValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
 
-        if (zone == null) {
+        if (zone == null && shouldThrowIfNotExists) {
             throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
         }
 
@@ -483,16 +489,20 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns index descriptor.
+     * Returns index with given name.
      *
      * @param schema Schema to look up index in.
      * @param name Name of the index of interest.
-     * @throws IndexNotFoundValidationException If index does not exist.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code IndexNotFoundValidationException} for
+     *         absent index or just return {@code null}.
+     * @return Index descriptor for given name or @{code null} in case index is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws IndexNotFoundValidationException If index with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
-    public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+    public static @Nullable CatalogIndexDescriptor index(CatalogSchemaDescriptor schema, String name, boolean shouldThrowIfNotExists)
+            throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.aliveIndex(name);
 
-        if (index == null) {
+        if (index == null && shouldThrowIfNotExists) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
         }
 
@@ -528,25 +538,6 @@ public class CatalogUtils {
                 // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
                 // logical parts on different nodes of the cluster (see IGNITE-21084).
                 .roundUpToPhysicalTick();
-    }
-
-    /**
-     * Returns timestamp for which we'll wait after adding a new version to a Catalog.
-     *
-     * @param catalog Catalog version that has been added.
-     * @param partitionIdleSafeTimePropagationPeriodMsSupplier Supplies partition idle safe time propagation period in millis.
-     * @param maxClockSkewMillis Max clock skew in milliseconds.
-     */
-    public static HybridTimestamp clusterWideEnsuredActivationTsSafeForRoReads(
-            Catalog catalog,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
-            long maxClockSkewMillis
-    ) {
-        HybridTimestamp clusterWideEnsuredActivationTs = clusterWideEnsuredActivationTimestamp(catalog.time(), maxClockSkewMillis);
-        // TODO: this addition has to be removed when IGNITE-20378 is implemented.
-        return clusterWideEnsuredActivationTs.addPhysicalTime(
-                partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + maxClockSkewMillis
-        );
     }
 
     /** Returns id of the default zone from given catalog, or {@code null} if default zone is not exist. */

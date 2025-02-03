@@ -36,7 +36,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
  *
  * @param <T> Type of the returned items.
  */
-class TxAwareAsyncCursor<T> implements AsyncDataCursorExt<T> {
+class TxAwareAsyncCursor<T> implements AsyncDataCursor<T> {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final CompletableFuture<Void> closeResult = new CompletableFuture<>();
 

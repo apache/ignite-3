@@ -65,6 +65,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -124,6 +126,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -153,7 +156,6 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -166,9 +168,9 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -178,6 +180,8 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -252,7 +256,7 @@ public class ItTxTestCluster {
 
     protected Map<String, TableImpl> tables = new HashMap<>();
 
-    protected Map<String, TxStateStorage> txStateStorages;
+    protected Map<String, TxStatePartitionStorage> txStateStorages;
 
     private Map<String, ClusterService> clusterServices;
 
@@ -308,6 +312,8 @@ public class ItTxTestCluster {
     private final ReplicationConfiguration replicationConfiguration;
 
     private CatalogService catalogService;
+
+    private Catalog catalog;
 
     private final AtomicInteger globalCatalogId = new AtomicInteger();
 
@@ -368,6 +374,9 @@ public class ItTxTestCluster {
         placementDriver = new TestPlacementDriver(firstNode);
 
         catalogService = mock(CatalogService.class);
+        catalog = mock(Catalog.class);
+        lenient().when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
         LOG.info("The cluster has been started");
 
@@ -528,7 +537,7 @@ public class ItTxTestCluster {
             assertThat(resourceVacuumManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
             resourceCleanupManagers.put(nodeName, resourceVacuumManager);
 
-            txStateStorages.put(nodeName, new TestTxStateStorage());
+            txStateStorages.put(nodeName, new TestTxStatePartitionStorage());
         }
 
         LOG.info("Raft servers have been started");
@@ -608,8 +617,7 @@ public class ItTxTestCluster {
         when(tableDescriptor.id()).thenReturn(tableId);
         when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
 
-        lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
-        lenient().when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
+        lenient().when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = calculateAssignments(
                 cluster.stream().map(ItTxTestCluster::extractConsistentId).collect(toList()),
@@ -632,22 +640,21 @@ public class ItTxTestCluster {
         CatalogIndexDescriptor pkCatalogIndexDescriptor = mock(CatalogIndexDescriptor.class);
         when(pkCatalogIndexDescriptor.id()).thenReturn(indexId);
 
-        when(catalogService.indexes(anyInt(), eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
+        when(catalog.indexes(eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
 
         InternalTableImpl internalTable = new InternalTableImpl(
-                tableName,
+                QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName),
                 tableId,
                 1,
                 nodeResolver,
                 clientTxManager,
                 mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
+                mock(TxStateStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient ? clientClockService : clockServices.get(localNodeName),
                 timestampTracker,
                 placementDriver,
                 clientTransactionInflights,
-                500,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)
@@ -834,7 +841,7 @@ public class ItTxTestCluster {
             Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            TxStateStorage txStateStorage,
+            TxStatePartitionStorage txStatePartitionStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
@@ -859,7 +866,7 @@ public class ItTxTestCluster {
                 secondaryIndexStorages,
                 clockService,
                 safeTime,
-                txStateStorage,
+                txStatePartitionStorage,
                 transactionStateResolver,
                 storageUpdateHandler,
                 validationSchemasSource,
@@ -922,11 +929,11 @@ public class ItTxTestCluster {
                 .thenApply(Replica::raftClient);
     }
 
-    protected Peer getLeaderId(String tableName) {
+    protected Peer getLeaderId(QualifiedName tableName) {
         int partId = 0;
 
         return replicaManagers.get(extractConsistentId(cluster.get(partId)))
-                .replica(new TablePartitionId(tables.get(tableName).tableId(), partId))
+                .replica(new TablePartitionId(tables.get(tableName.objectName()).tableId(), partId))
                 .thenApply(replica -> replica.raftClient().leader())
                 .join();
     }

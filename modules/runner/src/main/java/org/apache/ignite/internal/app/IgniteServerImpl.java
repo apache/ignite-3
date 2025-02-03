@@ -351,7 +351,7 @@ public class IgniteServerImpl implements IgniteServer {
             try {
                 return instance.stopAsync().thenRun(() -> {
                     synchronized (igniteChangeMutex) {
-                        LOG.info("Setting Ignite ref to null as shutdown is initiated [name={}]", nodeName);
+                        LOG.info("Setting Ignite ref to null as shutdown is completed [name={}]", nodeName);
                         ignite = null;
                     }
                     joinFuture = null;
@@ -392,6 +392,8 @@ public class IgniteServerImpl implements IgniteServer {
 
         ackBanner();
 
+        logAvailableResources();
+
         return instance.startAsync().handle((result, throwable) -> {
             if (throwable != null) {
                 return CompletableFuture.<Void>failedFuture(throwable);
@@ -411,6 +413,11 @@ public class IgniteServerImpl implements IgniteServer {
 
             return completedFuture(result);
         }).thenCompose(identity());
+    }
+
+    private static void logAvailableResources() {
+        LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
+        LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
     }
 
     @Override

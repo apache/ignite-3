@@ -87,7 +87,7 @@ public class SchemaManager implements IgniteComponent {
 
     private void registerExistingTables() {
         for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
-            Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
+            Collection<CatalogTableDescriptor> tables = catalogService.catalog(catalogVer).tables();
 
             for (CatalogTableDescriptor tableDescriptor : tables) {
                 int tableId = tableDescriptor.id();
@@ -124,7 +124,7 @@ public class SchemaManager implements IgniteComponent {
 
         TableEventParameters tableEvent = ((TableEventParameters) event);
 
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableEvent.tableId(), tableEvent.catalogVersion());
+        CatalogTableDescriptor tableDescriptor = catalogService.catalog(tableEvent.catalogVersion()).table(tableEvent.tableId());
 
         assert tableDescriptor != null;
 
@@ -201,7 +201,7 @@ public class SchemaManager implements IgniteComponent {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         while (catalogVersion >= catalogService.earliestCatalogVersion()) {
-            CatalogTableDescriptor tableDescriptor = catalogService.table(tblId, catalogVersion);
+            CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(tblId);
 
             if (tableDescriptor == null) {
                 catalogVersion--;
@@ -227,7 +227,7 @@ public class SchemaManager implements IgniteComponent {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         while (catalogVersion >= catalogService.earliestCatalogVersion()) {
-            CatalogTableDescriptor tableDescriptor = catalogService.table(tblId, catalogVersion);
+            CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(tblId);
 
             if (tableDescriptor == null) {
                 catalogVersion--;

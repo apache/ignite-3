@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
-import java.util.ArrayList;
+import static java.util.stream.Collectors.toList;
+
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -29,49 +32,95 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Contains the chain of changed assignments.
  */
-public class AssignmentsChain {
+public class AssignmentsChain implements Iterable<AssignmentsLink> {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Either remove default values or add proper javadoc.
+    private static final long DEFAULT_CONF_TERM = -1;
+    private static final long DEFAULT_CONF_IDX = -1;
+
     /** Chain of assignments. */
     @IgniteToStringInclude
-    private final List<Assignments> chain;
+    private final List<AssignmentsLink> chain;
 
-    private AssignmentsChain(List<Assignments> chain) {
+    private AssignmentsChain(List<AssignmentsLink> chain) {
+        assert !chain.isEmpty() : "Chain should not be empty";
+
         this.chain = chain;
     }
 
-    public List<Assignments> chain() {
-        return chain;
+    /**
+     * Returns the number of links in this chain.
+     *
+     * @return the number of links in this chain.
+     */
+    public int size() {
+        return chain.size();
     }
 
     /**
-     * Create a new {@link AssignmentsChain} with the last link in the chain replaced with the provided one.
+     * Replace the last link in the chain with the provided one.
      *
      * @param newLast New last link.
-     * @return new AssignmentsChain.
+     * @return the created {@link AssignmentsLink}
      */
-    public AssignmentsChain replaceLast(Assignments newLast) {
+    public AssignmentsLink replaceLast(Assignments newLast, long configurationTerm, long configurationIndex) {
         assert !chain.isEmpty() : "Assignments chain is empty.";
 
-        List<Assignments> newChain = new ArrayList<>(chain);
+        AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex);
 
-        newChain.set(newChain.size() - 1, newLast);
+        chain.set(chain.size() - 1, link);
 
-        return new AssignmentsChain(newChain);
+        if (chain.size() > 1) {
+            chain.get(chain.size() - 2).next(link);
+        }
+
+        return link;
     }
 
     /**
-     * Create a new {@link AssignmentsChain} with a new link added to the chain.
+     * Add a new link to the end of the chain.
      *
      * @param newLast New last link.
-     * @return new AssignmentsChain.
+     * @return the created {@link AssignmentsLink}
      */
-    public AssignmentsChain addLast(Assignments newLast) {
+    public AssignmentsLink addLast(Assignments newLast, long configurationTerm, long configurationIndex) {
         assert !chain.isEmpty() : "Assignments chain is empty.";
 
-        List<Assignments> newChain = new ArrayList<>(chain);
+        AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex);
 
-        newChain.add(newLast);
+        chain.get(chain.size() - 1).next(link);
 
-        return new AssignmentsChain(newChain);
+        chain.add(link);
+
+        return link;
+    }
+
+    public AssignmentsLink firstLink() {
+        return chain.get(0);
+    }
+
+    /**
+     * Returns the last {@link AssignmentsLink} in the chain that contains the specified node. {@code}
+     * <pre>
+     *   on input link1([A,B,C,D,E,F,G]) > link2([E,F,G]) > link3([G])
+     *   chain.lastLink(F) should return link2(E,F,G).
+     * </pre>
+     *
+     * @param nodeConsistentId The consistent identifier of the node to search for.
+     * @return The last {@link AssignmentsLink} that contains the node, or {@code null} if no such link exists.
+     */
+    public @Nullable AssignmentsLink lastLink(String nodeConsistentId) {
+        for (int i = chain.size() - 1; i >= 0; i--) {
+            AssignmentsLink link = chain.get(i);
+            if (link.hasNode(nodeConsistentId)) {
+                return link;
+            }
+        }
+
+        return null;
+    }
+
+    public static AssignmentsChain of(Assignments... assignments) {
+        return of(DEFAULT_CONF_TERM, DEFAULT_CONF_IDX, assignments);
     }
 
     /**
@@ -79,8 +128,10 @@ public class AssignmentsChain {
      *
      * @param assignments Partition assignments.
      */
-    public static AssignmentsChain of(Assignments assignments) {
-        return new AssignmentsChain(List.of(assignments));
+    public static AssignmentsChain of(long configurationTerm, long configurationIndex, Assignments... assignments) {
+        return of(Stream.of(assignments)
+                .map(assignment -> new AssignmentsLink(assignment, configurationTerm, configurationIndex))
+                .collect(toList()));
     }
 
     /**
@@ -88,7 +139,10 @@ public class AssignmentsChain {
      *
      * @param assignmentsChain Chain of partition assignments.
      */
-    public static AssignmentsChain of(List<Assignments> assignmentsChain) {
+    static AssignmentsChain of(List<AssignmentsLink> assignmentsChain) {
+        for (int i = 1; i < assignmentsChain.size(); i++) {
+            assignmentsChain.get(i - 1).next(assignmentsChain.get(i));
+        }
         return new AssignmentsChain(assignmentsChain);
     }
 
@@ -126,4 +180,8 @@ public class AssignmentsChain {
         return chain.hashCode();
     }
 
+    @Override
+    public Iterator<AssignmentsLink> iterator() {
+        return chain.iterator();
+    }
 }

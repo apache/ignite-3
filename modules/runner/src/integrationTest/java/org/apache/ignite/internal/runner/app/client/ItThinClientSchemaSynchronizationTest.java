@@ -21,14 +21,19 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -100,6 +105,27 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         // It still has null value in the old column, even though it is not allowed by the new schema.
         sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         assertNull(recordView.get(null, rec).stringValue(1));
+    }
+
+    @Test
+    void testObservableTimeUpdatesAfterSchemaChange() {
+        IgniteClient client = client();
+
+        String tableName = "testObservableTimeUpdatesAfterSchemaChange";
+
+        client.sql().execute(null, "CREATE TABLE " + tableName + " (id INT PRIMARY KEY)");
+
+        Transaction tx = client.transactions().begin(new TransactionOptions().readOnly(true));
+
+        try (ResultSet<SqlRow> rs = client.sql().execute(tx, "SELECT COUNT(*) FROM " + tableName)) {
+            assertTrue(rs.hasNext());
+
+            SqlRow row = rs.next();
+
+            assertEquals(0, row.longValue(0));
+        } finally {
+            tx.rollback();
+        }
     }
 
     @ParameterizedTest

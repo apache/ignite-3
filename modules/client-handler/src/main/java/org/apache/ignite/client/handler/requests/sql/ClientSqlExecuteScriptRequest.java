@@ -20,9 +20,9 @@ package org.apache.ignite.client.handler.requests.sql;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
@@ -49,6 +49,7 @@ public class ClientSqlExecuteScriptRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24275 Script must return updated time to client.
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, ts -> {});
 
