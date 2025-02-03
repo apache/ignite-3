@@ -160,8 +160,8 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -736,7 +736,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         return mvGc.removeStorage(tablePartitionId)
                                 .thenComposeAsync(
-                                        v -> inBusyLockAsync(busyLock, () -> destroyPartitionStorages(tablePartitionId, table)),
+                                        v -> inBusyLockAsync(busyLock, () -> weakStopAndDestroyPartition(
+                                                tablePartitionId,
+                                                parameters.causalityToken())
+                                        ),
                                         ioExecutor
                                 );
                     })
@@ -1292,11 +1295,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             minTimeCollectorService
                     ) {
                         @Override
-                        public void onConfigurationCommitted(CommittedConfiguration config) {
+                        public void onConfigurationCommitted(
+                                RaftGroupConfiguration config,
+                                long lastAppliedIndex,
+                                long lastAppliedTerm
+                        ) {
                             // Disable this method if the Colocation feature is enabled, actual configuration will be propagated
                             // manually by the Zone Raft Listener.
                             if (!enabledColocationFeature) {
-                                super.onConfigurationCommitted(config);
+                                super.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm);
                             }
                         }
                     };

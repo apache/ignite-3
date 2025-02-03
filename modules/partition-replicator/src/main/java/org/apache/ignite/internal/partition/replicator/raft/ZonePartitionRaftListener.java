@@ -32,10 +32,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
@@ -57,6 +57,20 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private CommittedConfiguration currentCommitedConfiguration;
 
     private final Object commitedConfigurationLock = new Object();
+
+    private static class CommittedConfiguration {
+        final RaftGroupConfiguration configuration;
+
+        final long lastAppliedIndex;
+
+        final long lastAppliedTerm;
+
+        CommittedConfiguration(RaftGroupConfiguration configuration, long lastAppliedIndex, long lastAppliedTerm) {
+            this.configuration = configuration;
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
+        }
+    }
 
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
@@ -143,11 +157,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     }
 
     @Override
-    public void onConfigurationCommitted(CommittedConfiguration config) {
+    public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
         synchronized (commitedConfigurationLock) {
-            currentCommitedConfiguration = config;
+            currentCommitedConfiguration = new CommittedConfiguration(config, lastAppliedIndex, lastAppliedTerm);
 
-            tablePartitionRaftListeners.values().forEach(listener -> listener.onConfigurationCommitted(config));
+            tablePartitionRaftListeners.values()
+                    .forEach(listener -> listener.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm));
         }
     }
 
@@ -174,7 +189,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     public void addTablePartitionRaftListener(TablePartitionId tablePartitionId, RaftGroupListener listener) {
         synchronized (commitedConfigurationLock) {
             if (currentCommitedConfiguration != null) {
-                listener.onConfigurationCommitted(currentCommitedConfiguration);
+                listener.onConfigurationCommitted(
+                        currentCommitedConfiguration.configuration,
+                        currentCommitedConfiguration.lastAppliedIndex,
+                        currentCommitedConfiguration.lastAppliedTerm
+                );
             }
 
             RaftGroupListener prev = tablePartitionRaftListeners.put(tablePartitionId, listener);
