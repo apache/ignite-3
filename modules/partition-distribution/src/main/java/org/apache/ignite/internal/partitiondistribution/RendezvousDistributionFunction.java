@@ -111,7 +111,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
             hashArr[i] = new IgniteBiTuple<>(hash, node);
         });
 
-        final int effectiveReplicas = replicas == Integer.MAX_VALUE ? nodes.size() : Math.min(replicas, nodes.size());
+        int effectiveReplicas = replicas == ALL_REPLICAS ? nodes.size() : Math.min(replicas, nodes.size());
 
         Iterable<String> sortedNodes = new LazyLinearSortedContainer(hashArr, effectiveReplicas);
 

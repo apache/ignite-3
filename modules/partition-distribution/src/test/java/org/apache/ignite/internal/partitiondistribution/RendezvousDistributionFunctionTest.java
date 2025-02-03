@@ -44,7 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class RendezvousDistributionFunctionTest {
     /** Distribution deviation ratio. */
-    public static final double DISTRIBUTION_DEVIATION_RATIO = 0.2;
+    private static final double DISTRIBUTION_DEVIATION_RATIO = 0.2;
 
     @Test
     public void testPartitionDistribution() {
@@ -75,11 +75,7 @@ public class RendezvousDistributionFunctionTest {
 
         for (Set<Assignment> partNodes : assignment) {
             for (Assignment node : partNodes) {
-                ArrayList<Integer> nodeParts = assignmentByNode.get(node.consistentId());
-
-                if (nodeParts == null) {
-                    assignmentByNode.put(node.consistentId(), nodeParts = new ArrayList<>());
-                }
+                ArrayList<Integer> nodeParts = assignmentByNode.computeIfAbsent(node.consistentId(), k -> new ArrayList<>());
 
                 nodeParts.add(part);
             }
@@ -99,6 +95,37 @@ public class RendezvousDistributionFunctionTest {
                             + ", idealSize=" + ideal
                             + ", parts=" + compact(nodeParts) + ']');
         }
+    }
+
+    @Test
+    public void testAllPartitionsDistribution() {
+        int nodeCount = 50;
+
+        int parts = 10_000;
+
+        int replicas = DistributionAlgorithm.ALL_REPLICAS;
+
+        int consensusGroupSize = 4;
+
+        List<String> nodes = prepareNetworkTopology(nodeCount);
+
+        assertTrue(parts > nodeCount, "Partitions should be more than nodes");
+
+        List<Set<Assignment>> assignment = RendezvousDistributionFunction.assignPartitions(
+                nodes,
+                parts,
+                replicas,
+                consensusGroupSize,
+                false,
+                null
+        );
+
+        assertEquals(parts, assignment.size());
+
+        assignment.forEach(a -> {
+            assertEquals(nodeCount, a.size());
+            assertEquals(consensusGroupSize, a.stream().filter(Assignment::isPeer).count());
+        });
     }
 
     @ParameterizedTest
@@ -151,7 +178,7 @@ public class RendezvousDistributionFunctionTest {
         assertThrows(AssertionError.class, () -> distributionAlgorithm.assignPartitions(prepareNetworkTopology(3), emptyList(), 1, 3, 4));
     }
 
-    private List<String> prepareNetworkTopology(int nodes) {
+    private static List<String> prepareNetworkTopology(int nodes) {
         return IntStream.range(0, nodes)
                 .mapToObj(i -> "Node " + i)
                 .collect(Collectors.toUnmodifiableList());
@@ -164,7 +191,7 @@ public class RendezvousDistributionFunctionTest {
      * @param col Collection of integers.
      * @return Compacted string representation of given collections.
      */
-    public static String compact(Collection<Integer> col) {
+    private static String compact(Collection<Integer> col) {
         return compact(col, i -> i + 1);
     }
 
@@ -176,7 +203,7 @@ public class RendezvousDistributionFunctionTest {
      * @param nextValFun Function to get nearby number.
      * @return Compacted string representation of given collections.
      */
-    public static <T extends Number & Comparable<? super T>> String compact(
+    private static <T extends Number & Comparable<? super T>> String compact(
             Collection<T> col,
             Function<T, T> nextValFun
     ) {
