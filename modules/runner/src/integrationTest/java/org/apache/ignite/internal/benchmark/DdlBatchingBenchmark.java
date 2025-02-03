@@ -114,7 +114,7 @@ public class DdlBatchingBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     @Override
-    protected void createTableOnStartup() {
+    protected void createTablesOnStartup() {
         // no-op
     }
 
