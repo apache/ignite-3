@@ -2751,7 +2751,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdate(
                         cmd.txId(),
                         cmd.rowUuid(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         cmd.rowToUpdate(),
                         true,
                         null,
@@ -2784,7 +2784,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         storageUpdateHandler.handleUpdate(
                                 cmd.txId(),
                                 cmd.rowUuid(),
-                                cmd.tablePartitionId().asTablePartitionId(),
+                                cmd.commitPartitionId().asTablePartitionId(),
                                 cmd.rowToUpdate(),
                                 false,
                                 null,
@@ -2873,7 +2873,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdateAll(
                         cmd.txId(),
                         cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         true,
                         null,
                         null,
@@ -2886,7 +2886,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdateAll(
                         cmd.txId(),
                         cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         true,
                         null,
                         null,
@@ -2919,7 +2919,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     storageUpdateHandler.handleUpdateAll(
                             cmd.txId(),
                             cmd.rowsToUpdate(),
-                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.commitPartitionId().asTablePartitionId(),
                             false,
                             null,
                             safeTs,
@@ -3805,7 +3805,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
-    private static UpdateCommand updateCommand(
+    private UpdateCommand updateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -3818,7 +3818,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         UpdateCommandBuilder bldr = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                .tablePartitionId(tablePartitionId(tablePartId))
+                .tablePartitionId(tablePartitionId(replicationGroupId))
+                .commitPartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
                 .full(full)
@@ -3862,7 +3863,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                .tablePartitionId(commitPartitionId)
+                .tablePartitionId(tablePartitionId(replicationGroupId))
+                .commitPartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(transactionId)
                 .initiatorTime(initiatorTime)

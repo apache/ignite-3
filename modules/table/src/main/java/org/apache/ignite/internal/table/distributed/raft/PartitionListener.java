@@ -296,7 +296,7 @@ public class PartitionListener implements RaftGroupListener {
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
-                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asTablePartitionId(),
                     cmd.rowToUpdate(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
@@ -353,7 +353,7 @@ public class PartitionListener implements RaftGroupListener {
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
-                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asTablePartitionId(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
                     cmd.full() ? safeTimestamp : null,

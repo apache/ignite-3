@@ -109,6 +109,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             clo.result(new TransactionResult(cmd.commit() ? COMMITTED : ABORTED, cmd.commitTimestamp()));
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
+            // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
             CommandClosure<WriteCommand> idempotentCommandClosure = idempotentCommandClosure(clo);
 
             tablePartitionRaftListeners.values().forEach(listener -> listener.onWrite(singletonIterator(idempotentCommandClosure)));

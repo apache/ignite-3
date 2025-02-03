@@ -35,6 +35,7 @@ import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -79,10 +80,11 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Class containing tests related to Raft-based replication for the Colocation feature.
@@ -133,12 +135,19 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
     private NodeFinder nodeFinder;
 
+    private TestInfo testInfo;
+
+    @BeforeEach
+    void setUp(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
+
     @AfterEach
     void tearDown() throws Exception {
         closeAll(cluster.parallelStream().map(node -> node::stop));
     }
 
-    private void startCluster(TestInfo testInfo, int size) throws Exception {
+    private void startCluster(int size) throws Exception {
         List<NetworkAddress> addresses = IntStream.range(0, size)
                 .mapToObj(i -> new NetworkAddress("localhost", BASE_PORT + i))
                 .collect(toList());
@@ -146,7 +155,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         nodeFinder = new StaticNodeFinder(addresses);
 
         IntStream.range(0, size)
-                .mapToObj(i -> newNode(testInfo, addresses.get(i), nodeFinder))
+                .mapToObj(i -> newNode(addresses.get(i), nodeFinder))
                 .forEach(cluster::add);
 
         cluster.parallelStream().forEach(Node::start);
@@ -176,8 +185,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         ));
     }
 
-    private Node addNodeToCluster(TestInfo testInfo, Function<ReplicaRequest, ReplicationGroupId> requestConverter) {
-        Node node = newNode(testInfo, new NetworkAddress("localhost", BASE_PORT + cluster.size()), nodeFinder);
+    private Node addNodeToCluster(Function<ReplicaRequest, ReplicationGroupId> requestConverter) {
+        Node node = newNode(new NetworkAddress("localhost", BASE_PORT + cluster.size()), nodeFinder);
 
         node.setRequestConverter(requestConverter);
 
@@ -192,7 +201,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         return node;
     }
 
-    private Node newNode(TestInfo testInfo, NetworkAddress address, NodeFinder nodeFinder) {
+    private Node newNode(NetworkAddress address, NodeFinder nodeFinder) {
         return new Node(
                 testInfo,
                 address,
@@ -246,9 +255,10 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     /**
      * Tests that inserted data is replicated to all replica nodes.
      */
-    @Test
-    void testReplicationOnAllNodes(TestInfo testInfo) throws Exception {
-        startCluster(testInfo, 3);
+    @ParameterizedTest(name = "useExplicitTx={0}")
+    @ValueSource(booleans = {false, true})
+    void testReplicationOnAllNodes(boolean useExplicitTx) throws Exception {
+        startCluster(3);
 
         // Create a zone with a single partition on every node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
@@ -260,6 +270,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
+
         Node node = cluster.get(0);
 
         setPrimaryReplica(node, zonePartitionId);
@@ -268,56 +280,80 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
 
         // Test single insert.
-        kvView1.put(null, 42, 69);
-        kvView2.put(null, 142, 169);
+        if (useExplicitTx) {
+            node.transactions().runInTransaction(tx -> {
+                kvView1.put(tx, 42, 69);
+                kvView2.put(tx, 142, 169);
+            });
+        } else {
+            kvView1.put(null, 42, 69);
+            kvView2.put(null, 142, 169);
+        }
 
         for (Node n : cluster) {
             setPrimaryReplica(n, zonePartitionId);
 
-            assertThat(kvView1.get(null, 42), is(69));
-            assertThat(kvView1.get(null, 142), is(nullValue()));
+            if (useExplicitTx) {
+                node.transactions().runInTransaction(tx -> {
+                    assertThat(n.name, kvView1.get(tx, 42), is(69));
+                    assertThat(n.name, kvView1.get(tx, 142), is(nullValue()));
 
-            assertThat(kvView2.get(null, 42), is(nullValue()));
-            assertThat(kvView2.get(null, 142), is(169));
+                    assertThat(n.name, kvView2.get(tx, 42), is(nullValue()));
+                    assertThat(n.name, kvView2.get(tx, 142), is(169));
+                });
+            } else {
+                assertThat(n.name, kvView1.get(null, 42), is(69));
+                assertThat(n.name, kvView1.get(null, 142), is(nullValue()));
+
+                assertThat(n.name, kvView2.get(null, 42), is(nullValue()));
+                assertThat(n.name, kvView2.get(null, 142), is(169));
+            }
         }
 
         // Test batch insert.
         Map<Integer, Integer> data1 = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
         Map<Integer, Integer> data2 = IntStream.range(10, 20).boxed().collect(toMap(Function.identity(), Function.identity()));
 
-        kvView1.putAll(null, data1);
-        kvView2.putAll(null, data2);
+        if (useExplicitTx) {
+            node.transactions().runInTransaction(tx -> {
+                kvView1.putAll(tx, data1);
+                kvView2.putAll(tx, data2);
+            });
+        } else {
+            kvView1.putAll(null, data1);
+            kvView2.putAll(null, data2);
+        }
 
         for (Node n : cluster) {
             setPrimaryReplica(n, zonePartitionId);
 
-            assertThat(kvView1.getAll(null, data1.keySet()), is(data1));
-            assertThat(kvView1.getAll(null, data2.keySet()), is(anEmptyMap()));
+            if (useExplicitTx) {
+                node.transactions().runInTransaction(tx -> {
+                    assertThat(n.name, kvView1.getAll(tx, data1.keySet()), is(data1));
+                    assertThat(n.name, kvView1.getAll(tx, data2.keySet()), is(anEmptyMap()));
 
-            assertThat(kvView2.getAll(null, data1.keySet()), is(anEmptyMap()));
-            assertThat(kvView2.getAll(null, data2.keySet()), is(data2));
+                    assertThat(n.name, kvView2.getAll(tx, data1.keySet()), is(anEmptyMap()));
+                    assertThat(n.name, kvView2.getAll(tx, data2.keySet()), is(data2));
+                });
+            } else {
+                assertThat(n.name, kvView1.getAll(null, data1.keySet()), is(data1));
+                assertThat(n.name, kvView1.getAll(null, data2.keySet()), is(anEmptyMap()));
+
+                assertThat(n.name, kvView2.getAll(null, data1.keySet()), is(anEmptyMap()));
+                assertThat(n.name, kvView2.getAll(null, data2.keySet()), is(data2));
+            }
         }
     }
 
     /**
      * Tests that inserted data is replicated to a newly joined replica node.
      */
-    @Test
-    void testDataRebalance(TestInfo testInfo) throws Exception {
-        testDataRebalanceImpl(testInfo, false);
-    }
+    @ParameterizedTest(name = "truncateRaftLog={0}")
+    @ValueSource(booleans = {false, true})
+    void testDataRebalance(boolean truncateRaftLog) throws Exception {
+        assumeFalse(truncateRaftLog, "https://issues.apache.org/jira/browse/IGNITE-22416");
 
-    /**
-     * Same as {@link #testDataRebalance} but replication is performed using a Raft snapshot instead of Raft log replay.
-     */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22416")
-    @Test
-    void testDataRebalanceUsingRaftSnapshot(TestInfo testInfo) throws Exception {
-        testDataRebalanceImpl(testInfo, true);
-    }
-
-    private void testDataRebalanceImpl(TestInfo testInfo, boolean truncateRaftLog) throws Exception {
-        startCluster(testInfo, 2);
+        startCluster(2);
 
         // Create a zone with a single partition on every node + one extra replica for the upcoming node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
@@ -330,7 +366,10 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         Function<ReplicaRequest, ReplicationGroupId> requestConverter =
                 requestConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
-        cluster.forEach(node -> node.setRequestConverter(requestConverter));
+        cluster.forEach(node -> {
+            node.setRequestConverter(requestConverter);
+            node.waitForMetadataCompletenessAtNow();
+        });
 
         Node node = cluster.get(0);
 
@@ -349,7 +388,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
             truncateLogOnEveryNode(zonePartitionId);
         }
 
-        Node newNode = addNodeToCluster(testInfo, requestConverter);
+        Node newNode = addNodeToCluster(requestConverter);
 
         // Wait for the rebalance to kick in.
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));

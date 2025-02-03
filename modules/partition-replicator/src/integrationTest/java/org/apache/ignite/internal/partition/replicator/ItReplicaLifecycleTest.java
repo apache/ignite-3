@@ -35,6 +35,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
@@ -77,6 +79,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.Replica;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -89,11 +92,14 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -254,6 +260,71 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         node.stop();
 
         nodes.remove(idx);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
+    @Test
+    public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
+
+        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
+                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        createZone(node, "test_zone", 1, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+
+        long key = 1;
+
+        {
+            createTable(node, "test_zone", "test_table");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
+
+            prepareTableIdToZoneIdConverter(
+                    node,
+                    new TablePartitionId(tableId, 0),
+                    new ZonePartitionId(zoneId, 0)
+            );
+
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+
+            int val = 100;
+
+            node.transactions().runInTransaction(tx -> {
+                assertDoesNotThrow(() -> keyValueView.put(tx, key, val));
+
+                assertEquals(val, keyValueView.get(tx, key));
+            });
+
+            node.transactions().runInTransaction(tx -> {
+                // Check the replica read inside the another transaction
+                assertEquals(val, keyValueView.get(tx, key));
+            });
+        }
+
+        {
+            createTable(node, "test_zone", "test_table1");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table1", node.hybridClock.nowLong());
+
+            prepareTableIdToZoneIdConverter(
+                    node,
+                    new TablePartitionId(tableId, 0),
+                    new ZonePartitionId(zoneId, 0)
+            );
+
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+
+            int val = 200;
+
+            node.transactions().runInTransaction(tx -> {
+                assertDoesNotThrow(() -> keyValueView.put(tx, key, val));
+
+                assertEquals(val, keyValueView.get(tx, key));
+            });
+        }
     }
 
     @Test
@@ -643,6 +714,18 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         );
 
         assertTrue(waitForCondition(() -> getNode(0).replicaManager.isReplicaStarted(partId), 10_000L));
+    }
+
+    private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {
+        node.setRequestConverter(request ->  {
+            if (request.groupId().asReplicationGroupId().equals(tablePartitionId)
+                    && !(request instanceof WriteIntentSwitchReplicaRequest)) {
+                return zonePartitionId;
+            } else {
+                return request.groupId().asReplicationGroupId();
+            }
+        });
+
     }
 
     private Node getNode(int nodeIndex) {
