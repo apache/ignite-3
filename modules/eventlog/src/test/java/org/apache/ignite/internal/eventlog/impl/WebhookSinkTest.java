@@ -114,14 +114,11 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
-        Awaitility.await()
-                .atMost(Duration.ofMillis(500L))
-                .until(() -> sink.getLastSendMillis() > 0L);
-
         var expectedSentContent = "[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]";
 
-        clientAndServer
-                .verify(
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(1L))
+                .untilAsserted(() -> clientAndServer.verify(
                         request()
                                 .withMethod("POST")
                                 .withPath("/api/v1/events")
@@ -129,7 +126,8 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                                 .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
                                 .withHeader("X-SINK-NODE-NAME", "default")
                                 .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS)),
-                        VerificationTimes.exactly(1));
+                        VerificationTimes.exactly(1))
+                );
     }
 
     @Test
