@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.Locale;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -89,14 +90,16 @@ public class CatalogSchemaValidationTest extends BaseCatalogManagerTest {
         );
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
     public void testCreateSystemSchemaIsRejected(String schemaName) {
-        CatalogCommand createCmd = CreateSchemaCommand.builder().name(schemaName).build();
+        CreateSchemaCommandBuilder createCmd = CreateSchemaCommand.builder().name(schemaName);
 
-        assertThat(manager.execute(createCmd),
-                willThrowFast(CatalogValidationException.class, format("Reserved system schema with name '{}' can't be created.",
-                        schemaName))
+        IgniteTestUtils.assertThrows(
+                CatalogValidationException.class,
+                () -> manager.execute(createCmd.build()),
+                format("Reserved system schema with name '{}' can't be created.", schemaName)
         );
     }
 
