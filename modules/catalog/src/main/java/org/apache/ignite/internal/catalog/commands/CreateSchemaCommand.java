@@ -44,8 +44,6 @@ public class CreateSchemaCommand implements CatalogCommand {
 
     private final boolean ifNotExists;
 
-    private final boolean systemSchemaCommand;
-
     private CreateSchemaCommand(String schemaName, boolean ifNotExists, boolean systemSchemaCommand) {
         validateIdentifier(schemaName, "Name of the schema");
 
@@ -61,7 +59,6 @@ public class CreateSchemaCommand implements CatalogCommand {
 
         this.schemaName = schemaName;
         this.ifNotExists = ifNotExists;
-        this.systemSchemaCommand = systemSchemaCommand;
     }
 
     public boolean ifNotExists() {
