@@ -87,7 +87,7 @@ public class CreatingTableBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     @Override
-    protected void createTableOnStartup() {
+    protected void createTablesOnStartup() {
         // There is no need to create a table on start-up.
     }
 
