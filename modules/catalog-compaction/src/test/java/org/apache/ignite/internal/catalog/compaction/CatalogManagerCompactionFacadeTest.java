@@ -25,10 +25,12 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
@@ -109,7 +111,7 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         Catalog earliestCatalog = catalogManager.catalog(catalogManager.earliestCatalogVersion());
         assertNotNull(earliestCatalog);
 
-        assertNull(catalogManagerFacade.catalogPriorToVersionAtTsNullable(earliestCatalog.time()));
+        assertThrows(CatalogNotFoundException.class, () -> catalogManagerFacade.catalogPriorToVersionAtTsNullable(earliestCatalog.time()));
     }
 
     @Test

@@ -46,14 +46,14 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     String SYSTEM_SCHEMA_NAME = "SYSTEM";
 
     /**
-     * Information schema - a system schema defined by SQL standard. The schema provides system-views, which describe Catalog objects, and
-     * can be read by a user.
+     * Information schema - a system schema defined by SQL standard.
+     * The schema provides system-views, which describe Catalog objects, and can be read by a user.
      */
     String INFORMATION_SCHEMA = "INFORMATION_SCHEMA";
 
     /**
-     * Definition schema - a system schema defined by SQL standard. The schema provides tables/sources for Catalog object’s metadata and
-     * can’t be accessed by a user directly.
+     * Definition schema - a system schema defined by SQL standard.
+     * The schema provides tables/sources for Catalog object’s metadata and can’t be accessed by a user directly.
      */
     String DEFINITION_SCHEMA = "DEFINITION_SCHEMA";
 
