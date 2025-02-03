@@ -124,6 +124,7 @@ public class PartitionListener implements RaftGroupListener {
 
     private final UUID localNodeId;
 
+    // This variable is volatile, because it may be updated outside the Raft thread under the colocation feature.
     private volatile Set<String> currentGroupTopology;
 
     private final MinimumRequiredTimeCollectorService minTimeCollectorService;

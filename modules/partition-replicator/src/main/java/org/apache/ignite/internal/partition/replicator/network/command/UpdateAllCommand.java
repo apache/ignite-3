@@ -24,7 +24,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,9 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * State machine command for updating a batch of entries.
  */
 @Transferable(PartitionReplicationMessageGroup.Commands.UPDATE_ALL)
-public interface UpdateAllCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
-
+public interface UpdateAllCommand extends PartitionCommand, TableAwareCommand {
     Map<UUID, TimedBinaryRowMessage> messageRowsToUpdate();
 
     UUID txCoordinatorId();

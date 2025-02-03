@@ -91,7 +91,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(SystemPropertiesExtension.class)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
 @WithSystemProperty(key = FEATURE_FLAG_NAME, value = "true")
 public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 20_000;

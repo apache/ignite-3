@@ -30,8 +30,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -101,14 +100,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             tablePartitionRaftListeners.values().forEach(listener -> listener.onWrite(singletonIterator(idempotentCommandClosure)));
 
             clo.result(null);
-        } else if (command instanceof UpdateCommand) {
-            TablePartitionId tablePartitionId = ((UpdateCommand) command).tablePartitionId().asTablePartitionId();
+        } else if (command instanceof TableAwareCommand) {
+            TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
 
-            processTableSpecificCommand(tablePartitionId, clo);
-        } else if (command instanceof UpdateAllCommand) {
-            TablePartitionId tablePartitionId = ((UpdateAllCommand) command).tablePartitionId().asTablePartitionId();
-
-            processTableSpecificCommand(tablePartitionId, clo);
+            processTableAwareCommand(tablePartitionId, clo);
         } else {
             LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
 
@@ -116,7 +111,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         }
     }
 
-    private void processTableSpecificCommand(TablePartitionId tablePartitionId, CommandClosure<WriteCommand> clo) {
+    private void processTableAwareCommand(TablePartitionId tablePartitionId, CommandClosure<WriteCommand> clo) {
         tablePartitionRaftListeners.get(tablePartitionId).onWrite(singletonIterator(clo));
     }
 
