@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -127,8 +128,10 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -210,6 +213,8 @@ public class PartitionReplicaLifecycleManager extends
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
+    private final ZoneResourcesManager zoneResourcesManager;
+
     /**
      * The constructor.
      *
@@ -225,6 +230,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param placementDriver Placement driver.
      * @param schemaSyncService Schema synchronization service.
      * @param systemDistributedConfiguration System distributed configuration.
+     * @param sharedTxStateStorage Shared tx state storage.
      */
     public PartitionReplicaLifecycleManager(
             CatalogManager catalogMgr,
@@ -239,7 +245,8 @@ public class PartitionReplicaLifecycleManager extends
             ClockService clockService,
             PlacementDriver placementDriver,
             SchemaSyncService schemaSyncService,
-            SystemDistributedConfiguration systemDistributedConfiguration
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            TxStateRocksDbSharedStorage sharedTxStateStorage
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
@@ -262,6 +269,8 @@ public class PartitionReplicaLifecycleManager extends
                 DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT,
                 Integer::parseInt
         );
+
+        zoneResourcesManager = new ZoneResourcesManager(sharedTxStateStorage);
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -485,6 +494,12 @@ public class PartitionReplicaLifecycleManager extends
                                 stablePeersAndLearners,
                                 raftGroupListener,
                                 raftGroupEventsListener,
+                                // TODO: IGNITE-24371 - pass real isVolatile flag
+                                false,
+                                () -> zoneResourcesManager.getOrCreatePartitionStorage(
+                                        zoneDescriptorAt(zoneId, stableAssignments.timestamp()),
+                                        partId
+                                ),
                                 busyLock
                         ).thenCompose(replica -> executeUnderZoneWriteLock(zoneId, () -> {
                             replicationGroupIds.add(replicaGrpId);
@@ -512,6 +527,16 @@ public class PartitionReplicaLifecycleManager extends
 
             return null;
         });
+    }
+
+    private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {
+        Catalog catalog = catalogMgr.activeCatalog(timestamp);
+        assert catalog != null : "No catalog for timestamp " + nullableHybridTimestamp(timestamp);
+
+        CatalogZoneDescriptor zone = catalog.zone(zoneId);
+        assert zone != null : "No zone with ID=" + zoneId + " for timestamp " + nullableHybridTimestamp(timestamp);
+
+        return zone;
     }
 
     private CompletableFuture<Set<Assignment>> calculateZoneAssignments(
@@ -1183,6 +1208,12 @@ public class PartitionReplicaLifecycleManager extends
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!enabledColocationFeature) {
             return nullCompletedFuture();
+        }
+
+        try {
+            IgniteUtils.closeAllManually(zoneResourcesManager);
+        } catch (Exception e) {
+            return failedFuture(e);
         }
 
         return nullCompletedFuture();

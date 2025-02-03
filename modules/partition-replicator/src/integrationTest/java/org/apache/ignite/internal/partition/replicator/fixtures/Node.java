@@ -555,7 +555,7 @@ public class Node {
                 raftManager,
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
-                ForkJoinPool.commonPool(),
+                threadPoolsManager.tableIoExecutor(),
                 t -> converter.get().apply(t),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
@@ -593,6 +593,13 @@ public class Node {
                 systemDistributedConfiguration
         );
 
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve("tx-state"),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaManager,
@@ -606,20 +613,14 @@ public class Node {
                 clockService,
                 placementDriver,
                 schemaSyncService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                sharedTxStateStorage
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                 .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
-
-        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolve("tx-state"),
-                threadPoolsManager.commonScheduler(),
-                threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
-        );
 
         tableManager = new TableManager(
                 name,
@@ -732,8 +733,8 @@ public class Node {
                 txManager,
                 dataStorageMgr,
                 schemaManager,
-                partitionReplicaLifecycleManager,
                 sharedTxStateStorage,
+                partitionReplicaLifecycleManager,
                 tableManager,
                 indexManager
         )).thenComposeAsync(componentFuts -> {

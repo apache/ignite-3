@@ -392,7 +392,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         clockService,
                         placementDriver,
                         schemaSyncService,
-                        systemDistributedConfiguration
+                        systemDistributedConfiguration,
+                        sharedTxStateStorage
                 ),
                 minTimeCollectorService,
                 systemDistributedConfiguration
