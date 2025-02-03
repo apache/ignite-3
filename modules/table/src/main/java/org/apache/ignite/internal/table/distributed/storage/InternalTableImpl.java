@@ -2152,7 +2152,7 @@ public class InternalTableImpl implements InternalTable {
             ReplicationGroupId replicaGroupId;
 
             if (enabledColocationFeature) {
-                replicaGroupId = new ZonePartitionId(tableId, partId);
+                replicaGroupId = new ZonePartitionId(zoneId, partId);
                 partitionIdMessage = serializeZonePartitionId((ZonePartitionId) replicaGroupId);
             } else {
                 replicaGroupId = new TablePartitionId(tableId, partId);
