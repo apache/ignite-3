@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.SchemaExistsException;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -43,8 +44,18 @@ public class CreateSchemaCommand implements CatalogCommand {
 
     private final boolean ifNotExists;
 
-    private CreateSchemaCommand(String schemaName, boolean ifNotExists) {
+    private CreateSchemaCommand(String schemaName, boolean ifNotExists, boolean systemSchemaCommand) {
         validateIdentifier(schemaName, "Name of the schema");
+
+        if (systemSchemaCommand) {
+            if (!CatalogUtils.isSystemSchema(schemaName)) {
+                throw new CatalogValidationException(format("Not a system schema, schema: '{}'", schemaName));
+            }
+        } else {
+            if (CatalogUtils.isSystemSchema(schemaName)) {
+                throw new CatalogValidationException("Reserved system schema with name '{}' can't be created.", schemaName);
+            }
+        }
 
         this.schemaName = schemaName;
         this.ifNotExists = ifNotExists;
@@ -112,7 +123,31 @@ public class CreateSchemaCommand implements CatalogCommand {
         /** {@inheritDoc} */
         @Override
         public CatalogCommand build() {
-            return new CreateSchemaCommand(name, ifNotExists);
+            return new CreateSchemaCommand(name, ifNotExists, false);
+        }
+    }
+
+    /** Returns builder to create a command to create a system schema. */
+    public static SystemSchemaBuilder systemSchemaBuilder() {
+        return new SystemSchemaBuilder();
+    }
+
+    /** Implementation of {@link CreateSystemSchemaCommandBuilder}. */
+    public static class SystemSchemaBuilder implements CreateSystemSchemaCommandBuilder {
+
+        private String name;
+
+        /** {@inheritDoc} */
+        @Override
+        public CreateSystemSchemaCommandBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CatalogCommand build() {
+            return new CreateSchemaCommand(name, false, true);
         }
     }
 }
