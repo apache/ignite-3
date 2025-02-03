@@ -313,7 +313,7 @@ public class QueryExecutor implements LifecycleAware {
 
         return CompletableFutures.allOf(preparedQueryFutures)
                 .handle((none, ignored) -> {
-                    List<DdlPlan> dllPlans = new ArrayList<>();
+                    List<DdlPlan> ddlPlans = new ArrayList<>();
                     for (Query query : queries) {
                         QueryPlan plan = query.plan;
                         if (plan == null) {
@@ -322,16 +322,16 @@ public class QueryExecutor implements LifecycleAware {
                             break;
                         }
 
-                        dllPlans.add((DdlPlan) plan);
+                        ddlPlans.add((DdlPlan) plan);
                     }
 
-                    return dllPlans;
+                    return ddlPlans;
                 })
-                .thenCompose(dllPlans -> {
+                .thenCompose(ddlPlans -> {
                     parent.cancel.throwIfCancelled();
 
                     // First-statement-error case.
-                    if (dllPlans.isEmpty()) {
+                    if (ddlPlans.isEmpty()) {
                         Iterator<Query> it = queries.iterator();
 
                         Throwable th = it.next().error.get();
@@ -345,7 +345,7 @@ public class QueryExecutor implements LifecycleAware {
                         return failedFuture(th);
                     }
 
-                    return executionService.executeDdlBatch(dllPlans, scriptTxContext::updateObservableTime)
+                    return executionService.executeDdlBatch(ddlPlans, scriptTxContext::updateObservableTime)
                             .handle((dataCursors, error) -> {
                                 if (error != null) {
                                     // Fallback to statement-by-statement execution
@@ -403,7 +403,10 @@ public class QueryExecutor implements LifecycleAware {
                 });
     }
 
+    @SuppressWarnings("MethodMayBeStatic")
     private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeSequentially(List<Query> queries) {
+        assert !queries.isEmpty();
+
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> firstCursor = null;
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorRef = null;
         CompletableFuture<Void> lastStep = nullCompletedFuture();
@@ -443,6 +446,7 @@ public class QueryExecutor implements LifecycleAware {
         return firstCursor;
     }
 
+    @SuppressWarnings("MethodMayBeStatic")
     AsyncSqlCursor<InternalSqlRow> createAndSaveSqlCursor(Query query, AsyncDataCursor<InternalSqlRow> dataCursor) {
         QueryPlan plan = query.plan;
 
@@ -462,19 +466,6 @@ public class QueryExecutor implements LifecycleAware {
         ));
 
         return cursor;
-    }
-
-    static class ParsedResultWithNextCursorFuture {
-        private final ParsedResult parsedQuery;
-        private final @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture;
-
-        ParsedResultWithNextCursorFuture(
-                ParsedResult parsedQuery,
-                @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture
-        ) {
-            this.parsedQuery = parsedQuery;
-            this.nextCursorFuture = nextCursorFuture;
-        }
     }
 
     /** Looks up parsed result in cache by given query string. */
@@ -615,5 +606,18 @@ public class QueryExecutor implements LifecycleAware {
         Exception ex = new NodeStoppingException();
 
         runningQueries.values().forEach(query -> query.onError(ex));
+    }
+
+    static class ParsedResultWithNextCursorFuture {
+        private final ParsedResult parsedQuery;
+        private final @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture;
+
+        ParsedResultWithNextCursorFuture(
+                ParsedResult parsedQuery,
+                @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture
+        ) {
+            this.parsedQuery = parsedQuery;
+            this.nextCursorFuture = nextCursorFuture;
+        }
     }
 }

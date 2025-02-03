@@ -422,7 +422,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             List<AsyncDataCursor<InternalSqlRow>> cursors = new ArrayList<>(commands.size());
             for (int i = 0; i < commands.size(); i++) {
-
                 List<InternalSqlRow> resultSet = result.isApplied(i) ? APPLIED_ANSWER : NOT_APPLIED_ANSWER;
 
                 cursors.add(new IteratorToDataCursorAdapter<>(resultSet.iterator()));

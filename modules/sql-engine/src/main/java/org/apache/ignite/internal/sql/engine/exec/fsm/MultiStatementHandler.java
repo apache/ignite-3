@@ -167,7 +167,7 @@ class MultiStatementHandler {
             }
 
             boolean implicitTx = scriptTxContext.explicitTx() == null;
-            ScriptStatement lastProcessedStatement = scriptStatement;
+            boolean lastStatement = scriptStatement.isLastStatement();
             fut.whenComplete((cursor, ex) -> {
                 if (ex != null) {
                     scriptTxContext.onError(ex);
@@ -185,7 +185,7 @@ class MultiStatementHandler {
                     dependentQueries.add(cursor.onClose());
                 }
 
-                if (lastProcessedStatement.isLastStatement()) {
+                if (lastStatement) {
                     // Try to rollback script managed transaction, if any.
                     scriptTxContext.rollbackUncommitted();
 

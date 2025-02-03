@@ -20,9 +20,9 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -78,20 +78,26 @@ public class DdlCommandHandler implements LifecycleAware {
     public CompletableFuture<CatalogApplyResult> handle(List<CatalogCommand> batch) {
         CompletableFuture<CatalogApplyResult> fut = catalogManager.execute(batch);
 
-        List<AbstractCreateIndexCommand> createIndexCommands = batch.stream()
-                .filter(AbstractCreateIndexCommand.class::isInstance)
-                .map(AbstractCreateIndexCommand.class::cast)
-                .collect(Collectors.toList());
+        boolean hasCreateIndexCommand = batch.stream().anyMatch(AbstractCreateIndexCommand.class::isInstance);
 
-        if (createIndexCommands.isEmpty()) {
+        if (!hasCreateIndexCommand) {
             return fut;
         }
 
         return fut.thenCompose(applyResult ->
                 inBusyLock(busyLock, () -> {
-                    List<CompletableFuture<CatalogApplyResult>> toWait = createIndexCommands.stream()
-                            .map(cmd -> waitTillIndexBecomesAvailableOrRemoved(cmd, applyResult))
-                            .collect(Collectors.toList());
+                    List<CompletableFuture<?>> toWait = new ArrayList<>();
+                    for (int i = 0; i < batch.size(); i++) {
+                        CatalogCommand cmd = batch.get(i);
+
+                        if (!(cmd instanceof AbstractCreateIndexCommand) || !applyResult.isApplied(i)) {
+                            continue;
+                        }
+
+                        toWait.add(waitTillIndexBecomesAvailableOrRemoved(
+                                ((AbstractCreateIndexCommand) cmd), i, applyResult
+                        ));
+                    }
 
                     return CompletableFutures.allOf(toWait).thenApply(none -> applyResult);
                 })
@@ -109,7 +115,7 @@ public class DdlCommandHandler implements LifecycleAware {
 
         if (cmd instanceof AbstractCreateIndexCommand) {
             fut = fut.thenCompose(applyResult ->
-                    inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved((AbstractCreateIndexCommand) cmd, applyResult)));
+                    inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved((AbstractCreateIndexCommand) cmd, 0, applyResult)));
         }
 
         return fut;
@@ -117,9 +123,10 @@ public class DdlCommandHandler implements LifecycleAware {
 
     private CompletableFuture<CatalogApplyResult> waitTillIndexBecomesAvailableOrRemoved(
             AbstractCreateIndexCommand cmd,
+            int commandIdx,
             CatalogApplyResult catalogApplyResult
     ) {
-        if (!catalogApplyResult.isApplied(0)) {
+        if (!catalogApplyResult.isApplied(commandIdx)) {
             return CompletableFuture.completedFuture(catalogApplyResult);
         }
 
