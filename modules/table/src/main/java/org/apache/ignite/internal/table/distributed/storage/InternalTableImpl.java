@@ -168,6 +168,9 @@ public class InternalTableImpl implements InternalTable {
     /** Table identifier. */
     private final int tableId;
 
+    /** Distribution zone identifier. */
+    private final int zoneId;
+
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
 
@@ -225,6 +228,7 @@ public class InternalTableImpl implements InternalTable {
     public InternalTableImpl(
             QualifiedName tableName,
             int tableId,
+            int zoneId,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
@@ -241,6 +245,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
+        this.zoneId = zoneId;
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;

@@ -261,8 +261,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         super(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                nextTableId.getAndIncrement(),
-                1,
+                nextTableId.getAndIncrement(), // table id.
+                2, // zone id.
+                1, // number of partitions.
                 new SingleClusterNodeResolver(LOCAL_NODE),
                 txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),
                 mock(MvTableStorage.class),

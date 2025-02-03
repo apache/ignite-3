@@ -126,6 +126,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
     private static final int TABLE_ID = 1;
 
+    private static final int ZONE_ID = 2;
+
     private static final int PARTITIONS_NUM = 3;
 
     private static final List<TablePartitionId> TABLE_PARTITION_IDS = IntStream.range(0, PARTITIONS_NUM)
@@ -203,6 +205,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         table = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME),
                 TABLE_ID,
+                ZONE_ID,
                 PARTITIONS_NUM,
                 clusterService.topologyService(),
                 txManager,

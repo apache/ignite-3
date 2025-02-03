@@ -342,6 +342,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         intTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "TEST"),
                 tblId,
+                2, // zone id.
                 PARTS,
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,

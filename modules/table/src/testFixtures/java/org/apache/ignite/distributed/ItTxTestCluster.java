@@ -645,7 +645,8 @@ public class ItTxTestCluster {
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName),
                 tableId,
-                1,
+                2, // zone id.
+                1, // number of partitions.
                 nodeResolver,
                 clientTxManager,
                 mock(MvTableStorage.class),

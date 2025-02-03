@@ -63,8 +63,9 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     void testUpdatePartitionTrackers() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                1,
-                1,
+                1, // table id.
+                2, // zone id.
+                1, // number of partitions.
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
@@ -112,8 +113,9 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     void testRowBatchByPartitionId() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                1,
-                3,
+                1, // table id.
+                2, // zone id.
+                3, // number of partitions.
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
