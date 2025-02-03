@@ -165,6 +165,15 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         return finishInternal(commit, executionTimestamp, full, true);
     }
 
+    /**
+     * Finishes the read-write transaction.
+     *
+     * @param commit Commit flag.
+     * @param executionTimestamp The timestamp is the time when the transaction is applied to the remote node.
+     * @param full Full state transaction marker.
+     * @param isComplete The flag is true if the transaction is completed through the public API, false for {@link this#kill()} invocation.
+     * @return The future.
+     */
     private CompletableFuture<Void> finishInternal(
             boolean commit,
             @Nullable HybridTimestamp executionTimestamp,
