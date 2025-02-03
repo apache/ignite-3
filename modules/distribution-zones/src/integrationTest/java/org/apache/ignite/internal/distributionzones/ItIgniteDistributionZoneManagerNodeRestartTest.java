@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -30,14 +31,21 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLatestDataNodesHistoryEntry;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKeyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKeyPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
+import static org.apache.ignite.internal.metastorage.dsl.OperationType.NO_OP;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -60,6 +68,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -101,6 +110,8 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
+import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
+import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimers;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -113,6 +124,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.If;
@@ -598,7 +610,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 byte[][] keysFromIf = iif1.cond().keys();
 
                 Optional<ByteArray> dataNodeKeyOptional = Arrays.stream(keysFromIf)
-                        .filter(op -> startsWith(op, zoneDataNodesKey().bytes()))
+                        .filter(op -> startsWith(op, DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(UTF_8)))
                         .findFirst()
                         .map(ByteArray::new);
 
@@ -624,8 +636,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertValueInStorage(
                 metastore,
-                zoneDataNodesKey(zoneId),
-                (v) -> dataNodes(deserializeDataNodesMap(v)).stream().map(Node::nodeName).collect(toSet()),
+                zoneDataNodesHistoryKey(zoneId),
+                (v) -> dataNodes(deserializeLatestDataNodesHistoryEntry(v)).stream().map(Node::nodeName).collect(toSet()),
                 Set.of(A.name(), B.name(), C.name()),
                 TIMEOUT_MILLIS
         );
@@ -705,7 +717,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertLogicalTopologyInMetastorage(Set.of(A, B), metastore);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1, consistencyMode);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 100, 100, consistencyMode);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -720,11 +732,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 Set.of(A, B),
                 TIMEOUT_MILLIS
         );
-
-        // Block scale up
-        CountDownLatch scaleUpLatch = blockScaleUpTaskExecution(zoneId, distributionZoneManager);
-
-        assertTrue(waitForCondition(() -> scaleUpLatch.getCount() == 1, TIMEOUT_MILLIS));
 
         node.logicalTopology().putNode(C);
         node.logicalTopology().removeNodes(Set.of(B));
@@ -743,9 +750,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         node.stop();
 
-        scaleUpLatch.countDown();
+        log.info("Test: restarting node.");
 
         node = startPartialNode(0);
+
+        alterZone(node, zoneName, 0, 0, null);
 
         distributionZoneManager = getDistributionZoneManager(node);
 
@@ -753,14 +762,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
-
-        assertValueInStorage(
-                metastore,
-                zoneDataNodesKey(zoneId),
-                (v) -> dataNodes(deserializeDataNodesMap(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(A.name(), B.name(), C.name()),
-                TIMEOUT_MILLIS
-        );
     }
 
     @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
@@ -780,14 +781,18 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
         CatalogManager catalogManager = getCatalogManager(node);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1, consistencyMode);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                0,
+                Set.of(A, B),
+                TIMEOUT_MILLIS
+        );
+
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 100, 100, consistencyMode);
 
         int zoneId = getZoneId(node, zoneName);
-
-        // Block scale down
-        CountDownLatch scaleDownLatch = blockScaleDownTaskExecution(zoneId, distributionZoneManager);
-
-        assertTrue(waitForCondition(() -> scaleDownLatch.getCount() == 1, TIMEOUT_MILLIS));
 
         node.logicalTopology().removeNodes(Set.of(B));
         node.logicalTopology().putNode(C);
@@ -803,25 +808,20 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         node.stop();
 
-        scaleDownLatch.countDown();
+        log.info("Test: restarting node.");
 
         node = startPartialNode(0);
+
+        alterZone(node, zoneName, 0, 0, null);
 
         catalogManager = getCatalogManager(node);
 
         assertDataNodesFromManager(
                 getDistributionZoneManager(node),
-                metastore::appliedRevision, catalogManager::latestCatalogVersion,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
                 zoneId,
                 Set.of(A, C),
-                TIMEOUT_MILLIS
-        );
-
-        assertValueInStorage(
-                metastore,
-                zoneDataNodesKey(zoneId),
-                (v) -> dataNodes(deserializeDataNodesMap(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(A.name(), C.name()),
                 TIMEOUT_MILLIS
         );
     }
@@ -843,15 +843,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
             alterZone(node, zoneName, scaleUp, scaleDown, null);
 
-            ZoneState zoneState = getDistributionZoneManager(node).zonesState().get(defaultZone.id());
+            ZoneTimers zoneTimers = getDistributionZoneManager(node).dataNodesManager().zoneTimers(defaultZone.id());
 
             // This is needed because we want to wait for the end of scale up/down triggered by altering delays.
-            if (zoneState.scaleUpTask() != null) {
-                assertTrue(waitForCondition(() -> zoneState.scaleUpTask().isDone(), TIMEOUT_MILLIS));
+            if (zoneTimers.scaleUp.taskIsScheduled()) {
+                assertTrue(waitForCondition(zoneTimers.scaleUp::taskIsDone, TIMEOUT_MILLIS));
             }
 
-            if (zoneState.scaleDownTask() != null) {
-                assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isDone(), TIMEOUT_MILLIS));
+            if (zoneTimers.scaleDown.taskIsScheduled()) {
+                assertTrue(waitForCondition(zoneTimers.scaleDown::taskIsDone, TIMEOUT_MILLIS));
             }
         } else {
             zoneName = ZONE_NAME;
@@ -866,16 +866,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         doThrow(new RuntimeException("Expected")).when(metaStorageManager).invoke(argThat(iif -> {
             If iif1 = MetaStorageWriteHandler.toIf(iif);
 
-            byte[] keyScaleUpBytes = zoneScaleUpChangeTriggerKeyPrefix().bytes();
-            byte[] keyScaleDownBytes = zoneScaleDownChangeTriggerKeyPrefix().bytes();
+            byte[] keyScaleUpBytes = DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX.getBytes(UTF_8);
+            byte[] keyScaleDownBytes = DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX.getBytes(UTF_8);
             byte[] keyGlobalStateBytes = zonesRecoverableStateRevision().bytes();
 
             boolean isScaleUpKey = iif1.andThen().update().operations().stream()
-                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleUpBytes));
+                    .anyMatch(op -> op.type() != NO_OP && startsWith(toByteArray(op.key()), keyScaleUpBytes));
             boolean isScaleDownKey = iif1.andThen().update().operations().stream()
-                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleDownBytes));
+                    .anyMatch(op -> op.type() != NO_OP && startsWith(toByteArray(op.key()), keyScaleDownBytes));
             boolean isGlobalStateChangeKey = iif1.andThen().update().operations().stream()
-                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyGlobalStateBytes));
+                    .anyMatch(op -> op.type() != NO_OP && startsWith(toByteArray(op.key()), keyGlobalStateBytes));
 
             return isScaleUpKey && startScaleUpBlocking
                     || isScaleDownKey && startScaleDownBlocking
@@ -904,7 +904,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     }
 
     private static int getDefaultZoneId(PartialNode node) {
-        return DistributionZonesTestUtil.getDefaultZone(getCatalogManager(node), node.clock().nowLong()).id();
+        return getDefaultZone(getCatalogManager(node), node.clock().nowLong()).id();
     }
 
     private static void alterZone(
@@ -915,55 +915,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             @Nullable String filter
     ) {
         DistributionZonesTestUtil.alterZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, filter);
-    }
-
-    /**
-     * Schedule a scale up task which block execution of another scale up tasks.
-     * Note that because of the executor of scale up/scale down tasks is single-threaded, this
-     * method also blocks scale down tasks execution.
-     *
-     * @return Latch to unblock execution of scale up tasks.
-     */
-    private static CountDownLatch blockScaleUpTaskExecution(int zoneId, DistributionZoneManager distributionZoneManager) {
-        CountDownLatch scaleUpLatch = new CountDownLatch(2);
-
-        Runnable dummyScaleUpTask = () -> {
-            try {
-                scaleUpLatch.countDown();
-                scaleUpLatch.await(2 * TIMEOUT_MILLIS, MILLISECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        };
-        distributionZoneManager.zonesState().get(zoneId)
-                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, zoneId);
-
-        return scaleUpLatch;
-    }
-
-    /**
-     * Schedule a scale down task which block execution of another scale down tasks.
-     * Note that because of the executor of scale up/scale down tasks is single-threaded, this
-     * method also blocks scale up tasks execution.
-     *
-     * @return Latch to unblock execution of scale down tasks.
-     */
-    private static CountDownLatch blockScaleDownTaskExecution(int zoneId, DistributionZoneManager distributionZoneManager) {
-        CountDownLatch scaleDownLatch = new CountDownLatch(2);
-
-        Runnable dummyScaleDownTask = () -> {
-            try {
-                scaleDownLatch.countDown();
-                scaleDownLatch.await(TIMEOUT_MILLIS, MILLISECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        };
-
-        distributionZoneManager.zonesState().get(zoneId)
-                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, zoneId);
-
-        return scaleDownLatch;
     }
 
     private static void awaitDefaultZoneCreation(PartialNode node) {

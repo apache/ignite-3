@@ -472,6 +472,16 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
+     *
+     * @param dataNodes Data nodes with attributes set.
+     * @return Returns a set of data nodes retrieved from data nodes with attributes set.
+     */
+    public static Set<Node> dataNodes(Set<NodeWithAttributes> dataNodes) {
+        return dataNodes.stream().map(NodeWithAttributes::node).collect(toSet());
+    }
+
+    /**
      * Returns a map from a set of data nodes. This map has the following structure: node is mapped to integer,
      * integer represents how often node joined or leaved topology. In this case, set of nodes is interpreted as nodes
      * that joined topology, so all mappings will be node -> 1.
@@ -499,6 +509,12 @@ public class DistributionZonesUtil {
 
     public static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
         return DataNodesMapSerializer.deserialize(bytes);
+    }
+
+    public static Set<NodeWithAttributes> deserializeLatestDataNodesHistoryEntry(byte[] bytes) {
+        DataNodesHistory history = DataNodesHistorySerializer.deserialize(bytes);
+
+        return history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).getSecond();
     }
 
     public static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {

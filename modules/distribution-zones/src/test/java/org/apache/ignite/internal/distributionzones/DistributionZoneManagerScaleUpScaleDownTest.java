@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.dataNodeHistoryContext;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.logicalNodeFromNode;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -36,10 +35,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -48,7 +45,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodeHistoryContext;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
@@ -56,9 +52,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;

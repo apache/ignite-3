@@ -27,15 +27,12 @@ import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIG
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
-import static org.apache.ignite.internal.distributionzones.DataNodesManager.addNewEntryToDataNodesHistory;
-import static org.apache.ignite.internal.distributionzones.DataNodesManager.clearTimer;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForRecoverableStateChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersionAndClusterId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
@@ -49,10 +46,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -259,10 +254,9 @@ public class DistributionZoneManager extends
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
-            dataNodesManager.start(catalogManager.activeCatalog(catalogVersion).zones());
-
             return allOf(
-                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
+                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion),
+                    dataNodesManager.startAsync(catalogManager.catalog(catalogVersion).zones())
             ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
         });
     }

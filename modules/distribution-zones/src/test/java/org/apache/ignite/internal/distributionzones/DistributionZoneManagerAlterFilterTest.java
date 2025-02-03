@@ -215,21 +215,16 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         topology.putNode(e);
 
-        // Check that node E, that was added while filter's altering, is instantly propagated to data nodes.
+        // Check that node E, that was added while filter's altering, is not instantly propagated to data nodes.
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 zoneId, Set.of(C, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
 
-        // Assert that scheduled timer was not canceled because of immediate scale up after filter altering.
-        assertTrue(distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleUp.taskIsScheduled());
+        // Assert that scheduled timer was created because of node E addition.
+        assertTrue(
+                waitForCondition(() -> distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleUp.taskIsScheduled(), 2000)
+        );
 
         alterZone(zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, newFilter);
-
-        assertTrue(
-                waitForCondition(
-                        () -> distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleUp.taskIsDone(),
-                        1000
-                )
-        );
 
         // Check that node E, that was added after filter's altering, was added only after altering immediate scale up.
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,

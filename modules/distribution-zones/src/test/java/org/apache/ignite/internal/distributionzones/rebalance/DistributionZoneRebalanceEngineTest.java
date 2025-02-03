@@ -541,8 +541,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                     .map(n -> nodeWithAttributesMap.get(findNodeIdByConsistentId(n)))
                     .collect(toSet());
 
-            DataNodesHistory history = new DataNodesHistory();
-            history.addHistoryEntry(clock.now(), nodeWithAttributes);
+            DataNodesHistory history = new DataNodesHistory().addHistoryEntry(clock.now(), nodeWithAttributes);
 
             newLogicalTopology = DataNodesHistorySerializer.serialize(history);
         } else {
