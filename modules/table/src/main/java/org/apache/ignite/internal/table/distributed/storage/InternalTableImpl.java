@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -42,6 +43,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
@@ -104,14 +106,18 @@ import org.apache.ignite.internal.partition.replicator.network.replication.SwapR
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -154,6 +160,11 @@ public class InternalTableImpl implements InternalTable {
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     public static final int DEFAULT_RW_TIMEOUT = 10_000;
+
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     /** Partitions. */
     private final int partitions;
@@ -1116,6 +1127,10 @@ public class InternalTableImpl implements InternalTable {
 
     private static TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
         return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, id);
+    }
+
+    private static ZonePartitionIdMessage serializeZonePartitionId(ZonePartitionId id) {
+        return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, id);
     }
 
     /** {@inheritDoc} */
@@ -2133,13 +2148,21 @@ public class InternalTableImpl implements InternalTable {
         var invokeFutures = new CompletableFuture<?>[partitions];
 
         for (int partId = 0; partId < partitions; partId++) {
-            var replicaGroupId = new TablePartitionId(tableId, partId);
+            ReplicationGroupIdMessage partitionIdMessage;
+            ReplicationGroupId replicaGroupId;
 
-            TablePartitionIdMessage partitionIdMessage = serializeTablePartitionId(replicaGroupId);
+            if (enabledColocationFeature) {
+                replicaGroupId = new ZonePartitionId(tableId, partId);
+                partitionIdMessage = serializeZonePartitionId((ZonePartitionId) replicaGroupId);
+            } else {
+                replicaGroupId = new TablePartitionId(tableId, partId);
+                partitionIdMessage = serializeTablePartitionId((TablePartitionId) replicaGroupId);
+            }
 
             Function<ReplicaMeta, ReplicaRequest> requestFactory = replicaMeta ->
                     TABLE_MESSAGES_FACTORY.getEstimatedSizeRequest()
                             .groupId(partitionIdMessage)
+                            .tableId(tableId)
                             .enlistmentConsistencyToken(enlistmentConsistencyToken(replicaMeta))
                             .build();
 
@@ -2156,12 +2179,12 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private <T> CompletableFuture<T> sendToPrimaryWithRetry(
-            TablePartitionId tablePartitionId,
+            ReplicationGroupId replicationGroupId,
             HybridTimestamp hybridTimestamp,
             int numRetries,
             Function<ReplicaMeta, ReplicaRequest> requestFactory
     ) {
-        return awaitPrimaryReplica(tablePartitionId, hybridTimestamp)
+        return awaitPrimaryReplica(replicationGroupId, hybridTimestamp)
                 .thenCompose(replicaMeta -> {
                     String leaseHolderName = replicaMeta.getLeaseholder();
 
@@ -2192,7 +2215,7 @@ public class InternalTableImpl implements InternalTable {
 
                                     // Primary Replica has changed, need to wait for the new replica to appear.
                                     return this.<T>sendToPrimaryWithRetry(
-                                            tablePartitionId,
+                                            replicationGroupId,
                                             replicaMeta.getExpirationTime().tick(),
                                             numRetries - 1,
                                             requestFactory
@@ -2276,9 +2299,9 @@ public class InternalTableImpl implements InternalTable {
         return matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR);
     }
 
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId tablePartitionId, HybridTimestamp timestamp) {
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+                replicationGroupId,
                 timestamp,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
