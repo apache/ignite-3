@@ -32,6 +32,12 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
     /** Serializer instance. */
     public static final RaftGroupConfigurationSerializer INSTANCE = new RaftGroupConfigurationSerializer();
 
+    /** Unknown index value. */
+    private static final long UNKNOWN_INDEX = -1L;
+
+    /** Unknown term value. */
+    private static final long UNKNOWN_TERM = -1L;
+
     @Override
     protected byte getProtocolVersion() {
         return 2;
@@ -71,8 +77,8 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
             index = in.readLong();
             term = in.readLong();
         } else {
-            index = -1;
-            term = -1;
+            index = UNKNOWN_INDEX;
+            term = UNKNOWN_TERM;
         }
 
         List<String> peers = readStringList(in);
