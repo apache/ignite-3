@@ -3486,7 +3486,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
 
-        // Wait until new node node sees every other node, otherwise
+        // Wait until new node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
         waitForTopologyOnEveryNode(2, cluster);
 
@@ -3511,6 +3511,15 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         );
     }
 
+    /**
+     * Test that index and term of configuration are propagated to snapshot meta.
+     * <p>
+     * To check that, we change configuration from [A] to [A, B, C] and track index and term propagated to
+     * onRawConfigurationCommitted, also we force snapshot installation and check index and term
+     * propagated to onSnapshotLoad, and all of this we assert with expected values of configuration entry.
+     *
+     * @throws Exception If failed.
+     */
     @Test
     public void testIndexAndTermOfCfgArePropagatedToSnapshotMeta() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
@@ -3567,7 +3576,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(cluster.start(newPeer, false, 300));
         assertTrue(cluster.start(otherPeer, false, 300));
 
-        // Wait until new node node sees every other node, otherwise
+        // Wait until new node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
         waitForTopologyOnEveryNode(3, cluster);
 
@@ -3583,7 +3592,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         assertTrue(cluster.stop(newPeer.getPeerId()));
 
-        // apply something more
+        // Apply something more.
         sendTestTaskAndWait(leader);
         triggerLeaderSnapshot(cluster, leader);
 
@@ -3591,7 +3600,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         triggerLeaderSnapshot(cluster, leader, 2);
 
-        //restart follower.
+        // Restart follower.
         cluster.clean(newPeer.getPeerId());
         assertTrue(cluster.start(newPeer, false, 300));
 
@@ -3601,9 +3610,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         for (MockStateMachine fsm : cluster.getFsms())
             assertEquals(20, fsm.getLogs().size(), fsm.getPeerId().toString());
 
-        // Leader hasn't been changed, term must stay the same
+        // Leader hasn't been changed, term must stay the same.
         assertEquals(1, configTerm.get());
-        // idx_2 == joint consensus, idx_3 is expected final cfg
+        // idx_2 == joint consensus, idx_3 is expected final cfg.
         assertEquals(3, configIndex.get());
 
         assertEquals(1, metaConfigTerm.get());
