@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -50,6 +51,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -69,6 +71,8 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.Distri
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodeHistoryContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -79,6 +83,8 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -172,7 +178,8 @@ public class DataNodesManager {
                             return null;
                         }
 
-                        LOG.warn("Topology change detected [zoneId={}, timestamp={}, newTopology={}].", zoneId, timestamp, nodeNames(newLogicalTopology));
+                        LOG.debug("Topology change detected [zoneId={}, timestamp={}, newTopology={}].", zoneId, timestamp,
+                                nodeNames(newLogicalTopology));
 
                         DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
                         DistributionZoneTimer scaleDownTimer = dataNodeHistoryContext.scaleDownTimer();
@@ -435,7 +442,7 @@ public class DataNodesManager {
                             return null;
                         }
 
-                        LOG.info("Scale up timer triggered [zoneId={}, timer={}].", zoneId, scaleUpTimer0);
+                        LOG.debug("Scale up timer triggered [zoneId={}, timer={}].", zoneId, scaleUpTimer0);
 
                         if (dataNodesHistory.entryIsPresentAtExactTimestamp(scaleUpTimer0.timeToTrigger())) {
                             return null;
@@ -510,7 +517,7 @@ public class DataNodesManager {
                             return null;
                         }
 
-                        LOG.info("Scale down timer triggered [zoneId={}, timer={}].", zoneId, scaleDownTimer0);
+                        LOG.debug("Scale down timer triggered [zoneId={}, timer={}].", zoneId, scaleDownTimer0);
 
                         if (dataNodesHistory.entryIsPresentAtExactTimestamp(scaleDownTimer0.timeToTrigger())) {
                             return null;
@@ -747,6 +754,72 @@ public class DataNodesManager {
                 .thenCompose(c -> nullCompletedFuture());
     }
 
+    /**
+     * Method initialise data nodes history value for the specified zone, also sets the
+     * {@link DistributionZonesUtil#zoneScaleUpTimerKey(int)} and {@link DistributionZonesUtil#zoneScaleDownTimerKey}
+     * if it passes the condition. It is called on the first creation of a zone.
+     *
+     * @param zoneId Unique id of a zone
+     * @param timestamp Timestamp of an event that has triggered this method.
+     * @param dataNodes Data nodes.
+     * @return Future reflecting the completion of initialisation of zone's keys in meta storage.
+     */
+    CompletableFuture<Void> onZoneCreate(
+            int zoneId,
+            HybridTimestamp timestamp,
+            Set<NodeWithAttributes> dataNodes
+    ) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            // Update data nodes for a zone only if the corresponding data nodes keys weren't initialised in ms yet.
+            Condition condition = and(
+                    notExists(zoneDataNodesHistoryKey(zoneId)),
+                    notTombstone(zoneDataNodesHistoryKey(zoneId))
+            );
+
+            Update update = ops(
+                    addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes),
+                    clearTimer(zoneScaleUpTimerKey(zoneId)),
+                    clearTimer(zoneScaleDownTimerKey(zoneId)),
+                    clearTimer(zonePartitionResetTimerKey(zoneId))
+            ).yield(true);
+
+            Iif iif = iif(condition, update, ops().yield(false));
+
+            return metaStorageManager.invoke(iif)
+                    .thenApply(StatementResult::getAsBoolean)
+                    .whenComplete((invokeResult, e) -> {
+                        if (e != null) {
+                            LOG.error(
+                                    "Failed to update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
+                                    e,
+                                    zoneId,
+                                    timestamp,
+                                    nodeNames(dataNodes)
+                            );
+                        } else if (invokeResult) {
+                            LOG.info("Update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
+                                    zoneId,
+                                    timestamp,
+                                    nodeNames(dataNodes)
+                            );
+                        } else {
+                            LOG.debug(
+                                    "Failed to update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
+                                    zoneId,
+                                    timestamp,
+                                    nodeNames(dataNodes)
+                            );
+                        }
+                    }).thenCompose((ignored) -> nullCompletedFuture());
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     void onZoneDrop(int zoneId, HybridTimestamp timestamp) {
         ZoneTimers zt = zoneTimers.remove(zoneId);
         if (zt != null) {
@@ -838,6 +911,7 @@ public class DataNodesManager {
         synchronized void stopScheduledTask() {
             if (taskFuture != null && delay > 0) {
                 taskFuture.cancel(false);
+                taskFuture = null;
 
                 delay = 0;
             }
@@ -846,6 +920,7 @@ public class DataNodesManager {
         synchronized void stopTimer() {
             if (taskFuture != null) {
                 taskFuture.cancel(false);
+                taskFuture = null;
             }
         }
 
@@ -856,8 +931,7 @@ public class DataNodesManager {
 
         @TestOnly
         synchronized boolean taskIsCancelled() {
-            assert taskFuture != null;
-            return taskFuture.isCancelled();
+            return taskFuture == null;
         }
 
         @TestOnly

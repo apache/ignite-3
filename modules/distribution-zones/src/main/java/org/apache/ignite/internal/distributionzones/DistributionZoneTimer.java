@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.unmodifiableSet;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 
 import java.io.IOException;
@@ -95,7 +96,7 @@ public class DistributionZoneTimer {
      * @return Timestamp to trigger.
      */
     public HybridTimestamp timeToTrigger() {
-        if (timeToWaitInSeconds == Integer.MAX_VALUE) {
+        if (timeToWaitInSeconds == INFINITE_TIMER_VALUE) {
             return HybridTimestamp.MAX_VALUE;
         }
 
@@ -136,7 +137,7 @@ public class DistributionZoneTimer {
 
     @Override
     public String toString() {
-        String timeToWaitStr = (timeToWaitInSeconds == Integer.MAX_VALUE ? "[infinite]" : String.valueOf(timeToWaitInSeconds));
+        String timeToWaitStr = (timeToWaitInSeconds == INFINITE_TIMER_VALUE ? "[infinite]" : String.valueOf(timeToWaitInSeconds));
 
         return equals(DEFAULT_TIMER) ? "[empty]" : "[timestamp=" + createTimestamp
                 + ", timeToWaitInSeconds=" + timeToWaitStr

@@ -392,73 +392,7 @@ public class DistributionZoneManager extends
     private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        return initDataNodesKeysInMetaStorage(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone));
-    }
-
-    /**
-     * Method initialise data nodes value for the specified zone, also sets {@code revision} to the
-     * {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} and {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}
-     * if it passes the condition. It is called on the first creation of a zone.
-     *
-     * @param zoneId Unique id of a zone
-     * @param timestamp Timestamp of an event that has triggered this method.
-     * @param dataNodes Data nodes.
-     * @return Future reflecting the completion of initialisation of zone's keys in meta storage.
-     */
-    private CompletableFuture<Void> initDataNodesKeysInMetaStorage(
-            int zoneId,
-            HybridTimestamp timestamp,
-            Set<NodeWithAttributes> dataNodes
-    ) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            // Update data nodes for a zone only if the corresponding data nodes keys weren't initialised in ms yet.
-            Condition condition = and(
-                    notExists(zoneDataNodesHistoryKey(zoneId)),
-                    notTombstone(zoneDataNodesHistoryKey(zoneId))
-            );
-
-            Update update = ops(
-                    addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes),
-                    clearTimer(zoneScaleUpTimerKey(zoneId)),
-                    clearTimer(zoneScaleDownTimerKey(zoneId)),
-                    clearTimer(zonePartitionResetTimerKey(zoneId))
-            ).yield(true);
-
-            Iif iif = iif(condition, update, ops().yield(false));
-
-            return metaStorageManager.invoke(iif)
-                    .thenApply(StatementResult::getAsBoolean)
-                    .whenComplete((invokeResult, e) -> {
-                        if (e != null) {
-                            LOG.error(
-                                    "Failed to update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
-                                    e,
-                                    zoneId,
-                                    timestamp,
-                                    nodeNames(dataNodes)
-                                    );
-                        } else if (invokeResult) {
-                            LOG.info("Update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
-                                    zoneId,
-                                    timestamp,
-                                    nodeNames(dataNodes)
-                            );
-                        } else {
-                            LOG.debug(
-                                    "Failed to update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
-                                    zoneId,
-                                    timestamp,
-                                    nodeNames(dataNodes)
-                            );
-                        }
-                    }).thenCompose((ignored) -> nullCompletedFuture());
-            } finally {
-            busyLock.leaveBusy();
-        }
+        return dataNodesManager.onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone));
     }
 
     /**
