@@ -49,8 +49,14 @@ public class CreateSchemaCommand implements CatalogCommand {
     private CreateSchemaCommand(String schemaName, boolean ifNotExists, boolean systemSchemaCommand) {
         validateIdentifier(schemaName, "Name of the schema");
 
-        if (systemSchemaCommand && !CatalogUtils.isSystemSchema(schemaName)) {
-            throw new CatalogValidationException(format("Not a system schema, schema: '{}'", schemaName));
+        if (systemSchemaCommand) {
+            if (!CatalogUtils.isSystemSchema(schemaName)) {
+                throw new CatalogValidationException(format("Not a system schema, schema: '{}'", schemaName));
+            }
+        } else {
+            if (CatalogUtils.isSystemSchema(schemaName)) {
+                throw new CatalogValidationException("Reserved system schema with name '{}' can't be created.", schemaName);
+            }
         }
 
         this.schemaName = schemaName;
@@ -65,10 +71,6 @@ public class CreateSchemaCommand implements CatalogCommand {
     /** {@inheritDoc} */
     @Override
     public List<UpdateEntry> get(UpdateContext updateContext) {
-        if (!systemSchemaCommand && CatalogUtils.isSystemSchema(schemaName)) {
-            throw new CatalogValidationException("Reserved system schema with name '{}' can't be created.", schemaName);
-        }
-
         Catalog catalog = updateContext.catalog();
         int id = catalog.objectIdGenState();
 
