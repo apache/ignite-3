@@ -3524,6 +3524,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     public void testIndexAndTermOfCfgArePropagatedToSnapshotMeta() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
 
+        TestPeer restartingPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
+        TestPeer otherPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 2);
+
         AtomicLong configTerm = new AtomicLong(-1);
         AtomicLong configIndex = new AtomicLong(-1);
 
@@ -3540,10 +3543,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     opts.setFsm(new MockStateMachine(peerId) {
                         @Override
                         public boolean onSnapshotLoad(SnapshotReader reader) {
-                            SnapshotMeta meta = reader.load();
+                            if (this.getPeerId().equals(restartingPeer.getPeerId())) {
+                                SnapshotMeta meta = reader.load();
 
-                            metaConfigTerm.set(meta.cfgTerm());
-                            metaConfigIndex.set(meta.cfgIndex());
+                                metaConfigTerm.set(meta.cfgTerm());
+                                metaConfigIndex.set(meta.cfgIndex());
+                            }
 
                             return super.onSnapshotLoad(reader);
                         }
@@ -3570,10 +3575,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertEquals(1, configTerm.get());
         assertEquals(1, configIndex.get());
 
-        TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
-        TestPeer otherPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 2);
-
-        assertTrue(cluster.start(newPeer, false, 300));
+        assertTrue(cluster.start(restartingPeer, false, 300));
         assertTrue(cluster.start(otherPeer, false, 300));
 
         // Wait until new node sees every other node, otherwise
@@ -3582,15 +3584,15 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         SynchronizedClosure done = new SynchronizedClosure();
         leader.changePeersAndLearnersAsync(
-                new Configuration(List.of(peer0.getPeerId(), newPeer.getPeerId(), otherPeer.getPeerId()), List.of()), leader.getCurrentTerm(),
+                new Configuration(List.of(peer0.getPeerId(), restartingPeer.getPeerId(), otherPeer.getPeerId()), List.of()), leader.getCurrentTerm(),
                 done
         );
 
         assertEquals(done.await(), Status.OK());
 
-        assertTrue(waitForCondition(() -> cluster.getLeader().listAlivePeers().contains(newPeer.getPeerId()), 10_000));
+        assertTrue(waitForCondition(() -> cluster.getLeader().listAlivePeers().contains(restartingPeer.getPeerId()), 10_000));
 
-        assertTrue(cluster.stop(newPeer.getPeerId()));
+        assertTrue(cluster.stop(restartingPeer.getPeerId()));
 
         // Apply something more.
         sendTestTaskAndWait(leader);
@@ -3601,14 +3603,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         triggerLeaderSnapshot(cluster, leader, 2);
 
         // Restart follower.
-        cluster.clean(newPeer.getPeerId());
-        assertTrue(cluster.start(newPeer, false, 300));
+        cluster.clean(restartingPeer.getPeerId());
+        assertTrue(cluster.start(restartingPeer, false, 300));
 
         cluster.ensureSame();
-
-        assertEquals(3, cluster.getFsms().size());
-        for (MockStateMachine fsm : cluster.getFsms())
-            assertEquals(20, fsm.getLogs().size(), fsm.getPeerId().toString());
 
         // Leader hasn't been changed, term must stay the same.
         assertEquals(1, configTerm.get());

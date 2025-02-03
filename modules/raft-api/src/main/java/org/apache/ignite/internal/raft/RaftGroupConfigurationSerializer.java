@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_INDEX;
+import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_TERM;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,12 +34,6 @@ import org.jetbrains.annotations.Nullable;
 public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGroupConfiguration> {
     /** Serializer instance. */
     public static final RaftGroupConfigurationSerializer INSTANCE = new RaftGroupConfigurationSerializer();
-
-    /** Unknown index value. */
-    private static final long UNKNOWN_INDEX = -1L;
-
-    /** Unknown term value. */
-    private static final long UNKNOWN_TERM = -1L;
 
     @Override
     protected byte getProtocolVersion() {
@@ -73,7 +70,7 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
         long index;
         long term;
 
-        if (protoVer == 2) {
+        if (protoVer >= 2) {
             index = in.readLong();
             term = in.readLong();
         } else {
