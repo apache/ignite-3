@@ -723,16 +723,16 @@ public class TypeUtils {
      *   length in octets of T becomes L, and a completion condition is raised: warning — string
      *   data, right truncation.
      */
-    public static <RowT> RowT validateCharactersOverflowAndTrimIfPossible(
+    public static <RowT> RowT validateStringTypesOverflowAndTrimIfPossible(
             RelDataType rowType,
             RowHandler<RowT> rowHandler,
             RowT row,
             Supplier<RowSchema> schema
     ) {
-        boolean containTruncatedType =
+        boolean containValidatedType =
                 rowType.getFieldList().stream().anyMatch(t -> STRING_TYPES.contains(t.getType().getSqlTypeName()));
 
-        if (!containTruncatedType) {
+        if (!containValidatedType) {
             return row;
         }
 

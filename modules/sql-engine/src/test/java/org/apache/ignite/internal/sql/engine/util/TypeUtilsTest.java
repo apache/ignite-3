@@ -211,7 +211,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         List<RelDataType> columnTypes = rowType.getFieldList().stream().map(RelDataTypeField::getType).collect(Collectors.toList());
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(columnTypes);
 
-        Object[] newRow = TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType,
+        Object[] newRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType,
                 ArrayRowHandler.INSTANCE,
                 input,
                 () -> rowSchema
