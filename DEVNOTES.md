@@ -124,7 +124,7 @@ Run integration tests only:
 Say, you want to run a benchmark for the `ignite-transactions` module. You can do it with the following command:
 
 ```shell
-./gradlew ignite-transactions:jmh
+./gradlew :ignite-transactions:jmh
 ```
 
 To open the JMH report, you can use the following command:
@@ -139,9 +139,8 @@ If you want to open the flamegraph of this benchmark, you can find them in the m
 If you want to run single benchmark, you can do it with the following command:
 
 ```shell
-./gradlew clean :ignite-transactions:jmh -PjmhBench=TransactionExpirationRegistryBenchmark.registerUnregister
+./gradlew :ignite-transactions:jmh -PjmhBench=TransactionExpirationRegistryBenchmark.registerUnregister
 ```
-
 
 ### How to add your own benchmark
 

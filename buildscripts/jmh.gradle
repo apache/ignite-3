@@ -74,8 +74,6 @@ jmh {
         asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.dylib"
     } else if (isLinux) {
         asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.so"
-    } else {
-        throw new GradleException("Unsupported operating system for async profiler")
     }
 
     // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
