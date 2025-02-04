@@ -643,6 +643,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private void validateConfiguration(SuperRoot configuration) {
         List<ValidationIssue> validationIssues = configurationValidator.validate(configuration);
 
+        validationIssues.addAll(storage.validateDuplicates());
+
         if (!validationIssues.isEmpty()) {
             throw new ConfigurationValidationException(validationIssues);
         }

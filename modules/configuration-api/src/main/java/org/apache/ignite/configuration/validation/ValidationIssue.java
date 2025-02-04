@@ -65,4 +65,19 @@ public class ValidationIssue {
     public String toString() {
         return S.toString(ValidationIssue.class, this);
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        ValidationIssue that = (ValidationIssue) obj;
+
+        return key.equals(that.key) && message.equals(that.message);
+    }
 }

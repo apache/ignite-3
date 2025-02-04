@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 
 /**
@@ -87,4 +90,10 @@ public interface ConfigurationStorage extends ManuallyCloseable {
      */
     @Override
     void close();
+
+    /** Validate that there are no duplicates in the stored configuration */
+    default Collection<ValidationIssue> validateDuplicates() {
+        // No op.
+        return Collections.emptyList();
+    }
 }
