@@ -26,8 +26,11 @@ import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexFile.I
  * Storage options
  */
 public class StoreOptions {
-    public static final String LOGIT_STORAGE_SEGMENT_FILE_SIZE_PROPERTY = "LOGIT_STORAGE_SEGMENT_FILE_SIZE";
-    public static final String LOGIT_STORAGE_CONFIG_FILE_SIZE_PROPERTY = "LOGIT_STORAGE_CONFIG_FILE_SIZE";
+    /** System property to configure the segment file size in Logit log storage. */
+    public static final String LOGIT_STORAGE_SEGMENT_FILE_SIZE_PROPERTY = "IGNITE_LOGIT_STORAGE_SEGMENT_FILE_SIZE";
+
+    /** System property to configure the configuration file size in Logit log storage. */
+    public static final String LOGIT_STORAGE_CONFIG_FILE_SIZE_PROPERTY = "IGNITE_LOGIT_STORAGE_CONFIG_FILE_SIZE";
 
     private static final String storagePath                   = "localLog";
 
