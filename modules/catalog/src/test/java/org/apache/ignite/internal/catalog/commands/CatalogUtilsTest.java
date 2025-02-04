@@ -19,14 +19,20 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFIED_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFIED_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFIED_SCALE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
+import static org.apache.ignite.sql.ColumnType.DATETIME;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
+import static org.apache.ignite.sql.ColumnType.DURATION;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.apache.ignite.sql.ColumnType.TIME;
 import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
@@ -196,6 +202,13 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog.time(), TEST_MAX_CLOCK_SKEW_MILLIS));
     }
 
+    @Test
+    void testUnspecifiedConstants() {
+        assertEquals(-1, UNSPECIFIED_PRECISION, "unspecified precision");
+        assertEquals(-1, UNSPECIFIED_LENGTH, "unspecified length");
+        assertEquals(-1, UNSPECIFIED_LENGTH, "unspecified scale");
+    }
+
     @ParameterizedTest
     @MethodSource("columnTypesPrecision")
     void testGetPrecision(ColumnType columnType, int min, int max) {
@@ -207,12 +220,15 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         Stream<Arguments> types = Stream.of(
                 Arguments.of(DECIMAL, 1, 32767),
                 Arguments.of(TIME, 0, 9),
-                Arguments.of(TIMESTAMP, 0, 9)
+                Arguments.of(TIMESTAMP, 0, 9),
+                Arguments.of(DATETIME, 0, 9),
+                Arguments.of(DURATION, 1, 10),
+                Arguments.of(PERIOD, 1, 10)
         );
 
         Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
                 .filter(t -> !t.precisionAllowed())
-                .map(t -> Arguments.of(t, -1, -1));
+                .map(t -> Arguments.of(t, UNSPECIFIED_PRECISION, UNSPECIFIED_PRECISION));
 
         return Stream.concat(types, otherTypes);
     }
@@ -231,7 +247,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
                 .filter(t -> !t.scaleAllowed())
-                .map(t -> Arguments.of(t, -1, -1));
+                .map(t -> Arguments.of(t, UNSPECIFIED_SCALE, UNSPECIFIED_SCALE));
 
         return Stream.concat(types, otherTypes);
     }
@@ -251,7 +267,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
                 .filter(t -> !t.lengthAllowed())
-                .map(t -> Arguments.of(t, -1, -1));
+                .map(t -> Arguments.of(t, UNSPECIFIED_LENGTH, UNSPECIFIED_LENGTH));
 
         return Stream.concat(types, otherTypes);
     }

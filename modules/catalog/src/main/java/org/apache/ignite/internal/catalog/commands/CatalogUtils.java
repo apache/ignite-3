@@ -100,6 +100,11 @@ public class CatalogUtils {
     public static final int MAX_TIME_PRECISION = NativeTypes.MAX_TIME_PRECISION;
 
     /**
+     * Unspecified precision.
+     */
+    public static int UNSPECIFIED_PRECISION = -1;
+
+    /**
      * Minimum DECIMAL precision.
      */
     public static final int MIN_DECIMAL_PRECISION = 1;
@@ -115,6 +120,11 @@ public class CatalogUtils {
      * Minimum DECIMAL scale.
      */
     public static final int MIN_DECIMAL_SCALE = 0;
+
+    /**
+     * Unspecified scale.
+     */
+    public static int UNSPECIFIED_SCALE = -1;
 
     /**
      * Max DECIMAL scale is implementation-defined.
@@ -146,6 +156,11 @@ public class CatalogUtils {
      * Minimum length for VARCHAR and VARBINARY types.
      */
     public static final int MIN_VARLEN_PRECISION = 1;
+
+    /**
+     * Unspecified length.
+     */
+    public static int UNSPECIFIED_LENGTH = -1;
 
     /**
      * Minimum precision for interval types.
@@ -584,14 +599,14 @@ public class CatalogUtils {
 
 
     /**
-     * Returns the maximum supported precision for given type or {@code -1} if the type does not support precision.
+     * Returns the maximum supported precision for given type or {@link #UNSPECIFIED_PRECISION}  if the type does not support precision.
      *
      * @param columnType Column type
      * @return Maximum precision
      */
     public static int getMaxPrecision(ColumnType columnType) {
         if (!columnType.precisionAllowed()) {
-            return -MIN_DECIMAL_PRECISION;
+            return UNSPECIFIED_PRECISION;
         } else {
             switch (columnType) {
                 case DECIMAL:
@@ -610,14 +625,14 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns the minimum supported precision for given type or {@code -1} if the type does not support precision.
+     * Returns the minimum supported precision for given type or {@link #UNSPECIFIED_PRECISION} if the type does not support precision.
      *
      * @param columnType Column type
      * @return Minimum precision
      */
     public static int getMinPrecision(ColumnType columnType) {
         if (!columnType.precisionAllowed()) {
-            return -1;
+            return UNSPECIFIED_PRECISION;
         } else {
             switch (columnType) {
                 case DECIMAL:
@@ -636,14 +651,14 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns the maximum supported length for given type or {@code -1} if the type does not support length.
+     * Returns the maximum supported length for given type or {@link #UNSPECIFIED_LENGTH}  if the type does not support length.
      *
      * @param columnType Column type
      * @return Maximum length
      */
     public static int getMaxLength(ColumnType columnType) {
         if (!columnType.lengthAllowed()) {
-            return -1;
+            return UNSPECIFIED_LENGTH;
         } else {
             switch (columnType) {
                 case STRING:
@@ -656,14 +671,14 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns the minimum supported length for given type or {@code -1} if the type does not support length.
+     * Returns the minimum supported length for given type or {@link #UNSPECIFIED_LENGTH} if the type does not support length.
      *
      * @param columnType Column type
      * @return Minimum length
      */
     public static int getMinLength(ColumnType columnType) {
         if (!columnType.lengthAllowed()) {
-            return -1;
+            return UNSPECIFIED_LENGTH;
         } else {
             switch (columnType) {
                 case STRING:
@@ -676,14 +691,14 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns the maximum supported scale for given type or {@code -1} if the type does not support scale.
+     * Returns the maximum supported scale for given type or {@link #UNSPECIFIED_SCALE} if the type does not support scale.
      *
      * @param columnType Column type
      * @return Maximum scale
      */
     public static int getMaxScale(ColumnType columnType) {
         if (!columnType.scaleAllowed()) {
-            return -1;
+            return UNSPECIFIED_SCALE;
         } else {
             if (columnType == ColumnType.DECIMAL) {
                 return MAX_DECIMAL_SCALE;
@@ -693,14 +708,14 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns the minimum supported scale for given type or {@code -1} if the type does not support scale.
+     * Returns the minimum supported scale for given type or {@link #UNSPECIFIED_SCALE} if the type does not support scale.
      *
      * @param columnType Column type
      * @return Minimum scale
      */
     public static int getMinScale(ColumnType columnType) {
         if (!columnType.scaleAllowed()) {
-            return -1;
+            return UNSPECIFIED_SCALE;
         } else {
             if (columnType == ColumnType.DECIMAL) {
                 return MIN_DECIMAL_SCALE;
