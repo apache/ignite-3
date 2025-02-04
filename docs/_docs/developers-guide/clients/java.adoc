@@ -86,17 +86,6 @@ IgniteClient client = IgniteClient.builder()
 
 The client logs connection errors, reconnects, and retries.
 
-=== Limitations
-
-There are limitations to user types that can be used for such a mapping. Some limitations are common, and others are platform-specific due to the programming language used.
-
-- Only flat field structure is supported, meaning no nesting user objects. This is because Ignite tables, and therefore tuples have flat structure themselves;
-- Fields should be mapped to Ignite types;
-- All fields in user type should either be mapped to Table column or explicitly excluded;
-- All columns from Table should be mapped to some field in the user type;
-- *Java only*: Users should implement Mapper classes for user types for more flexibility;
-
-
 == Client Metrics
 
 === Java
@@ -152,9 +141,7 @@ IgniteClient client = IgniteClient.builder()
   .heartbeatInterval(30000)
   .heartbeatTimeout(5000)
   .operationTimeout(3000)
-  .reconnectInterval(30000)
-  .reconnectThrottlingPeriod(30000)
-  .reconnectThrottlingRetries(3)
+  .backgroundReconnectInterval(30000)
   .retryPolicy(new RetryLimitPolicy().retryLimit(8))
   .build();
 ----
@@ -167,9 +154,7 @@ IgniteClient client = IgniteClient.builder()
 |heartbeatInterval|Heartbeat message interval, in milliseconds.
 |heartbeatTimeout|Heartbeat message timeout, in milliseconds.
 |operationTimeout|Operation timeout, in milliseconds.
-|reconnectInterval|Background reconnect interval, in milliseconds.
-|reconnectThrottlingPeriod|Reconnect throttling period, in milliseconds.
-|reconnectThrottlingRetries|Reconnect throttling retries.
+|backgroundReconnectInterval|Background reconnect interval, in milliseconds.
 |retryPolicy|Retry policy. By default, all read operations are retried  up to 16 times, and write operations are not retried.
 
 |=======================================================================

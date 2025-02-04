@@ -275,7 +275,7 @@ ALTER TABLE Person ALTER COLUMN city SET DATA TYPE varchar;
 Not all data type transitions are supported. The limitations are listed below:
 
 * `FLOAT` can be transitioned to `DOUBLE`
-* `INT8`, `INT16` and `INT64` can be transitioned to `INT32`
+* `INT8`, `INT16` and `INT32` can be transitioned to `INT64`
 * `TYPE SCALE` change is forbidden
 * `TYPE PRECISION` increase is allowed for DECIMAL non PK column
 * `TYPE LENGTH` increase is allowed for STRING and BYTE_ARRAY non PK column
@@ -416,9 +416,6 @@ Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
 
-Keywords and parameters:
-
-* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
 
 === ALTER TABLE IF EXISTS SET EXPIRE AT
 
@@ -492,7 +489,6 @@ Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the same name does not exist.
 
-Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
 
 Examples:
 
