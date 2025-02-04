@@ -30,13 +30,17 @@ User objects must be link:developers-guide/compute/serialization[marshalled] bef
 
 Often, you need to perform a job on one node in the cluster. In this case, there are multiple ways to start job execution:
 
-- `submit()` - sends the job to the cluster and returns the `JobExecution` object that can be used to monitor or modify the compute job execution.
-- `executeAsync()` - sends the job to the cluster and gets the future for job execution results.
+- `submitAsync()` - sends the job to the cluster and returns a future that will be completed with the `JobExecution` object when the job is submitted for execution.
+- `executeAsync()` - sends the job to the cluster and returns a future that will be completed when job execution result is ready.
 - `execute()` - sends the job to the cluster and waits for the result of job execution.
 
-All of the methods above execute the job on one randomly chosen node from the list of nodes provided.
+When submitting a job, a JobTarget object must be created. Job target can point to a specific node, any node on the cluster, or start a link:developers-guide/compute#colocated-computations[colocated] compute job, that will be executed on nodes that hold a specific key. The following methods are available:
 
-The example below assumes that the `NodeNameJob` class has been deployed to the node by using link:developers-guide/code-deployment/code-deployment[code deployment].
+- `JobTarget.anyNode()` - the job will be executed on any of the specified nodes.
+- `JobTarget.node()` - the job will be executed on the specific node.
+- `JobTarget.colocated()` - the job will be executed on a node that holds the key.
+
+The example below assumes that the `NodeNameJob` class has been deployed to the node by using link:developers-guide/code-deployment/code-deployment[code deployment] and performs the job on any node in the cluster.
 
 //== Synchronous Computation
 
@@ -60,14 +64,14 @@ public static void example() throws ExecutionException, InterruptedException {
 tab:.NET[]
 [source, csharp]
 ----
-IIgniteClient client = Client;
-ICompute compute = client.Compute;
+ICompute compute = Client.Compute;
 IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
 
-// Unit `unitName:1.1.1` contains NodeNameJob class.
-var units = new List<DeploymentUnit> { new DeploymentUnit("unitName", "1.1.1") };
+IJobExecution<string> execution = await compute.SubmitAsync(
+    JobTarget.AnyNode(nodes),
+    new JobDescriptor<string, string>("org.example.NodeNameJob"),
+    arg: "Hello");
 
-IJobExecution<string> execution = await compute.SubmitAsync<string>(nodes, units, NodeNameJob, JobExecutionOptions.Default, "Hello");
 string result = await execution.GetResultAsync();
 ----
 
@@ -80,20 +84,23 @@ compute comp = client.get_compute();
 std::vector<cluster_node> nodes = client.get_nodes();
 
 // Unit `unitName:1.1.1` contains NodeNameJob class.
-std::vector<deployment_unit> units{deployment_unit{"unitName", "1.1.1"}};
+auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
+	.deployment_units({deployment_unit{"unitName", "1.1.1"}})
+	.build();
 
-job_execution execution = comp.submit(nodes, units, NODE_NAME_JOB, {std::string("Hello")}, {});
+job_execution execution = comp.submit(job_target::any_node(nodes), job_desc, {std::string("Hello")}, {});
 std::string result = execution.get_result()->get<std::string>();
 ----
 --
 
 === Multiple Node Execution
 
-To execute the compute task on multiple nodes, you use one of the following methods:
+To execute the compute task on multiple nodes, you use the same methods as for single node execution, except instead of creating a `JobTarget` object to designate execution nodes you use the `BroadcastJobTarget` and specify the list of nodes that the job must be executed on.
 
-- `submitBroadcast()` - sends the job to all provided nodes in the cluster and returns the map from the `ClusterNode` to the `JobExecution` object that can be used to monitor or modify the compute job execution.
-- `executeBroadcastAsync()` - sends the job to all provided nodes in the cluster and gets the future for job execution results.
-- `executeBroadcast()` - sends the job to all provided nodes in the cluster and waits for the result of job execution.
+The `BroadcastJobTarget` object can specify the following:
+
+- `BroadcastJobTarget.nodes()` - the job will be executed on all nodes in the list.
+- `BroadcastJobTarget.table()` - the job will be executed on all nodes that hold partitions of the specified table.
 
 You can control what nodes the task is executed on by setting the list of nodes:
 
@@ -105,8 +112,8 @@ tab:Java[]
 public static void example() throws ExecutionException, InterruptedException {
     IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
-    String executionResult = client.compute().executeBroadcast(
-            Set.of(node(0), node(1)),
+    String executionResult = client.compute().execute(
+            BroadcastJobTarget.nodes(node(0), node(1)),
         JobDescriptor.builder(NodeNameJob.class).build(), null
     );
 
@@ -118,15 +125,19 @@ public static void example() throws ExecutionException, InterruptedException {
 tab:.NET[]
 [source, csharp]
 ----
-IIgniteClient client = Client;
-ICompute compute = client.Compute;
+ICompute compute = Client.Compute;
 IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
 
-// Unit `unitName:1.1.1` contains NodeNameJob class.
-var units = new List<DeploymentUnit> { new DeploymentUnit("unitName", "1.1.1") };
+IBroadcastExecution<string> execution = await compute.SubmitBroadcastAsync(
+    BroadcastJobTarget.Nodes(nodes),
+    new JobDescriptor<object, string>("org.example.NodeNameJob"),
+    arg: "Hello");
 
-IJobExecution<string> execution = await compute.SubmitBroadcastAsync<string>(nodes, units, NodeNameJob, JobExecutionOptions.Default, "Hello");
-string result = await execution.GetResultAsync();
+foreach (IJobExecution<string> jobExecution in execution.JobExecutions)
+{
+    string jobResult = await jobExecution.GetResultAsync();
+    Console.WriteLine($"Job result from node {jobExecution.Node}: {jobResult}");
+}
 ----
 
 tab:C++[]
@@ -138,87 +149,14 @@ compute comp = client.get_compute();
 std::vector<cluster_node> nodes = client.get_nodes();
 
 // Unit `unitName:1.1.1` contains NodeNameJob class.
-std::vector<deployment_unit> units{deployment_unit{"unitName", "1.1.1"}};
+auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
+	.deployment_units({deployment_unit{"unitName", "1.1.1"}})
+	.build();
 
-job_execution execution = comp.submitBroadcast(nodes, units, NODE_NAME_JOB, {std::string("Hello")}, {});
-std::string result = execution.get_result()->get<std::string>();
-----
---
-
-
-== Job Ownership
-
-If the cluster has link:administrators-guide/security/authentication[Authentication] enabled, compute jobs are executed by a specific user. If user permissions are configured on the cluster, the user needs the appropriate link:administrators-guide/security/permissions#distributed-computing[distributed computing permissions] to work with distributed computing jobs. Only users with `JOBS_ADMIN` action can interact with jobs of other users.
-
-== Job Execution States
-
-When using asynchronous API, you can keep track of the status of the job on the server and react to status changes. For example:
-
-[tabs]
---
-tab:Java[]
-[source, java]
-----
-public static void example() throws ExecutionException, InterruptedException {
-    IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-
-
-    JobExecution<String> execution = client.compute().submit(JobTarget.anyNode(client.clusterNodes()),
-            JobDescriptor.builder(NodeNameJob.class).build(), null
-    );
-
-    execution.stateAsync().thenApply(status -> {
-        if (status.toString() == "Failed") {
-            // Handle failure
-        }
-        return null;
-    });
-
-    System.out.println(execution.resultAsync().get());
+broadcast_execution execution = comp.submit_broadcast(broadcast_job_target::nodes(nodes), job_desc, {std::string("Hello")}, {});
+for (auto &exec: execution.get_job_executions()) {
+    std::string result = exec.get_result()->get<std::string>();
 }
-----
-
-tab:.NET[]
-[source, csharp]
-----
-IIgniteClient client = Client;
-ICompute compute = client.Compute;
-IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
-
-// Unit `unitName:1.1.1` contains NodeNameJob class.
-var units = new List<DeploymentUnit> { new DeploymentUnit("unitName", "1.1.1") };
-
-IJobExecution<string> execution = await compute.SubmitAsync<string>(nodes, units, NodeNameJob, JobExecutionOptions.Default, "Hello");
-
-JobStatus? status = await execution.GetStatusAsync();
-
-if (status?.State == JobState.Failed)
-{
-    // Handle failure
-}
-
-string result = await execution.GetResultAsync();
-----
-
-tab:C++[]
-[source, cpp]
-----
-using namespace ignite;
-
-compute comp = client.get_compute();
-std::vector<cluster_node> nodes = client.get_nodes();
-
-// Unit `unitName:1.1.1` contains NodeNameJob class.
-std::vector<deployment_unit> units{deployment_unit{"unitName", "1.1.1"}};
-
-job_execution execution = comp.submit(nodes, units, NODE_NAME_JOB, {std::string("Hello")}, {});
-
-std::optional<job_status> status = execution.get_status();
-if (status && status->state == job_state::FAILED)
-{
-    // Handle failure
-}
-std::string result = execution.get_result()->get<std::string>();
 ----
 --
 
@@ -250,6 +188,23 @@ If all job execution threads are busy, new jobs received by the node are put int
 
 When the node receives the command to cancel the job in the `Executing` status, it will immediately send an interrupt to the thread that is responsible for the job. In most cases, this will lead to the job being immediately canceled, however there are cases in which the job will continue. If this happens, the job will be in the `Canceling` state. Depending on specific code being executed, the job may complete successfully, be canceled once the uninterruptible operation is finished, or remain in unfinished state (for example, if code is stuck in a loop). You can use the `JobExecution.stateAsync()` method to keep track of what status the job is in, and react to status change.
 
+To be able to cancel a compute job, you first create a cancel handler and retrieve a token from it. You can then use this token to cancel the compute job:
+
+[tabs]
+--
+tab:Java[]
+----
+CancelHandle cancelHandle = CancelHandle.create();
+CancellationToken cancelToken = cancelHandle.token();
+
+CompletableFuture<Void> execution = client.compute().executeAsync(JobTarget.anyNode(client.clusterNodes()), JobDescriptor.builder(NodeNameJob.class).build(), cancelToken, null);
+
+cancelHandle.cancel();
+----
+--
+
+Another way to cancel jobs is by using the SQL link:sql-reference/operational-commands#kill-compute[KILL COMPUTE] command. The job id can be retrieved via the `COMPUTE_JOBS` link:administrators-guide/metrics/system-views[system view].
+
 
 == Job Configuration
 
@@ -279,17 +234,13 @@ public static void example() throws ExecutionException, InterruptedException {
 tab:.NET[]
 [source, csharp]
 ----
-IIgniteClient client = Client;
-ICompute compute = client.Compute;
-IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
-
-// Unit `unitName:1.1.1` contains NodeNameJob class.
-var units = new List<DeploymentUnit> { new DeploymentUnit("unitName", "1.1.1") };
-
-// Create job execution options
 var options = JobExecutionOptions.Default with { Priority = 1 };
 
-IJobExecution<string> execution = await compute.SubmitAsync<string>(nodes, units, NodeNameJob, options, "Hello");
+IJobExecution<string> execution = await Client.Compute.SubmitAsync(
+    JobTarget.AnyNode(await Client.GetClusterNodesAsync()),
+    new JobDescriptor<string, string>("org.example.NodeNameJob", Options: options),
+    arg: "Hello");
+
 string result = await execution.GetResultAsync();
 ----
 
@@ -302,10 +253,12 @@ compute comp = client.get_compute();
 std::vector<cluster_node> nodes = client.get_nodes();
 
 // Unit `unitName:1.1.1` contains NodeNameJob class.
-std::vector<deployment_unit> units{deployment_unit{"unitName", "1.1.1"}};
+auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
+	.deployment_units({deployment_unit{"unitName", "1.1.1"}})
+	.build();
 
 job_execution_options options{1, 0};
-job_execution execution = comp.submit(nodes, units, NODE_NAME_JOB, {std::string("Hello")}, std::move(options));
+job_execution execution = comp.submit(job_target::any_node(nodes), job_desc, {std::string("Hello")}, std::move(options));
 std::string result = execution.get_result()->get<std::string>();
 ----
 --
@@ -336,17 +289,13 @@ public static void example() throws ExecutionException, InterruptedException {
 tab:.NET[]
 [source, csharp]
 ----
-IIgniteClient client = Client;
-ICompute compute = client.Compute;
-IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
-
-// Unit `unitName:1.1.1` contains NodeNameJob class.
-var units = new List<DeploymentUnit> { new DeploymentUnit("unitName", "1.1.1") };
-
-// Create job execution options
 var options = JobExecutionOptions.Default with { MaxRetries = 5 };
 
-IJobExecution<string> execution = await compute.SubmitAsync<string>(nodes, units, NodeNameJob, options, "Hello");
+IJobExecution<string> execution = await Client.Compute.SubmitAsync(
+    JobTarget.AnyNode(await Client.GetClusterNodesAsync()),
+    new JobDescriptor<string, string>("org.example.NodeNameJob", Options: options),
+    arg: "Hello");
+
 string result = await execution.GetResultAsync();
 ----
 
@@ -359,10 +308,12 @@ compute comp = client.get_compute();
 std::vector<cluster_node> nodes = client.get_nodes();
 
 // Unit `unitName:1.1.1` contains NodeNameJob class.
-std::vector<deployment_unit> units{deployment_unit{"unitName", "1.1.1"}};
+auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
+	.deployment_units({deployment_unit{"unitName", "1.1.1"}})
+	.build();
 
 job_execution_options options{0, 5};
-job_execution execution = comp.submit(nodes, units, NODE_NAME_JOB, {std::string("Hello")}, std::move(options));
+job_execution execution = comp.submit(job_target::any_node(nodes), job_desc, {std::string("Hello")}, std::move(options));
 std::string result = execution.get_result()->get<std::string>();
 ----
 --
@@ -409,15 +360,14 @@ public static void example() throws ExecutionException, InterruptedException {
 tab:.NET[]
 [source, csharp]
 ----
-IIgniteClient client = Client;
-ICompute compute = client.Compute;
 string table = "Person";
 string key = "John";
 
-// Unit `unitName:1.1.1` contains NodeNameJob class.
-var units = new List<DeploymentUnit> { new DeploymentUnit("unitName", "1.1.1") };
+IJobExecution<string> execution = await Client.Compute.SubmitAsync(
+    JobTarget.Colocated(table, key),
+    new JobDescriptor<string, string>("org.example.NodeNameJob"),
+    arg: "Hello");
 
-IJobExecution<string> execution = await compute.SubmitColocatedAsync<string, string>(table, key, units, NodeNameJob, "Hello");
 string result = await execution.GetResultAsync();
 ----
 tab:C++[]
@@ -430,12 +380,36 @@ std::string table{"Person"};
 std::string key{"John"};
 
 // Unit `unitName:1.1.1` contains NodeNameJob class.
-std::vector<deployment_unit> units{deployment_unit{"unitName", "1.1.1"}};
+auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
+	.deployment_units({deployment_unit{"unitName", "1.1.1"}})
+	.build();
 
-job_execution execution = comp.submit_colocated(table, key, units, NODE_NAME_JOB, {std::string("Hello")}, {});
+job_execution execution = comp.submit(job_target::colocated(table, key), job_desc, {std::string("Hello")}, {});
 std::string result = execution.get_result()->get<std::string>();
 ----
 --
+
+Alternatively, you can execute the compute job on all nodes in the cluster that hold partitions for the specified table by creating a `BroadcastJobTarget.table()` target. In this case, Ignite will automatically find all nodes that hold data partitions for the specified table and execute the job on all of them.
+
+The below example executes the same job on all nodes in the cluster that have partitions for the `Person` table:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+String executionResult = client.compute().execute(BroadcastJobTarget.table("Person"),
+    JobDescriptor.builder(NodeNameJob.class).build(), null
+);
+
+System.out.println(executionResult);
+----
+
+tab:.NET[unsupported]
+
+tab:C++[unsupported]
+--
+
 
 == MapReduce Tasks
 
@@ -521,3 +495,4 @@ Console.WriteLine(result);
 
 tab:C++[unsupported]
 --
+
