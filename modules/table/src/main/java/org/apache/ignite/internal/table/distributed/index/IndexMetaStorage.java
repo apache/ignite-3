@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOV
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_STOPPING;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_ALTER;
 import static org.apache.ignite.internal.event.EventListener.fromFunction;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
@@ -481,7 +480,8 @@ public class IndexMetaStorage implements IgniteComponent {
     }
 
     private int lwmCatalogVersion(@Nullable HybridTimestamp lwm) {
-        return catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
+        long timestamp = lwm == null ? HybridTimestamp.MIN_VALUE.longValue() : lwm.longValue();
+        return catalogService.activeCatalogVersion(timestamp);
     }
 
     private static Set<Integer> indexIdsForCatalogVersion(Collection<IndexMeta> indexMetas, int catalogVersion) {
