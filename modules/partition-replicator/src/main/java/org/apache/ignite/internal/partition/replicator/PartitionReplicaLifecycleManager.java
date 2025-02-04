@@ -1205,7 +1205,16 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopPartition(zonePartitionId, revision)
+                () -> stopPartition(zonePartitionId).thenCompose(replicaWasStopped -> {
+                    if (!replicaWasStopped) {
+                        return nullCompletedFuture();
+                    }
+
+                    return fireEvent(
+                            LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                            new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
+                    );
+                })
         );
     }
 
@@ -1213,28 +1222,24 @@ public class PartitionReplicaLifecycleManager extends
      * Stops all resources associated with a given partition, like replicas and partition trackers.
      *
      * @param zonePartitionId Partition ID.
-     * @return Future that will be completed after all resources have been closed.
+     * @return Future that will be completed after all resources have been closed and the future's result answers was replica was stopped
+     *      correctly or not.
      */
-    private CompletableFuture<Void> stopPartition(ZonePartitionId zonePartitionId, long revision) {
+    private CompletableFuture<Boolean> stopPartition(ZonePartitionId zonePartitionId) {
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             try {
                 return replicaMgr.stopReplica(zonePartitionId)
-                        .thenCompose((replicaWasStopped) -> {
+                        .thenApply((replicaWasStopped) -> {
                             if (replicaWasStopped) {
                                 zonePartitionRaftListeners.remove(zonePartitionId);
                                 replicationGroupIds.remove(zonePartitionId);
-
-                                return fireEvent(
-                                        LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
-                                        new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
-                                );
-                            } else {
-                                return nullCompletedFuture();
                             }
+
+                            return replicaWasStopped;
                         });
             } catch (NodeStoppingException e) {
                 // No-op.
-                return nullCompletedFuture();
+                return falseCompletedFuture();
             }
         });
     }
@@ -1245,11 +1250,8 @@ public class PartitionReplicaLifecycleManager extends
      * @param partitionIds Partitions to stop.
      */
     private void cleanUpPartitionsResources(Set<ZonePartitionId> partitionIds) {
-        // TODO: Due to IGNITE-23741 we shouldn't destroy partitions on node stop thus the revision will be removed.
-        long revision = catalogMgr.latestCatalogVersion();
-
         CompletableFuture<?>[] stopPartitionsFuture = partitionIds.stream()
-                .map(partId -> stopPartition(partId, revision))
+                .map(this::stopPartition)
                 .toArray(CompletableFuture[]::new);
 
         try {
@@ -1306,7 +1308,7 @@ public class PartitionReplicaLifecycleManager extends
         zonePartitionRaftListeners.get(zonePartitionId).addTablePartitionRaftListener(tablePartitionId, tablePartitionRaftListener);
     }
 
-    private CompletableFuture<Void> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<Void>> action) {
+    private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {
         StampedLock lock = zonePartitionsLocks.computeIfAbsent(zoneId, id -> new StampedLock());
 
         long stamp = lock.writeLock();
