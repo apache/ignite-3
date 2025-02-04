@@ -36,6 +36,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.catalog.SchemaNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
@@ -271,17 +272,17 @@ public class CatalogUtils {
         if (newType != null) {
             if (isSupportedColumnTypeChange(origin.type(), newType)) {
                 if (origin.type().precisionAllowed() && newPrecision != null && newPrecision < origin.precision()) {
-                    listener.onFailure("Decreasing the precision for column of type '{}' is not allowed", origin.type(), newType);
+                    listener.onFailure("Decreasing the precision for column of type '{}' is not allowed.", origin.type(), newType);
                     return false;
                 }
 
                 if (origin.type().scaleAllowed() && newScale != null && newScale != origin.scale()) {
-                    listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
+                    listener.onFailure("Changing the scale for column of type '{}' is not allowed.", origin.type(), newType);
                     return false;
                 }
 
                 if (origin.type().lengthAllowed() && newLength != null && newLength < origin.length()) {
-                    listener.onFailure("Decreasing the length for column of type '{}' is not allowed", origin.type(), newType);
+                    listener.onFailure("Decreasing the length for column of type '{}' is not allowed.", origin.type(), newType);
                     return false;
                 }
 
@@ -289,23 +290,23 @@ public class CatalogUtils {
             }
 
             if (newType != origin.type()) {
-                listener.onFailure("Changing the type from {} to {} is not allowed", origin.type(), newType);
+                listener.onFailure("Changing the type from {} to {} is not allowed.", origin.type(), newType);
                 return false;
             }
         }
 
         if (newPrecision != null && newPrecision != origin.precision()) {
-            listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
+            listener.onFailure("Changing the precision for column of type '{}' is not allowed.", origin.type(), newType);
             return false;
         }
 
         if (newScale != null && newScale != origin.scale()) {
-            listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
+            listener.onFailure("Changing the scale for column of type '{}' is not allowed.", origin.type(), newType);
             return false;
         }
 
         if (newLength != null && newLength != origin.length()) {
-            listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
+            listener.onFailure("Changing the length for column of type '{}' is not allowed.", origin.type(), newType);
             return false;
         }
 
@@ -376,7 +377,7 @@ public class CatalogUtils {
         }
 
         throw new CatalogValidationException(String.format(
-                "Table with ID %d has not been found in schema with ID %d", newTableDescriptor.id(), newTableDescriptor.schemaId()
+                "Table with ID %d has not been found in schema with ID %d.", newTableDescriptor.id(), newTableDescriptor.schemaId()
         ));
     }
 
@@ -407,7 +408,7 @@ public class CatalogUtils {
         }
 
         throw new CatalogValidationException(String.format(
-                "Index with ID %d has not been found in schema with ID %d", newIndexDescriptor.id(), schema.id()
+                "Index with ID %d has not been found in schema with ID %d.", newIndexDescriptor.id(), schema.id()
         ));
     }
 
@@ -442,7 +443,7 @@ public class CatalogUtils {
         CatalogSchemaDescriptor schema = catalog.schema(name);
 
         if (schema == null) {
-            throw new CatalogValidationException(format("Schema with name '{}' not found", name));
+            throw new SchemaNotFoundValidationException(format("Schema with name '{}' not found.", name));
         }
 
         return schema;
@@ -459,7 +460,7 @@ public class CatalogUtils {
         CatalogSchemaDescriptor schema = catalog.schema(schemaId);
 
         if (schema == null) {
-            throw new CatalogValidationException(format("Schema with ID '{}' not found", schemaId));
+            throw new CatalogValidationException(format("Schema with ID '{}' not found.", schemaId));
         }
 
         return schema;
@@ -482,7 +483,7 @@ public class CatalogUtils {
         CatalogTableDescriptor table = schema.table(name);
 
         if (table == null && shouldThrowIfNotExists) {
-            throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
+            throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found.", schema.name(), name));
         }
 
         return table;
@@ -499,7 +500,7 @@ public class CatalogUtils {
         CatalogTableDescriptor table = catalog.table(tableId);
 
         if (table == null) {
-            throw new TableNotFoundValidationException(format("Table with ID '{}' not found", tableId));
+            throw new TableNotFoundValidationException(format("Table with ID '{}' not found.", tableId));
         }
 
         return table;
@@ -523,7 +524,7 @@ public class CatalogUtils {
         CatalogZoneDescriptor zone = catalog.zone(name);
 
         if (zone == null && shouldThrowIfNotExists) {
-            throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
+            throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found.", name));
         }
 
         return zone;
@@ -553,7 +554,7 @@ public class CatalogUtils {
         CatalogIndexDescriptor index = schema.aliveIndex(name);
 
         if (index == null && shouldThrowIfNotExists) {
-            throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
+            throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found.", schema.name(), name));
         }
 
         return index;
@@ -570,7 +571,7 @@ public class CatalogUtils {
         CatalogIndexDescriptor index = catalog.index(indexId);
 
         if (index == null) {
-            throw new IndexNotFoundValidationException(format("Index with ID '{}' not found", indexId));
+            throw new IndexNotFoundValidationException(format("Index with ID '{}' not found.", indexId));
         }
 
         return index;
@@ -742,17 +743,17 @@ public class CatalogUtils {
 
             if (returnType != null) {
                 throw new CatalogValidationException(
-                        format("Functional default type mismatch: [col={}, functionName={}, expectedType={}, actualType={}]",
+                        format("Functional default type mismatch: [col={}, functionName={}, expectedType={}, actualType={}].",
                                 columnName, functionName, returnType, columnType));
             }
 
             throw new CatalogValidationException(
-                    format("Functional default contains unsupported function: [col={}, functionName={}]",
+                    format("Functional default contains unsupported function: [col={}, functionName={}].",
                             columnName, functionName));
         }
 
         throw new CatalogValidationException(
-                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
+                format("Default of unsupported kind: [col={}, defaultType={}].", columnName, defaultValue.type));
     }
 
     /**
@@ -769,7 +770,7 @@ public class CatalogUtils {
         }
 
         throw new CatalogValidationException(
-                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
+                format("Default of unsupported kind: [col={}, defaultType={}].", columnName, defaultValue.type));
     }
 
     /**

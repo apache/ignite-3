@@ -25,7 +25,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.SchemaExistsException;
+import org.apache.ignite.internal.catalog.SchemaExistsValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -76,7 +76,7 @@ public class CreateSchemaCommand implements CatalogCommand {
         if (ifNotExists && schema != null) {
             return List.of();
         } else if (schema != null) {
-            throw new SchemaExistsException(format("Schema with name '{}' already exists.", schemaName));
+            throw new SchemaExistsValidationException(format("Schema with name '{}' already exists.", schemaName));
         }
 
         CatalogSchemaDescriptor newSchema = new CatalogSchemaDescriptor(

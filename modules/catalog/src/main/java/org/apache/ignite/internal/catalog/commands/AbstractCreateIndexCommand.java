@@ -96,12 +96,12 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         for (String columnName : columns) {
             if (table.column(columnName) == null) {
                 throw new CatalogValidationException(format(
-                        "Column with name '{}' not found in table '{}.{}'", columnName, schemaName, tableName));
+                        "Column with name '{}' not found in table '{}.{}'.", columnName, schemaName, tableName));
             }
         }
 
         if (unique && !new HashSet<>(columns).containsAll(table.colocationColumns())) {
-            throw new CatalogValidationException("Unique index must include all colocation columns");
+            throw new CatalogValidationException("Unique index must include all colocation columns.");
         }
 
         boolean indexCreatedWithTable = context.baseCatalog().table(table.id()) == null;
@@ -120,7 +120,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         validateIdentifier(tableName, "Name of the table");
 
         if (nullOrEmpty(columns)) {
-            throw new CatalogValidationException("Columns not specified");
+            throw new CatalogValidationException("Columns not specified.");
         }
 
         Set<String> columnNames = new HashSet<>();
@@ -129,7 +129,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             validateIdentifier(name, "Name of the column");
 
             if (!columnNames.add(name)) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once", name));
+                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", name));
             }
         }
     }

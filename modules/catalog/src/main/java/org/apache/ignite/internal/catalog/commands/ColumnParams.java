@@ -27,9 +27,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
-    public static final String ERR_COL_PARAM_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'";
-    public static final String ERR_COL_PARAM_DEFINITION = "{} definition is necessary for column '{}' of type '{}'";
-    public static final String ERR_COL_INVALID_TYPE_PARAM = "{} for column `{}` of type {} {} must be between {} and {}";
+    public static final String ERR_COL_PARAM_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'.";
+    public static final String ERR_COL_PARAM_DEFINITION = "{} definition is necessary for column '{}' of type '{}'.";
+    public static final String ERR_COL_INVALID_TYPE_PARAM = "{} for column `{}` of type {} {} must be between {} and {}.";
 
     /** Creates parameters builder. */
     public static Builder builder() {

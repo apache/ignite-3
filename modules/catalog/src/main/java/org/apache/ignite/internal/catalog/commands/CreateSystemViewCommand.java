@@ -132,18 +132,18 @@ public class CreateSystemViewCommand implements CatalogCommand {
         validateIdentifier(name, "Name of the system view");
 
         if (nullOrEmpty(columns)) {
-            throw new CatalogValidationException("System view should have at least one column");
+            throw new CatalogValidationException("System view should have at least one column.");
         }
 
         if (systemViewType == null) {
-            throw new CatalogValidationException("System view type is not specified");
+            throw new CatalogValidationException("System view type is not specified.");
         }
 
         Set<String> columnNames = new HashSet<>();
 
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
+                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", column.name()));
             }
         }
     }

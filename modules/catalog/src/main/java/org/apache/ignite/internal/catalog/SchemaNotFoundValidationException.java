@@ -18,20 +18,19 @@
 package org.apache.ignite.internal.catalog;
 
 /**
- * This exception is thrown when a schema cannot be created because another schema with
- * the same name already exists in a catalog.
+ * This exception is thrown when a schema is not found in a catalog.
  *
- * <p>This exception is used to properly handle IF NOT EXISTS flag in ddl command handler.
+ * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
  */
-public class SchemaExistsException extends CatalogValidationException {
-    private static final long serialVersionUID = 6017288060655861875L;
+public class SchemaNotFoundValidationException extends CatalogValidationException {
+    private static final long serialVersionUID = -7162113449557258258L;
 
     /**
      * Constructor.
      *
      * @param message Error message.
      */
-    public SchemaExistsException(String message) {
+    public SchemaNotFoundValidationException(String message) {
         super(message);
     }
 }

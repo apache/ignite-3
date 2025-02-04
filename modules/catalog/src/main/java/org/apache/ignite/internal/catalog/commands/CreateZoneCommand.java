@@ -125,7 +125,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 return List.of();
             }
 
-            throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", zoneName));
+            throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists.", zoneName));
         }
 
         CatalogZoneDescriptor zoneDesc = descriptor(catalog.objectIdGenState());

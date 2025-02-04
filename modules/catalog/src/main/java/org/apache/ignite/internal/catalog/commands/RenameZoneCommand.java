@@ -74,7 +74,7 @@ public class RenameZoneCommand extends AbstractZoneCommand {
         }
 
         if (catalog.zone(newZoneName) != null) {
-            throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", newZoneName));
+            throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists.", newZoneName));
         }
 
         CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(

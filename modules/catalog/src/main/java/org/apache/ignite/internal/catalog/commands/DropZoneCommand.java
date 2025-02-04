@@ -65,7 +65,8 @@ public class DropZoneCommand extends AbstractZoneCommand {
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
         if (defaultZone != null && zone.id() == defaultZone.id()) {
-            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}", zoneName);
+            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}.",
+                    zoneName);
         }
 
         catalog.schemas().stream()
@@ -73,7 +74,7 @@ public class DropZoneCommand extends AbstractZoneCommand {
                 .filter(t -> t.zoneId() == zone.id())
                 .findAny()
                 .ifPresent(t -> {
-                    throw new DistributionZoneCantBeDroppedValidationException("Distribution zone '{}' is assigned to the table '{}'",
+                    throw new DistributionZoneCantBeDroppedValidationException("Distribution zone '{}' is assigned to the table '{}'.",
                             zone.name(), t.name());
                 });
 

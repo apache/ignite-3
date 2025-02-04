@@ -85,7 +85,7 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         for (ColumnParams column : columns) {
             if (table.column(column.name()) != null) {
                 throw new CatalogValidationException(
-                        format("Column with name '{}' already exists", column.name())
+                        format("Column with name '{}' already exists.", column.name())
                 );
             }
 
@@ -99,14 +99,14 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
 
     private void validate() {
         if (nullOrEmpty(columns)) {
-            throw new CatalogValidationException("Columns not specified");
+            throw new CatalogValidationException("Columns not specified.");
         }
 
         Set<String> columnNames = new HashSet<>();
 
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
+                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", column.name()));
             }
 
             CatalogUtils.ensureTypeCanBeStored(column.name(), column.type());

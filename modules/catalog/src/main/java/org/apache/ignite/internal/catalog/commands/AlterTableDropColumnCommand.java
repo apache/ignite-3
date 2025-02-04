@@ -93,11 +93,11 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         columns.stream().sorted().forEach(columnName -> {
             if (table.column(columnName) == null) {
                 throw new CatalogValidationException(format(
-                        "Column with name '{}' not found in table '{}.{}'", columnName, schemaName, tableName));
+                        "Column with name '{}' not found in table '{}.{}'.", columnName, schemaName, tableName));
             }
 
             if (table.isPrimaryKeyColumn(columnName)) {
-                throw new CatalogValidationException(format("Deleting column `{}` belonging to primary key is not allowed", columnName));
+                throw new CatalogValidationException(format("Deleting column `{}` belonging to primary key is not allowed.", columnName));
             }
 
             if (indexedColumns.contains(columnName)) {
@@ -107,7 +107,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
                         .collect(Collectors.toList());
 
                 throw new CatalogValidationException(format(
-                        "Deleting column '{}' used by index(es) {}, it is not allowed", columnName, indexesNames));
+                        "Deleting column '{}' used by index(es) {}, it is not allowed.", columnName, indexesNames));
             }
         });
 
@@ -135,7 +135,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
 
     private static void validate(Set<String> columns) {
         if (nullOrEmpty(columns)) {
-            throw new CatalogValidationException("Columns not specified");
+            throw new CatalogValidationException("Columns not specified.");
         }
 
         for (String name : columns) {
