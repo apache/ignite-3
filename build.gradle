@@ -23,6 +23,8 @@ plugins {
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.aggregateJavadoc)
     alias(libs.plugins.spotbugs) apply false
+    alias(libs.plugins.jmh) apply false
+    alias(libs.plugins.jmhReport) apply false
 }
 
 apply from: "$rootDir/buildscripts/javadoc.gradle"
