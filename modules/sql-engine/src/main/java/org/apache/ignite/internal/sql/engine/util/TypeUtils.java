@@ -741,9 +741,17 @@ public class TypeUtils {
 
         for (int i = 0; i < colCount; ++i) {
             RelDataType colType = rowType.getFieldList().get(i).getType();
+            SqlTypeName typeName = colType.getSqlTypeName();
             Object data = rowHandler.get(i, row);
 
-            if (BINARY_TYPES.contains(colType.getSqlTypeName()) && data != null) {
+            if (data == null || (!BINARY_TYPES.contains(typeName) && !CHAR_TYPES.contains(typeName))) {
+                if (rowBldr != null) {
+                    rowBldr.addField(data);
+                }
+                continue;
+            }
+
+            if (BINARY_TYPES.contains(typeName)) {
                 assert data instanceof ByteString;
                 assert colType.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED;
 
@@ -752,39 +760,33 @@ public class TypeUtils {
                 }
             }
 
-            // Skip null values and non-character types.
-            if (!CHAR_TYPES.contains(colType.getSqlTypeName()) || data == null) {
-                if (rowBldr != null) {
-                    rowBldr.addField(data);
-                }
-                continue;
-            }
-            // Otherwise validate and trim if needed.
+            if (CHAR_TYPES.contains(typeName)) {
+                // Validate and trim if needed.
+                assert data instanceof String;
 
-            assert data instanceof String;
+                String str = (String) data;
 
-            String str = (String) data;
+                int colPrecision = colType.getPrecision();
 
-            int colPrecision = colType.getPrecision();
+                assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
 
-            assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
-
-            if (str.length() > colPrecision) {
-                for (int pos = str.length(); pos > colPrecision; --pos) {
-                    if (str.charAt(pos - 1) != ' ') {
-                        throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                if (str.length() > colPrecision) {
+                    for (int pos = str.length(); pos > colPrecision; --pos) {
+                        if (str.charAt(pos - 1) != ' ') {
+                            throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                        }
                     }
-                }
 
-                str = str.substring(0, colPrecision);
+                    data = str.substring(0, colPrecision);
 
-                if (rowBldr == null) {
-                    rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                    if (rowBldr == null) {
+                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                    }
                 }
             }
 
             if (rowBldr != null) {
-                rowBldr.addField(str);
+                rowBldr.addField(data);
             }
         }
 
