@@ -518,6 +518,30 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         storage.close();
     }
 
+    @Override
+    public long lastAppliedIndex() {
+        return storage.lastAppliedIndex();
+    }
+
+    @Override
+    public long lastAppliedTerm() {
+        return storage.lastAppliedTerm();
+    }
+
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
+        storage.runConsistently(locker -> {
+            storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+
+            return null;
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> flushStorage() {
+        return storage.flush();
+    }
+
     /**
      * Returns underlying storage.
      */

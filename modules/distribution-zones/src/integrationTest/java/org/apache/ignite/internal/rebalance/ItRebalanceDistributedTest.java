@@ -1480,6 +1480,28 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logStorageFactory
             );
 
+            var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService());
+
+            var replicaLifecycleManager = new PartitionReplicaLifecycleManager(
+                    catalogManager,
+                    replicaManager,
+                    distributionZoneManager,
+                    metaStorageManager,
+                    clusterService.topologyService(),
+                    lowWatermark,
+                    threadPoolsManager.tableIoExecutor(),
+                    rebalanceScheduler,
+                    threadPoolsManager.partitionOperationsExecutor(),
+                    clockService,
+                    placementDriver,
+                    schemaSyncService,
+                    systemDistributedConfiguration,
+                    sharedTxStateStorage,
+                    txManager,
+                    schemaManager,
+                    outgoingSnapshotManager
+            );
+
             tableManager = new TableManager(
                     name,
                     registry,
@@ -1502,7 +1524,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     rebalanceScheduler,
                     threadPoolsManager.commonScheduler(),
                     clockService,
-                    new OutgoingSnapshotsManager(clusterService.messagingService()),
+                    outgoingSnapshotManager,
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
@@ -1514,24 +1536,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     transactionInflights,
                     indexMetaStorage,
                     logStorageFactory,
-                    new PartitionReplicaLifecycleManager(
-                            catalogManager,
-                            replicaManager,
-                            distributionZoneManager,
-                            metaStorageManager,
-                            clusterService.topologyService(),
-                            lowWatermark,
-                            threadPoolsManager.tableIoExecutor(),
-                            rebalanceScheduler,
-                            threadPoolsManager.partitionOperationsExecutor(),
-                            clockService,
-                            placementDriver,
-                            schemaSyncService,
-                            systemDistributedConfiguration,
-                            sharedTxStateStorage,
-                            txManager,
-                            schemaManager
-                    ),
+                    replicaLifecycleManager,
                     minTimeCollectorService,
                     systemDistributedConfiguration
             ) {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -43,6 +44,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -61,7 +63,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -77,9 +81,10 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
@@ -100,7 +105,8 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionStorageAccessImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -124,9 +130,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.mockito.Answers;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /** For {@link IncomingSnapshotCopier} testing. */
+@ExtendWith(MockitoExtension.class)
 public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
@@ -188,10 +197,17 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
 
     @BeforeEach
-    void setUp() {
+    void setUp(
+            @Mock Catalog catalog,
+            @Mock CatalogIndexDescriptor catalogIndexDescriptor
+    ) {
         when(mvGc.removeStorage(any(TablePartitionId.class))).then(invocation -> nullCompletedFuture());
 
         when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
+
+        lenient().when(catalog.index(indexId)).thenReturn(catalogIndexDescriptor);
+        lenient().when(catalogIndexDescriptor.tableId()).thenReturn(TABLE_ID);
     }
 
     @AfterEach
@@ -297,7 +313,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             return completedFuture(TABLE_MSG_FACTORY.snapshotMvDataResponse().rows(responseEntries).finish(true).build());
         });
 
-        when(messagingService.invoke(eq(clusterNode), any(SnapshotTxDataRequest.class), anyLong())).then(answer -> {
+        lenient().when(messagingService.invoke(eq(clusterNode), any(SnapshotTxDataRequest.class), anyLong())).then(answer -> {
             SnapshotTxDataRequest snapshotTxDataRequest = answer.getArgument(1);
 
             assertEquals(snapshotId, snapshotTxDataRequest.id());
@@ -310,7 +326,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());
         });
 
-        when(messagingService.invoke(eq(clusterNode), any(GetLowWatermarkRequest.class), anyLong())).thenAnswer(invocation -> {
+        lenient().when(messagingService.invoke(eq(clusterNode), any(GetLowWatermarkRequest.class), anyLong())).thenAnswer(invocation -> {
             long lowWatermarkValue = hybridTimestampToLong(lowWatermark.getLowWatermark());
 
             return completedFuture(LWM_MSG_FACTORY.getLowWatermarkResponse().lowWatermark(lowWatermarkValue).build());
@@ -359,21 +375,22 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         when(outgoingSnapshotsManager.messagingService()).thenReturn(messagingService);
 
         return new PartitionSnapshotStorage(
+                new TablePartitionKey(TABLE_ID, PARTITION_ID),
                 topologyService,
                 outgoingSnapshotsManager,
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
-                spy(new PartitionAccessImpl(
-                        new PartitionKey(TABLE_ID, PARTITION_ID),
+                singleton(TABLE_ID, spy(new PartitionStorageAccessImpl(
+                        PARTITION_ID,
                         incomingTableStorage,
-                        incomingTxStateStorage,
                         mvGc,
                         indexUpdateHandler,
                         mock(GcUpdateHandler.class),
                         mock(FullStateTransferIndexChooser.class),
                         new DummySchemaManagerImpl(SCHEMA),
                         lowWatermark
-                )),
+                ))),
+                new PartitionTxStateAccessImpl(incomingTxStateStorage.getPartitionStorage(PARTITION_ID)),
                 catalogService,
                 mock(SnapshotMeta.class),
                 executorService,
@@ -474,6 +491,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                             .txId(txId)
                             .commitTableId(commitTableId)
                             .commitPartitionId(commitPartitionId)
+                            .tableId(TABLE_ID)
                             .build()
             );
         }
@@ -558,8 +576,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         assertThat(cancelAndJoinFuture, willSucceedIn(1, TimeUnit.SECONDS));
 
-        verify(partitionSnapshotStorage.partition(), never()).startRebalance();
-        verify(partitionSnapshotStorage.partition(), never()).abortRebalance();
+        verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID), never()).startRebalance();
+        verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID), never()).abortRebalance();
     }
 
     @Test
@@ -599,7 +617,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         assertThat(cancelAndJoinFuture, willSucceedIn(1, TimeUnit.SECONDS));
 
-        verify(partitionSnapshotStorage.partition()).abortRebalance();
+        verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID)).abortRebalance();
     }
 
     @Test
@@ -628,7 +646,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             assertThat(finishAddWriteFuture, willCompleteSuccessfully());
 
             return null;
-        }).when(partitionSnapshotStorage.partition())
+        }).when(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID))
                 .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
@@ -652,7 +670,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         assertThat(cancelRebalanceFuture, willCompleteSuccessfully());
 
-        verify(partitionSnapshotStorage.partition()).abortRebalance();
+        verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID)).abortRebalance();
     }
 
     @Test
@@ -672,7 +690,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         );
 
         // Let's add an error on the rebalance.
-        doThrow(StorageException.class).when(partitionSnapshotStorage.partition())
+        doThrow(StorageException.class).when(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID))
                 .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
@@ -684,7 +702,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         // Let's wait for an error on rebalancing.
         assertThat(runAsync(snapshotCopier::join), willThrowFast(IllegalStateException.class));
 
-        verify(partitionSnapshotStorage.partition()).abortRebalance();
+        verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID)).abortRebalance();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, PARTITION_ID);
 
@@ -695,9 +713,9 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     @Test
     @Timeout(1)
     void cancellationsFromMultipleThreadsDoNotBlockEachOther() throws Exception {
-        PartitionSnapshotStorage partitionSnapshotStorage = mock(PartitionSnapshotStorage.class, Answers.RETURNS_DEEP_STUBS);
+        PartitionSnapshotStorage partitionSnapshotStorage = mock(PartitionSnapshotStorage.class);
 
-        when(partitionSnapshotStorage.partition().partitionKey()).thenReturn(new PartitionKey(1, 0));
+        when(partitionSnapshotStorage.partitionKey()).thenReturn(new ZonePartitionKey(1, 0));
 
         IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
                 partitionSnapshotStorage,
@@ -773,8 +791,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         verify(messagingService, never()).invoke(any(ClusterNode.class), any(SnapshotMvDataRequest.class), anyLong());
         verify(messagingService, never()).invoke(any(ClusterNode.class), any(SnapshotTxDataRequest.class), anyLong());
 
-        verify(partitionSnapshotStorage.partition(), never()).startRebalance();
-        verify(partitionSnapshotStorage.partition(), never()).abortRebalance();
+        verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID), never()).startRebalance();
+        verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID), never()).abortRebalance();
 
         assertThatTargetStoragesAreEmpty(incomingMvTableStorage, incomingTxStateStorage);
     }

@@ -234,6 +234,8 @@ public class Node {
 
     public final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
     /** The future have to be complete after the node start and all Meta storage watches are deployd. */
     private CompletableFuture<Void> deployWatchesFut;
 
@@ -598,6 +600,8 @@ public class Node {
                 partitionsLogStorageFactory
         );
 
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterService.messagingService());
+
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaManager,
@@ -614,7 +618,8 @@ public class Node {
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
                 txManager,
-                schemaManager
+                schemaManager,
+                outgoingSnapshotsManager
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
@@ -644,7 +649,7 @@ public class Node {
                 rebalanceScheduler,
                 threadPoolsManager.commonScheduler(),
                 clockService,
-                new OutgoingSnapshotsManager(clusterService.messagingService()),
+                outgoingSnapshotsManager,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
@@ -734,6 +739,7 @@ public class Node {
                 dataStorageMgr,
                 schemaManager,
                 sharedTxStateStorage,
+                outgoingSnapshotsManager,
                 partitionReplicaLifecycleManager,
                 tableManager,
                 indexManager

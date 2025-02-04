@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -31,33 +30,17 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
  */
-public interface PartitionAccess {
-    /**
-     * Returns the key that uniquely identifies the corresponding partition.
-     */
-    PartitionKey partitionKey();
+public interface PartitionStorageAccess {
+    /** Table ID of the table that this partition storage is associated with. */
+    int tableId();
 
-    /**
-     * Creates a cursor to scan all meta of transactions.
-     *
-     * <p>All metas that exist at the time the method is called will be returned, in transaction ID order as an unsigned 128 bit integer.
-     */
-    Cursor<IgniteBiTuple<UUID, TxMeta>> getAllTxMeta();
-
-    /**
-     * Adds transaction meta.
-     *
-     * @param txId Transaction ID.
-     * @param txMeta Transaction meta.
-     */
-    void addTxMeta(UUID txId, TxMeta txMeta);
+    /** Partition ID of the partition that this partition storage is associated with. */
+    int partitionId();
 
     /**
      * Returns an existing row ID that is greater than or equal to the lower bound, {@code null} if not found.
@@ -115,25 +98,11 @@ public interface PartitionAccess {
      */
     void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp, int catalogVersion);
 
-    /**
-     * Returns the minimum applied index of the partition storages.
-     */
-    long minLastAppliedIndex();
+    /** Returns the last applied index of this storage. */
+    long lastAppliedIndex();
 
-    /**
-     * Returns the minimum applied term of the partition storages.
-     */
-    long minLastAppliedTerm();
-
-    /**
-     * Returns the maximum applied index of the partition storages.
-     */
-    long maxLastAppliedIndex();
-
-    /**
-     * Returns the maximum applied term of the partition storages.
-     */
-    long maxLastAppliedTerm();
+    /** Returns the last applied term of this storage. */
+    long lastAppliedTerm();
 
     /**
      * Returns the start time of the known lease for this replication group.
@@ -164,15 +133,13 @@ public interface PartitionAccess {
      *     <li>Sets the last applied index and term to {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} and the RAFT group configuration to
      *     {@code null};</li>
      *     <li>Only the following methods will be available:<ul>
-     *         <li>{@link #partitionKey()};</li>
-     *         <li>{@link #minLastAppliedIndex()};</li>
-     *         <li>{@link #maxLastAppliedIndex()};</li>
-     *         <li>{@link #minLastAppliedTerm()};</li>
-     *         <li>{@link #maxLastAppliedTerm()};</li>
-     *         <li>{@link #committedGroupConfiguration()};</li>
-     *         <li>{@link #addTxMeta(UUID, TxMeta)};</li>
-     *         <li>{@link #addWrite(RowId, BinaryRow, UUID, int, int, int)};</li>
-     *         <li>{@link #addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)}.</li>
+     *         <li>{@link #tableId};</li>
+     *         <li>{@link #partitionId};</li>
+     *         <li>{@link #lastAppliedIndex};</li>
+     *         <li>{@link #lastAppliedTerm};</li>
+     *         <li>{@link #committedGroupConfiguration};</li>
+     *         <li>{@link #addWrite};</li>
+     *         <li>{@link #addWriteCommitted}.</li>
      *     </ul></li>
      * </ul>
      *

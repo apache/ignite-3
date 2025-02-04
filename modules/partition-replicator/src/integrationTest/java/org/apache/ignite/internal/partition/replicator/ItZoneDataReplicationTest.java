@@ -40,7 +40,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -371,8 +370,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     @ParameterizedTest(name = "truncateRaftLog={0}")
     @ValueSource(booleans = {false, true})
     void testDataRebalance(boolean truncateRaftLog) throws Exception {
-        assumeFalse(truncateRaftLog, "https://issues.apache.org/jira/browse/IGNITE-22416");
-
         startCluster(2);
 
         // Create a zone with a single partition on every node + one extra replica for the upcoming node.

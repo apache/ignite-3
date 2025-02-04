@@ -17,18 +17,27 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
+import static java.lang.Math.max;
+import static java.util.concurrent.CompletableFuture.allOf;
+
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -57,6 +66,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     private final Map<TablePartitionId, RaftTableProcessor> tableProcessors = new ConcurrentHashMap<>();
+
+    private final PartitionsSnapshots partitionsSnapshots;
+
+    private final PartitionKey partitionKey;
+
+    private final TxStatePartitionStorage txStatePartitionStorage;
 
     /**
      * Latest committed configuration of the zone-wide Raft group.
@@ -89,10 +104,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             TxManager txManager,
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            ZonePartitionId zonePartitionId
+            ZonePartitionId zonePartitionId,
+            PartitionsSnapshots partitionsSnapshots
     ) {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
+        this.partitionsSnapshots = partitionsSnapshots;
+        this.txStatePartitionStorage = txStatePartitionStorage;
+        this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
@@ -140,32 +159,46 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
         IgniteBiTuple<Serializable, Boolean> result;
 
-        if (command instanceof FinishTxCommand) {
-            result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
-        } else if (command instanceof PrimaryReplicaChangeCommand) {
-            // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
-            // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
-            tableProcessors.values()
-                    .forEach(processor -> processor.processCommand(command, commandIndex, commandTerm, safeTimestamp));
+        // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
+        // storages!
+        // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
+        // If a leader has such a gap, and does doSnapshot(), it will subsequently truncate its log too aggressively
+        // in comparison with 'snapshot' state stored in our storages; and if we install a snapshot from our storages
+        // to a follower at this point, for a subsequent AppendEntries the leader will not be able to get prevLogTerm
+        // (because it's already truncated in the leader's log), so it will have to install a snapshot again, and then
+        // repeat same thing over and over again.
 
-            result = new IgniteBiTuple<>(null, true);
-        } else if (command instanceof TableAwareCommand) {
-            TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
+        partitionSnapshots().acquireReadLock();
 
-            result = processTableAwareCommand(tablePartitionId, command, commandIndex, commandTerm, safeTimestamp);
-        } else {
-            LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
+        try {
+            if (command instanceof FinishTxCommand) {
+                result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
+            } else if (command instanceof PrimaryReplicaChangeCommand) {
+                // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
+                // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
+                tableProcessors.values().forEach(listener -> listener.processCommand(command, commandIndex, commandTerm, safeTimestamp));
 
-            result = new IgniteBiTuple<>(null, true);
-        }
+                result = new IgniteBiTuple<>(null, true);
+            } else if (command instanceof TableAwareCommand) {
+                TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
 
-        if (Boolean.TRUE.equals(result.get2())) {
-            // Adjust safe time before completing update to reduce waiting.
-            if (safeTimestamp != null) {
-                updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+                result = processTableAwareCommand(tablePartitionId, command, commandIndex, commandTerm, safeTimestamp);
+            } else {
+                LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
+
+                result = new IgniteBiTuple<>(null, true);
             }
 
-            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, clo.index());
+            if (Boolean.TRUE.equals(result.get2())) {
+                // Adjust safe time before completing update to reduce waiting.
+                if (safeTimestamp != null) {
+                    updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+                }
+
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, clo.index());
+            }
+        } finally {
+            partitionSnapshots().releaseReadLock();
         }
 
         // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
@@ -195,18 +228,44 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        // TODO: implement, see https://issues.apache.org/jira/browse/IGNITE-22416
-        throw new UnsupportedOperationException("Snapshotting is not implemented");
+        long maxPartitionLastAppliedIndex = tableProcessors.values().stream()
+                .mapToLong(RaftTableProcessor::lastAppliedIndex)
+                .max()
+                .orElse(0);
+
+        long maxPartitionLastAppliedTerm = tableProcessors.values().stream()
+                .mapToLong(RaftTableProcessor::lastAppliedTerm)
+                .max()
+                .orElse(0);
+
+        long maxLastAppliedIndex = max(maxPartitionLastAppliedIndex, txStatePartitionStorage.lastAppliedIndex());
+
+        long maxLastAppliedTerm = max(maxPartitionLastAppliedTerm, txStatePartitionStorage.lastAppliedTerm());
+
+        tableProcessors.values().forEach(processor -> processor.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm));
+
+        txStatePartitionStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
+
+        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
+
+        Stream<CompletableFuture<?>> flushFutures = Stream.concat(
+                tableProcessors.values().stream().map(RaftTableProcessor::flushStorage),
+                Stream.of(txStatePartitionStorage.flush())
+        );
+
+        allOf(flushFutures.toArray(CompletableFuture[]::new))
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
     @Override
     public boolean onSnapshotLoad(Path path) {
-        // TODO: implement, see https://issues.apache.org/jira/browse/IGNITE-22416
-        throw new UnsupportedOperationException("Snapshotting is not implemented");
+        return true;
     }
 
     @Override
     public void onShutdown() {
+        cleanupSnapshots();
+
         tableProcessors.values().forEach(RaftTableProcessor::onShutdown);
     }
 
@@ -238,5 +297,23 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         } catch (TrackerClosedException ignored) {
             // No-op.
         }
+    }
+
+    private void cleanupSnapshots() {
+        PartitionSnapshots partitionSnapshots = partitionSnapshots();
+
+        partitionSnapshots.acquireReadLock();
+
+        try {
+            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
+
+            partitionsSnapshots.removeSnapshots(partitionKey);
+        } finally {
+            partitionSnapshots.releaseReadLock();
+        }
+    }
+
+    private PartitionSnapshots partitionSnapshots() {
+        return partitionsSnapshots.partitionSnapshots(partitionKey);
     }
 }

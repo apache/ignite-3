@@ -45,6 +45,7 @@ import org.jetbrains.annotations.TestOnly;
  * snapshots to make sure that the writes do not interfere with the snapshots.
  */
 public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
+    private final int tableId;
     private final MvPartitionStorage partitionStorage;
     private final PartitionsSnapshots partitionsSnapshots;
     private final PartitionKey partitionKey;
@@ -55,10 +56,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
      * Creates a new instance.
      */
     public SnapshotAwarePartitionDataStorage(
+            int tableId,
             MvPartitionStorage partitionStorage,
             PartitionsSnapshots partitionsSnapshots,
             PartitionKey partitionKey
     ) {
+        this.tableId = tableId;
         this.partitionStorage = partitionStorage;
         this.partitionsSnapshots = partitionsSnapshots;
         this.partitionKey = partitionKey;
@@ -66,7 +69,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public int tableId() {
-        return partitionKey.tableId();
+        return tableId;
     }
 
     @Override
@@ -171,7 +174,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
             snapshot.acquireMvLock();
 
             try {
-                if (snapshot.alreadyPassed(rowId)) {
+                if (snapshot.alreadyPassed(tableId, rowId)) {
                     // Row already sent.
                     continue;
                 }
@@ -182,7 +185,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                 }
 
                 // Collect all versions of row and schedule the send operation.
-                snapshot.enqueueForSending(rowId);
+                snapshot.enqueueForSending(tableId, rowId);
             } finally {
                 snapshot.releaseMvLock();
             }

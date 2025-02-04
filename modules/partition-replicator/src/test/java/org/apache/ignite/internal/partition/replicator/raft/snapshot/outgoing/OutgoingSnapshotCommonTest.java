@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.singleton;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -33,9 +34,11 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,8 +49,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     @Mock
-    private PartitionAccess partitionAccess;
+    private PartitionStorageAccess partitionAccess;
 
     @Mock
     private CatalogService catalogService;
@@ -56,16 +61,21 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     private final PartitionReplicationMessagesFactory messagesFactory = new PartitionReplicationMessagesFactory();
 
-    private final PartitionKey partitionKey = new PartitionKey(1, 1);
+    private final PartitionKey partitionKey = new TablePartitionKey(TABLE_ID, 1);
 
     private static final int REQUIRED_CATALOG_VERSION = 42;
 
     @BeforeEach
     void createTestInstance() {
-        when(partitionAccess.partitionKey()).thenReturn(partitionKey);
         lenient().when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
+        snapshot = new OutgoingSnapshot(
+                UUID.randomUUID(),
+                partitionKey,
+                singleton(TABLE_ID, partitionAccess),
+                mock(PartitionTxStateAccess.class),
+                catalogService
+        );
     }
 
     @Test
@@ -75,8 +85,8 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     @Test
     void sendsSnapshotMeta() {
-        when(partitionAccess.maxLastAppliedIndex()).thenReturn(100L);
-        when(partitionAccess.maxLastAppliedTerm()).thenReturn(3L);
+        when(partitionAccess.lastAppliedIndex()).thenReturn(100L);
+        when(partitionAccess.lastAppliedTerm()).thenReturn(3L);
         when(partitionAccess.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 13L,
                 37L,

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
@@ -43,20 +44,21 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 1;
+
+    private static final int TABLE_ID = 1;
 
     @Mock
     private MvPartitionStorage partitionStorage;
@@ -64,10 +66,8 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionsSnapshots partitionsSnapshots;
 
-    @Spy
-    private final PartitionKey partitionKey = new PartitionKey(1, PARTITION_ID);
+    private final PartitionKey partitionKey = new TablePartitionKey(TABLE_ID, PARTITION_ID);
 
-    @InjectMocks
     private SnapshotAwarePartitionDataStorage testedStorage;
 
     @Mock
@@ -82,6 +82,13 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void configureMocks() {
+        testedStorage = new SnapshotAwarePartitionDataStorage(
+            TABLE_ID,
+            partitionStorage,
+            partitionsSnapshots,
+            partitionKey
+        );
+
         lenient().when(partitionsSnapshots.partitionSnapshots(any())).thenReturn(partitionSnapshots);
     }
 
@@ -209,12 +216,12 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void notYetPassedRowIsEnqueued(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).alreadyPassed(any());
+        doReturn(false).when(snapshot).alreadyPassed(eq(TABLE_ID), any());
         doReturn(true).when(snapshot).addRowIdToSkip(any());
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot).enqueueForSending(rowId);
+        verify(snapshot).enqueueForSending(TABLE_ID, rowId);
     }
 
     @ParameterizedTest
@@ -222,12 +229,12 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void notYetPassedRowNotEnqueuedSecondTime(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).alreadyPassed(any());
+        doReturn(false).when(snapshot).alreadyPassed(eq(TABLE_ID), any());
         doReturn(false).when(snapshot).addRowIdToSkip(any());
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot, never()).enqueueForSending(any());
+        verify(snapshot, never()).enqueueForSending(eq(TABLE_ID), any());
     }
 
     @ParameterizedTest
@@ -235,11 +242,11 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void alreadyPassedRowNotEnqueued(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(true).when(snapshot).alreadyPassed(any());
+        doReturn(true).when(snapshot).alreadyPassed(eq(TABLE_ID), any());
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot, never()).enqueueForSending(any());
+        verify(snapshot, never()).enqueueForSending(eq(TABLE_ID), any());
     }
 
     @ParameterizedTest
@@ -251,11 +258,11 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot).enqueueForSending(rowId);
+        verify(snapshot).enqueueForSending(TABLE_ID, rowId);
     }
 
     private static void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
-        doReturn(false).when(snapshotToConfigure).alreadyPassed(any());
+        doReturn(false).when(snapshotToConfigure).alreadyPassed(eq(TABLE_ID), any());
         doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
 
@@ -271,8 +278,8 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot).enqueueForSending(rowId);
-        verify(snapshot2).enqueueForSending(rowId);
+        verify(snapshot).enqueueForSending(TABLE_ID, rowId);
+        verify(snapshot2).enqueueForSending(TABLE_ID, rowId);
     }
 
     @Test

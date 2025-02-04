@@ -49,7 +49,6 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Outgoing snapshots manager. Manages a collection of all outgoing snapshots, currently present on the Ignite node.
@@ -74,16 +73,6 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     private final Map<PartitionKey, PartitionSnapshotsImpl> snapshotsByPartition = new ConcurrentHashMap<>();
 
     private volatile ExecutorService executor;
-
-    /**
-     * Constructor.
-     *
-     * @param messagingService Messaging service.
-     */
-    @TestOnly
-    public OutgoingSnapshotsManager(MessagingService messagingService) {
-        this("test", messagingService);
-    }
 
     /**
      * Constructor.

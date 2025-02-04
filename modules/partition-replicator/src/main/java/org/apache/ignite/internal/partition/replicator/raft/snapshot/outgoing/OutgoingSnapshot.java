@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
+import static java.lang.Math.max;
+import static java.util.Comparator.comparingLong;
 import static org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
 import static org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectAVLTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,9 +48,10 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -75,7 +81,11 @@ public class OutgoingSnapshot {
 
     private final UUID id;
 
-    private final PartitionAccess partition;
+    private final PartitionKey partitionKey;
+
+    private final Int2ObjectSortedMap<PartitionStorageAccess> partitionsByTableId;
+
+    private final PartitionTxStateAccess txState;
 
     private final CatalogService catalogService;
 
@@ -103,19 +113,10 @@ public class OutgoingSnapshot {
     private final Queue<SnapshotMvDataResponse.ResponseEntry> outOfOrderMvData = new ArrayDeque<>();
 
     /**
-     * {@link RowId} used to point (most of the time) to the last processed row. More precisely:
-     *
-     * <ul>
-     *     <li>Before we started to read from the partition, this is equal to lowest theoretically possible
-     *     {@link RowId} for this partition</li>
-     *     <li>If we started to read from partition AND it is not yet exhausted, this is the last RowId that was
-     *     sent in this snapshot order</li>
-     *     <li>After we exhausted the partition, this is {@code null}</li>
-     * </ul>
+     * Current delivery state of partition data. Can be {@code null} only if the delivery has not started yet..
      */
-    private RowId lastRowId;
-
-    private boolean startedToReadMvPartition = false;
+    @Nullable
+    private PartitionDeliveryState partitionDeliveryState;
 
     private Cursor<IgniteBiTuple<UUID, TxMeta>> txDataCursor;
 
@@ -129,12 +130,19 @@ public class OutgoingSnapshot {
     /**
      * Creates a new instance.
      */
-    public OutgoingSnapshot(UUID id, PartitionAccess partition, CatalogService catalogService) {
+    public OutgoingSnapshot(
+            UUID id,
+            PartitionKey partitionKey,
+            Int2ObjectMap<PartitionStorageAccess> partitionsByTableId,
+            PartitionTxStateAccess txState,
+            CatalogService catalogService
+    ) {
         this.id = id;
-        this.partition = partition;
+        this.partitionKey = partitionKey;
+        // Create a sorted copy in order to process partitions in a deterministic order.
+        this.partitionsByTableId = new Int2ObjectAVLTreeMap<>(partitionsByTableId);
+        this.txState = txState;
         this.catalogService = catalogService;
-
-        lastRowId = RowId.lowestRowId(partition.partitionKey().partitionId());
     }
 
     /**
@@ -150,7 +158,7 @@ public class OutgoingSnapshot {
      * @return Partition key.
      */
     public PartitionKey partitionKey() {
-        return partition.partitionKey();
+        return partitionKey;
     }
 
     /**
@@ -162,30 +170,38 @@ public class OutgoingSnapshot {
         try {
             frozenMeta = takeSnapshotMeta();
 
-            txDataCursor = partition.getAllTxMeta();
+            txDataCursor = txState.getAllTxMeta();
         } finally {
             releaseMvLock();
         }
     }
 
     private PartitionSnapshotMeta takeSnapshotMeta() {
-        RaftGroupConfiguration config = partition.committedGroupConfiguration();
+        PartitionStorageAccess partitionStorageWithMaxAppliedIndex = partitionsByTableId.values().stream()
+                .max(comparingLong(PartitionStorageAccess::lastAppliedIndex))
+                .orElseThrow();
+
+        RaftGroupConfiguration config = partitionStorageWithMaxAppliedIndex.committedGroupConfiguration();
 
         assert config != null : "Configuration should never be null when installing a snapshot";
 
         int catalogVersion = catalogService.latestCatalogVersion();
 
-        Map<Integer, UUID> nextRowIdToBuildByIndexId = collectNextRowIdToBuildIndexes(catalogService, partition, catalogVersion);
+        Map<Integer, UUID> nextRowIdToBuildByIndexId = collectNextRowIdToBuildIndexes(
+                catalogService,
+                partitionsByTableId.values(),
+                catalogVersion
+        );
 
         return snapshotMetaAt(
-                partition.maxLastAppliedIndex(),
-                partition.maxLastAppliedTerm(),
+                max(partitionStorageWithMaxAppliedIndex.lastAppliedIndex(), txState.lastAppliedIndex()),
+                max(partitionStorageWithMaxAppliedIndex.lastAppliedTerm(), txState.lastAppliedTerm()),
                 config,
                 catalogVersion,
                 nextRowIdToBuildByIndexId,
-                partition.leaseStartTime(),
-                partition.primaryReplicaNodeId(),
-                partition.primaryReplicaNodeName()
+                partitionStorageWithMaxAppliedIndex.leaseStartTime(),
+                partitionStorageWithMaxAppliedIndex.primaryReplicaNodeId(),
+                partitionStorageWithMaxAppliedIndex.primaryReplicaNodeName()
         );
     }
 
@@ -304,23 +320,28 @@ public class OutgoingSnapshot {
         return sum;
     }
 
-    private long tryProcessRowFromPartition(List<SnapshotMvDataResponse.ResponseEntry> batch, long totalBatchSize,
-            SnapshotMvDataRequest request) {
+    private long tryProcessRowFromPartition(
+            List<SnapshotMvDataResponse.ResponseEntry> batch,
+            long totalBatchSize,
+            SnapshotMvDataRequest request
+    ) {
         if (batchIsFull(request, totalBatchSize) || finishedMvData()) {
             return totalBatchSize;
         }
 
-        if (!startedToReadMvPartition) {
-            lastRowId = partition.closestRowId(lastRowId);
-
-            startedToReadMvPartition = true;
+        if (partitionDeliveryState == null) {
+            partitionDeliveryState = new PartitionDeliveryState(partitionsByTableId.values());
         } else {
-            lastRowId = partition.closestRowId(lastRowId.increment());
+            partitionDeliveryState.advance();
         }
 
-        if (!finishedMvData()) {
-            if (!rowIdsToSkip.remove(lastRowId)) {
-                SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId);
+        if (!partitionDeliveryState.isEmpty()) {
+            RowId rowId = partitionDeliveryState.currentRowId();
+
+            PartitionStorageAccess partition = partitionDeliveryState.currentPartitionStorage();
+
+            if (!rowIdsToSkip.remove(rowId)) {
+                SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(partition, rowId);
 
                 assert rowEntry != null;
 
@@ -338,7 +359,7 @@ public class OutgoingSnapshot {
     }
 
     @Nullable
-    private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId) {
+    private static SnapshotMvDataResponse.ResponseEntry rowEntry(PartitionStorageAccess partition, RowId rowId) {
         List<ReadResult> rowVersionsN2O = partition.getAllRowVersions(rowId);
 
         if (rowVersionsN2O.isEmpty()) {
@@ -380,6 +401,7 @@ public class OutgoingSnapshot {
         }
 
         return PARTITION_REPLICATION_MESSAGES_FACTORY.responseEntry()
+                .tableId(partition.tableId())
                 .rowId(rowId.uuid())
                 .rowVersions(rowVersions)
                 .timestamps(commitTimestamps)
@@ -441,6 +463,7 @@ public class OutgoingSnapshot {
     /**
      * Acquires lock over this snapshot MV data.
      */
+    @SuppressWarnings("LockAcquiredButNotSafelyReleased")
     public void acquireMvLock() {
         mvOperationsLock.lock();
     }
@@ -460,7 +483,7 @@ public class OutgoingSnapshot {
      * @return {@code true} if finished.
      */
     private boolean finishedMvData() {
-        return lastRowId == null;
+        return partitionDeliveryState != null && partitionDeliveryState.isEmpty();
     }
 
     /**
@@ -486,17 +509,16 @@ public class OutgoingSnapshot {
      * @param rowId RowId.
      * @return {@code true} if the given RowId is already passed by the snapshot in normal rows sending order.
      */
-    public boolean alreadyPassed(RowId rowId) {
+    public boolean alreadyPassed(int tableId, RowId rowId) {
         assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
-        if (!startedToReadMvPartition) {
-            return false;
-        }
         if (finishedMvData()) {
             return true;
         }
 
-        return rowId.compareTo(lastRowId) <= 0;
+        return partitionDeliveryState != null
+                && tableId <= partitionDeliveryState.currentTableId()
+                && rowId.compareTo(partitionDeliveryState.currentRowId()) <= 0;
     }
 
     /**
@@ -506,10 +528,10 @@ public class OutgoingSnapshot {
      *
      * @param rowId {@link RowId} of the row.
      */
-    public void enqueueForSending(RowId rowId) {
+    public void enqueueForSending(int tableId, RowId rowId) {
         assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
-        ResponseEntry entry = rowEntry(rowId);
+        ResponseEntry entry = rowEntry(partitionsByTableId.get(tableId), rowId);
 
         if (entry != null) {
             outOfOrderMvData.add(entry);
