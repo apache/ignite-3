@@ -68,8 +68,8 @@ public final class SchemaTestUtils {
             NativeTypes.time(0),
             NativeTypes.datetime(6),
             NativeTypes.timestamp(6),
-            NativeTypes.blobOf(65536),
-            NativeTypes.stringOf(65536));
+            NativeTypes.BYTES,
+            NativeTypes.STRING);
 
     /**
      * Generates random value of given type.

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.DATE;
 import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.type.NativeTypes.INT16;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.apache.ignite.internal.type.NativeTypes.INT64;
 import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.apache.ignite.internal.type.NativeTypes.datetime;
 import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
@@ -63,9 +65,9 @@ public class KeyValueTestUtils {
             new Column("timestampCol".toUpperCase(), timestamp(6), true),
 
             new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
-            new Column("stringCol".toUpperCase(), NativeTypes.stringOf(65536), true),
-            new Column("nullBytesCol".toUpperCase(), NativeTypes.blobOf(65536), true),
-            new Column("bytesCol".toUpperCase(), NativeTypes.blobOf(65536), true),
+            new Column("stringCol".toUpperCase(), STRING, true),
+            new Column("nullBytesCol".toUpperCase(), BYTES, true),
+            new Column("bytesCol".toUpperCase(), BYTES, true),
             new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
     };
 
