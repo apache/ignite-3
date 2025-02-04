@@ -113,6 +113,7 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -828,7 +829,7 @@ public class DdlSqlToCommandConverter {
                 }
 
                 // Directly set the option value and return
-                replicasOptionInfo.setter.accept(target, Integer.MAX_VALUE);
+                replicasOptionInfo.setter.accept(target, DistributionAlgorithm.ALL_REPLICAS);
                 return;
             } else {
                 zoneOptionInfo = replicasOptionInfo;

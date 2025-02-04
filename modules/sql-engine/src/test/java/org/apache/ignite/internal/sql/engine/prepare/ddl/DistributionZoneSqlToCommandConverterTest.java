@@ -47,6 +47,7 @@ import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
+import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
@@ -202,7 +203,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
-        assertThat(desc.replicas(), equalTo(Integer.MAX_VALUE));
+        assertThat(desc.replicas(), equalTo(DistributionAlgorithm.ALL_REPLICAS));
     }
 
     @Test
@@ -367,7 +368,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
-        assertThat(desc.replicas(), is(Integer.MAX_VALUE));
+        assertThat(desc.replicas(), is(DistributionAlgorithm.ALL_REPLICAS));
     }
 
     @Test
