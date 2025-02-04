@@ -24,11 +24,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import org.apache.ignite.configuration.validation.ValidationIssue;
+import org.jetbrains.annotations.Nullable;
 
 /** Validates that there are no duplicate keys in the configuration. */
 public class ConfigurationDuplicatesValidator {
@@ -37,14 +39,14 @@ public class ConfigurationDuplicatesValidator {
      *
      * @param cfg configuration in HOCON or JSON format.
      */
-    public static List<ValidationIssue> validate(String cfg) {
+    public static Collection<ValidationIssue> validate(String cfg) {
         Object root = getConfigRoot(cfg);
 
         Queue<Node> queue = new ArrayDeque<>();
-        queue.add(new Node(root, new ArrayList<>()));
+        queue.add(new Node(root, new ArrayList<>(), null));
 
         Set<String> paths = new HashSet<>();
-        List<ValidationIssue> issues = new ArrayList<>();
+        Set<ValidationIssue> issues = new HashSet<>();
 
         while (!queue.isEmpty()) {
             Node currentNode = queue.poll();
@@ -57,8 +59,8 @@ public class ConfigurationDuplicatesValidator {
             Object firstChild = nodeChildren.get(0);
             ArrayList<String> currentPath = new ArrayList<>(currentNode.basePath);
 
-            if (ConfigNodePath.isInstance(firstChild)) {
-                currentPath.add(ConfigNodePath.path(firstChild));
+            if (ConfigNodePath.isInstance(firstChild) || currentNode.index != null) {
+                currentPath.add(ConfigNodePath.isInstance(firstChild) ? ConfigNodePath.path(firstChild) : currentNode.index.toString());
                 String path = String.join(".", currentPath);
 
                 if (paths.contains(path)) {
@@ -68,8 +70,12 @@ public class ConfigurationDuplicatesValidator {
                 paths.add(path);
             }
 
+            int index = 0;
             for (Object child : nodeChildren) {
-                queue.add(new Node(child, currentPath));
+                if (ConfigNodeComplexValue.isInstance(child) || ConfigNodeFieldClass.isInstance(child)) {
+                    queue.add(new Node(child, currentPath, ConfigNodeArray.isInstance(currentNode.configNode) ? index : null));
+                    index++;
+                }
             }
         }
 
@@ -123,6 +129,23 @@ public class ConfigurationDuplicatesValidator {
                 // Shouldn't happen
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    private static class ConfigNodeArray {
+        private static final Class<?> CLASS;
+
+        static {
+            try {
+                CLASS = Class.forName("com.typesafe.config.impl.ConfigNodeArray");
+            } catch (Exception e) {
+                // Shouldn't happen unless library structure is changed
+                throw new RuntimeException(e);
+            }
+        }
+
+        private static boolean isInstance(Object configNode) {
+            return CLASS.isInstance(configNode);
         }
     }
 
@@ -225,10 +248,12 @@ public class ConfigurationDuplicatesValidator {
     private static class Node {
         private final List<String> basePath;
         private final Object configNode;
+        private final @Nullable Integer index;
 
-        private Node(Object configNode, List<String> basePath) {
+        private Node(Object configNode, List<String> basePath, @Nullable Integer index) {
             this.configNode = configNode;
             this.basePath = basePath;
+            this.index = index;
         }
     }
 }
