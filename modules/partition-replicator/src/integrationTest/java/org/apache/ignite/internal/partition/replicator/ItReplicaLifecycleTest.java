@@ -747,8 +747,13 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             int val = 100;
 
             node.transactions().runInTransaction(tx -> {
-                assertDoesNotThrow(() -> keyValueView.put(tx, key, val));
+                assertDoesNotThrow(() -> keyValueView.putAll(tx, Map.of(key, val)));
 
+                assertEquals(val, keyValueView.get(tx, key));
+            });
+
+            // Read the key from another transaction to trigger write intent resolution, and so incrementing the estimated size.
+            node.transactions().runInTransaction(tx -> {
                 assertEquals(val, keyValueView.get(tx, key));
             });
 
