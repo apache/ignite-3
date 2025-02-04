@@ -215,7 +215,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static boolean INCLUDE_SLOW;
 
     /** Metrics sources that should be enabled. For debug purposes. */
-    private static Set<String> enabledMetrics = Set.of("jvm", "os", "metastorage");
+    private static Set<String> enabledMetrics = Set.of(); // Set.of("jvm", "os", "metastorage");
 
     @BeforeAll
     static void init(TestInfo info) {
