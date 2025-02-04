@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.lang.reflect.Type;
 import java.time.LocalDate;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -62,6 +65,7 @@ import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -199,6 +203,36 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                     () -> buildTrimmedRow(rowType, input)
             );
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("binaryTypes")
+    public void testValidateBinaryTypesOverflow(SqlTypeName type, int precision, Object[] input, boolean exceptionally) {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        RelDataType rowType = typeFactory.builder()
+                .add("c1", typeFactory.createSqlType(type, precision))
+                .build();
+
+        if (exceptionally) {
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR,
+                    "Value too long for type: " + type,
+                    () -> buildTrimmedRow(rowType, input));
+        } else {
+            buildTrimmedRow(rowType, input);
+        }
+    }
+
+    private static Stream<Arguments> binaryTypes() {
+        Object[] input = {ByteString.of("AABBCC", 16)};
+
+        return Stream.of(
+                arguments(SqlTypeName.BINARY, PRECISION_NOT_SPECIFIED, input, true),
+                arguments(SqlTypeName.BINARY, 2, input, true),
+                arguments(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED, input, false),
+                arguments(SqlTypeName.VARBINARY, 2, input, true)
+        );
     }
 
     private static void expectOutputRow(RelDataType rowType, Object[] input, Object[] expected) {

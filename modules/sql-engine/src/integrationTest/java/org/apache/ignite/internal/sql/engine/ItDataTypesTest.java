@@ -631,16 +631,16 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testCharTypesWithTrailingSpacesAreTrimmed() {
-        sql("create table limitedChar (pk int primary key, fb1 VARBINARY(2), f1 VARCHAR(3), fb2 VARBINARY(1))");
+        sql("create table limitedChar (pk int primary key, f1 VARCHAR(3))");
 
         try {
-            sql("insert into limitedChar values (1, x'01', 'a b     ', x'01')");
+            sql("insert into limitedChar values (1, 'a b     ')");
 
             assertQuery("select length(f1) from limitedChar")
                     .returns(3)
                     .check();
 
-            sql("insert into limitedChar values (2, x'01', 'a ' || ?, x'01')", "b     ");
+            sql("insert into limitedChar values (2, 'a ' || ?)", "b     ");
 
             assertQuery("select length(f1) from limitedChar")
                     .returns(3)

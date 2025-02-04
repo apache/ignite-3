@@ -753,10 +753,12 @@ public class TypeUtils {
 
             if (BINARY_TYPES.contains(typeName)) {
                 assert data instanceof ByteString;
-                assert colType.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED;
+                if (typeName == SqlTypeName.VARBINARY && colType.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED) {
+                    continue;
+                }
 
                 if (((ByteString) data).length() > colType.getPrecision()) {
-                    throw new SqlException(STMT_VALIDATION_ERR, format("Value too long for type binary({})", colType.getPrecision()));
+                    throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
                 }
             }
 
