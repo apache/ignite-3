@@ -27,8 +27,6 @@ public class ZonePartitionId implements ReplicationGroupId {
 
     private final int zoneId;
 
-    private final int tableId;
-
     private final int partId;
 
     /**
@@ -40,22 +38,6 @@ public class ZonePartitionId implements ReplicationGroupId {
     public ZonePartitionId(int zoneId, int partId) {
         this.zoneId = zoneId;
         this.partId = partId;
-        this.tableId = 0;
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param zoneId Zone id.
-     * @param tableId Table id.
-     * @param partId Partition id.
-     */
-    public ZonePartitionId(int zoneId, int tableId, int partId) {
-        assert tableId != 0 : "Use constructor with two parameters.";
-
-        this.zoneId = zoneId;
-        this.tableId = tableId;
-        this.partId = partId;
     }
 
     /**
@@ -65,15 +47,6 @@ public class ZonePartitionId implements ReplicationGroupId {
      */
     public int zoneId() {
         return zoneId;
-    }
-
-    /**
-     * Get the table id.
-     *
-     * @return Table id.
-     */
-    public int tableId() {
-        return tableId;
     }
 
     /**
@@ -114,7 +87,7 @@ public class ZonePartitionId implements ReplicationGroupId {
 
         ZonePartitionId that = (ZonePartitionId) o;
 
-        return zoneId == that.zoneId && partId == that.partId && tableId == that.tableId;
+        return zoneId == that.zoneId && partId == that.partId;
     }
 
     @Override
@@ -123,7 +96,6 @@ public class ZonePartitionId implements ReplicationGroupId {
 
         result = 31 * result + zoneId;
         result = 31 * result + partId;
-        result = 31 * result + tableId;
 
         return result;
     }
