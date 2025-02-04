@@ -24,9 +24,11 @@ import java.nio.file.Path;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,10 +37,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Integration test for checking Cluster configuration.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItClusterConfigurationTest {
+public class ItClusterConfigurationTest extends BaseIgniteAbstractTest {
+    private IgniteServer node;
+
+    @AfterEach
+    void tearDown() {
+        if (node != null) {
+            node.shutdown();
+        }
+    }
+
     @Test
     void testValidationFailsWithDuplicates(TestInfo testInfo, @WorkDirectory Path workDir) {
-        IgniteServer node = TestIgnitionManager.start(testNodeName(testInfo, 0), null, workDir);
+        node = TestIgnitionManager.start(testNodeName(testInfo, 0), null, workDir);
 
         var parameters = InitParameters.builder()
                 .metaStorageNodes(node)
