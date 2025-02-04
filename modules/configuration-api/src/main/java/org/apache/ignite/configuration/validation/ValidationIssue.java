@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.validation;
 
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -79,5 +80,10 @@ public class ValidationIssue {
         ValidationIssue that = (ValidationIssue) obj;
 
         return key.equals(that.key) && message.equals(that.message);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(key, message);
     }
 }

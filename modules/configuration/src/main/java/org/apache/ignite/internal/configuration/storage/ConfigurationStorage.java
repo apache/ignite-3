@@ -91,7 +91,7 @@ public interface ConfigurationStorage extends ManuallyCloseable {
     @Override
     void close();
 
-    /** Validate that there are no duplicates in the stored configuration */
+    /** Validate that there are no duplicates in the stored configuration. */
     default Collection<ValidationIssue> validateDuplicates() {
         // No op.
         return Collections.emptyList();
