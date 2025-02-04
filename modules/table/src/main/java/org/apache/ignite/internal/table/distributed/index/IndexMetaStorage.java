@@ -480,8 +480,7 @@ public class IndexMetaStorage implements IgniteComponent {
     }
 
     private int lwmCatalogVersion(@Nullable HybridTimestamp lwm) {
-        long timestamp = lwm == null ? HybridTimestamp.MIN_VALUE.longValue() : lwm.longValue();
-        return catalogService.activeCatalogVersion(timestamp);
+        return lwm == null ? catalogService. earliestCatalogVersion() : catalogService.activeCatalogVersion(lwm.longValue());
     }
 
     private static Set<Integer> indexIdsForCatalogVersion(Collection<IndexMeta> indexMetas, int catalogVersion) {

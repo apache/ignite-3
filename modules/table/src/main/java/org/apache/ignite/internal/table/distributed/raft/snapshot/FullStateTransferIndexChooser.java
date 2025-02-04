@@ -257,8 +257,9 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
             int catalogVersion = parameters.catalogVersion();
 
             lowWatermark.getLowWatermarkSafe(lwm -> {
-                long timestamp = lwm == null ? HybridTimestamp.MIN_VALUE.longValue() : lwm.longValue();
-                int lwmCatalogVersion = catalogService.activeCatalogVersion(timestamp);
+                int lwmCatalogVersion = lwm == null
+                        ? catalogService.earliestCatalogVersion()
+                        : catalogService.activeCatalogVersion(lwm.longValue());
 
                 if (catalogVersion <= lwmCatalogVersion) {
                     // There is no need to add a read-only indexes, since the index should be destroyed under the updated low watermark.

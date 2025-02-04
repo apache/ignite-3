@@ -307,9 +307,10 @@ public class IndexManager implements IgniteComponent {
     private void recoverDestructionQueue() {
         // LWM starts updating only after the node is restored.
         HybridTimestamp lwm = lowWatermark.getLowWatermark();
-        long timestamp = lwm == null ? HybridTimestamp.MIN_VALUE.longValue() : lwm.longValue();
 
-        int earliestCatalogVersion = catalogService.activeCatalogVersion(timestamp);
+        int earliestCatalogVersion = lwm == null
+                ? catalogService.earliestCatalogVersion()
+                : catalogService.activeCatalogVersion(lwm.longValue());
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         Catalog nextCatalog = catalogService.catalog(latestCatalogVersion);

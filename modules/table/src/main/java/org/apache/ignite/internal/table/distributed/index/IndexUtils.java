@@ -100,8 +100,9 @@ public class IndexUtils {
             SchemaRegistry schemaRegistry,
             @Nullable HybridTimestamp lwm
     ) {
-        long timestamp = lwm == null ? HybridTimestamp.MIN_VALUE.longValue() : lwm.longValue();
-        int earliestCatalogVersion = catalogService.activeCatalogVersion(timestamp);
+        int earliestCatalogVersion = lwm == null
+                ? catalogService.earliestCatalogVersion()
+                : catalogService.activeCatalogVersion(lwm.longValue());
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         int tableId = table.tableId();
