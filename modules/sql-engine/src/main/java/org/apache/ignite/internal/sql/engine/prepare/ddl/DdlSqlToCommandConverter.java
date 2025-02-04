@@ -156,10 +156,10 @@ public class DdlSqlToCommandConverter {
     private final Map<ZoneOptionEnum, DdlOptionInfo<AlterZoneCommandBuilder, ?>> alterZoneOptionInfos;
 
     /** DDL option info for an integer CREATE ZONE REPLICAS option. */
-    private final DdlOptionInfo<CreateZoneCommandBuilder, Integer> CREATE_REPLICAS_OPTION_INFO;
+    private final DdlOptionInfo<CreateZoneCommandBuilder, Integer> createReplicasOptionInfo;
 
     /** DDL option info for an integer ALTER ZONE REPLICAS option. */
-    private final DdlOptionInfo<AlterZoneCommandBuilder, Integer> ALTER_REPLICAS_OPTION_INFO;
+    private final DdlOptionInfo<AlterZoneCommandBuilder, Integer> alterReplicasOptionInfo;
 
     /** Zone options set. */
     private final Set<String> knownZoneOptionNames;
@@ -191,7 +191,7 @@ public class DdlSqlToCommandConverter {
                         (builder, params) -> builder.consistencyModeParams(parseConsistencyMode(params)))
         ));
 
-        CREATE_REPLICAS_OPTION_INFO = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::replicas);
+        createReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::replicas);
 
         // ALTER ZONE options.
         alterZoneOptionInfos = new EnumMap<>(Map.of(
@@ -205,7 +205,7 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::dataNodesAutoAdjustScaleDown)
         ));
 
-        ALTER_REPLICAS_OPTION_INFO = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas);
+        alterReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas);
     }
 
     /**
@@ -687,7 +687,7 @@ public class DdlSqlToCommandConverter {
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
-            updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, CREATE_REPLICAS_OPTION_INFO, ctx, builder);
+            updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
         }
 
         if (remainingKnownOptions.contains(STORAGE_PROFILES.name())) {
@@ -711,7 +711,7 @@ public class DdlSqlToCommandConverter {
         for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
-            updateZoneOption(option, remainingKnownOptions, alterZoneOptionInfos, ALTER_REPLICAS_OPTION_INFO, ctx, builder);
+            updateZoneOption(option, remainingKnownOptions, alterZoneOptionInfos, alterReplicasOptionInfo, ctx, builder);
         }
 
         return builder.build();
