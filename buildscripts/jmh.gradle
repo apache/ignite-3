@@ -18,8 +18,11 @@
 apply plugin: 'me.champeau.jmh'
 apply plugin: 'io.morethan.jmhreport'
 
+def isMac = System.getProperty('os.name').toLowerCase().contains('mac')
+def isLinux = System.getProperty('os.name').toLowerCase().contains('linux')
 
 jmh {
+    includes = project.hasProperty('jmhBench') ? ["org.apache.ignite.*.${project.getProperty('jmhBench')}"] : ['.*'] // Match all benchmarks by default
     // Number of measurement iterations to do.
     iterations = 3
     // Benchmark mode. Available modes are: [Throughput/thrpt, AverageTime/avgt, SampleTime/sample, SingleShotTime/ss, All/all]
@@ -40,8 +43,6 @@ jmh {
     operationsPerInvocation = 1
     // Benchmark parameters.
     benchmarkParameters = [:]
-    // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
-    profilers = ["async:libPath=${project.rootDir}/dev-utilities/libasyncProfiler.dylib;output=flamegraph"]
     // Time to spend at each measurement iteration.
     timeOnIteration = '500ms'
     // Result format type (one of CSV, JSON, NONE, SCSV, TEXT)
@@ -66,6 +67,19 @@ jmh {
     warmupIterations = 1
     // Strategy to apply when encountring duplicate classes during creation of the fat jar (i.e. while executing jmhJar task)
     duplicateClassesStrategy = DuplicatesStrategy.EXCLUDE
+
+    // Determine the profiler library path dynamically based on the OS
+    def asyncProfilerLibPath
+    if (isMac) {
+        asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.dylib"
+    } else if (isLinux) {
+        asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.so"
+    } else {
+        throw new GradleException("Unsupported operating system for async profiler")
+    }
+
+    // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
+    profilers = ["async:libPath=${asyncProfilerLibPath};output=flamegraph;dir=build/profiler"]
 }
 
 jmhReport {

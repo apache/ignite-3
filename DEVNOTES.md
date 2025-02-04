@@ -3,6 +3,7 @@
 * [Building Ignite](#building-ignite)
 * [Running sanity checks](#running-sanity-checks)
 * [Running tests](#running-tests)
+* [Running benchmarks](#running-benchmarks)
 * [Checking and generating Javadoc](#checking-and-generating-javadoc)
 * [Setting up IntelliJ Idea project](#setting-up-intellij-idea-project)
 * [Use prepared IntelliJ Idea run configurations](#use-prepared-idea-run-configurations)
@@ -116,6 +117,41 @@ Run integration tests only:
 ```shell
 ./gradlew clean integrationTest
 ```
+***
+
+## Running benchmarks
+
+Say, you want to run a benchmark for the `ignite-transactions` module. You can do it with the following command:
+
+```shell
+./gradlew ignite-transactions:jmh
+```
+
+To open the JMH report, you can use the following command:
+
+```shell
+open modules/transactions/build/reports/jmh/index.html
+```
+
+If you want to open the flamegraph of this benchmark, you can find them in the module build directory 
+`modules/transactions/build/profiler`.
+
+If you want to run single benchmark, you can do it with the following command:
+
+```shell
+./gradlew clean :ignite-transactions:jmh -PjmhBench=TransactionExpirationRegistryBenchmark.registerUnregister
+```
+
+
+### How to add your own benchmark
+
+1. Go to `build.gradle` file in the module you want to add a benchmark to.
+2. Add the following line to the top of the file: `apply from: "$rootDir/buildscripts/jmh.gradle"`
+3. Create `src/jmh` and write your benchmark in `org.apache.ignite.*` package.
+4. If you want to override any property of the benchmark, you can do it in the `jmh` block in the `build.gradle` file. 
+
+For more details see the [JMH Gradle Plugin documentation](https://github.com/melix/jmh-gradle-plugin)
+
 ***
 
 ## Checking and generating Javadoc
