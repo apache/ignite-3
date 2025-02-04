@@ -19,7 +19,7 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.FEATURE_FLAG_NAME;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.PRODUCTION_CLUSTER_CONFIG_STRING;
 
 import java.util.ArrayList;
@@ -115,7 +115,7 @@ public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
         boolean colocationFeatureEnabled = enableColocationFeature();
 
         // Enable/disable collocation feature.
-        System.setProperty(FEATURE_FLAG_NAME, Boolean.toString(colocationFeatureEnabled));
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationFeatureEnabled));
 
         // Start the cluster and initialize it.
         super.nodeSetUp();

@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.FEATURE_FLAG_NAME;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -113,7 +113,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(SystemPropertiesExtension.class)
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-@WithSystemProperty(key = FEATURE_FLAG_NAME, value = "true")
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     private static final int NODE_COUNT = 3;
 
@@ -714,6 +714,48 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         );
 
         assertTrue(waitForCondition(() -> getNode(0).replicaManager.isReplicaStarted(partId), 10_000L));
+    }
+
+    @Test
+    public void testTableEstimatedSize(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
+
+        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
+                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        createZone(node, "test_zone", 1, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+
+        long key = 1;
+
+        {
+            createTable(node, "test_zone", "test_table");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
+
+            prepareTableIdToZoneIdConverter(
+                    node,
+                    new TablePartitionId(tableId, 0),
+                    new ZonePartitionId(zoneId, 0)
+            );
+
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+
+            int val = 100;
+
+            node.transactions().runInTransaction(tx -> {
+                assertDoesNotThrow(() -> keyValueView.put(tx, key, val));
+
+                assertEquals(val, keyValueView.get(tx, key));
+            });
+
+            CompletableFuture<Long> sizeFuture = node.tableManager.table(tableId).internalTable().estimatedSize();
+
+            assertEquals(1, sizeFuture.get());
+        }
     }
 
     private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {

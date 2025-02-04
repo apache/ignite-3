@@ -20,11 +20,10 @@ package org.apache.ignite.internal.replicator.message;
 import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
- * Generic interface for all messages about concrete table.
+ * This class represents a common base interface for all message types related to a particular table.
+ * Extending this interface means the message is propagated to the table replica to be processed via zone replica.
  */
 public interface TableAware extends NetworkMessage {
-    /**
-     * Returns table identifier.
-     **/
+    /** Returns table identifier. **/
     int tableId();
 }

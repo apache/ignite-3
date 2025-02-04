@@ -81,7 +81,7 @@ public final class IgniteSystemProperties {
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22115 Remove this feature flag.
     /** Enables zone based replication (aka colocation) feature. */
-    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    public static final String COLOCATION_FEATURE_FLAG = "IGNITE_ZONE_BASED_REPLICATION";
 
     /**
      * Enforces singleton.
