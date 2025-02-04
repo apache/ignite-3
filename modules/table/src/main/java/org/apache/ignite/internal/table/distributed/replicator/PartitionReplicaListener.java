@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
@@ -350,8 +351,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final LowWatermark lowWatermark;
 
-    private static final boolean SKIP_UPDATES =
-            IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
+    private static final boolean SKIP_UPDATES = getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
+
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     /**
      * The constructor.
@@ -1188,16 +1193,17 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param isPrimary Whether is primary replica.
      * @return Future.
      */
-    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(Boolean isPrimary) {
+    private CompletableFuture<?> processReplicaSafeTimeSyncRequest(Boolean isPrimary) {
         requireNonNull(isPrimary);
 
-        if (!isPrimary) {
+        // Disable safe-time sync if the Colocation feature is enabled, safe-time is managed on a different level there.
+        if (!isPrimary || enabledColocationFeature) {
             return nullCompletedFuture();
         }
 
         return applyCmdWithExceptionHandling(
                 REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().initiatorTime(clockService.now()).build()
-        ).thenApply(res -> null);
+        );
     }
 
     /**
@@ -2745,7 +2751,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdate(
                         cmd.txId(),
                         cmd.rowUuid(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         cmd.rowToUpdate(),
                         true,
                         null,
@@ -2778,7 +2784,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         storageUpdateHandler.handleUpdate(
                                 cmd.txId(),
                                 cmd.rowUuid(),
-                                cmd.tablePartitionId().asTablePartitionId(),
+                                cmd.commitPartitionId().asTablePartitionId(),
                                 cmd.rowToUpdate(),
                                 false,
                                 null,
@@ -2867,7 +2873,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdateAll(
                         cmd.txId(),
                         cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         true,
                         null,
                         null,
@@ -2880,7 +2886,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdateAll(
                         cmd.txId(),
                         cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         true,
                         null,
                         null,
@@ -2913,7 +2919,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     storageUpdateHandler.handleUpdateAll(
                             cmd.txId(),
                             cmd.rowsToUpdate(),
-                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.commitPartitionId().asTablePartitionId(),
                             false,
                             null,
                             safeTs,
@@ -3799,7 +3805,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
-    private static UpdateCommand updateCommand(
+    private UpdateCommand updateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -3812,7 +3818,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         UpdateCommandBuilder bldr = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                .tablePartitionId(tablePartitionId(tablePartId))
+                .tablePartitionId(tablePartitionId(replicationGroupId))
+                .commitPartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
                 .full(full)
@@ -3856,7 +3863,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                .tablePartitionId(commitPartitionId)
+                .tablePartitionId(tablePartitionId(replicationGroupId))
+                .commitPartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(transactionId)
                 .initiatorTime(initiatorTime)

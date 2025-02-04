@@ -160,6 +160,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -686,43 +687,39 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Boolean> onZoneReplicaCreated(LocalPartitionReplicaEventParameters parameters) {
         if (!enabledColocationFeature) {
-            return completedFuture(false);
+            return falseCompletedFuture();
         }
 
         return inBusyLockAsync(busyLock, () -> readyToProcessTableStarts
                 .thenCompose(v -> {
-                    Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+                    ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
-                    PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.zonePartitionId().partitionId());
+                    Set<TableImpl> zoneTables = zoneTables(zonePartitionId.zoneId());
+
+                    PartitionSet singlePartitionIdSet = PartitionSet.of(zonePartitionId.partitionId());
 
                     CompletableFuture<?>[] futures = zoneTables.stream()
-                            .map(tbl -> {
-                                CompletableFuture<Void> createStoragesFuture = runAsync(
-                                        () -> inBusyLock(busyLock, () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)),
-                                        ioExecutor
-                                );
-
-                                return createStoragesFuture
+                            .map(tbl -> inBusyLockAsync(busyLock, () -> {
+                                return getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
                                         .thenRunAsync(() -> inBusyLock(busyLock, () -> {
                                             lowWatermark.getLowWatermarkSafe(lwm ->
                                                     registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
                                             );
 
-                                            preparePartitionResourcesAndLoadToZoneReplica(
-                                                    tbl, parameters.zonePartitionId().partitionId(), parameters.zonePartitionId().zoneId());
+                                            preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId);
                                         }), ioExecutor);
-                            })
+                            }))
                             .toArray(CompletableFuture[]::new);
 
                     return allOf(futures);
                 })
-                .thenApply((unused) -> false)
+                .thenApply(unused -> false)
         );
     }
 
     private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
         if (!enabledColocationFeature) {
-            return completedFuture(false);
+            return falseCompletedFuture();
         }
 
         return inBusyLockAsync(busyLock, () -> {
@@ -754,7 +751,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
         if (!enabledColocationFeature) {
-            return completedFuture(false);
+            return falseCompletedFuture();
         }
 
         long causalityToken = parameters.causalityToken();
@@ -818,8 +815,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
 
                         for (int i = 0; i < zoneDescriptor.partitions(); i++) {
-                            if (partitionReplicaLifecycleManager.hasLocalPartition(new ZonePartitionId(zoneDescriptor.id(), i))) {
-                                preparePartitionResourcesAndLoadToZoneReplica(table, i, zoneDescriptor.id());
+                            var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
+
+                            if (partitionReplicaLifecycleManager.hasLocalPartition(zonePartitionId)) {
+                                preparePartitionResourcesAndLoadToZoneReplica(table, zonePartitionId);
                             }
                         }
                     }
@@ -845,29 +844,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Prepare the table partition resources and load it to the zone-based replica.
      *
      * @param table Table.
-     * @param partId Partition id.
-     * @param zoneId Zone id.
+     * @param zonePartitionId Zone Partition ID.
      */
-    private void preparePartitionResourcesAndLoadToZoneReplica(
-            TableImpl table,
-            int partId,
-            int zoneId
-    ) {
+    private void preparePartitionResourcesAndLoadToZoneReplica(TableImpl table, ZonePartitionId zonePartitionId) {
+        int partId = zonePartitionId.partitionId();
+
         int tableId = table.tableId();
 
         var internalTbl = (InternalTableImpl) table.internalTable();
 
-        TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
+        var tablePartitionId = new TablePartitionId(tableId, partId);
 
         inBusyLock(busyLock, () -> {
-            var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
+            var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
             PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
-            PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
-                    internalTbl, partId);
+            PartitionDataStorage partitionDataStorage = partitionDataStorage(
+                    partitionStorages.getMvPartitionStorage(),
+                    internalTbl,
+                    partId
+            );
 
             storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
 
@@ -881,10 +880,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
-            mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
+            mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
 
-            Function<RaftCommandRunner, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
-                    replicaGrpId,
+            Function<RaftCommandRunner, ReplicaListener> createListener = raftClient -> createReplicaListener(
+                    tablePartitionId,
                     table,
                     safeTimeTracker,
                     partitionStorages.getMvPartitionStorage(),
@@ -893,9 +892,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     raftClient
             );
 
+            var tablePartitionRaftListener = new PartitionListener(
+                    txManager,
+                    partitionDataStorage,
+                    partitionUpdateHandlers.storageUpdateHandler,
+                    partitionStorages.getTxStateStorage(),
+                    safeTimeTracker,
+                    storageIndexTracker,
+                    catalogService,
+                    table.schemaView(),
+                    indexMetaStorage,
+                    topologyService.localMember().id(),
+                    minTimeCollectorService
+            );
+
             partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
-                    new ZonePartitionId(zoneId, partId),
-                    new TablePartitionId(tableId, partId), createListener
+                    zonePartitionId,
+                    tablePartitionId,
+                    createListener,
+                    tablePartitionRaftListener
             );
         });
     }
@@ -1278,7 +1293,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             indexMetaStorage,
                             topologyService.localMember().id(),
                             minTimeCollectorService
-                    );
+                    ) {
+                        @Override
+                        public void onConfigurationCommitted(
+                                RaftGroupConfiguration config,
+                                long lastAppliedIndex,
+                                long lastAppliedTerm
+                        ) {
+                            // Disable this method if the Colocation feature is enabled, actual configuration will be propagated
+                            // manually by the Zone Raft Listener.
+                            if (!enabledColocationFeature) {
+                                super.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm);
+                            }
+                        }
+                    };
 
                     minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
