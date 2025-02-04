@@ -21,11 +21,11 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
-import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
@@ -50,6 +50,11 @@ public class TxStateMeta implements TransactionMeta {
 
     private final @Nullable Long cleanupCompletionTimestamp;
 
+    /**
+     * The ignite transaction object is associated with this state. This field can be initialized only on the transaction coordinator,
+     * {@code null} in other nodes.
+     */
+    @IgniteToStringExclude
     private final @Nullable InternalTransaction tx;
 
     /**
@@ -189,50 +194,6 @@ public class TxStateMeta implements TransactionMeta {
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
                 .build();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TxStateMeta that = (TxStateMeta) o;
-
-        if (txState != that.txState) {
-            return false;
-        }
-
-        if (txCoordinatorId != null ? !txCoordinatorId.equals(that.txCoordinatorId) : that.txCoordinatorId != null) {
-            return false;
-        }
-
-        if (commitPartitionId != null ? !commitPartitionId.equals(that.commitPartitionId) : that.commitPartitionId != null) {
-            return false;
-        }
-
-        if (commitTimestamp != null ? !commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp != null) {
-            return false;
-        }
-
-        if (initialVacuumObservationTimestamp != null
-                ? !initialVacuumObservationTimestamp.equals(that.initialVacuumObservationTimestamp)
-                : that.initialVacuumObservationTimestamp != null
-        ) {
-            return false;
-        }
-
-        return cleanupCompletionTimestamp != null
-                ? cleanupCompletionTimestamp.equals(that.cleanupCompletionTimestamp)
-                : that.cleanupCompletionTimestamp == null;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp, initialVacuumObservationTimestamp,
-                cleanupCompletionTimestamp);
     }
 
     @Override
