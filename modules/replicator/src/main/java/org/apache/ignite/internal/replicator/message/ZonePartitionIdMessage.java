@@ -27,15 +27,12 @@ public interface ZonePartitionIdMessage extends ReplicationGroupIdMessage {
     /** Zone ID. */
     int zoneId();
 
-    /** Table ID. */
-    int tableId();
-
     /** Partition ID. */
     int partitionId();
 
     /** Converts to {@link ZonePartitionId}. */
     default ZonePartitionId asZonePartitionId() {
-        return new ZonePartitionId(zoneId(), tableId(), partitionId());
+        return new ZonePartitionId(zoneId(), partitionId());
     }
 
     @Override
