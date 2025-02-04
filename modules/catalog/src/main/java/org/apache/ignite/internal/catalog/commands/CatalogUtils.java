@@ -102,7 +102,7 @@ public class CatalogUtils {
     /**
      * Unspecified precision.
      */
-    public static int UNSPECIFIED_PRECISION = -1;
+    public static final int UNSPECIFIED_PRECISION = -1;
 
     /**
      * Minimum DECIMAL precision.
@@ -124,7 +124,7 @@ public class CatalogUtils {
     /**
      * Unspecified scale.
      */
-    public static int UNSPECIFIED_SCALE = -1;
+    public static final int UNSPECIFIED_SCALE = -1;
 
     /**
      * Max DECIMAL scale is implementation-defined.
@@ -160,7 +160,7 @@ public class CatalogUtils {
     /**
      * Unspecified length.
      */
-    public static int UNSPECIFIED_LENGTH = -1;
+    public static final int UNSPECIFIED_LENGTH = -1;
 
     /**
      * Minimum precision for interval types.
