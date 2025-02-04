@@ -17,7 +17,9 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.option;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;import org.apache.ignite.internal.util.Constants;import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileHeader;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.util.Constants;
+import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileHeader;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexFile.IndexEntry;
 
 /**
