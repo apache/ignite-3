@@ -312,6 +312,9 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "DECIMAL(0); DECIMAL precision 0 must be between 1 and 32767",
             "DECIMAL(100000000); DECIMAL precision 100000000 must be between 1 and 32767",
             "DECIMAL(100, 100000000); DECIMAL scale 100000000 must be between 0 and 32767",
+            // Timestamp
+            "TIME(100000000); TIME precision 100000000 must be between 0 and 9",
+            "TIMESTAMP(100000000); TIMESTAMP precision 100000000 must be between 0 and 9",
     }, delimiter = ';')
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void tableWithIncorrectType(String type, String error) throws SqlParseException {
@@ -341,6 +344,9 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "DECIMAL(0); DECIMAL precision 0 must be between 1 and 32767",
             "DECIMAL(100000000); DECIMAL precision 100000000 must be between 1 and 32767",
             "DECIMAL(100, 100000000); DECIMAL scale 100000000 must be between 0 and 32767",
+            // Timestamp
+            "TIME(100000000); TIME precision 100000000 must be between 0 and 9",
+            "TIMESTAMP(100000000); TIMESTAMP precision 100000000 must be between 0 and 9",
     }, delimiter = ';')
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void tableAddColumnWithIncorrectType(String type, String error) throws SqlParseException {
