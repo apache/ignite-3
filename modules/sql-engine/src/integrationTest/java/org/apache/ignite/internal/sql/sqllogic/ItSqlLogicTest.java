@@ -34,6 +34,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
@@ -46,6 +47,8 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.sql.sqllogic.SqlLogicTestEnvironment.RestartMode;
 import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -211,6 +214,9 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     /** Flag to include '*.test_slow' scripts to tests run. */
     private static boolean INCLUDE_SLOW;
 
+    /** Metrics sources that should be enabled. For debug purposes. */
+    private static Set<String> enabledMetrics = Set.of("jvm", "os", "metastorage");
+
     @BeforeAll
     static void init(TestInfo info) {
         config(info.getTestClass());
@@ -367,9 +373,20 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
             IgniteImpl ignite = unwrapIgniteImpl(node.api());
             CLUSTER_NODES.add(ignite);
 
-            ignite.metricManager().enable("jvm");
-            ignite.metricManager().enable("os");
-            ignite.metricManager().enable("metastorage");
+            enableMetrics(ignite, enabledMetrics);
+        }
+    }
+
+    /** Disables all metrics except provided ones. */
+    private static void enableMetrics(IgniteImpl ignite, Set<String> metricsNames) {
+        MetricManager metricManager = ignite.metricManager();
+
+        for (MetricSource src : metricManager.metricSources()) {
+            if (metricsNames.contains(src.name())) {
+                metricManager.enable(src);
+            } else {
+                metricManager.disable(src);
+            }
         }
     }
 
