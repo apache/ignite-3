@@ -81,7 +81,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -349,7 +348,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     /**
      * Tests that inserted data is replicated to a newly joined replica node.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24394")
     @ParameterizedTest(name = "truncateRaftLog={0}")
     @ValueSource(booleans = {false, true})
     void testDataRebalance(boolean truncateRaftLog) throws Exception {
@@ -396,6 +394,11 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));
 
         setPrimaryReplica(newNode, zonePartitionId);
+
+        // Wait for the data to appear. At the moment of writing, we don't have any partition safe time to wait for and
+        // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
+        // Not using "assertTrue" on purpose, the next line will produce a nicer error message.
+        waitForCondition(() -> kvView1.getAll(null, data1.keySet()).equals(data1), 10_000L);
 
         assertThat(kvView1.getAll(null, data1.keySet()), is(data1));
         assertThat(kvView1.getAll(null, data2.keySet()), is(anEmptyMap()));

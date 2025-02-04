@@ -600,8 +600,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
 
         partitionReplicaLifecycleManager.listen(
-                LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
-                this::onZoneReplicaCreated
+                LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED,
+                this::beforeZoneReplicaStarted
         );
 
         partitionReplicaLifecycleManager.listen(
@@ -685,7 +685,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return executorInclinedSchemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
     }
 
-    private CompletableFuture<Boolean> onZoneReplicaCreated(LocalPartitionReplicaEventParameters parameters) {
+    private CompletableFuture<Boolean> beforeZoneReplicaStarted(LocalPartitionReplicaEventParameters parameters) {
         if (!enabledColocationFeature) {
             return falseCompletedFuture();
         }

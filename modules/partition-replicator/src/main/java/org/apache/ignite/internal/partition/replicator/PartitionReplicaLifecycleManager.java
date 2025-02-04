@@ -212,7 +212,26 @@ public class PartitionReplicaLifecycleManager extends
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
-    private final ConcurrentMap<ZonePartitionId, ZonePartitionRaftListener> zonePartitionRaftListeners = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ZonePartitionId, Listeners> listenersByZonePartitionId = new ConcurrentHashMap<>();
+
+    /** Holder class for Replica and Raft listeners. */
+    private static class Listeners {
+        /**
+         * Future that completes when the zone-wide replica listener is created.
+         *
+         * <p>This is needed, because on recovery tables are started before zone replicas and we need to postpone registering table-wide
+         * replica listeners until the zone replica is started.
+         *
+         * <p>During normal operations this future will be complete and table-wide listener registration will happen immediately.
+         */
+        final CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture = new CompletableFuture<>();
+
+        final ZonePartitionRaftListener raftListener;
+
+        Listeners(ZonePartitionRaftListener raftListener) {
+            this.raftListener = raftListener;
+        }
+    }
 
     /**
      * The constructor.
@@ -478,7 +497,9 @@ public class PartitionReplicaLifecycleManager extends
 
         var raftGroupListener = new ZonePartitionRaftListener();
 
-        zonePartitionRaftListeners.put(zonePartitionId, raftGroupListener);
+        var listeners = new Listeners(raftGroupListener);
+
+        listenersByZonePartitionId.put(zonePartitionId, listeners);
 
         ZoneRebalanceRaftGroupEventsListener raftGroupEventsListener = new ZoneRebalanceRaftGroupEventsListener(
                 metaStorageMgr,
@@ -491,27 +512,43 @@ public class PartitionReplicaLifecycleManager extends
         );
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
-            try {
-                return replicaMgr.startReplica(
-                                zonePartitionId,
-                                raftClient -> new ZonePartitionReplicaListener(
-                                        new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
-                                new FailFastSnapshotStorageFactory(),
-                                stablePeersAndLearners,
-                                raftGroupListener,
-                                raftGroupEventsListener,
-                                busyLock
-                        ).thenCompose(replica -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
-                            replicationGroupIds.add(zonePartitionId);
+            var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision);
 
-                            var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision);
+            return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
+                    .thenCompose(v -> {
+                        try {
+                            return replicaMgr.startReplica(
+                                    zonePartitionId,
+                                    raftClient -> {
+                                        var runner = new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor);
 
-                            return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED, eventParams);
-                        }))
-                        .thenApply(unused -> false);
-            } catch (NodeStoppingException e) {
-                return failedFuture(e);
-            }
+                                        var replicaListener = new ZonePartitionReplicaListener(runner);
+
+                                        listeners.replicaListenerFuture.complete(replicaListener);
+
+                                        return replicaListener;
+                                    },
+                                    new FailFastSnapshotStorageFactory(),
+                                    stablePeersAndLearners,
+                                    raftGroupListener,
+                                    raftGroupEventsListener,
+                                    busyLock
+                            );
+                        } catch (NodeStoppingException e) {
+                            return failedFuture(e);
+                        }
+                    })
+                    .thenCompose(replica -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
+                        replicationGroupIds.add(zonePartitionId);
+
+                        return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED, eventParams);
+                    }))
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            listenersByZonePartitionId.remove(zonePartitionId);
+                        }
+                    })
+                    .thenApply(unused -> false);
         };
 
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
@@ -1221,7 +1258,7 @@ public class PartitionReplicaLifecycleManager extends
                 return replicaMgr.stopReplica(zonePartitionId)
                         .thenCompose((replicaWasStopped) -> {
                             if (replicaWasStopped) {
-                                zonePartitionRaftListeners.remove(zonePartitionId);
+                                listenersByZonePartitionId.remove(zonePartitionId);
                                 replicationGroupIds.remove(zonePartitionId);
 
                                 return fireEvent(
@@ -1282,8 +1319,6 @@ public class PartitionReplicaLifecycleManager extends
     /**
      * Load a new table partition listener to the zone replica.
      *
-     * <p>Important: This method must be called only with the guarantee, that the replica exists at the current moment.
-     *
      * @param zonePartitionId Zone partition id.
      * @param tablePartitionId Table partition id.
      * @param tablePartitionReplicaListenerFactory Factory for creating table-specific partition replicas.
@@ -1295,15 +1330,14 @@ public class PartitionReplicaLifecycleManager extends
             Function<RaftCommandRunner, ReplicaListener> tablePartitionReplicaListenerFactory,
             RaftGroupListener tablePartitionRaftListener
     ) {
-        CompletableFuture<Replica> replicaFut = replicaMgr.replica(zonePartitionId);
+        Listeners listeners = listenersByZonePartitionId.get(zonePartitionId);
 
-        assert replicaFut != null && replicaFut.isDone();
+        listeners.replicaListenerFuture.thenAccept(zoneReplicaListener -> zoneReplicaListener.addTableReplicaListener(
+                tablePartitionId,
+                tablePartitionReplicaListenerFactory
+        ));
 
-        var zonePartitionReplicaListener = (ZonePartitionReplicaListener) replicaFut.join().listener();
-
-        zonePartitionReplicaListener.addTableReplicaListener(tablePartitionId, tablePartitionReplicaListenerFactory);
-
-        zonePartitionRaftListeners.get(zonePartitionId).addTablePartitionRaftListener(tablePartitionId, tablePartitionRaftListener);
+        listeners.raftListener.addTablePartitionRaftListener(tablePartitionId, tablePartitionRaftListener);
     }
 
     private CompletableFuture<Void> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<Void>> action) {
