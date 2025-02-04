@@ -47,7 +47,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
             UUID txCoordinatorId,
             TablePartitionId commitPartitionId
     ) {
-        super(ABANDONED, txCoordinatorId, commitPartitionId, null);
+        super(ABANDONED, txCoordinatorId, commitPartitionId, null, null);
 
         this.lastAbandonedMarkerTs = FastTimestamps.coarseCurrentTimeMillis();
     }

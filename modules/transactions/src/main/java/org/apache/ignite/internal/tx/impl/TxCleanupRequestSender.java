@@ -114,12 +114,15 @@ public class TxCleanupRequestSender {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
         txStateVolatileStorage.updateMeta(txId, oldMeta ->
-                new TxStateMeta(oldMeta == null ? state : oldMeta.txState(),
+                new TxStateMeta(
+                        oldMeta == null ? state : oldMeta.txState(),
                         oldMeta == null ? null : oldMeta.txCoordinatorId(),
                         commitPartitionId,
                         oldMeta == null ? null : oldMeta.commitTimestamp(),
+                        oldMeta == null ? null : oldMeta.tx(),
                         oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
-                        cleanupCompletionTimestamp)
+                        cleanupCompletionTimestamp
+                )
         );
     }
 
