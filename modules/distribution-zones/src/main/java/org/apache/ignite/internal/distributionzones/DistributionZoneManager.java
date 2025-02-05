@@ -339,11 +339,9 @@ public class DistributionZoneManager extends
             return;
         }
 
-        int catalogVersion = catalogManager.activeCatalogVersion(updateTimestamp);
-
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
-        for (CatalogZoneDescriptor zoneDescriptor : catalogManager.activeCatalog(catalogVersion).zones()) {
+        for (CatalogZoneDescriptor zoneDescriptor : catalogManager.activeCatalog(updateTimestamp).zones()) {
             int zoneId = zoneDescriptor.id();
 
             if (zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
@@ -593,7 +591,7 @@ public class DistributionZoneManager extends
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp.longValue());
 
         for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
-            CompletableFuture<Void> f = dataNodesManager.onTopologyChangeHandler(
+            CompletableFuture<Void> f = dataNodesManager.onTopologyChange(
                     zone,
                     timestamp,
                     newLogicalTopology,

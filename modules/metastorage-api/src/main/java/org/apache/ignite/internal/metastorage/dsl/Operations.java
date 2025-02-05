@@ -34,8 +34,10 @@ import org.apache.ignite.internal.lang.ByteArray;
 public final class Operations {
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
+    private static final ByteBuffer NO_OP_KEY = ByteBuffer.wrap(new byte[] {});
+
     /** No-op operation singleton. */
-    private static final Operation NO_OP = MSG_FACTORY.operation().type(OperationType.NO_OP).build();
+    private static final Operation NO_OP = MSG_FACTORY.operation().type(OperationType.NO_OP).key(NO_OP_KEY).build();
 
     /** Operations. */
     private final List<Operation> operations;

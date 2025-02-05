@@ -199,7 +199,7 @@ public class DataNodesManager {
         shutdownAndAwaitTermination(executor, 10, SECONDS);
     }
 
-    CompletableFuture<Void> onTopologyChangeHandler(
+    CompletableFuture<Void> onTopologyChange(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> newLogicalTopology,
@@ -966,17 +966,17 @@ public class DataNodesManager {
         }
 
         @TestOnly
-        synchronized boolean taskIsScheduled() {
+        public synchronized boolean taskIsScheduled() {
             return taskFuture != null;
         }
 
         @TestOnly
-        synchronized boolean taskIsCancelled() {
+        public synchronized boolean taskIsCancelled() {
             return taskFuture == null;
         }
 
         @TestOnly
-        synchronized boolean taskIsDone() {
+        public synchronized boolean taskIsDone() {
             return taskFuture != null && taskFuture.isDone();
         }
     }

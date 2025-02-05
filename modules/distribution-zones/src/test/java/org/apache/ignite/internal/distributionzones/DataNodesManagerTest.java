@@ -332,14 +332,14 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         AtomicBoolean partitionResetTriggered = new AtomicBoolean();
 
-        dataNodesManager.onTopologyChangeHandler(zone, clock.now(), currentTopology, 1, () -> partitionResetTriggered.set(true));
+        dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, 1, () -> partitionResetTriggered.set(true));
 
         // Partition reset is not triggered if no nodes were removed.
         assertFalse(partitionResetTriggered.get());
 
         removeNodes(Set.of(A));
 
-        dataNodesManager.onTopologyChangeHandler(zone, clock.now(), currentTopology, 1, () -> partitionResetTriggered.set(true));
+        dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, 1, () -> partitionResetTriggered.set(true));
 
         assertTrue(waitForCondition(partitionResetTriggered::get, 2000));
     }
@@ -351,7 +351,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
                 allOf(
                         catalogManager.activeCatalog(clock.now().longValue()).zones()
                                 .stream()
-                                .map(zone -> dataNodesManager.onTopologyChangeHandler(zone, clock.now(), currentTopology, 0, () -> {}))
+                                .map(zone -> dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, 0, () -> {}))
                                 .collect(toList())
                 ),
                 willCompleteSuccessfully()
@@ -365,7 +365,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
                 allOf(
                         catalogManager.activeCatalog(clock.now().longValue()).zones()
                                 .stream()
-                                .map(zone -> dataNodesManager.onTopologyChangeHandler(zone, clock.now(), currentTopology, 0, () -> {}))
+                                .map(zone -> dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, 0, () -> {}))
                                 .collect(toList())
                 ),
                 willCompleteSuccessfully()

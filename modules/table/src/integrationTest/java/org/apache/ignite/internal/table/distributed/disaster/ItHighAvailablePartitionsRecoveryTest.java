@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -169,11 +170,15 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         assertRecoveryKeyIsEmpty(node);
 
+        log.info("Test: stopping nodes.");
+
         stopNodes(1, 2);
 
         waitAndAssertRecoveryKeyIsNotEmpty(node, 30_000);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+
+        log.info("Test: restarting nodes.");
 
         startNode(1);
         startNode(2);
@@ -195,17 +200,17 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNode(2);
 
-        long revision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node, HA_ZONE_NAME, Set.of(stopNode));
+        long revision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node, HA_ZONE_NAME, Set.of(stopNode));
 
         waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
         assertTrue(
                 node
                         .distributionZoneManager()
-                        .zonesState()
-                        .get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
-                        .partitionDistributionResetTask()
-                        .isDone()
+                        .dataNodesManager()
+                        .zoneTimers(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
+                        .partitionReset
+                        .taskIsDone()
         );
 
         assertTrue(node.disasterRecoveryManager().ongoingOperationsById().isEmpty());
@@ -225,16 +230,17 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNodes(2, 1);
 
-        long revision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node, SC_ZONE_NAME, Set.of(lastStopNode));
+        long revision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node, SC_ZONE_NAME, Set.of(lastStopNode));
 
         waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
-        assertNull(
+        assertFalse(
                 node
                         .distributionZoneManager()
-                        .zonesState()
-                        .get(zoneIdByName(node.catalogManager(), SC_ZONE_NAME))
-                        .partitionDistributionResetTask()
+                        .dataNodesManager()
+                        .zoneTimers(zoneIdByName(node.catalogManager(), SC_ZONE_NAME))
+                        .partitionReset
+                        .taskIsScheduled()
         );
 
         assertRecoveryKeyIsEmpty(node);
@@ -316,19 +322,16 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         KeyValueStorage keyValueStorage = ((MetaStorageManagerImpl) node.metaStorageManager()).storage();
 
-        Supplier<Long> getScaleDownRevision = () ->
-                bytesToLongKeepingOrder(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value());
-
-        long revisionOfScaleDown = getScaleDownRevision.get();
+        String stoppedNodeName = node(2).name();
 
         stopNode(2);
-
-        assertTrue(waitForCondition(() -> getScaleDownRevision.get() > revisionOfScaleDown, 5_000));
 
         Set<LogicalNode> expectedNodes = runningNodes()
                 .map(n -> unwrapIgniteImpl(n).clusterService().topologyService().localMember())
                 .map(LogicalNode::new)
                 .collect(Collectors.toUnmodifiableSet());
+
+        assertFalse(expectedNodes.contains(stoppedNodeName));
 
         assertDataNodesFromLogicalNodesInStorage(
                 zoneId,

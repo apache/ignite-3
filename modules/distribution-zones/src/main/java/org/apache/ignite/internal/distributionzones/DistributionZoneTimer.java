@@ -167,11 +167,11 @@ public class DistributionZoneTimer {
             return new DistributionZoneTimer(timestamp, timeToWaitInSeconds, nodes);
         }
 
-        static byte[] serialize(DistributionZoneTimer timer) {
+        public static byte[] serialize(DistributionZoneTimer timer) {
             return VersionedSerialization.toBytes(timer, INSTANCE);
         }
 
-        static DistributionZoneTimer deserialize(byte[] bytes) {
+        public static DistributionZoneTimer deserialize(byte[] bytes) {
             return VersionedSerialization.fromBytes(bytes, INSTANCE);
         }
     }
