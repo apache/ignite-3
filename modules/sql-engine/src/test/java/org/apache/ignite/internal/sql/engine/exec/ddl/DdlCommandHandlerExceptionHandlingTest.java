@@ -44,7 +44,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.hamcrest.core.Is;
-import org.hamcrest.core.IsNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,7 +105,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 .zoneName(ZONE_NAME)
                 .ifExists(true)
                 .build();
-        assertThat(commandHandler.handle(cmd), willBe(IsNull.nullValue()));
+        assertThat(commandHandler.handle(cmd), willCompleteSuccessfully());
     }
 
     private CompletableFuture<Boolean> handleCreateZoneCommand(boolean ifNotExists) {
