@@ -226,7 +226,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /* Temporary converter to support the zone based partitions in tests. **/
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
-    private Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
+    private volatile Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
 
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
@@ -293,6 +293,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         );
 
         this.groupIdConverter = groupIdConverter;
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method.
+    public void groupIdConverter(Function<ReplicaRequest, ReplicationGroupId> converter) {
+        groupIdConverter = converter;
     }
 
     /**

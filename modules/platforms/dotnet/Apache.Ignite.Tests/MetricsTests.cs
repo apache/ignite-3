@@ -84,7 +84,10 @@ public class MetricsTests
     [Test]
     public async Task TestBytesSentReceived()
     {
-        using var server = new FakeServer();
+        using var server = new FakeServer
+        {
+            DisableRandomHandshake = true
+        };
 
         AssertMetric(MetricNames.BytesSent, 0);
         AssertMetric(MetricNames.BytesReceived, 0);

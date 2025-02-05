@@ -73,6 +73,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryIdGenerator;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
@@ -396,6 +397,10 @@ public class TestNode implements LifecycleAware {
 
     public AsyncSqlCursor<InternalSqlRow> executeQuery(SqlProperties properties, String query, Object... params) {
         return executeQuery(properties, ImplicitTxContext.create(), query, params);
+    }
+
+    public List<QueryInfo> runningQueries() {
+        return queryExecutor.runningQueries();
     }
 
     private SqlOperationContext.Builder createContext() {

@@ -83,14 +83,11 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     public void testCreateTable() {
         long beforeTableCreated = clock.nowLong();
 
-        await(
-                manager.execute(createTableCommand(
-                        TABLE_NAME,
-                        List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
-                        List.of("key1", "key2"),
-                        List.of("key2")
-                ))
-        );
+        tryApplyAndExpectApplied(createTableCommand(
+                TABLE_NAME,
+                List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
+                List.of("key1", "key2"),
+                List.of("key2")));
 
         // Validate catalog version from the past.
         Catalog catalog = manager.activeCatalog(beforeTableCreated);
@@ -115,7 +112,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(table.updateToken(), schema.updateToken());
 
         // Validate another table creation.
-        await(manager.execute(simpleTable(TABLE_NAME_2)));
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME_2));
 
         // Validate actual catalog. has both tables.
         catalog = manager.activeCatalog(clock.nowLong());
@@ -139,7 +136,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testDropTable() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
         await(manager.execute(simpleTable(TABLE_NAME_2)));
 
         long beforeDropTimestamp = clock.nowLong();

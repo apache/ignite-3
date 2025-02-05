@@ -92,6 +92,7 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
@@ -100,7 +101,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
@@ -595,7 +595,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         return new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer);
     }
 
-    private void onConfigurationCommitted(CommittedConfiguration configuration) {
+    private void onConfigurationCommitted(RaftGroupConfiguration configuration) {
         LOG.info("MS configuration committed {}", configuration);
 
         // TODO: IGNITE-23210 - use thenAccept() when implemented.
@@ -618,7 +618,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 });
     }
 
-    private void updateRaftClientConfigIfEventIsNotStale(CommittedConfiguration configuration, RaftGroupService raftService) {
+    private void updateRaftClientConfigIfEventIsNotStale(RaftGroupConfiguration configuration, RaftGroupService raftService) {
         IndexWithTerm newIndexWithTerm = new IndexWithTerm(configuration.index(), configuration.term());
 
         lastHandledIndexWithTerm.updateAndGet(existingIndexWithTerm -> {
@@ -639,7 +639,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         });
     }
 
-    private void handlePeersChange(CommittedConfiguration configuration, RaftGroupService raftService) {
+    private void handlePeersChange(RaftGroupConfiguration configuration, RaftGroupService raftService) {
         synchronized (peersChangeMutex) {
             if (peersChangeState == null || configuration.term() <= peersChangeState.termBeforeChange) {
                 return;
@@ -675,11 +675,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    private boolean thisNodeIsEstablishedAsLonelyLeader(CommittedConfiguration configuration) {
+    private boolean thisNodeIsEstablishedAsLonelyLeader(RaftGroupConfiguration configuration) {
         return configuration.peers().size() == 1 && clusterService.nodeName().equals(configuration.peers().get(0));
     }
 
-    private static boolean targetVotingSetIsEstablished(CommittedConfiguration configuration, PeersChangeState currentState) {
+    private static boolean targetVotingSetIsEstablished(RaftGroupConfiguration configuration, PeersChangeState currentState) {
         return Set.copyOf(configuration.peers()).equals(currentState.targetPeers);
     }
 

@@ -113,7 +113,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(SystemPropertiesExtension.class)
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
 @WithSystemProperty(key = FEATURE_FLAG_NAME, value = "true")
 public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     private static final int NODE_COUNT = 3;
@@ -185,10 +184,11 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             int amount,
             @Nullable InvokeInterceptor invokeInterceptor
     ) throws NodeStoppingException, InterruptedException {
-        IntStream.range(0, amount)
-                .mapToObj(i -> newNode(testInfo, i, invokeInterceptor))
-                .parallel()
-                .forEach(Node::start);
+        IntStream.range(0, amount).forEach(i -> newNode(testInfo, i, invokeInterceptor));
+
+        assert nodes.size() == amount : "Not all amount of nodes were created.";
+
+        nodes.values().stream().parallel().forEach(Node::start);
 
         Node node0 = getNode(0);
 
@@ -262,6 +262,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         nodes.remove(idx);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
     @Test
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
@@ -327,7 +328,6 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22944")
     void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -717,7 +717,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     }
 
     private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {
-        node.converter.set(request ->  {
+        node.setRequestConverter(request ->  {
             if (request.groupId().asReplicationGroupId().equals(tablePartitionId)
                     && !(request instanceof WriteIntentSwitchReplicaRequest)) {
                 return zonePartitionId;

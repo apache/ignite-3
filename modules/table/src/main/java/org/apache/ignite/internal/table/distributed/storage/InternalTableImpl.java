@@ -124,7 +124,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -153,6 +153,8 @@ public class InternalTableImpl implements InternalTable {
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
+    public static final int DEFAULT_RW_TIMEOUT = 10_000;
+
     /** Partitions. */
     private final int partitions;
 
@@ -178,7 +180,7 @@ public class InternalTableImpl implements InternalTable {
     private final MvTableStorage tableStorage;
 
     /** Storage for transaction states. */
-    private final TxStateTableStorage txStateStorage;
+    private final TxStateStorage txStateStorage;
 
     /** Replica service. */
     private final ReplicaService replicaSvc;
@@ -201,9 +203,6 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
-    /** Implicit transaction timeout. */
-    private final long implicitTransactionTimeout;
-
     /** Attempts to take lock. */
     private final int attemptsObtainLock;
 
@@ -221,7 +220,6 @@ public class InternalTableImpl implements InternalTable {
      * @param clockService A hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param transactionInflights Transaction inflights.
-     * @param implicitTransactionTimeout Implicit transaction timeout.
      * @param attemptsObtainLock Attempts to take lock.
      */
     public InternalTableImpl(
@@ -231,13 +229,12 @@ public class InternalTableImpl implements InternalTable {
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
-            TxStateTableStorage txStateStorage,
+            TxStateStorage txStateStorage,
             ReplicaService replicaSvc,
             ClockService clockService,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             TransactionInflights transactionInflights,
-            long implicitTransactionTimeout,
             int attemptsObtainLock,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner
@@ -254,7 +251,6 @@ public class InternalTableImpl implements InternalTable {
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
         this.transactionInflights = transactionInflights;
-        this.implicitTransactionTimeout = implicitTransactionTimeout;
         this.attemptsObtainLock = attemptsObtainLock;
         this.streamerFlushExecutor = streamerFlushExecutor;
         this.streamerReceiverRunner = streamerReceiverRunner;
@@ -371,9 +367,12 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
+                    // TODO: IGNITE-24244
+                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : DEFAULT_RW_TIMEOUT;
+
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (canRetry(e, ts, timeout)) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
                     }
                 }
@@ -489,9 +488,12 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
+                    // TODO: IGNITE-24244
+                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 3_000;
+
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (canRetry(e, ts, timeout)) {
                         return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
                     }
                 }
@@ -581,6 +583,10 @@ public class InternalTableImpl implements InternalTable {
                 .tuple(binaryTuple.byteBuffer())
                 .elementCount(binaryTuple.elementCount())
                 .build();
+    }
+
+    private static boolean canRetry(Throwable e, long ts, long timeout) {
+        return exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < timeout;
     }
 
     /**
@@ -1179,9 +1185,12 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
+                // TODO: IGNITE-24244
+                long timeout = tx.isReadOnly() ? tx.timeout() : 3_000;
+
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
-                if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                if (canRetry(e, ts, timeout)) {
                     return updateAllWithRetry(rows, deleted, partition, ts);
                 }
 
@@ -1857,7 +1866,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public TxStateTableStorage txStateStorage() {
+    public TxStateStorage txStateStorage() {
         return txStateStorage;
     }
 

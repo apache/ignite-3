@@ -15,30 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.tx.storage.state.test;
 
-import java.util.function.Consumer;
-import org.apache.ignite.internal.network.TopologyEventHandler;
-import org.apache.ignite.network.ClusterNode;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.tx.storage.state.AbstractTxStatePartitionStorageTest;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 
 /**
- * NodeLeaveHandler.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
  */
-public class NodeLeaveHandler implements TopologyEventHandler {
-    private final Consumer<ClusterNode> onDisappeared;
-
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public NodeLeaveHandler(Consumer<ClusterNode> onDisappeared) {
-        this.onDisappeared = onDisappeared;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onDisappeared(ClusterNode member) {
-        onDisappeared.accept(member);
+public class TestTxStatePartitionStorageTest extends AbstractTxStatePartitionStorageTest {
+    @Override protected TxStateStorage createTableStorage() {
+        return new TestTxStateStorage();
     }
 }

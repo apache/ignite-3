@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
-import org.apache.ignite.compute.JobExecution;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute job starter interface.
  */
+@FunctionalInterface
 public interface JobStarter {
     /**
      * Start compute job.
@@ -33,9 +34,9 @@ public interface JobStarter {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
-     * @return CompletableFuture Job result.
+     * @return Future of the job execution object.
      */
-    JobExecution<ComputeJobDataHolder> start(
+    CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> start(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,

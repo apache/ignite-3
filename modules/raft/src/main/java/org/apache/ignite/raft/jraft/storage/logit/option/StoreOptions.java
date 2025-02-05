@@ -17,6 +17,8 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.option;
 
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileHeader;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexFile.IndexEntry;
 
@@ -24,16 +26,27 @@ import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexFile.I
  * Storage options
  */
 public class StoreOptions {
+    /**
+     * System property to configure the segment file size in Logit log storage. Given that Logit log storage cannot be configured via
+     * regular API, we use system properties to do so, as a temporary solution.
+     */
+    public static final String LOGIT_STORAGE_SEGMENT_FILE_SIZE_PROPERTY = "IGNITE_LOGIT_STORAGE_SEGMENT_FILE_SIZE";
+
+    /**
+     * System property to configure the configuration file size in Logit log storage. Given that Logit log storage cannot be configured via
+     * regular API, we use system properties to do so, as a temporary solution.
+     */
+    public static final String LOGIT_STORAGE_CONFIG_FILE_SIZE_PROPERTY = "IGNITE_LOGIT_STORAGE_CONFIG_FILE_SIZE";
 
     private static final String storagePath                   = "localLog";
 
     // Default is 64Mb, similar to Ignite 2.
-    private int                 segmentFileSize               = 1024 * 1024 * 64;
+    private int segmentFileSize = IgniteSystemProperties.getInteger(LOGIT_STORAGE_SEGMENT_FILE_SIZE_PROPERTY, 64 * Constants.MiB);
 
     private int                 indexFileSize                 = FileHeader.HEADER_SIZE + 5000000
                                                                 * IndexEntry.INDEX_SIZE;
     // Default is 64Mb, similar to Ignite 2.
-    private int                 confFileSize                  = 1024 * 1024 * 64;
+    private int confFileSize = IgniteSystemProperties.getInteger(LOGIT_STORAGE_CONFIG_FILE_SIZE_PROPERTY, 64 * Constants.MiB);
 
     // Whether enable warm up file when pre allocate
     private boolean             enableWarmUpFile              = true;

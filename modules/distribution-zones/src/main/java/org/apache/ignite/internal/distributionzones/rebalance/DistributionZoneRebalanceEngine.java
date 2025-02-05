@@ -87,10 +87,10 @@ public class DistributionZoneRebalanceEngine {
     // TODO: after switching to zone-based replication
     private final DistributionZoneRebalanceEngineV2 distributionZoneRebalanceEngineV2;
 
-    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    public static final boolean ENABLED = getBoolean(FEATURE_FLAG_NAME, false);
+    private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     /** Special flag to skip rebalance on node recovery for tests. */
     // TODO: IGNITE-23561 Remove it
@@ -151,7 +151,7 @@ public class DistributionZoneRebalanceEngine {
                 return nullCompletedFuture();
             }
 
-            if (ENABLED) {
+            if (enabledColocationFeature) {
                 return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)
                         .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
             } else {
@@ -195,7 +195,7 @@ public class DistributionZoneRebalanceEngine {
             return;
         }
 
-        if (ENABLED) {
+        if (enabledColocationFeature) {
             distributionZoneRebalanceEngineV2.stop();
         }
 

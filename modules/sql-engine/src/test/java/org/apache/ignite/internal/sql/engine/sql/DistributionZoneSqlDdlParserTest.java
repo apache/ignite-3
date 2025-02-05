@@ -123,6 +123,22 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     }
 
     /**
+     * Parse CREATE ZONE WITH ... statement.
+     */
+    @Test
+    public void createZoneWithAllReplicas() {
+        IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone with replicas=ALL");
+
+        assertNotNull(createZone.createOptionList());
+
+        List<SqlNode> optList = createZone.createOptionList().getList();
+
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, IgniteSqlZoneOptionMode.ALL);
+
+        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" WITH \"REPLICAS\" = ALL");
+    }
+
+    /**
      * Parsing DROP ZONE statement.
      */
     @Test
@@ -213,7 +229,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      * Ensures that we cannot change zone parameters and set this zone as default in the same request.
      */
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void alterZoneSetDefaultWithOptionsIsIllegal() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
@@ -313,7 +328,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      * @param stmt Create zone query.
      * @return {@link org.apache.calcite.sql.SqlCreate SqlCreate} node.
      */
-    private IgniteSqlCreateZone parseCreateZone(String stmt) {
+    private static IgniteSqlCreateZone parseCreateZone(String stmt) {
         SqlNode node = parse(stmt);
 
         return assertInstanceOf(IgniteSqlCreateZone.class, node);
@@ -322,7 +337,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     /**
      * Parse ALTER ZONE SET statement.
      */
-    private IgniteSqlAlterZoneSet parseAlterZoneSet(String stmt) {
+    private static IgniteSqlAlterZoneSet parseAlterZoneSet(String stmt) {
         SqlNode node = parse(stmt);
 
         return assertInstanceOf(IgniteSqlAlterZoneSet.class, node);
@@ -331,13 +346,13 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     /**
      * Parse ALTER ZONE RENAME TO statement.
      */
-    private IgniteSqlAlterZoneRenameTo parseAlterZoneRenameTo(String stmt) {
+    private static IgniteSqlAlterZoneRenameTo parseAlterZoneRenameTo(String stmt) {
         SqlNode node = parse(stmt);
 
         return assertInstanceOf(IgniteSqlAlterZoneRenameTo.class, node);
     }
 
-    private void assertThatZoneOptionPresent(List<SqlNode> optionList, ZoneOptionEnum name, Object expVal) {
+    private static void assertThatZoneOptionPresent(List<SqlNode> optionList, ZoneOptionEnum name, Object expVal) {
         assertThat(optionList, Matchers.hasItem(ofTypeMatching(
                 name + "=" + expVal,
                 IgniteSqlZoneOption.class,

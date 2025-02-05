@@ -1151,7 +1151,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
         InternalTable internalTable = unwrapTableImpl(node.tables().table(TABLE_NAME)).internalTable();
 
-        return bypassingThreadAssertions(() -> internalTable.txStateStorage().getTxStateStorage(0).get(txId));
+        return bypassingThreadAssertions(() -> internalTable.txStateStorage().getPartitionStorage(0).get(txId));
     }
 
     /**

@@ -142,7 +142,17 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
+    public long timeout() {
+        return transaction.timeout();
+    }
+
+    @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(transaction);
+    }
+
+    @Override
+    public CompletableFuture<Void> kill() {
+        return transaction.kill();
     }
 }

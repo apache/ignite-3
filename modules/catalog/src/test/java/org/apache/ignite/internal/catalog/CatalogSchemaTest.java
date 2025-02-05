@@ -20,8 +20,6 @@ package org.apache.ignite.internal.catalog;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -43,7 +41,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateSchema() {
-        assertThat(manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA).build());
 
         Catalog latestCatalog = latestCatalog();
 
@@ -55,19 +53,13 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
                 willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists")
         );
 
-        assertThat(
-                manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(true).build()),
-                willSucceedFast()
-        );
+        tryApplyAndExpectNotApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(true).build());
     }
 
     @Test
     public void testCreateSchemaIfNotExists() {
         {
-            assertThat(
-                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(false).build()),
-                    willCompleteSuccessfully()
-            );
+            tryApplyAndExpectApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(false).build());
 
             Catalog latestCatalog = latestCatalog();
 
@@ -81,20 +73,14 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         }
 
         {
-            assertThat(
-                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA + "_1").ifNotExists(false).build()),
-                    willCompleteSuccessfully()
-            );
+            tryApplyAndExpectApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA + "_1").ifNotExists(false).build());
 
             Catalog latestCatalog = latestCatalog();
 
             assertNotNull(latestCatalog.schema(TEST_SCHEMA + "_1"));
             assertNotNull(latestCatalog.schema(TEST_SCHEMA));
 
-            assertThat(
-                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA + "_1").ifNotExists(true).build()),
-                    willSucceedFast()
-            );
+            tryApplyAndExpectNotApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA + "_1").ifNotExists(true).build());
         }
     }
 
@@ -102,13 +88,13 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
     public void testDropEmpty() {
         int initialSchemasCount = latestCatalog().schemas().size();
 
-        assertThat(manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA).build());
 
         assertThat(latestCatalog().schemas(), hasSize(initialSchemasCount + 1));
 
         CatalogCommand cmd = DropSchemaCommand.builder().name(TEST_SCHEMA).build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
         assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
         assertThat(latestCatalog().schemas(), hasSize(initialSchemasCount));
 
@@ -120,16 +106,16 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropIfExists() {
-        assertThat(manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(true).build()), willCompleteSuccessfully());
+        tryApplyAndExpectNotApplied(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(true).build());
 
         assertThat(
                 manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(false).build()),
                 willThrowFast(CatalogValidationException.class, "Schema with name 'S1' not found")
         );
 
-        assertThat(manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA).build());
 
-        assertThat(manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(true).build()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(true).build());
         assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
     }
 
@@ -137,7 +123,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
     public void testDropDefaultSchemaIsAllowed() {
         CatalogCommand cmd = DropSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
         assertThat(latestCatalog().schema(SqlCommon.DEFAULT_SCHEMA_NAME), nullValue());
 
         assertThat(
@@ -152,10 +138,9 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         CatalogCommand newTableCmd = newTableCommand("T1");
         CatalogCommand idxCmd = newIndexCommand("T1", "I1");
 
-        assertThat(
-                manager.execute(List.of(newSchemaCmd, newTableCmd, idxCmd)),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndCheckExpect(
+                List.of(newSchemaCmd, newTableCmd, idxCmd),
+                true, true, true);
 
         // RESTRICT
         {
@@ -177,7 +162,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
             CatalogCommand dropCmd = DropSchemaCommand.builder().name(TEST_SCHEMA).cascade(true).build();
 
-            assertThat(manager.execute(dropCmd), willCompleteSuccessfully());
+            tryApplyAndExpectApplied(dropCmd);
 
             assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
             assertThat(latestCatalog().tables(), hasSize(0));

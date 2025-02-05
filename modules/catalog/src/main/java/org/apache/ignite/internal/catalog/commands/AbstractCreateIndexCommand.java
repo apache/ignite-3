@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -83,9 +83,13 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         Catalog catalog = context.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
+        if (ifNotExists && schema.aliveIndex(indexName) != null) {
+            return List.of();
+        }
+
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        CatalogTableDescriptor table = table(schema, tableName, true);
 
         assert columns != null;
 

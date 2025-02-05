@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
@@ -215,7 +216,7 @@ import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -297,7 +298,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
     /** Tx state storage. */
-    private final TxStateStorage txStateStorage;
+    private final TxStatePartitionStorage txStatePartitionStorage;
 
     /** Clock service. */
     private final ClockService clockService;
@@ -350,8 +351,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final LowWatermark lowWatermark;
 
-    private static final boolean SKIP_UPDATES =
-            IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
+    private static final boolean SKIP_UPDATES = getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
+
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     /**
      * The constructor.
@@ -367,7 +372,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param secondaryIndexStorages Secondary index storages.
      * @param clockService Clock service.
      * @param safeTime Safe time clock.
-     * @param txStateStorage Transaction state storage.
+     * @param txStatePartitionStorage Transaction state storage.
      * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
@@ -390,7 +395,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            TxStateStorage txStateStorage,
+            TxStatePartitionStorage txStatePartitionStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
@@ -414,7 +419,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.secondaryIndexStorages = secondaryIndexStorages;
         this.clockService = clockService;
         this.safeTime = safeTime;
-        this.txStateStorage = txStateStorage;
+        this.txStatePartitionStorage = txStatePartitionStorage;
         this.transactionStateResolver = transactionStateResolver;
         this.storageUpdateHandler = storageUpdateHandler;
         this.localNode = localNode;
@@ -438,7 +443,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         int committedCount = 0;
         int abortedCount = 0;
 
-        try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStateStorage.scan()) {
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStatePartitionStorage.scan()) {
             for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
                 UUID txId = tx.getKey();
                 TxMeta txMeta = tx.getValue();
@@ -511,7 +516,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         PENDING,
                         req.coordinatorId(),
                         req.commitPartitionId().asTablePartitionId(),
-                        null
+                        null,
+                        old == null ? null : old.tx()
                 ));
             }
         }
@@ -588,7 +594,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Void> processTxRecoveryMessage(TxRecoveryMessage request, UUID senderId) {
         UUID txId = request.txId();
 
-        TxMeta txMeta = txStateStorage.get(txId);
+        TxMeta txMeta = txStatePartitionStorage.get(txId);
 
         // Check whether a transaction has already been finished.
         if (txMeta != null && isFinalState(txMeta.txState())) {
@@ -806,7 +812,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     PENDING,
                     req.coordinatorId(),
                     req.commitPartitionId().asTablePartitionId(),
-                    null
+                    null,
+                    old == null ? null : old.tx()
             ));
 
             var opId = new OperationId(senderId, req.timestamp().longValue());
@@ -929,7 +936,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         assert txStateMeta == null || txStateMeta.txState() == PENDING || txStateMeta.txState() == ABANDONED
                 : "Unexpected transaction state: " + txStateMeta;
 
-        TxMeta txMeta = txStateStorage.get(txId);
+        TxMeta txMeta = txStatePartitionStorage.get(txId);
 
         if (txMeta == null) {
             // This means the transaction is pending and we should trigger the recovery if there is no tx coordinator in topology.
@@ -1188,16 +1195,17 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param isPrimary Whether is primary replica.
      * @return Future.
      */
-    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(Boolean isPrimary) {
+    private CompletableFuture<?> processReplicaSafeTimeSyncRequest(Boolean isPrimary) {
         requireNonNull(isPrimary);
 
-        if (!isPrimary) {
+        // Disable safe-time sync if the Colocation feature is enabled, safe-time is managed on a different level there.
+        if (!isPrimary || enabledColocationFeature) {
             return nullCompletedFuture();
         }
 
         return applyCmdWithExceptionHandling(
                 REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().initiatorTime(clockService.now()).build()
-        ).thenApply(res -> null);
+        );
     }
 
     /**
@@ -1711,7 +1719,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // Read TX state from the storage, we will need this state to check if the locks are released.
         // Since this state is written only on the transaction finish (see PartitionListener.handleFinishTxCommand),
         // the value of txMeta can be either null or COMMITTED/ABORTED. No other values is expected.
-        TxMeta txMeta = txStateStorage.get(txId);
+        TxMeta txMeta = txStatePartitionStorage.get(txId);
 
         // Check whether a transaction has already been finished.
         boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
@@ -2745,7 +2753,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdate(
                         cmd.txId(),
                         cmd.rowUuid(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         cmd.rowToUpdate(),
                         true,
                         null,
@@ -2778,7 +2786,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         storageUpdateHandler.handleUpdate(
                                 cmd.txId(),
                                 cmd.rowUuid(),
-                                cmd.tablePartitionId().asTablePartitionId(),
+                                cmd.commitPartitionId().asTablePartitionId(),
                                 cmd.rowToUpdate(),
                                 false,
                                 null,
@@ -2867,7 +2875,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdateAll(
                         cmd.txId(),
                         cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         true,
                         null,
                         null,
@@ -2880,7 +2888,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdateAll(
                         cmd.txId(),
                         cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asTablePartitionId(),
                         true,
                         null,
                         null,
@@ -2907,18 +2915,20 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return safeTime.waitFor(safeTs)
                             .thenApply(ignored -> new CommandApplicationResult(safeTs, null));
                 } else {
+                    HybridTimestamp safeTs = hybridTimestamp(updateCommandResult.safeTimestamp());
+
                     // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                     storageUpdateHandler.handleUpdateAll(
                             cmd.txId(),
                             cmd.rowsToUpdate(),
-                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.commitPartitionId().asTablePartitionId(),
                             false,
                             null,
-                            cmd.safeTime(),
+                            safeTs,
                             indexIdsAtRwTxBeginTs(txId)
                     );
 
-                    return completedFuture(new CommandApplicationResult(((UpdateAllCommand) res.getCommand()).safeTime(), null));
+                    return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
             });
         }
@@ -3797,7 +3807,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
-    private static UpdateCommand updateCommand(
+    private UpdateCommand updateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -3810,7 +3820,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         UpdateCommandBuilder bldr = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                .tablePartitionId(tablePartitionId(tablePartId))
+                .tablePartitionId(tablePartitionId(replicationGroupId))
+                .commitPartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
                 .full(full)
@@ -3854,7 +3865,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                .tablePartitionId(commitPartitionId)
+                .tablePartitionId(tablePartitionId(replicationGroupId))
+                .commitPartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(transactionId)
                 .initiatorTime(initiatorTime)
@@ -3935,6 +3947,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
                 txState == COMMITTED ? commitTimestamp : null,
+                old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp()
         ));

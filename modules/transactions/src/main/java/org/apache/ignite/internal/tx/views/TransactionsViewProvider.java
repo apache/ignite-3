@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.views;
 
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
@@ -108,6 +109,7 @@ public class TransactionsViewProvider {
                     new TransformingIterator<>(roTxIds.iterator(), TxInfo::readOnly),
                     rwTxStates.entrySet().stream()
                             .filter(e -> localNodeId.equals(e.getValue().txCoordinatorId())
+                                    && e.getValue().tx() != null && !e.getValue().tx().isReadOnly()
                                     && !isFinalState(e.getValue().txState()))
                             .map(e -> TxInfo.readWrite(e.getKey(), e.getValue().txState()))
                             .iterator()
@@ -123,7 +125,7 @@ public class TransactionsViewProvider {
         private final String priority;
 
         static TxInfo readOnly(UUID id) {
-            return new TxInfo(id, null, true);
+            return new TxInfo(id, PENDING, true);
         }
 
         static TxInfo readWrite(UUID id, TxState txState) {
