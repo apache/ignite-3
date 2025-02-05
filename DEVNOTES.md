@@ -151,6 +151,20 @@ If you want to run single benchmark, you can do it with the following command:
 
 For more details see the [JMH Gradle Plugin documentation](https://github.com/melix/jmh-gradle-plugin)
 
+### How to configure your own benchmark
+
+The default configuration are located in the `buildscripts/jmh.gradle` file. You can override them in the `build.gradle` file of the module.
+If you want to configure your benchmark on the class level, use annotations see 
+[example](modules/transactions/src/jmh/java/org/apache/ignite/internal/tx/impl/TransactionExpirationRegistryBenchmark.java).
+
+Here is how configurations override each other:
+1. Annotations
+2. `jmh` block in the `build.gradle` file
+3. `jmh` block in the `buildscripts/jmh.gradle` file
+4. CMD line arguments (for example `-PjmhIterations=10`)
+
+Meaning 1 is overridden by 2, 2 is overridden by 3, etc.
+
 ***
 
 ## Checking and generating Javadoc
