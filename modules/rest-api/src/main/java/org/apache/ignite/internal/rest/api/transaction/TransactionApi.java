@@ -84,7 +84,7 @@ public interface TransactionApi {
      * @param transactionId The unique identifier of the transaction.
      * @return The result of the cancellation operation.
      */
-    @Operation(summary = "Cancel transaction.", description = "Cancels a specific transaction identified by jotransactionIdbId.")
+    @Operation(summary = "Cancel transaction.", description = "Cancels a specific transaction identified by transactionId.")
     @ApiResponse(
             responseCode = "200",
             description = "Successfully cancelled the transaction.",
