@@ -31,7 +31,30 @@ import java.util.Set;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.jetbrains.annotations.Nullable;
 
-/** Validates that there are no duplicate keys in the configuration. */
+/**
+ * Validates that there are no duplicate keys in the configuration.
+ * <p>
+ * Imagine configuration like this:
+ * <pre>
+ * root {
+ *   arrayField: [
+ *     arrayMember1: { name = "123" },
+ *     arrayMember2: { name = "234" }
+ *   ]
+ * }
+ * </pre>
+ * <p>This configuration can be represented like this:</p>
+ * <ul>
+ *   <li>root children: [ ConfigNodePath("root"), ConfigNodeComplexValue(field) ]</li>
+ *   <li>
+ *       arrayField children: [ ConfigNodePath("arrayField"), ConfigNodeArray(arrayMember1), ConfigNodeArray(arrayMember2) ]
+ *   </li>
+ *   <li>arrayMember1 children: [ ConfigNodeComplexValue(name) ]</li>
+ *   <li>arrayMember2 children: [ ConfigNodeComplexValue(name) ]</li>
+ *   <li>name children: [ ConfigNodePath("name"), Value("123") ]</li>
+ *   <li>name children: [ ConfigNodePath("name"), Value("234") ]</li>
+ * </ul>
+ */
 public class ConfigurationDuplicatesValidator {
     /**
      * Validates that there are no duplicate keys in the passed configuration.
