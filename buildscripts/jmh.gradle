@@ -20,6 +20,7 @@ apply plugin: 'io.morethan.jmhreport'
 
 def isMac = System.getProperty('os.name').toLowerCase().contains('mac')
 def isLinux = System.getProperty('os.name').toLowerCase().contains('linux')
+def isWin = System.getProperty('os.name').toLowerCase().contains('win')
 
 jmh {
     includes = project.hasProperty('jmhBench') ? ["org.apache.ignite.*.${project.getProperty('jmhBench')}"] : ['.*'] // Match all benchmarks by default
@@ -75,9 +76,12 @@ jmh {
     } else if (isLinux) {
         asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.so"
     }
-
-    // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
-    profilers = ["async:libPath=${asyncProfilerLibPath};output=flamegraph;dir=build/profiler"]
+    if (isWin) {
+       // do not use async profiler since it is not supported for win
+    } else {
+        // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
+        profilers = ["async:libPath=${asyncProfilerLibPath};output=flamegraph;dir=build/profiler"]
+    }
 }
 
 jmhReport {

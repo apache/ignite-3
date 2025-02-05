@@ -139,6 +139,16 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
+        public long timeout() {
+            return 0;
+        }
+
+        @Override
+        public CompletableFuture<Void> kill() {
+            return null;
+        }
+
+        @Override
         public void commit() throws TransactionException {
 
         }
