@@ -627,8 +627,8 @@ public class CatalogUtils {
     /**
      * Returns the minimum supported precision for given type or {@link #UNSPECIFIED_PRECISION} if the type does not support precision.
      *
-     * @param columnType Column type
-     * @return Minimum precision
+     * @param columnType Column type.
+     * @return Minimum precision.
      */
     public static int getMinPrecision(ColumnType columnType) {
         if (!columnType.precisionAllowed()) {
