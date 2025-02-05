@@ -47,7 +47,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -2937,7 +2936,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
-        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
+        int earliestCatalogVersion = lwm == null
+                ? catalogService.earliestCatalogVersion()
+                : catalogService.activeCatalogVersion(lwm.longValue());
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         var startedTables = new IntOpenHashSet();
