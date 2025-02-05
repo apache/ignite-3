@@ -30,7 +30,7 @@ C# client is available via NuGet. To add it, use the `add package` command:
 
 [source, bash, subs="attributes,specialchars"]
 ----
-dotnet add package Ignite.Ignite --version {version}
+dotnet add package Ignite.Ignite --version 3.0.0
 ----
 
 == Connecting to Cluster

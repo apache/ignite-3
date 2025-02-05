@@ -22,8 +22,8 @@ include::includes/prereqs.adoc[]
 
 The Ignite provides 2 archives for the distribution:
 
-- `ignite3-db-{version}` - this archive contains everything related to the Ignite database, and when unpacked,  the folder where data will be stored by default. You start Ignite nodes from this folder.
-- `ignite3-cli-{version}` - this archive contains the link:ignite-cli-tool[Ignite CLI tool]. This tool is the main way of interacting with Ignite clusters and nodes.
+- `ignite3-db-3.0.0` - this archive contains everything related to the Ignite database, and when unpacked,  the folder where data will be stored by default. You start Ignite nodes from this folder.
+- `ignite3-cli-3.0.0` - this archive contains the link:ignite-cli-tool[Ignite CLI tool]. This tool is the main way of interacting with Ignite clusters and nodes.
 
 == Installing Ignite Database
 
@@ -36,24 +36,24 @@ To install the Ignite database, link:https://ignite.apache.org/download.cgi[down
 tab:Unix[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip ignite3-db-{version}.zip && cd ignite3-db-{version}
+unzip ignite3-db-3.0.0.zip && cd ignite3-db-3.0.0
 ----
 
 
 tab:Windows (PowerShell)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-Expand-Archive ignite3-{version}.zip -DestinationPath . ; cd ignite3-db-{version}
+Expand-Archive ignite3-3.0.0.zip -DestinationPath . ; cd ignite3-db-3.0.0
 ----
 
 tab:Windows (CMD)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip -xf ignite3-db-{version}.zip & cd ignite3-db-{version}
+unzip -xf ignite3-db-3.0.0.zip & cd ignite3-db-3.0.0
 ----
 --
 
-. Create the `IGNITE_HOME` environment variable with the path to the `ignite3-db-{version}` folder.
+. Create the `IGNITE_HOME` environment variable with the path to the `ignite3-db-3.0.0` folder.
 
 == Starting the Node
 
@@ -79,20 +79,20 @@ To install the Ignite CLI, link:https://ignite.apache.org/download.cgi[download]
 tab:Unix[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip ignite3-cli-{version}.zip && cd ignite3-cli-{version}
+unzip ignite3-cli-3.0.0.zip && cd ignite3-cli-3.0.0
 ----
 
 
 tab:Windows (PowerShell)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-Expand-Archive ignite3-cli-{version}.zip -DestinationPath . ; cd ignite3-cli-{version}
+Expand-Archive ignite3-cli-3.0.0.zip -DestinationPath . ; cd ignite3-cli-3.0.0
 ----
 
 tab:Windows (CMD)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip -xf ignite3-cli-{version}.zip & cd ignite3-cli-{version}
+unzip -xf ignite3-cli-3.0.0.zip & cd ignite3-cli-3.0.0
 ----
 --
 

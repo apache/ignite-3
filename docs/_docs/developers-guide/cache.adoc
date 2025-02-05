@@ -35,7 +35,7 @@ To use caches in your project, you need to add a `ignite-jdbc-cache-store` depen
 <dependency>
     <groupId>org.ignite</groupId>
     <artifactId>ignite-jdbc-cache-store</artifactId>
-    <version>{version}</version>
+    <version>3.0.0</version>
 </dependency>
 ----
 

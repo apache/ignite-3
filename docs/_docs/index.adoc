@@ -22,7 +22,7 @@ Ignite core features have been reworked to better align with the most common usa
 
 === Streamlined Tables
 
-In GridGain 8, data was stored in "Caches" in Binary Object format. To avoid discrepancies in SQL and other APIs, Ignite 3 was changed to directly work with both SQL and Key-Value API. So, data is now stored in "Tables".
+In Ignite 2, data was stored in "Caches" in Binary Object format. To avoid discrepancies in SQL and other APIs, Ignite 3 was changed to directly work with both SQL and Key-Value API. So, data is now stored in "Tables".
 
 Due to the way data was stored in Ignite 2, the same storage was represented by multiple objects with separate schemas. This could lead to issues in configuring the relationships and potential loss of data consistency. In Ignite 3, all objects are mapped to the same schema. This way you only have one point of interaction and a universally recognized API, regardless of what you store and what your goals are.
 
@@ -44,9 +44,9 @@ Ignite 3 removes custom affinity functions and instead uses the rendezvous hashi
 
 == Better Clients
 
-Ignite 3 dispenses with the concept of thick clients, instead providing thin clients for all interactions with the cluster. With Ignite 3 clients, your applications do not need to get the whole GridGain application to handle operations.
+Ignite 3 dispenses with the concept of thick clients, instead providing thin clients for all interactions with the cluster. With Ignite 3 clients, your applications do not need to get the whole Ignite application to handle operations.
 
-The option to start GridGain from code as a client node remains, but this mode of operation is no longer the primary way to work with the cluster. This is now called running GridGain in Embedded mode.
+The option to start Ignite from code as a client node remains, but this mode of operation is no longer the primary way to work with the cluster. This is now called running Ignite in Embedded mode.
 
 == Finer Control over Distributed Computing
 

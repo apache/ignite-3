@@ -37,26 +37,26 @@ include::includes/prereqs.adoc[]
 tab:Unix[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip ignite3-db-{version}.zip
-unzip ignite3-cli-{version}.zip
+unzip ignite3-db-3.0.0.zip
+unzip ignite3-cli-3.0.0.zip
 ----
 
 tab:Windows (PowerShell)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-Expand-Archive ignite3-db-{version}.zip -DestinationPath .
-Expand-Archive ignite3-cli-{version}.zip -DestinationPath .
+Expand-Archive ignite3-db-3.0.0.zip -DestinationPath .
+Expand-Archive ignite3-cli-3.0.0.zip -DestinationPath .
 ----
 
 tab:Windows (CMD)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip -xf ignite3-db-{version}.zip
-unzip -xf ignite3-cli-{version}.zip
+unzip -xf ignite3-db-3.0.0.zip
+unzip -xf ignite3-cli-3.0.0.zip
 ----
 --
 
-Now you should have the `ignite3-db-{version}` and `ignite3-cli-{version}` directories that we will be using in this tutorial, and the license file provided via e-mail.
+Now you should have the `ignite3-db-3.0.0` and `ignite3-cli-3.0.0` directories that we will be using in this tutorial, and the license file provided via e-mail.
 
 
 == Start Ignite Node
@@ -65,7 +65,7 @@ Ignite is a distributed database, that runs on a collection of *nodes* - Ignite 
 
 To start a locally running node:
 
-. Navigate to the `ignite3-db-{version}` directory.
+. Navigate to the `ignite3-db-3.0.0` directory.
 . Run the `ignite3db` script:
 +
 [tabs]
@@ -92,7 +92,7 @@ The primary means of interacting with your nodes and cluster is the link:ignite-
 
 To start the Ignite CLI:
 
-. Navigate to the `ignite3-cli-{version}` directory.
+. Navigate to the `ignite3-cli-3.0.0` directory.
 . Run the following command:
 +
 [tabs]
