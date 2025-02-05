@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
+import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -197,6 +199,10 @@ public final class Types {
     public static final NativeType VARCHAR_5 = NativeTypes.stringOf(5);
     public static final NativeType VARCHAR_128 = NativeTypes.stringOf(128);
     public static final NativeType VARCHAR_DEFAULT = NativeTypes.stringOf(-1);
+
+    public static final NativeType VARBINARY = NativeTypes.blobOf(PRECISION_NOT_SPECIFIED);
+    public static final NativeType VARBINARY_1 = NativeTypes.blobOf(1);
+    public static final NativeType VARBINARY_2 = NativeTypes.blobOf(2);
 
     public static final NativeType VARBINARY_128 = NativeTypes.blobOf(128);
 

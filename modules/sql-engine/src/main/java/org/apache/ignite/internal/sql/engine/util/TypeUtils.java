@@ -706,7 +706,7 @@ public class TypeUtils {
         }
     }
 
-    /** Check limitation for character and binary types and throws exception if row contains character sequence more than type defined.
+    /** Check limitation for character and binary types and throws exception if row does not fit into type defined
      *  <br>
      *  Store assignment section defines:
      *  If the declared type of T is fixed-length character string with length in characters L and
@@ -717,11 +717,15 @@ public class TypeUtils {
      *  <br>
      *  2) If one or more of the rightmost M-L characters of V are not space(s), then an
      *   exception condition is raised: data exception — string data, right truncation.
+     *  <br><br>
+     *  If the declared type of T is binary string and the length in octets M of V is greater than
+     *   the maximum length in octets L of T, then:
      *  <br>
-     *  3) If the declared type of T is binary string and the length in octets of V is greater than the
-     *   maximum length in octets L of T, then the value of T is set to the first L octets of V, the
-     *   length in octets of T becomes L, and a completion condition is raised: warning — string
-     *   data, right truncation.
+     *  1) If the rightmost M0L octets of V are all equal to X’00’, then the value of T is set to
+     *   the first L octets of V and the length in octets of T is set to L.
+     *  <br>
+     *  2) If one or more of the rightmost M0L octets of V are not equal to X’00’, then an
+     *   exception condition is raised: data exception — string data, right truncation.
      */
     public static <RowT> RowT validateStringTypesOverflowAndTrimIfPossible(
             RelDataType rowType,
@@ -751,26 +755,40 @@ public class TypeUtils {
                 continue;
             }
 
+            int colPrecision = colType.getPrecision();
+
+            // Validate and trim if needed.
+
             if (BINARY_TYPES.contains(typeName)) {
                 assert data instanceof ByteString;
                 if (typeName == SqlTypeName.VARBINARY && colType.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED) {
                     continue;
                 }
 
-                if (((ByteString) data).length() > colType.getPrecision()) {
-                    throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                ByteString byteString = (ByteString) data;
+
+                if (byteString.length() > colPrecision) {
+                    for (int pos = byteString.length(); pos > colPrecision; --pos) {
+                        if (byteString.byteAt(pos - 1) != 0) {
+                            throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                        }
+                    }
+
+                    data = byteString.substring(0, colPrecision);
+
+                    if (rowBldr == null) {
+                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                    }
                 }
             }
 
             if (CHAR_TYPES.contains(typeName)) {
-                // Validate and trim if needed.
                 assert data instanceof String;
+                if (typeName == SqlTypeName.VARCHAR && colType.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED) {
+                    continue;
+                }
 
                 String str = (String) data;
-
-                int colPrecision = colType.getPrecision();
-
-                assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
 
                 if (str.length() > colPrecision) {
                     for (int pos = str.length(); pos > colPrecision; --pos) {

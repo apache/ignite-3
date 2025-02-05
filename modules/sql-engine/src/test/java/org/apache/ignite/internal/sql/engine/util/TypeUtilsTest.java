@@ -65,7 +65,6 @@ import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -226,12 +225,18 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> binaryTypes() {
         Object[] input = {ByteString.of("AABBCC", 16)};
+        Object[] inputWithZeros = {ByteString.of("AABBCC0000", 16)};
 
         return Stream.of(
                 arguments(SqlTypeName.BINARY, PRECISION_NOT_SPECIFIED, input, true),
                 arguments(SqlTypeName.BINARY, 2, input, true),
                 arguments(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED, input, false),
-                arguments(SqlTypeName.VARBINARY, 2, input, true)
+                arguments(SqlTypeName.VARBINARY, 2, input, true),
+
+                arguments(SqlTypeName.BINARY, PRECISION_NOT_SPECIFIED, inputWithZeros, true),
+                arguments(SqlTypeName.BINARY, 3, inputWithZeros, false),
+                arguments(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED, input, false),
+                arguments(SqlTypeName.VARBINARY, 3, inputWithZeros, false)
         );
     }
 

@@ -754,41 +754,36 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         Object param = "1".repeat(5001).getBytes(StandardCharsets.UTF_8);
         Object value = "1".repeat(10002);
+
         sql(format("INSERT INTO t1 VALUES(2, x'{}')", value));
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Value too long for type binary(5000)",
+                "Value too long for type: VARBINARY(5000)",
                 () -> sql("INSERT INTO t VALUES(2, ?)", param)
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Value too long for type binary(5000)",
+                "Value too long for type: VARBINARY(5000)",
                 () -> sql(format("INSERT INTO t VALUES(2, x'{}')", value))
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Value too long for type binary(5000)",
-                () -> sql(format("INSERT INTO t VALUES(2, x'{}')", value))
-        );
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Value too long for type binary(5000)",
+                "Value too long for type: VARBINARY(5000)",
                 () -> sql(format("UPDATE t SET val=x'{}' WHERE id=1", value))
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Value too long for type binary(5000)",
+                "Value too long for type: VARBINARY(5000)",
                 () -> sql("INSERT INTO t SELECT id, val FROM t1")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Value too long for type binary(5000)",
+                "Value too long for type: VARBINARY(5000)",
                 () -> sql(format("INSERT INTO t SELECT * FROM (VALUES(2, x'{}')) as tk(k, v)", value))
         );
     }
