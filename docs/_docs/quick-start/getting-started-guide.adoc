@@ -37,22 +37,19 @@ include::includes/prereqs.adoc[]
 tab:Unix[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip ignite3-db-3.0.0.zip
-unzip ignite3-cli-3.0.0.zip
+unzip ignite3-3.0.0.zip
 ----
 
 tab:Windows (PowerShell)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-Expand-Archive ignite3-db-3.0.0.zip -DestinationPath .
-Expand-Archive ignite3-cli-3.0.0.zip -DestinationPath .
+Expand-Archive ignite3-3.0.0.zip -DestinationPath .
 ----
 
 tab:Windows (CMD)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip -xf ignite3-db-3.0.0.zip
-unzip -xf ignite3-cli-3.0.0.zip
+unzip -xf ignite3-3.0.0.zip
 ----
 --
 
@@ -140,7 +137,7 @@ To initialize the cluster with the node you have started (see <<Start Ignite Nod
 --
 tab:Command[]
 ----
-cluster init --name=sampleCluster --metastorage-group=defaultNode --config-files=valid-config.conf
+cluster init --name=sampleCluster --metastorage-group=defaultNode
 ----
 
 tab:Output[]
@@ -150,7 +147,6 @@ Cluster was initialized successfully
 --
 
 * The `--metastorage-group` parameter specifies the nodes that will be used to store cluster meta information. In most scenarios, you want to have 3, 5 or 7 metastorage group nodes.  For more information on what they are and cluster lifecycle, see link:administrators-guide/lifecycle[Cluster Lifecycle].
-* The `--config-files` parameter specifies the relative path to the link:administrators-guide/config/cluster-config[cluster configuration] file. Any parameters not specified in the configuration will be assigned default values. The relative path to the configuration file is resolved based on the directory the CLI tool is started from. You can also provide the absolute path to the file.
 +
 WARNING: Cluster and node configurations in Ignite are separated and cannot be used interchangeably. When initializing a cluster, make sure to provide the *cluster* configuration file.
 
@@ -196,8 +192,8 @@ Updated 0 rows.
 --
 tab:Command[]
 ----
-INSERT INTO Person (id, city, name, age, company) VALUES ('1', 'London', 'John Doe', '42', 'Apache')
-INSERT INTO Person (id, city, name, age, company) VALUES ('2', 'New York', 'Jane Doe', '36', 'Apache')
+INSERT INTO Person (id, city, name, age, company) VALUES (1, 'London', 'John Doe', 42, 'Apache')
+INSERT INTO Person (id, city, name, age, company) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache')
 ----
 
 tab:Output[]
@@ -258,7 +254,7 @@ To run multiple instances of Ignite, you would normally install it on multiple m
 tab:Command[]
 [source,shell]
 ----
-docker pull ignite/ignite3:latest
+docker pull apacheignite/ignite:3.0.0
 ----
 
 tab:Output[]
@@ -303,7 +299,7 @@ tab:Output[]
 --
 tab:Command[]
 ----
-cluster init --name=sampleCluster --metastorage-group=defaultNode --config-files=license.conf
+cluster init --name=sampleCluster --metastorage-group=defaultNode
 ----
 
 tab:Output[]
@@ -402,7 +398,7 @@ The command lists the nodes visible to the node you are connecting to, their add
 tab:Command[]
 [source,shell]
 ----
-cluster init --name=sampleCluster --metastorage-group=node1 --config-files=valid-config.conf
+cluster init --name=sampleCluster --metastorage-group=node1
 ----
 
 tab:Output[]

@@ -46,7 +46,7 @@ The packages will be installed in the following way:
 |/usr/share/ignite3db|The root installation of Ignite.
 |/etc/ignite3db|The location of configuration files.
 |/var/log/ignite3db|The location of node logs.
-|/usr/lib/ignite3db|The location of the CLI tool.
+|/usr/lib/ignite3cli|The location of the CLI tool.
 |====
 
 The root of Ignite’s installation

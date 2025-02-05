@@ -34,7 +34,7 @@ You can use the docker-compose file to start an entire cluster in docker. You ca
 +
 [source,shell]
 ----
-docker pull ignite/ignite3:latest
+docker pull apacheignite/ignite:3.0.0
 ----
 +
 - Run the docker compose command. The node configuration should be in the same folder as docker compose file:
