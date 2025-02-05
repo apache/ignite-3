@@ -249,6 +249,8 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT val FROM T WHERE id = 200")
                 .returns(trimmed)
                 .check();
+
+        sql("DROP TABLE t");
     }
 
     /**
