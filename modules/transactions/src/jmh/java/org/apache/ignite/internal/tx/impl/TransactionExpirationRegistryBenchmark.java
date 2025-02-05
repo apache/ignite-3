@@ -30,25 +30,25 @@ import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.infra.Blackhole;
 
+/** Benchmark for TransactionExpirationRegistry. */
 @State(Scope.Benchmark)
 public class TransactionExpirationRegistryBenchmark {
     private static final int ITERATIONS_COUNT = 100_000;
 
-    private TransactionExpirationRegistry registry;
-
+    /** Register transactions in the cycle. */
     @Benchmark
-    public void register(Blackhole bh) {
-        registry = new TransactionExpirationRegistry();
+    public static void register() {
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(new FakeInternalTransaction(i), i);
         }
     }
 
+    /** Register and unregister transactions in the cycle. */
     @Benchmark
-    public void registerUnregister(Blackhole bh) {
-        registry = new TransactionExpirationRegistry();
+    public static void registerUnregister() {
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(new FakeInternalTransaction(i), i);
         }
@@ -58,9 +58,10 @@ public class TransactionExpirationRegistryBenchmark {
         }
     }
 
+    /** Register and expire transactions in the cycle. */
     @Benchmark
-    public void registerExpire(Blackhole bh) {
-        registry = new TransactionExpirationRegistry();
+    public static void registerExpire() {
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(new FakeInternalTransaction(i), i);
         }
@@ -71,15 +72,15 @@ public class TransactionExpirationRegistryBenchmark {
     }
 
     private static class FakeInternalTransaction implements InternalTransaction {
-        private final int i;
+        private final int id;
 
-        public FakeInternalTransaction(int i) {
-            this.i = i;
+        public FakeInternalTransaction(int id) {
+            this.id = id;
         }
 
         @Override
         public UUID id() {
-            return UUID.fromString(i + "");
+            return UUID.fromString(id + "");
         }
 
         @Override
@@ -175,7 +176,7 @@ public class TransactionExpirationRegistryBenchmark {
 
         @Override
         public int hashCode() {
-            return i;
+            return id;
         }
 
         @Override
@@ -184,7 +185,7 @@ public class TransactionExpirationRegistryBenchmark {
                 return false;
             }
             FakeInternalTransaction that = (FakeInternalTransaction) o;
-            return i == that.i;
+            return id == that.id;
         }
     }
 }
