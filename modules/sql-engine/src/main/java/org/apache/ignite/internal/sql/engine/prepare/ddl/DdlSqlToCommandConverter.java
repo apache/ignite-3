@@ -433,7 +433,17 @@ public class DdlSqlToCommandConverter {
             if (errorMessage == null) {
                 errorMessage = "Unable to resolve data type";
             }
-            String message = format(errorMessage + " [column={}]", name);
+            
+            // Format error message according to the error message style.
+            // Correct style: This in a error.
+            String correctStyle;
+            if (errorMessage.endsWith(".")) {
+                correctStyle = errorMessage.substring(0, errorMessage.length() - 1);
+            } else {
+                correctStyle = errorMessage;
+            }
+
+            String message = format(correctStyle + " [column={}].", name);
             throw new SqlException(STMT_VALIDATION_ERR, message, e);
         }
 
