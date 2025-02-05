@@ -85,13 +85,13 @@ public interface IgniteResource {
     @BaseMessage("{0} datatype is not supported'")
     ExInst<SqlValidatorException> dataTypeIsNotSupported(String a0);
 
-    @BaseMessage("{0} length {1,number,#} must be between {2,number,#} and {3,number,#}")
+    @BaseMessage("{0} length {1,number,#} must be between {2,number,#} and {3,number,#}.")
     ExInst<SqlValidatorException> invalidLengthForType(String typeName, int value, int min, int max);
 
-    @BaseMessage("{0} precision {1,number,#} must be between {2,number,#} and {3,number,#}")
+    @BaseMessage("{0} precision {1,number,#} must be between {2,number,#} and {3,number,#}.")
     ExInst<SqlValidatorException> invalidPrecisionForType(String typeName, int value, int min, int max);
 
-    @BaseMessage("{0} scale {1,number,#} must be between {2,number,#} and {3,number,#}")
+    @BaseMessage("{0} scale {1,number,#} must be between {2,number,#} and {3,number,#}.")
     ExInst<SqlValidatorException> invalidScaleForType(String typeName, int value, int min, int max);
 
     @BaseMessage("Column N#{0} matched using NATURAL keyword or USING clause "
