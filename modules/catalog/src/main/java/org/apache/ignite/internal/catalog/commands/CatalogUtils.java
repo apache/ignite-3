@@ -601,8 +601,8 @@ public class CatalogUtils {
     /**
      * Returns the maximum supported precision for given type or {@link #UNSPECIFIED_PRECISION}  if the type does not support precision.
      *
-     * @param columnType Column type
-     * @return Maximum precision
+     * @param columnType Column type.
+     * @return Maximum precision.
      */
     public static int getMaxPrecision(ColumnType columnType) {
         if (!columnType.precisionAllowed()) {
@@ -651,10 +651,10 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns the maximum supported length for given type or {@link #UNSPECIFIED_LENGTH}  if the type does not support length.
+     * Returns the maximum supported length for given type or {@link #UNSPECIFIED_LENGTH} if the type does not support length.
      *
-     * @param columnType Column type
-     * @return Maximum length
+     * @param columnType Column type.
+     * @return Maximum length.
      */
     public static int getMaxLength(ColumnType columnType) {
         if (!columnType.lengthAllowed()) {
@@ -673,8 +673,8 @@ public class CatalogUtils {
     /**
      * Returns the minimum supported length for given type or {@link #UNSPECIFIED_LENGTH} if the type does not support length.
      *
-     * @param columnType Column type
-     * @return Minimum length
+     * @param columnType Column type.
+     * @return Minimum length.
      */
     public static int getMinLength(ColumnType columnType) {
         if (!columnType.lengthAllowed()) {
@@ -693,8 +693,8 @@ public class CatalogUtils {
     /**
      * Returns the maximum supported scale for given type or {@link #UNSPECIFIED_SCALE} if the type does not support scale.
      *
-     * @param columnType Column type
-     * @return Maximum scale
+     * @param columnType Column type.
+     * @return Maximum scale.
      */
     public static int getMaxScale(ColumnType columnType) {
         if (!columnType.scaleAllowed()) {
@@ -710,8 +710,8 @@ public class CatalogUtils {
     /**
      * Returns the minimum supported scale for given type or {@link #UNSPECIFIED_SCALE} if the type does not support scale.
      *
-     * @param columnType Column type
-     * @return Minimum scale
+     * @param columnType Column type.
+     * @return Minimum scale.
      */
     public static int getMinScale(ColumnType columnType) {
         if (!columnType.scaleAllowed()) {
