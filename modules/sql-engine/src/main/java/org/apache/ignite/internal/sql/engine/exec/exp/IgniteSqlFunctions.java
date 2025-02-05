@@ -366,6 +366,16 @@ public class IgniteSqlFunctions {
         return Math.log(d0.doubleValue()) / Math.log(d1.doubleValue());
     }
 
+    /** SQL {@code LOG10(number)} function applied to double values. */
+    public static double log10(double d0) {
+        return Math.log10(d0);
+    }
+
+    /** SQL {@code LOG10(number)} function applied to BigDecimal values. */
+    public static double log10(BigDecimal d0) {
+        return Math.log10(d0.doubleValue());
+    }
+
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
         BigDecimal dec = convertToBigDecimal(value);
 
