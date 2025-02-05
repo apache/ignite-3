@@ -32,7 +32,7 @@ for PY_VER in $PY_VERS; do
     for PYBIN in /opt/python/*/bin; do
         if [[ $PYBIN =~ ^(.*)$PY_VER/(.*)$ ]]; then
             echo -e "\e[32m >>> \e[0m"
-            echo -e "\e[32m >>> Preparing a wheel for Python $PYBIN \e[0m"
+            echo -e "\e[32m >>> Preparing a wheel for Python $PY_VER ($PYBIN) \e[0m"
             echo -e "\e[32m >>> \e[0m"
 
             # Compile wheels
