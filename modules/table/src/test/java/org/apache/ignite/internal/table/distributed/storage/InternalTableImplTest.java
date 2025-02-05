@@ -59,12 +59,18 @@ import org.junit.jupiter.api.Test;
  * For {@link InternalTableImpl} testing.
  */
 public class InternalTableImplTest extends BaseIgniteAbstractTest {
+    /** Zone identifier. */
+    private static final int ZONE_ID = 2;
+
+    /** Table identifier. */
+    private static final int TABLE_ID = 1;
+
     @Test
     void testUpdatePartitionTrackers() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                2, // zone id.
-                1, // table id.
+                ZONE_ID,
+                TABLE_ID,
                 1, // number of partitions.
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
@@ -113,8 +119,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     void testRowBatchByPartitionId() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                2, // zone id.
-                1, // table id.
+                ZONE_ID,
+                TABLE_ID,
                 3, // number of partitions.
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),

@@ -153,6 +153,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
 
+    private static final int ZONE_ID = 2;
+
     private static final int PART_ID = 0;
 
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
@@ -261,7 +263,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         super(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                2, // zone id.
+                ZONE_ID, // zone id.
                 nextTableId.getAndIncrement(), // table id.
                 1, // number of partitions.
                 new SingleClusterNodeResolver(LOCAL_NODE),

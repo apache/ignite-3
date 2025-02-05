@@ -24,6 +24,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
  * Extending this interface means the message is propagated to the table replica to be processed via zone replica.
  */
 public interface TableAware extends NetworkMessage {
-    /** Returns table identifier. **/
+    /** Returns an identifier of a table for which one the message is intended. **/
     int tableId();
 }

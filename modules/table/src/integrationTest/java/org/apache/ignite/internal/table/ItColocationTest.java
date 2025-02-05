@@ -233,6 +233,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
         int tblId = 1;
+        int zoneId = 2;
 
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
@@ -341,9 +342,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         intTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "TEST"),
-                2, // zone id.
-                tblId,
-                PARTS,
+                zoneId, // zone id.
+                tblId, // table id.
+                PARTS, // number of partitions.
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),

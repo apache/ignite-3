@@ -611,6 +611,7 @@ public class ItTxTestCluster {
      * @return Started instance.
      */
     public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
+        int predefinedZoneId = 2;
         int tableId = globalCatalogId.getAndIncrement();
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
@@ -644,7 +645,7 @@ public class ItTxTestCluster {
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName),
-                2, // zone id.
+                predefinedZoneId,
                 tableId,
                 1, // number of partitions.
                 nodeResolver,
