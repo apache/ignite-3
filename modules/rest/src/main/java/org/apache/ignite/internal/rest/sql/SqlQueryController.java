@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.rest.sql;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
@@ -36,9 +36,9 @@ import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,16 +60,16 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     @Override
     public CompletableFuture<Collection<SqlQueryInfo>> queries() {
-        return completedFuture(sqlQueryInfos());
+        return sqlQueryInfos();
     }
 
     @Override
     public CompletableFuture<SqlQueryInfo> query(UUID queryId) {
-        return completedFuture(sqlQueryInfos(queryId)).thenApply(queryInfo -> {
+        return sqlQueryInfos(queryId).thenApply(queryInfo -> {
             if (queryInfo.isEmpty()) {
                 throw new SqlQueryNotFoundException(queryId.toString());
             } else {
-                return queryInfo.get(0);
+                return queryInfo.iterator().next();
             }
         });
     }
@@ -99,30 +99,42 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
         killHandlerRegistry = null;
     }
 
-    private List<SqlQueryInfo> sqlQueryInfos() {
+    private CompletableFuture<Collection<SqlQueryInfo>> sqlQueryInfos() {
         return sqlQueryInfos("SELECT * FROM SYSTEM.SQL_QUERIES ORDER BY START_TIME");
     }
 
-    private List<SqlQueryInfo> sqlQueryInfos(UUID queryId) {
+    private CompletableFuture<Collection<SqlQueryInfo>> sqlQueryInfos(UUID queryId) {
         return sqlQueryInfos("SELECT * FROM SYSTEM.SQL_QUERIES WHERE ID='" + queryId.toString() + "'");
     }
 
-    private List<SqlQueryInfo> sqlQueryInfos(String query) {
+    private CompletableFuture<Collection<SqlQueryInfo>> sqlQueryInfos(String query) {
         Statement sqlQueryStmt = igniteSql.createStatement(query);
-        List<SqlQueryInfo> sqlQueryInfos = new ArrayList<>();
-        try (ResultSet<SqlRow> resultSet = igniteSql.execute(null, sqlQueryStmt)) {
-            while (resultSet.hasNext()) {
-                SqlRow row = resultSet.next();
-                sqlQueryInfos.add(new SqlQueryInfo(
-                        UUID.fromString(row.stringValue("ID")),
-                        row.stringValue("INITIATOR_NODE"),
-                        row.stringValue("PHASE"),
-                        row.stringValue("TYPE"),
-                        row.stringValue("SCHEMA"),
-                        row.stringValue("SQL"),
-                        row.timestampValue("START_TIME")));
-            }
+        return igniteSql.executeAsync(null, sqlQueryStmt)
+                .thenCompose(resultSet -> {
+                    List<SqlQueryInfo> sqlQueryInfos = new ArrayList<>();
+                    return iterate(resultSet, sqlQueryInfos).thenApply(unused -> sqlQueryInfos);
+                });
+    }
+
+    private static CompletableFuture<Void> iterate(AsyncResultSet<SqlRow> resultSet, List<SqlQueryInfo> result) {
+        for (SqlRow row : resultSet.currentPage()) {
+            result.add(convert(row));
         }
-        return sqlQueryInfos;
+        if (resultSet.hasMorePages()) {
+            return resultSet.fetchNextPage().thenCompose(nextPage -> iterate(nextPage, result));
+        } else {
+            return nullCompletedFuture();
+        }
+    }
+
+    private static SqlQueryInfo convert(SqlRow row) {
+        return new SqlQueryInfo(
+                UUID.fromString(row.stringValue("ID")),
+                row.stringValue("INITIATOR_NODE"),
+                row.stringValue("PHASE"),
+                row.stringValue("TYPE"),
+                row.stringValue("SCHEMA"),
+                row.stringValue("SQL"),
+                row.timestampValue("START_TIME"));
     }
 }
