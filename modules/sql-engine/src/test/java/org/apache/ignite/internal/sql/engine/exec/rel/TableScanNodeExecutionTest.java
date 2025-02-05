@@ -263,8 +263,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         ) {
             super(
                     QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                    1, // table id.
                     2, // zone id.
+                    1, // table id.
                     PART_CNT,
                     new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,

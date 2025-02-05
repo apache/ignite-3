@@ -1645,8 +1645,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 tableName,
-                tableDescriptor.id(),
                 zoneDescriptor.id(),
+                tableDescriptor.id(),
                 partitions,
                 topologyService,
                 txManager,

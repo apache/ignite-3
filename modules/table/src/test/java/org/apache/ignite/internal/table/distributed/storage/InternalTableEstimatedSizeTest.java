@@ -204,8 +204,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
         table = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME),
-                TABLE_ID,
                 ZONE_ID,
+                TABLE_ID,
                 PARTITIONS_NUM,
                 clusterService.topologyService(),
                 txManager,

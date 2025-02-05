@@ -224,8 +224,9 @@ public class InternalTableImpl implements InternalTable {
      * Constructor.
      *
      * @param tableName Table name.
-     * @param tableId Table id.
-     * @param partitions Partitions.
+     * @param zoneId Distribution zone identifier.
+     * @param tableId Table identifier.
+     * @param partitions Number of partitions.
      * @param clusterNodeResolver Cluster node resolver.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
@@ -238,8 +239,8 @@ public class InternalTableImpl implements InternalTable {
      */
     public InternalTableImpl(
             QualifiedName tableName,
-            int tableId,
             int zoneId,
+            int tableId,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
@@ -255,8 +256,8 @@ public class InternalTableImpl implements InternalTable {
             StreamerReceiverRunner streamerReceiverRunner
     ) {
         this.tableName = tableName;
-        this.tableId = tableId;
         this.zoneId = zoneId;
+        this.tableId = tableId;
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
