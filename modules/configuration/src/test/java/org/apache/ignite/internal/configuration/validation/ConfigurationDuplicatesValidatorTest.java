@@ -39,6 +39,14 @@ class ConfigurationDuplicatesValidatorTest extends BaseIgniteAbstractTest {
             + "        default_aipersist.size: 123, \n"
             + "        test.engine: aimem \n"
             + "  },\n"
+            + "  storage {\n"
+            + "      profiles = [\n"
+            + "          {\n"
+            + "              name = persistent,\n"
+            + "              name = persistent\n"
+            + "          }\n"
+            + "      ]\n"
+            + "  },\n"
             + "  clientConnector.port: 123,\n"
             + "  rest {\n"
             + "    port: 123,\n"
@@ -89,6 +97,8 @@ class ConfigurationDuplicatesValidatorTest extends BaseIgniteAbstractTest {
                 containsInAnyOrder(
                         new ValidationIssue("ignite.network", "Duplicated key"),
                         new ValidationIssue("ignite.network.nodeFinder.netClusterNodes", "Duplicated key"),
+                        new ValidationIssue("ignite.storage.profiles.[0].name", "Duplicated key"),
+                        new ValidationIssue("ignite.storage.profiles", "Duplicated key"),
                         new ValidationIssue("ignite.storage.profiles.test.engine", "Duplicated key"),
                         new ValidationIssue("ignite.rest.port", "Duplicated key"),
                         new ValidationIssue("ignite.compute", "Duplicated key"),

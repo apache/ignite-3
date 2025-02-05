@@ -23,7 +23,6 @@ import com.typesafe.config.parser.ConfigDocument;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -43,7 +42,7 @@ public class ConfigurationDuplicatesValidator {
         Object root = getConfigRoot(cfg);
 
         Queue<Node> queue = new ArrayDeque<>();
-        queue.add(new Node(root, new ArrayList<>(), null));
+        queue.add(new Node(root, null, null));
 
         Set<String> paths = new HashSet<>();
         Set<ValidationIssue> issues = new HashSet<>();
@@ -56,24 +55,26 @@ public class ConfigurationDuplicatesValidator {
                 continue;
             }
 
-            Object firstChild = nodeChildren.get(0);
-            ArrayList<String> currentPath = new ArrayList<>(currentNode.basePath);
+            Path currentPath = ConfigNodePath.path(currentNode.basePath, nodeChildren, currentNode.indexInArray);
 
-            if (ConfigNodePath.isInstance(firstChild) || currentNode.index != null) {
-                currentPath.add(ConfigNodePath.isInstance(firstChild) ? ConfigNodePath.path(firstChild) : currentNode.index.toString());
-                String path = String.join(".", currentPath);
+            if (currentPath != null) {
+                String pathString = currentPath.toString();
 
-                if (paths.contains(path)) {
-                    issues.add(new ValidationIssue(path, "Duplicated key"));
+                if (!paths.add(pathString)) {
+                    issues.add(new ValidationIssue(pathString, "Duplicated key"));
                 }
-
-                paths.add(path);
+            } else {
+                currentPath = currentNode.basePath;
             }
 
             int index = 0;
             for (Object child : nodeChildren) {
-                if (ConfigNodeComplexValue.isInstance(child) || ConfigNodeFieldClass.isInstance(child)) {
-                    queue.add(new Node(child, currentPath, ConfigNodeArray.isInstance(currentNode.configNode) ? index : null));
+                if (ConfigNodeComplexValue.isInstance(child) || ConfigNodeField.isInstance(child)) {
+                    Integer indexInArray = ConfigNodeArray.isInstance(currentNode.configNode)
+                            ? index
+                            : null;
+
+                    queue.add(new Node(child, currentPath, indexInArray));
                     index++;
                 }
             }
@@ -95,8 +96,8 @@ public class ConfigurationDuplicatesValidator {
     private static List<Object> getChildrenOrEmpty(Object configNode) {
         if (ConfigNodeComplexValue.isInstance(configNode)) {
             return ConfigNodeComplexValue.children(configNode);
-        } else if (ConfigNodeFieldClass.isInstance(configNode)) {
-            return ConfigNodeFieldClass.children(configNode);
+        } else if (ConfigNodeField.isInstance(configNode)) {
+            return ConfigNodeField.children(configNode);
         } else {
             return List.of();
         }
@@ -149,7 +150,7 @@ public class ConfigurationDuplicatesValidator {
         }
     }
 
-    private static class ConfigNodeFieldClass {
+    private static class ConfigNodeField {
         private static final Class<?> CLASS;
         private static final Field CHILDREN_FIELD;
 
@@ -234,11 +235,28 @@ public class ConfigurationDuplicatesValidator {
             return CLASS.isInstance(configNode);
         }
 
-        private static String path(Object firstChild) {
-            try {
-                Object path = PATH_FIELD.get(firstChild);
+        /** Return full path to the given node. Elements of array don't have a NodePath child, so index is used instead. */
+        private static @Nullable Path path(@Nullable Path basePath, List<Object> children, @Nullable Integer index) {
+            if (index != null) {
+                return new Path(basePath, "[" + index + "]");
+            }
 
-                return PATH_RENDER_METHOD.invoke(path).toString();
+            Object pathNode = null;
+
+            for (Object child : children) {
+                if (isInstance(child)) {
+                    pathNode = child;
+                }
+            }
+
+            if (pathNode == null) {
+                return null;
+            }
+
+            try {
+                Object path = PATH_FIELD.get(pathNode);
+
+                return new Path(basePath, PATH_RENDER_METHOD.invoke(path).toString());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -246,14 +264,42 @@ public class ConfigurationDuplicatesValidator {
     }
 
     private static class Node {
-        private final List<String> basePath;
         private final Object configNode;
-        private final @Nullable Integer index;
+        private final @Nullable Path basePath;
+        private final @Nullable Integer indexInArray;
 
-        private Node(Object configNode, List<String> basePath, @Nullable Integer index) {
+        private Node(Object configNode, @Nullable Path basePath, @Nullable Integer indexInArray) {
             this.configNode = configNode;
             this.basePath = basePath;
-            this.index = index;
+            this.indexInArray = indexInArray;
+        }
+    }
+
+    private static class Path {
+        private final @Nullable Path basePath;
+        private final String path;
+
+        private Path(@Nullable Path basePath, String path) {
+            this.basePath = basePath;
+            this.path = path;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder builder = new StringBuilder();
+
+            appendTo(builder);
+
+            return builder.toString();
+        }
+
+        private void appendTo(StringBuilder builder) {
+            if (basePath != null) {
+                basePath.appendTo(builder);
+                builder.append(".");
+            }
+
+            builder.append(path);
         }
     }
 }

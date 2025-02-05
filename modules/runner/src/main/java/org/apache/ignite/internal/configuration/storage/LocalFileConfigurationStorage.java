@@ -191,6 +191,12 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         try {
             String confString = Files.readString(configPath.toAbsolutePath());
 
+            Collection<ValidationIssue> duplicates = ConfigurationDuplicatesValidator.validate(confString);
+
+            if (!duplicates.isEmpty()) {
+                throw new ConfigurationValidationException(duplicates);
+            }
+
             ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
 
             return ConfigFactory.parseString(patch(confString, module), parseOptions);
@@ -278,17 +284,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> localRevision() {
         return lastRevision();
-    }
-
-    @Override
-    public Collection<ValidationIssue> validateDuplicates() {
-        try {
-            String confString = Files.readString(configPath.toAbsolutePath());
-
-            return ConfigurationDuplicatesValidator.validate(confString);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override
