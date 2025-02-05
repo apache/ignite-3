@@ -17,7 +17,11 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,6 +31,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -269,6 +276,64 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
                             }
                         });
             }
+        }
+    }
+
+    /**
+     * Ensures that the explicit transaction is rolled back on disconnect.
+     */
+    @Test
+    public void transactionIsRolledBackOnDisconnect() throws SQLException {
+        TxManager txManager = unwrapIgniteImpl(CLUSTER.aliveNode()).txManager();
+
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(false);
+
+            try (Statement stmt = conn.createStatement()) {
+                int updateCount = stmt.executeUpdate("INSERT INTO test VALUES (0, '0'), (1, '1'), (2, '2')");
+
+                assertThat(updateCount, is(3));
+                assertThat(txManager.pending(), is(1));
+            }
+        }
+
+        assertThat(txManager.pending(), is(0));
+
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            assertThat(rowsCount(conn), is(0));
+        }
+    }
+
+    /**
+     * Ensures that the current operation will be aborted and the explicit transaction will be rolled back on disconnect.
+     */
+    @Test
+    public void transactionIsRolledBackOnDisconnectDuringQueryExecution() throws Exception {
+        TxManager txManager = unwrapIgniteImpl(CLUSTER.aliveNode()).txManager();
+        CompletableFuture<?> updateFuture;
+
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(false);
+
+            assertThat(txManager.pending(), is(0));
+
+            try (Statement stmt = conn.createStatement()) {
+                updateFuture = IgniteTestUtils.runAsync(
+                        () -> stmt.executeUpdate("INSERT INTO test(id) SELECT x FROM system_range(0, 10000000000)")
+                );
+
+                boolean txStarted = IgniteTestUtils.waitForCondition(() -> txManager.pending() == 1, 5_000);
+                assertThat(txStarted, is(true));
+            }
+        }
+
+        assertThat(updateFuture, willThrowFast(SQLException.class));
+
+        boolean txFinished = IgniteTestUtils.waitForCondition(() -> txManager.pending() == 0, 5_000);
+        assertThat(txFinished, is(true));
+
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            assertThat(rowsCount(conn), is(0));
         }
     }
 

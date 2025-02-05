@@ -144,4 +144,9 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     public boolean isFinishingOrFinished() {
         return finishGuard.get();
     }
+
+    @Override
+    public CompletableFuture<Void> kill() {
+        return finish(false, readTimestamp, false);
+    }
 }

@@ -81,6 +81,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void invalidCatalogVersions() {
         assertThrows(CatalogNotFoundException.class, () -> manager.catalog(manager.latestCatalogVersion() + 1));
         assertThrows(CatalogNotFoundException.class, () -> manager.catalog(-1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalog(0));
         assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalog(-1));
     }
 
@@ -95,7 +96,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertTrue(catalog.tables().isEmpty());
         assertTrue(catalog.zones().isEmpty());
         assertEquals(0, catalog.objectIdGenState());
-        assertEquals(0L, catalog.time());
+        assertEquals(HybridTimestamp.MIN_VALUE.longValue(), catalog.time());
     }
 
     @Test
@@ -487,6 +488,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotNull(manager.catalog(1));
 
-        assertEquals(0, manager.activeCatalogVersion(0));
+        assertEquals(0, manager.activeCatalogVersion(HybridTimestamp.MIN_VALUE.longValue()));
     }
 }
