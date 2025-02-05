@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
-
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -27,6 +24,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
@@ -38,14 +37,25 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
-import org.apache.ignite.internal.tx.TransactionResult;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * RAFT listener for the zone partition.
  */
 public class ZonePartitionRaftListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionRaftListener.class);
+
+    private final SafeTimeValuesTracker safeTimeTracker;
+
+    private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     private final Map<TablePartitionId, RaftGroupListener> tablePartitionRaftListeners = new ConcurrentHashMap<>();
 
@@ -70,6 +80,26 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
         }
+    }
+
+    private final FinishTxCommandHandler finishTxCommandHandler;
+
+    /** Constructor. */
+    public ZonePartitionRaftListener(
+            TxStatePartitionStorage txStatePartitionStorage,
+            TxManager txManager,
+            SafeTimeValuesTracker safeTimeTracker,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            ZonePartitionId partitionId
+    ) {
+        this.safeTimeTracker = safeTimeTracker;
+        this.storageIndexTracker = storageIndexTracker;
+
+        finishTxCommandHandler = new FinishTxCommandHandler(
+                txStatePartitionStorage,
+                new TablePartitionId(partitionId.zoneId(), partitionId.partitionId()),
+                txManager
+        );
     }
 
     @Override
@@ -103,10 +133,15 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private void processWriteCommand(CommandClosure<WriteCommand> clo) {
         Command command = clo.command();
 
-        if (command instanceof FinishTxCommand) {
-            FinishTxCommand cmd = (FinishTxCommand) command;
+        long commandIndex = clo.index();
+        long commandTerm = clo.term();
+        @Nullable HybridTimestamp safeTimestamp = clo.safeTimestamp();
+        assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand : command;
 
-            clo.result(new TransactionResult(cmd.commit() ? COMMITTED : ABORTED, cmd.commitTimestamp()));
+        IgniteBiTuple<Serializable, Boolean> result = null;
+
+        if (command instanceof FinishTxCommand) {
+            result = finishTxCommandHandler.handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
             // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
@@ -114,7 +149,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
             tablePartitionRaftListeners.values().forEach(listener -> listener.onWrite(singletonIterator(idempotentCommandClosure)));
 
-            clo.result(null);
+            result = new IgniteBiTuple<>(null, true);
         } else if (command instanceof TableAwareCommand) {
             TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
 
@@ -123,6 +158,24 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
 
             clo.result(null);
+        }
+
+        // result == null means that the command either was not handled by anyone (and clo.result() is called) or
+        // that it was delegated to a table processor (which called clo.result()).
+
+        if (result != null) {
+            if (Boolean.TRUE.equals(result.get2())) {
+                // Adjust safe time before completing update to reduce waiting.
+                if (safeTimestamp != null) {
+                    updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+                }
+
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, clo.index());
+            }
+
+            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
+            // trigger other actions taking same locks.
+            clo.result(result.get1());
         }
     }
 
@@ -200,6 +253,17 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             RaftGroupListener prev = tablePartitionRaftListeners.put(tablePartitionId, listener);
 
             assert prev == null : "Listener for table partition " + tablePartitionId + " already exists";
+        }
+    }
+
+    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
+            PendingComparableValuesTracker<T, Void> tracker,
+            T newValue
+    ) {
+        try {
+            tracker.update(newValue, null);
+        } catch (TrackerClosedException ignored) {
+            // No-op.
         }
     }
 }

@@ -15,21 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.raft.Command;
 
 /**
- * Test implementation of {@link SchemaSyncService} that never waits and always behaves as if the metadata was already in sync for any
- * passed ts.
+ * Wrapper for the update(All)Command processing result that besides result itself stores actual command that was processed.
  */
-public class AlwaysSyncedSchemaSyncService implements SchemaSyncService {
-    @Override
-    public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return nullCompletedFuture();
+public class ResultWrapper<T> {
+    private final Command command;
+    private final T result;
+
+    public ResultWrapper(Command command, T result) {
+        this.command = command;
+        this.result = result;
+    }
+
+    public Command getCommand() {
+        return command;
+    }
+
+    public T getResult() {
+        return result;
     }
 }

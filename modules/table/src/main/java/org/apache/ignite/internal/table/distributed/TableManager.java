@@ -151,6 +151,8 @@ import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEven
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
@@ -209,8 +211,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.CatalogValidationSchemasSource;
-import org.apache.ignite.internal.table.distributed.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;

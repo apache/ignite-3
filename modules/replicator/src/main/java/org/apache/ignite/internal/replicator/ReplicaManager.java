@@ -722,7 +722,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
      * @param newConfiguration A configuration for new raft group.
-     * @param raftGroupListener Raft group listener for raft group starting.
+     * @param raftGroupListenerFactory Factory for raft group listener for the raft group being started.
      * @param raftGroupEventsListener Raft group events listener for raft group starting.
      * @param isVolatileStorage Whether partition storage is volatile for this partition.
      * @param partitionResources Resources managed by this replica (they will be closed on replica shutdown).
@@ -735,7 +735,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Function<RaftGroupService, ReplicaListener> listenerFactory,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
-            RaftGroupListener raftGroupListener,
+            Supplier<RaftGroupListener> raftGroupListenerFactory,
             RaftGroupEventsListener raftGroupEventsListener,
             boolean isVolatileStorage,
             ManuallyCloseable partitionResources,
@@ -750,7 +750,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     replicaGrpId,
                     snapshotStorageFactory,
                     newConfiguration,
-                    raftGroupListener,
+                    raftGroupListenerFactory.get(),
                     raftGroupEventsListener,
                     isVolatileStorage,
                     (raftClient) -> new ZonePartitionReplicaImpl(

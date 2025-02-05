@@ -81,6 +81,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -112,6 +113,8 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
+import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -128,14 +131,19 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Class that manages per-zone replicas.
@@ -207,7 +215,13 @@ public class PartitionReplicaLifecycleManager extends
     private final PlacementDriver placementDriver;
 
     /** Schema sync service for waiting for catalog metadata. */
-    private final SchemaSyncService schemaSyncService;
+    private final SchemaSyncService executorInclinedSchemaSyncService;
+
+    private final TxManager txManager;
+
+    private final CatalogService catalogService;
+
+    private final SchemaManager schemaManager;
 
     /** A predicate that checks that the given assignment is corresponded to the local node. */
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
@@ -235,6 +249,9 @@ public class PartitionReplicaLifecycleManager extends
      * @param schemaSyncService Schema synchronization service.
      * @param systemDistributedConfiguration System distributed configuration.
      * @param sharedTxStateStorage Shared tx state storage.
+     * @param txManager Transaction manager.
+     * @param catalogService Catalog service.
+     * @param schemaManager Schema manager.
      */
     public PartitionReplicaLifecycleManager(
             CatalogManager catalogMgr,
@@ -250,7 +267,10 @@ public class PartitionReplicaLifecycleManager extends
             PlacementDriver placementDriver,
             SchemaSyncService schemaSyncService,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            TxStateRocksDbSharedStorage sharedTxStateStorage
+            TxStateRocksDbSharedStorage sharedTxStateStorage,
+            TxManager txManager,
+            CatalogService catalogService,
+            SchemaManager schemaManager
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
@@ -262,9 +282,11 @@ public class PartitionReplicaLifecycleManager extends
         this.rebalanceScheduler = rebalanceScheduler;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clockService = clockService;
-        this.schemaSyncService = schemaSyncService;
-
+        this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.placementDriver = placementDriver;
+        this.txManager = txManager;
+        this.catalogService = catalogService;
+        this.schemaManager = schemaManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -491,10 +513,6 @@ public class PartitionReplicaLifecycleManager extends
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
-        var raftGroupListener = new ZonePartitionRaftListener();
-
-        zonePartitionRaftListeners.put(zonePartitionId, raftGroupListener);
-
         ZoneRebalanceRaftGroupEventsListener raftGroupEventsListener = new ZoneRebalanceRaftGroupEventsListener(
                 metaStorageMgr,
                 zonePartitionId,
@@ -504,6 +522,9 @@ public class PartitionReplicaLifecycleManager extends
                 this::calculateZoneAssignments,
                 rebalanceRetryDelayConfiguration
         );
+
+        var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
+        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             TxStatePartitionStorage txStatePartitionStorage = zoneResourcesManager.getOrCreatePartitionTxStateStorage(
@@ -516,10 +537,28 @@ public class PartitionReplicaLifecycleManager extends
                 return replicaMgr.startReplica(
                                 zonePartitionId,
                                 raftClient -> new ZonePartitionReplicaListener(
-                                        new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
+                                        txStatePartitionStorage,
+                                        clockService,
+                                        txManager,
+                                        new CatalogValidationSchemasSource(catalogService, schemaManager),
+                                        executorInclinedSchemaSyncService,
+                                        catalogService,
+                                        new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
+                                        zonePartitionId
+                                ),
                                 new FailFastSnapshotStorageFactory(),
                                 stablePeersAndLearners,
-                                raftGroupListener,
+                                () -> {
+                                    var raftGroupListener = new ZonePartitionRaftListener(
+                                            txStatePartitionStorage,
+                                            txManager,
+                                            safeTimeTracker,
+                                            storageIndexTracker,
+                                            zonePartitionId
+                                    );
+                                    zonePartitionRaftListeners.put(zonePartitionId, raftGroupListener);
+                                    return raftGroupListener;
+                                },
                                 raftGroupEventsListener,
                                 // TODO: IGNITE-24371 - pass real isVolatile flag
                                 false,
@@ -1145,7 +1184,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
-        return schemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
+        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
     }
 
     /**
@@ -1367,5 +1406,10 @@ public class PartitionReplicaLifecycleManager extends
 
             return failedFuture(e);
         }
+    }
+
+    @TestOnly
+    public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+        return zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId);
     }
 }
