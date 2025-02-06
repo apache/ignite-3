@@ -631,7 +631,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "DECIMAL scale 10000000 must be between 0 and 32767 [column=VAL]",
+                "DECIMAL scale 10000000 must be between 0 and 32767. [column=VAL]",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(100, 10000000) )")
         );
 

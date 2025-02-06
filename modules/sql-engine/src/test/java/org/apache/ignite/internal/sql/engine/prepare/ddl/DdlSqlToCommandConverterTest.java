@@ -324,7 +324,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                error + " [column=VAL]",
+                error + ". [column=VAL]",
                 () -> converter.convert((SqlDdl) node, createContext())
         );
     }
@@ -356,7 +356,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                error + " [column=VAL]",
+                error + ". [column=VAL]",
                 () -> converter.convert((SqlDdl) node, createContext())
         );
     }
