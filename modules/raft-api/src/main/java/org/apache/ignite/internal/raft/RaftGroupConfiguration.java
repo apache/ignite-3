@@ -33,10 +33,10 @@ public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;
 
     /** Unknown index value. */
-    static final long UNKNOWN_INDEX = -1L;
+    public static final long UNKNOWN_INDEX = -1L;
 
     /** Unknown term value. */
-    static final long UNKNOWN_TERM = -1L;
+    public static final long UNKNOWN_TERM = -1L;
 
     private final long index;
     private final long term;

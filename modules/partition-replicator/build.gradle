@@ -41,6 +41,12 @@ dependencies {
     implementation project(':ignite-transactions')
     implementation project(':ignite-storage-api')
     implementation project(':ignite-low-watermark')
+    implementation project(':ignite-workers')
+
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation libs.hamcrest.core
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
 
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-core'))

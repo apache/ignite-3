@@ -943,6 +943,13 @@ public class IgniteImpl implements Ignite {
                 systemDistributedConfiguration
         );
 
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve(TX_STATE_DIR),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaMgr,
@@ -956,7 +963,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 placementDriverMgr.placementDriver(),
                 schemaSyncService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                sharedTxStateStorage
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1027,13 +1035,6 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 txManager,
                 lowWatermark
-        );
-
-        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolve(TX_STATE_DIR),
-                threadPoolsManager.commonScheduler(),
-                threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
@@ -1469,8 +1470,8 @@ public class IgniteImpl implements Ignite {
                                 dataStorageMgr,
                                 schemaManager,
                                 outgoingSnapshotsManager,
-                                partitionReplicaLifecycleManager,
                                 sharedTxStateStorage,
+                                partitionReplicaLifecycleManager,
                                 distributedTblMgr,
                                 disasterRecoveryManager,
                                 indexManager,

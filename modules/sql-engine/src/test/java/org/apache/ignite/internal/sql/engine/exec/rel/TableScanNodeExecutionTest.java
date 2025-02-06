@@ -239,6 +239,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
     }
 
     private static class TestInternalTableImpl extends InternalTableImpl {
+        private static final int ZONE_ID = 1;
+
+        private static final int TABLE_ID = 2;
 
         private static final Object[] ROW = {1, "2", 3};
 
@@ -263,7 +266,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         ) {
             super(
                     QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                    1,
+                    ZONE_ID,
+                    TABLE_ID,
                     PART_CNT,
                     new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,
