@@ -93,15 +93,15 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
         manager.registerZonePartitionCount(1, 10);
         manager.registerZonePartitionCount(2, 10);
 
-        TxStatePartitionStorage storage1_1 = getOrCreatePartitionTxStateStorage(1, 1);
-        TxStatePartitionStorage storage1_5 = getOrCreatePartitionTxStateStorage(1, 5);
-        TxStatePartitionStorage storage2_3 = getOrCreatePartitionTxStateStorage(2, 3);
+        TxStatePartitionStorage zone1storage1 = getOrCreatePartitionTxStateStorage(1, 1);
+        TxStatePartitionStorage zone1storage5 = getOrCreatePartitionTxStateStorage(1, 5);
+        TxStatePartitionStorage zone2storage3 = getOrCreatePartitionTxStateStorage(2, 3);
 
         manager.close();
 
-        assertThatStorageIsStopped(storage1_1);
-        assertThatStorageIsStopped(storage1_5);
-        assertThatStorageIsStopped(storage2_3);
+        assertThatStorageIsStopped(zone1storage1);
+        assertThatStorageIsStopped(zone1storage5);
+        assertThatStorageIsStopped(zone2storage3);
     }
 
     @SuppressWarnings("ThrowableNotThrown")
