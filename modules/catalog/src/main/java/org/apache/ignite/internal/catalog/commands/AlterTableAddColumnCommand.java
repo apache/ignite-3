@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.ensureNonFunctionalDefault;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.ensureTypeCanBeStored;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -72,9 +75,12 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
     @Override
     public List<UpdateEntry> get(UpdateContext updateContext) {
         Catalog catalog = updateContext.catalog();
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifTableExists);
+        if (schema == null) {
+            return List.of();
+        }
 
-        CatalogTableDescriptor table = CatalogUtils.table(schema, tableName, !ifTableExists);
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
         if (table == null) {
             return List.of();
         }
@@ -106,8 +112,8 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
                 throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
 
-            CatalogUtils.ensureTypeCanBeStored(column.name(), column.type());
-            CatalogUtils.ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
+            ensureTypeCanBeStored(column.name(), column.type());
+            ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
         }
     }
 

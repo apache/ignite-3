@@ -37,8 +37,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings({"ThrowableNotThrown", "rawtypes", "unchecked"})
 public abstract class CreateAbstractIndexCommandValidationTest extends AbstractCommandValidationTest {
-    protected static final String INDEX_NAME = "IDX";
-
     protected abstract <T extends AbstractCreateIndexCommandBuilder<T>> T prefilledBuilder();
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")

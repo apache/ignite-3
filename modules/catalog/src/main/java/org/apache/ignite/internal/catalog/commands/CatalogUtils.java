@@ -433,15 +433,7 @@ public class CatalogUtils {
      * @throws CatalogValidationException If schema with given name is not exists.
      */
     public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
-        name = Objects.requireNonNull(name, "schemaName");
-
-        CatalogSchemaDescriptor schema = catalog.schema(name);
-
-        if (schema == null) {
-            throw new CatalogValidationException("Schema with name '{}' not found.", name);
-        }
-
-        return schema;
+        return schema(catalog, name, true);
     }
 
     /**
@@ -449,13 +441,36 @@ public class CatalogUtils {
      *
      * @param catalog Catalog to look up the schema in.
      * @param schemaId Schema ID.
-     * @throws CatalogValidationException If schema does not exist.
+     * @throws CatalogValidationException If schema with given name is not exists.
      */
     public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, int schemaId) throws CatalogValidationException {
         CatalogSchemaDescriptor schema = catalog.schema(schemaId);
 
         if (schema == null) {
             throw new CatalogValidationException("Schema with ID '{}' not found.", schemaId);
+        }
+
+        return schema;
+    }
+
+    /**
+     * Returns schema with given name, or throws {@link CatalogValidationException} if schema with given name not exists.
+     *
+     * @param catalog Catalog to look up schema in.
+     * @param name Name of the schema of interest.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code CatalogValidationException} for absent schema or just
+     *         return {@code null}.
+     * @return Schema with given name. Never null.
+     * @throws CatalogValidationException If schema with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
+     */
+    public static CatalogSchemaDescriptor schema(Catalog catalog, String name, boolean shouldThrowIfNotExists)
+            throws CatalogValidationException {
+        name = Objects.requireNonNull(name, "schemaName");
+
+        CatalogSchemaDescriptor schema = catalog.schema(name);
+
+        if (schema == null && shouldThrowIfNotExists) {
+            throw new CatalogValidationException(format("Schema with name '{}' not found.", name));
         }
 
         return schema;
