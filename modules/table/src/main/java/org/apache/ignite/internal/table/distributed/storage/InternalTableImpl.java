@@ -898,12 +898,8 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx.isReadOnly()) {
-            HybridTimestamp readTimestamp = tx.readTimestamp();
-
-            assert readTimestamp != null : "Read timestamp is not set for read-only transaction";
-
-            return evaluateReadOnlyRecipientNode(partitionId(keyRow), readTimestamp)
-                    .thenCompose(recipientNode -> get(keyRow, readTimestamp, tx.id(), tx.coordinatorId(), recipientNode));
+            return evaluateReadOnlyRecipientNode(partitionId(keyRow), tx.readTimestamp())
+                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), tx.id(), tx.coordinatorId(), recipientNode));
         }
 
         return enlistInTx(
@@ -999,12 +995,8 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
-            HybridTimestamp readTimestamp = tx.readTimestamp();
-
-            assert readTimestamp != null : "Read timestamp is not set for read-only transaction";
-
-            return evaluateReadOnlyRecipientNode(partitionId(firstRow), readTimestamp)
-                    .thenCompose(recipientNode -> getAll(keyRows, readTimestamp, tx.id(), tx.coordinatorId(), recipientNode));
+            return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())
+                    .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), recipientNode));
         }
 
         return enlistInTx(
@@ -2106,7 +2098,7 @@ public class InternalTableImpl implements InternalTable {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                     } else {
                         if (res == null) {
-                            throw createTransactionException(tablePartitionId, readTimestamp);
+                            throw createFailedGetPrimaryReplicaTransactionException(tablePartitionId, readTimestamp);
                         } else {
                             return getClusterNode(res);
                         }
@@ -2114,7 +2106,10 @@ public class InternalTableImpl implements InternalTable {
                 });
     }
 
-    private static TransactionException createTransactionException(TablePartitionId tablePartitionId, HybridTimestamp readTimestamp) {
+    private static TransactionException createFailedGetPrimaryReplicaTransactionException(
+            TablePartitionId tablePartitionId,
+            HybridTimestamp readTimestamp
+    ) {
         String errorMessage = format(
                 "Failed to get the primary replica [tablePartitionId={}, awaitTimestamp={}",
                 tablePartitionId,
