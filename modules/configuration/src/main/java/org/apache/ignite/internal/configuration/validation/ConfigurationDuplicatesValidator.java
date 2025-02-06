@@ -259,7 +259,7 @@ public class ConfigurationDuplicatesValidator {
             return CLASS.isInstance(configNode);
         }
 
-        /** Return full path to the given node. Elements of array don't have a NodePath child, so index is used instead. */
+        /** Returns full path to the given node. Elements of array don't have a NodePath child, so index is used instead. */
         private static @Nullable Path path(@Nullable Path basePath, List<Object> children, @Nullable Integer index) {
             if (index != null) {
                 return new Path(basePath, "[" + index + "]");

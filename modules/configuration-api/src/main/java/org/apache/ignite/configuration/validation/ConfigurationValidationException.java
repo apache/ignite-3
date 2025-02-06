@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration.validation;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -44,7 +45,7 @@ public class ConfigurationValidationException extends RuntimeException {
     public ConfigurationValidationException(Collection<ValidationIssue> issues) {
         super(createMessageFromIssues(issues));
 
-        this.issues = issues;
+        this.issues = List.copyOf(issues);
     }
 
     /**
