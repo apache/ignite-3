@@ -44,8 +44,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.IndexExistsValidationException;
-import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -122,7 +120,7 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
 
         ignite1Inhibitor.stopInhibit();
 
-        assertThat(createTblFut, willThrowWithCauseOrSuppressed(TableExistsValidationException.class));
+        assertThat(createTblFut, willThrowWithCauseOrSuppressed(CatalogValidationException.class));
         assertThat(createTblIfNotExistsFut, willCompleteSuccessfully());
     }
 
@@ -139,7 +137,7 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
 
         tryToCreateIndex(ignite0, TABLE_NAME, true);
 
-        assertThrowsWithCause(() -> tryToCreateIndex(ignite0, TABLE_NAME, true), IndexExistsValidationException.class);
+        assertThrowsWithCause(() -> tryToCreateIndex(ignite0, TABLE_NAME, true), CatalogValidationException.class);
 
         tryToCreateIndex(ignite0, TABLE_NAME, false);
     }
@@ -175,7 +173,7 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
 
             cluster.runningNodes().forEach(ignite -> {
                 if (ignite != ignite1) {
-                    assertThrowsWithCause(() -> tryToCreateIndex(ignite, TABLE_NAME, true), IndexExistsValidationException.class);
+                    assertThrowsWithCause(() -> tryToCreateIndex(ignite, TABLE_NAME, true), CatalogValidationException.class);
 
                     addIndexIfNotExists(ignite, TABLE_NAME);
                 }
@@ -187,7 +185,7 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
             ignite1Inhibitor.stopInhibit();
         }
 
-        assertThat(addIndexFut, willThrowWithCauseOrSuppressed(IndexExistsValidationException.class));
+        assertThat(addIndexFut, willThrowWithCauseOrSuppressed(CatalogValidationException.class));
 
         addIndexIfNotExistsFut.get(10, TimeUnit.SECONDS);
     }

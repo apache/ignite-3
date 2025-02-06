@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -89,7 +88,7 @@ public class DropSchemaCommand implements CatalogCommand {
         }
 
         if (!cascade && !schema.isEmpty()) {
-            throw new CatalogValidationException(format("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName));
+            throw new CatalogValidationException("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName);
         }
 
         List<UpdateEntry> updateEntries = new ArrayList<>();

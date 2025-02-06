@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -95,8 +94,8 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
 
         for (String columnName : columns) {
             if (table.column(columnName) == null) {
-                throw new CatalogValidationException(format(
-                        "Column with name '{}' not found in table '{}.{}'.", columnName, schemaName, tableName));
+                throw new CatalogValidationException("Column with name '{}' not found in table '{}.{}'.",
+                        columnName, schemaName, tableName);
             }
         }
 
@@ -129,7 +128,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             validateIdentifier(name, "Name of the column");
 
             if (!columnNames.add(name)) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", name));
+                throw new CatalogValidationException("Column with name '{}' specified more than once.", name);
             }
         }
     }

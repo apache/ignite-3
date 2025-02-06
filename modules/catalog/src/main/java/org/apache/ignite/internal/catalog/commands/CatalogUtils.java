@@ -34,9 +34,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
-import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -375,9 +373,8 @@ public class CatalogUtils {
             }
         }
 
-        throw new CatalogValidationException(String.format(
-                "Table with ID %d has not been found in schema with ID %d.", newTableDescriptor.id(), newTableDescriptor.schemaId()
-        ));
+        throw new CatalogValidationException("Table with ID {} has not been found in schema with ID {}.",
+                newTableDescriptor.id(), newTableDescriptor.schemaId());
     }
 
     /**
@@ -406,9 +403,8 @@ public class CatalogUtils {
             }
         }
 
-        throw new CatalogValidationException(String.format(
-                "Index with ID %d has not been found in schema with ID %d.", newIndexDescriptor.id(), schema.id()
-        ));
+        throw new CatalogValidationException("Index with ID {} has not been found in schema with ID {}.",
+                newIndexDescriptor.id(), schema.id());
     }
 
     /**
@@ -442,7 +438,7 @@ public class CatalogUtils {
         CatalogSchemaDescriptor schema = catalog.schema(name);
 
         if (schema == null) {
-            throw new CatalogValidationException(format("Schema with name '{}' not found.", name));
+            throw new CatalogValidationException("Schema with name '{}' not found.", name);
         }
 
         return schema;
@@ -459,7 +455,7 @@ public class CatalogUtils {
         CatalogSchemaDescriptor schema = catalog.schema(schemaId);
 
         if (schema == null) {
-            throw new CatalogValidationException(format("Schema with ID '{}' not found.", schemaId));
+            throw new CatalogValidationException("Schema with ID '{}' not found.", schemaId);
         }
 
         return schema;
@@ -470,19 +466,19 @@ public class CatalogUtils {
      *
      * @param schema Schema to look up table in.
      * @param name Name of the table of interest.
-     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code TableNotFoundValidationException} for absent table or just
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code CatalogValidationException} for absent table or just
      *         return {@code null}.
      * @return Table descriptor for given name or @{code null} in case table is absent and flag shouldThrowIfNotExists set to {@code false}.
-     * @throws TableNotFoundValidationException If table with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
+     * @throws CatalogValidationException If table with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
     public static @Nullable CatalogTableDescriptor table(CatalogSchemaDescriptor schema, String name, boolean shouldThrowIfNotExists)
-            throws TableNotFoundValidationException {
+            throws CatalogValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
 
         if (table == null && shouldThrowIfNotExists) {
-            throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found.", schema.name(), name));
+            throw new CatalogValidationException("Table with name '{}.{}' not found.", schema.name(), name);
         }
 
         return table;
@@ -493,13 +489,13 @@ public class CatalogUtils {
      *
      * @param catalog Catalog to look up the table in.
      * @param tableId Table ID.
-     * @throws TableNotFoundValidationException If table does not exist.
+     * @throws CatalogValidationException If table does not exist.
      */
-    public static CatalogTableDescriptor tableOrThrow(Catalog catalog, int tableId) throws TableNotFoundValidationException {
+    public static CatalogTableDescriptor tableOrThrow(Catalog catalog, int tableId) throws CatalogValidationException {
         CatalogTableDescriptor table = catalog.table(tableId);
 
         if (table == null) {
-            throw new TableNotFoundValidationException(format("Table with ID '{}' not found.", tableId));
+            throw new CatalogValidationException("Table with ID '{}' not found.", tableId);
         }
 
         return table;
@@ -510,20 +506,20 @@ public class CatalogUtils {
      *
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
-     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code DistributionZoneNotFoundValidationException} for
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code CatalogValidationException} for
      *         absent zone or just return {@code null}.
      * @return Zone descriptor for given name or @{code null} in case zone is absent and flag shouldThrowIfNotExists set to {@code false}.
-     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
+     * @throws CatalogValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
      *         set to {@code true}.
      */
     public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
-            throws DistributionZoneNotFoundValidationException {
+            throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
 
         if (zone == null && shouldThrowIfNotExists) {
-            throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found.", name));
+            throw new CatalogValidationException("Distribution zone with name '{}' not found.", name);
         }
 
         return zone;
@@ -742,17 +738,16 @@ public class CatalogUtils {
 
             if (returnType != null) {
                 throw new CatalogValidationException(
-                        format("Functional default type mismatch: [col={}, functionName={}, expectedType={}, actualType={}].",
-                                columnName, functionName, returnType, columnType));
+                        "Functional default type mismatch: [col={}, functionName={}, expectedType={}, actualType={}].",
+                        columnName, functionName, returnType, columnType);
             }
 
             throw new CatalogValidationException(
-                    format("Functional default contains unsupported function: [col={}, functionName={}].",
-                            columnName, functionName));
+                    "Functional default contains unsupported function: [col={}, functionName={}].",
+                    columnName, functionName);
         }
 
-        throw new CatalogValidationException(
-                format("Default of unsupported kind: [col={}, defaultType={}].", columnName, defaultValue.type));
+        throw new CatalogValidationException("Default of unsupported kind: [col={}, defaultType={}].", columnName, defaultValue.type);
     }
 
     /**
@@ -764,12 +759,10 @@ public class CatalogUtils {
         }
 
         if (defaultValue.type == FUNCTION_CALL) {
-            throw new CatalogValidationException(
-                    format("Functional defaults are not supported for non-primary key columns [col={}].", columnName));
+            throw new CatalogValidationException("Functional defaults are not supported for non-primary key columns [col={}].", columnName);
         }
 
-        throw new CatalogValidationException(
-                format("Default of unsupported kind: [col={}, defaultType={}].", columnName, defaultValue.type));
+        throw new CatalogValidationException("Default of unsupported kind: [col={}, defaultType={}].", columnName, defaultValue.type);
     }
 
     /**
@@ -779,8 +772,7 @@ public class CatalogUtils {
     //  Remove this after interval type support is added.
     static void ensureTypeCanBeStored(String columnName, ColumnType columnType) {
         if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
-            throw new CatalogValidationException(
-                    format("Column of type '{}' cannot be persisted [col={}].", columnType, columnName));
+            throw new CatalogValidationException("Column of type '{}' cannot be persisted [col={}].", columnType, columnName);
         }
     }
 }

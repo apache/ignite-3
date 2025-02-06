@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
@@ -47,7 +45,7 @@ public class CatalogParamsValidationUtils {
      */
     public static void validateIdentifier(@Nullable String identifier, String context) throws CatalogValidationException {
         if (StringUtils.nullOrBlank(identifier)) {
-            throw new CatalogValidationException(format("{} can't be null or blank.", context));
+            throw new CatalogValidationException("{} can't be null or blank.", context);
         }
     }
 
@@ -153,15 +151,15 @@ public class CatalogParamsValidationUtils {
      */
     public static void ensureNoTableIndexOrSysViewExistsWithGivenName(CatalogSchemaDescriptor schema, String name) {
         if (schema.aliveIndex(name) != null) {
-            throw new IndexExistsValidationException(format("Index with name '{}.{}' already exists.", schema.name(), name));
+            throw new CatalogValidationException("Index with name '{}.{}' already exists.", schema.name(), name);
         }
 
         if (schema.table(name) != null) {
-            throw new TableExistsValidationException(format("Table with name '{}.{}' already exists.", schema.name(), name));
+            throw new CatalogValidationException("Table with name '{}.{}' already exists.", schema.name(), name);
         }
 
         if (schema.systemView(name) != null) {
-            throw new CatalogValidationException(format("System view with name '{}.{}' already exists.", schema.name(), name));
+            throw new CatalogValidationException("System view with name '{}.{}' already exists.", schema.name(), name);
         }
     }
 
@@ -177,11 +175,9 @@ public class CatalogParamsValidationUtils {
 
         if (!zonesStorageProfile.contains(tableStorageProfile)) {
             throw new CatalogValidationException(
-                    format(
-                            "Zone with name '{}' does not contain table's storage profile [storageProfile='{}'].",
-                            zone.name(),
-                            tableStorageProfile
-                    )
+                    "Zone with name '{}' does not contain table's storage profile [storageProfile='{}'].",
+                    zone.name(),
+                    tableStorageProfile
             );
         }
     }
@@ -194,7 +190,7 @@ public class CatalogParamsValidationUtils {
      */
     public static void ensureNonSystemSchemaUsed(String schemaName) {
         if (schemaName != null && CatalogUtils.isSystemSchema(schemaName)) {
-            throw new CatalogValidationException(format("Operations with system schemas are not allowed, schema: {}", schemaName));
+            throw new CatalogValidationException("Operations with system schemas are not allowed, schema: {}", schemaName);
         }
     }
 }

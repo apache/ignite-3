@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -143,7 +142,7 @@ public class CreateSystemViewCommand implements CatalogCommand {
 
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", column.name()));
+                throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
         }
     }

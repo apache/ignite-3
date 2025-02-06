@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -84,9 +83,7 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
 
         for (ColumnParams column : columns) {
             if (table.column(column.name()) != null) {
-                throw new CatalogValidationException(
-                        format("Column with name '{}' already exists.", column.name())
-                );
+                throw new CatalogValidationException("Column with name '{}' already exists.", column.name());
             }
 
             columnDescriptors.add(fromParams(column));
@@ -106,7 +103,7 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
 
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", column.name()));
+                throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
 
             CatalogUtils.ensureTypeCanBeStored(column.name(), column.type());

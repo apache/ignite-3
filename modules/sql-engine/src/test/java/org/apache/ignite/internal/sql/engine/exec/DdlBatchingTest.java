@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.TableExistsValidationException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -254,7 +254,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertDdlResult(cursor, true);
         assertThat(cursor.hasNextResult(), is(true));
         assertThat(cursor.nextResult(), willThrowFast(
-                TableExistsValidationException.class,
+                CatalogValidationException.class,
                 "Table with name 'PUBLIC.T1' already exists"
         ));
 
@@ -355,7 +355,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertDdlResult(cursor, true);
         assertThat(cursor.hasNextResult(), is(true));
         assertThat(cursor.nextResult(), willThrowFast(
-                TableExistsValidationException.class,
+                CatalogValidationException.class,
                 "Table with name 'PUBLIC.T1' already exists"
         ));
 
