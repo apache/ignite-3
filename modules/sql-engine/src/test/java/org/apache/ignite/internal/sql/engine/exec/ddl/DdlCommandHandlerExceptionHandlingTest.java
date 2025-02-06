@@ -101,8 +101,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundValidationException.class));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24339")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24426")
     public void testZoneNotFoundOnDrop2() {
         CatalogCommand cmd = DropZoneCommand.builder()
                 .zoneName(ZONE_NAME)

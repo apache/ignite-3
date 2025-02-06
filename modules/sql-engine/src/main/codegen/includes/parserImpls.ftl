@@ -564,10 +564,15 @@ void CreateZoneOption(List<SqlNode> list) :
 {
     key = SimpleIdentifier() { s = span(); }
     <EQ>
-    val = Literal()
-    {
-        list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
-    }
+    (
+        <ALL> {
+            list.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
+        }
+    |
+        val = Literal() {
+            list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
+        }
+    )
 }
 
 SqlDrop SqlDropZone(Span s, boolean replace) :
@@ -635,12 +640,17 @@ void AlterZoneOption(List<SqlNode> list) :
     final SqlNode val;
 }
 {
-  key = SimpleIdentifier() { s = span(); }
-  <EQ>
-  val = Literal()
-  {
-      list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
-  }
+    key = SimpleIdentifier() { s = span(); }
+    <EQ>
+    (
+        <ALL> {
+            list.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
+        }
+    |
+        val = Literal() {
+            list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
+        }
+    )
 }
 
 /**
