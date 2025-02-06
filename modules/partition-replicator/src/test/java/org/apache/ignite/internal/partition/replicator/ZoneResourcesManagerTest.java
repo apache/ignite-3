@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -24,9 +25,11 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -80,10 +83,37 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
     void createsTxStatePartitionStorage() {
         manager.registerZonePartitionCount(1, 10);
 
-        TxStatePartitionStorage txStatePartitionStorage = bypassingThreadAssertions(
-                () -> manager.getOrCreatePartitionTxStateStorage(1, 1)
-        );
+        TxStatePartitionStorage txStatePartitionStorage = getOrCreatePartitionTxStateStorage(1, 1);
 
         assertThat(txStatePartitionStorage, is(notNullValue()));
+    }
+
+    @Test
+    void closesResourcesOnShutdown() {
+        manager.registerZonePartitionCount(1, 10);
+        manager.registerZonePartitionCount(2, 10);
+
+        TxStatePartitionStorage storage1_1 = getOrCreatePartitionTxStateStorage(1, 1);
+        TxStatePartitionStorage storage1_5 = getOrCreatePartitionTxStateStorage(1, 5);
+        TxStatePartitionStorage storage2_3 = getOrCreatePartitionTxStateStorage(2, 3);
+
+        manager.close();
+
+        assertThatStorageIsStopped(storage1_1);
+        assertThatStorageIsStopped(storage1_5);
+        assertThatStorageIsStopped(storage2_3);
+    }
+
+    @SuppressWarnings("ThrowableNotThrown")
+    private static void assertThatStorageIsStopped(TxStatePartitionStorage storage) {
+        assertThrows(
+                IgniteInternalException.class,
+                () -> bypassingThreadAssertions(() -> storage.get(UUID.randomUUID())),
+                "Transaction state storage is stopped"
+        );
+    }
+
+    private TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionId) {
+        return bypassingThreadAssertions(() -> manager.getOrCreatePartitionTxStateStorage(zoneId, partitionId));
     }
 }
