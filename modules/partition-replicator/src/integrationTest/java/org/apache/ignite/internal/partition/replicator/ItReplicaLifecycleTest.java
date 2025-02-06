@@ -737,11 +737,11 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             Map<Long, Integer> kv1 = new HashMap<>();
             Map<Long, Integer> kv2 = new HashMap<>();
 
-            for (int i = 1; i <= 5; ++i){
+            for (int i = 1; i <= 5; ++i) {
                 kv1.put((long) i, i * 100);
             }
 
-            for (int i = 10; i <= 15; ++i){
+            for (int i = 10; i <= 15; ++i) {
                 kv2.put((long) i, i * 100);
             }
 
