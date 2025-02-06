@@ -132,7 +132,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     ) {
         return "ignite {\n"
                 + "  nodeAttributes.nodeAttributes: " + nodeAtrributes + ",\n"
-                + "  storage.profiles: " + storageProfiles + ",\n"
+                + (storageProfiles == null ? "" : "  storage.profiles: " + storageProfiles + ",\n")
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"

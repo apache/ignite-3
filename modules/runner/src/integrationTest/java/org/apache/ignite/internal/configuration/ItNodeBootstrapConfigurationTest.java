@@ -100,4 +100,21 @@ public class ItNodeBootstrapConfigurationTest {
                 ConfigurationValidationException.class,
                 "Validation did not pass for keys: [ignite.rest.ssl.keyStore, Key store file doesn't exist at bad_path]");
     }
+
+    @Test
+    public void testConfigurationValidationFailsWithDuplicates(TestInfo testInfo) {
+        String config = "ignite {\n"
+                + "  rest: {\n"
+                + "    ssl: {\n"
+                + "      enabled: false,\n"
+                + "      enabled: true\n"
+                + "    }\n"
+                + "  }\n"
+                + "}";
+
+        assertThrowsWithCause(
+                () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
+                ConfigurationValidationException.class,
+                "Validation did not pass for keys: [ignite.rest.ssl.enabled, Duplicated key]");
+    }
 }
