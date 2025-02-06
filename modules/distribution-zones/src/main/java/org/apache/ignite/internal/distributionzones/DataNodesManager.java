@@ -677,18 +677,17 @@ public class DataNodesManager {
 
         Set<NodeWithAttributes> dataNodes = new HashSet<>(currentDataNodesEntry.getSecond());
 
-        long cdnt = currentDataNodesEntry.getFirst().longValue();
         long sutt = scaleUpTimer.timeToTrigger().longValue();
         long sdtt = scaleDownTimer.timeToTrigger().longValue();
         long timestampLong = timestamp.longValue();
         HybridTimestamp newTimestamp = timestamp;
 
-        if (sutt >= cdnt && sutt <= timestampLong) {
+        if (sutt <= timestampLong) {
             newTimestamp = scaleUpTimer.timeToTrigger();
             dataNodes.addAll(filterDataNodes(scaleUpTimer.nodes(), zoneDescriptor));
         }
 
-        if (sdtt >= cdnt && sdtt <= timestampLong) {
+        if (sdtt <= timestampLong) {
             dataNodes.removeAll(scaleDownTimer.nodes());
 
             if (sdtt > sutt) {

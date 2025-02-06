@@ -83,14 +83,15 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private static final NodeWithAttributes D = new NodeWithAttributes("D", UUID.randomUUID(), emptyMap(), List.of("default"));
 
-    private final String nodeName = "node";
-    private KeyValueStorage storage = new SimpleInMemoryKeyValueStorage(nodeName);
+    private static final String NODE_NAME = "node";
+
+    private KeyValueStorage storage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
     private HybridClock clock = new HybridClockImpl();
     private MetaStorageManager metaStorageManager = StandaloneMetaStorageManager
             .create(storage, clock, new ReadOperationForCompactionTracker());
-    private CatalogManager catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
+    private CatalogManager catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
     private DataNodesManager dataNodesManager =
-            new DataNodesManager(nodeName, new IgniteSpinBusyLock(), metaStorageManager, catalogManager);
+            new DataNodesManager(NODE_NAME, new IgniteSpinBusyLock(), metaStorageManager, catalogManager);
 
     private Set<NodeWithAttributes> currentTopology = new HashSet<>(Set.of(A));
 
@@ -99,16 +100,16 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         ComponentContext startComponentContext = new ComponentContext();
 
         ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
-        storage = new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker);
+        storage = new SimpleInMemoryKeyValueStorage(NODE_NAME, readOperationForCompactionTracker);
         clock = new HybridClockImpl();
 
         metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
         assertThat(metaStorageManager.startAsync(startComponentContext), willCompleteSuccessfully());
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        dataNodesManager = new DataNodesManager(nodeName, new IgniteSpinBusyLock(), metaStorageManager, catalogManager);
+        dataNodesManager = new DataNodesManager(NODE_NAME, new IgniteSpinBusyLock(), metaStorageManager, catalogManager);
 
         currentTopology = new HashSet<>(Set.of(A, B));
 
@@ -332,14 +333,17 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         AtomicBoolean partitionResetTriggered = new AtomicBoolean();
 
-        dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 1, () -> partitionResetTriggered.set(true));
+        Runnable partitionResetClosure = () -> partitionResetTriggered.set(true);
+
+        dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 1, partitionResetClosure);
 
         // Partition reset is not triggered if no nodes were removed.
         assertFalse(partitionResetTriggered.get());
 
-        removeNodes(Set.of(A));
+        Set<NodeWithAttributes> newTopology = new HashSet<>(currentTopology);
+        newTopology.remove(A);
 
-        dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 1, () -> partitionResetTriggered.set(true));
+        dataNodesManager.onTopologyChange(zone, clock.now(), newTopology, currentTopology, 1, partitionResetClosure);
 
         assertTrue(waitForCondition(partitionResetTriggered::get, 2000));
     }
