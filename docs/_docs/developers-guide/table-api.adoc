@@ -18,10 +18,23 @@ To execute table operations on a specific table, you need to get a specific view
 
 Ignite supports mapping user objects to table tuples. This ensures that objects created in any programming language can be used for key-value operations directly.
 
+== Table Views in Ignite 3
+
+=== Binary and Non-Binary Views
+
+When working with tables, Ignite offers two approaches: directly handling the data or mapping the data to classes. The direct data handling approach is is referred to as the `binary` view. Alternatively, when mapping data to classes, the data is converted to and from these classes as needed for database interactions.
+
+=== Record and Key-Value Views
+
+When creating views, you can create a `RecordView` or `KeyValueView`. The primary difference between these view types is the API used.
+
+In a RecordView, you create a single “record” that includes all the information about a row to be updated or retrieved from the table, and send this record to the server. This record should contain all the fields, including the primary key.
+
+In a KeyValueView, you work with key-value mappings. Think of it as a dictionary where the key object contains the primary key field or fields, and the value object contains the data fields. This approach is useful when primary key is not directly related to the domain object thus you prefer not to add the primary key to it.
+
 == Getting a Table Instance
 
 First, get an instance of the table. To obtain an instance of table, use the `IgniteTables.table(String)` method. You can also use `IgniteTables.tables()` method to list all existing tables.
-
 
 [tabs]
 --
@@ -63,28 +76,29 @@ Once you've got a table you need to get a specific view to choose how you want t
 
 === Binary Record View
 
-A binary record view. It can be used to operate table tuples directly.
+A binary record view. It can be used to operate table tuples directly. When retrieving data from binary views, you can use a wide variety of methods to retrieve type-specific data stored in tuples. A full list of methods is available in the Tuple object javadoc.
 
 [tabs]
 --
 tab:Java[]
 [source, java]
 ----
-RecordView<Tuple> view = table.recordView();
+RecordView<Tuple> view = myTable.recordView();
 
+//create a new person record
 Tuple fullRecord = Tuple.create()
-  .set("id", 42)
-  .set("name", "John Doe");
+        .set("id", 42)
+        .set("name", "John Doe");
 
 view.upsert(null, fullRecord);
 
+//create a key to find record with id = 42
 Tuple keyRecord = Tuple.create().set("id", 42);
 
-Tuple resRecord = view.get(null, keyRecord);
+Tuple resultRecord = view.get(null, keyRecord);
 
-assert resRecord.columnCount() == 2;
-assert resRecord.intValue("id") == 42;
-assert resRecord.stringValue("name").equals("John Doe");
+System.out.println("id: " + resultRecord.intValue("id"));
+System.out.println("name: " + resultRecord.stringValue("name"));
 ----
 
 tab:.NET[]
@@ -139,13 +153,16 @@ A record view mapped to a user type. It can be used to operate table using user 
 tab:Java[]
 [source, java]
 ----
-RecordView<Pojo> pojoView = table.recordView(Mapper.of(Pojo.class));
+RecordView<Person> personView = myTable.recordView(Mapper.of(Person.class));
 
-pojoView.upsert(null, new Pojo(42, "John Doe"));
-Pojo resRecord = pojoView.get(null, new Pojo(42));
+//insert a new Person object
+personView.upsert(null, new Person(42, "John Doe", 30));
 
-assert resRecord.id == 42;
-assert resRecord.name.equals("John Doe");
+//retrieve the Person object with id = 42
+Person resultRecord = personView.get(null, new Person(42, "Jane Doe", 32));
+
+System.out.println("id: " + resultRecord.id);
+System.out.println("name:" + resultRecord.name);
 ----
 
 tab:.NET[]
@@ -181,23 +198,23 @@ assert(res->name == "John Doe");
 
 === Key-Value Binary View
 
-A binary key-value view. It can be used to operate table using key and value tuples separately.
+A binary key-value view. It can be used to operate table using key and value tuples separately. When retrieving data from binary views, you can use a wide variety of methods to retrieve type-specific data stored in tuples. A full list of methods is available in the Tuple object javadoc.
 
 [tabs]
 --
 tab:Java[]
 [source, java]
 ----
-KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+KeyValueView<Tuple, Tuple> kvView = myTable.keyValueView();
 
-Tuple key = Tuple.create().set("id", 42)
-Tuple val = Tuple.create().set("name", "John Doe");
+Tuple key = Tuple.create().set("id", 42);
+Tuple val = Tuple.create().set("name", "John Doe").set("age", 30);
 
 kvView.put(null, key, val);
-Tuple res = kvView.get(null, key);
 
-assert res.columnCount() == 1;
-assert res.stringValue("name").equals("John Doe");
+Tuple resultRecord = kvView.get(null, key);
+System.out.println("age: " + resultRecord.intValue("age"));
+System.out.println("name: " + resultRecord.stringValue("name"));
 ----
 
 tab:.NET[]
@@ -245,13 +262,13 @@ A key-value view with user objects. It can be used to operate table using key an
 tab:Java[]
 [source, java]
 ----
-KeyValueView<Long, Pojo> pojoView =
-  table.keyValueView(Mapper.of(Long.class), Mapper.of(Pojo.class));
+KeyValueView<Integer, PersonKV> personView =
+        myTable.keyValueView(Mapper.of(Integer.class), Mapper.of(PersonKV.class));
 
-pojoView.put(null, 42, new Pojo("John Doe"));
-Pojo val = pojoView.get(null, 42);
+personView.put(null, 42, new PersonKV("John Doe", 30));
+PersonKV val = personView.get(null, 42);
 
-assert val.name.equals("John Doe");
+System.out.println("name: " + val.name);
 ----
 
 tab:.NET[]
@@ -282,7 +299,6 @@ assert(res->name == "John Doe");
 ----
 --
 
-
 == Criterion Queries
 
 Ignite 3 provides the criterion queries that can be used to retrieve data from tables. Criterion queries work with any type of view, returning the appropriate data to the query specified.
@@ -294,14 +310,12 @@ The example below shows how you can execute a query within an implicit transacti
 tab:Java[]
 [source, java]
 ----
-try (Cursor<Entry<Tuple, Tuple>> cursor = kvView().query(
+try (Cursor<Map.Entry<Tuple, Tuple>> cursor = kvView.query(
         null,
-        and(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))
+        and(columnValue("name", equalTo("John Doe")), columnValue("age", greaterThan(20)))
 )) {
     // ...
 }
-
-
 ----
 --
 
@@ -314,16 +328,17 @@ You can also specify the specific transaction to execute the query in to perform
 tab:Java[]
 [source, java]
 ----
-var tx = client.transactions().begin();
+Ignite client = node.api();
+Transaction tx = client.transactions().begin();
 
-try (Cursor<Entry<Tuple, Tuple>> cursor = kvView().query(
+try (Cursor<Map.Entry<Tuple, Tuple>> cursor = kvView.query(
         tx,
-        and(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))
+        and(columnValue("name", equalTo("John Doe")), columnValue("age", greaterThan(20)))
 )) {
     // ...
 }
 
-tx.close();
+tx.commit();
 ----
 --
 
@@ -335,9 +350,9 @@ You can also perform the query asynchronously by using the `queryAsync` method. 
 --
 tab:Java[]
 ----
-view.queryAsync(null, and(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))
-    .thenCompose(this::fetchAllRowsInto)
-    .join();
+kvView.queryAsync(null, and(columnValue("name", equalTo("John Doe")), columnValue("age", greaterThan(20))))
+        .thenCompose(this::fetchAllRowsInto)
+        .join();
 ----
 --
 
@@ -345,16 +360,24 @@ This operation uses the `thenCompose()` method to handle the query results async
 
 [tabs]
 --
+
+
+== Table TTL
+
+When inserting values to the table, you can set expiration time for these values if TTL is enabled in the table. You can set the TTL by using the link:sql-reference/ddl/#create-table[CREATE TABLE] or link:sql-reference/ddl#alter-table-if-exists-table-set-expire-at[ALTER TABLE] statements.
+
+When adding data to the table, it is enough to put the desired TTL timestamp in the TTL column:
+
 tab:Java[]
 ----
-private static CompletionStage<Void> fetchAllRowsInto(AsyncCursor<Entry<Tuple, Tuple>> cursor) {
+public CompletionStage<Void> fetchAllRowsInto(AsyncCursor<Map.Entry<Tuple, Tuple>> cursor) {
     // Process the current page.
     for (var row : cursor.currentPage()) {
-       // ...
+        // ...
     }
     // Finish processing if no more data is currently available.
     if (!cursor.hasMorePages()) {
-        return nullCompletedFuture();
+        return CompletableFuture.completedFuture(null);
     }
     // Request for the next page, then subscribe to the response.
     return cursor.fetchNextPage().thenCompose(this::fetchAllRowsInto);
@@ -385,7 +408,6 @@ The following expressions are supported in criterion queries:
 === Comparison Operators
 
 The following operators are supported in criterion queries:
-
 
 [cols="15%,60%,25%",opts="header"]
 |======

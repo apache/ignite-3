@@ -113,6 +113,7 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -136,6 +137,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
@@ -154,6 +156,12 @@ public class DdlSqlToCommandConverter {
     /** Mapping: Zone option ID -> DDL option info. */
     private final Map<ZoneOptionEnum, DdlOptionInfo<AlterZoneCommandBuilder, ?>> alterZoneOptionInfos;
 
+    /** DDL option info for an integer CREATE ZONE REPLICAS option. */
+    private final DdlOptionInfo<CreateZoneCommandBuilder, Integer> createReplicasOptionInfo;
+
+    /** DDL option info for an integer ALTER ZONE REPLICAS option. */
+    private final DdlOptionInfo<AlterZoneCommandBuilder, Integer> alterReplicasOptionInfo;
+
     /** Zone options set. */
     private final Set<String> knownZoneOptionNames;
 
@@ -168,7 +176,6 @@ public class DdlSqlToCommandConverter {
 
         // CREATE ZONE options.
         zoneOptionInfos = new EnumMap<>(Map.of(
-                REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::partitions),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-22162 appropriate setter method should be used.
                 DISTRIBUTION_ALGORITHM, new DdlOptionInfo<>(String.class, null, (builder, params) -> {}),
@@ -185,9 +192,10 @@ public class DdlSqlToCommandConverter {
                         (builder, params) -> builder.consistencyModeParams(parseConsistencyMode(params)))
         ));
 
+        createReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::replicas);
+
         // ALTER ZONE options.
         alterZoneOptionInfos = new EnumMap<>(Map.of(
-                REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::partitions),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneCommandBuilder::filter),
                 DATA_NODES_AUTO_ADJUST,
@@ -197,6 +205,8 @@ public class DdlSqlToCommandConverter {
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::dataNodesAutoAdjustScaleDown)
         ));
+
+        alterReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas);
     }
 
     /**
@@ -205,10 +215,10 @@ public class DdlSqlToCommandConverter {
      * @param consistencyMode String representation of consistency mode.
      * @return Consistency mode
      */
-    public static ConsistencyMode parseConsistencyMode(String consistencyMode) {
+    private static ConsistencyMode parseConsistencyMode(String consistencyMode) {
         try {
             return ConsistencyMode.valueOf(consistencyMode);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException ignored) {
             throw new SqlException(STMT_VALIDATION_ERR, "Failed to parse consistency mode: " + consistencyMode
                     + ". Valid values are: " + Arrays.toString(ConsistencyMode.values()));
         }
@@ -678,23 +688,7 @@ public class DdlSqlToCommandConverter {
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
-            assert option.key().isSimple() : option.key();
-
-            String optionName = option.key().getSimple().toUpperCase();
-
-            DdlOptionInfo<CreateZoneCommandBuilder, ?> zoneOptionInfo = null;
-
-            if (remainingKnownOptions.remove(optionName)) {
-                zoneOptionInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
-            } else if (knownZoneOptionNames.contains(optionName)) {
-                throw duplicateZoneOption(ctx, optionName);
-            }
-
-            if (zoneOptionInfo == null) {
-                throw unexpectedZoneOption(ctx, optionName);
-            }
-
-            updateCommandOption("Zone", optionName, option.value(), zoneOptionInfo, ctx.query(), builder);
+            updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
         }
 
         if (remainingKnownOptions.contains(STORAGE_PROFILES.name())) {
@@ -703,7 +697,6 @@ public class DdlSqlToCommandConverter {
 
         return builder.build();
     }
-
 
     /**
      * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.
@@ -718,20 +711,8 @@ public class DdlSqlToCommandConverter {
 
         for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
-            String optionName = option.key().getSimple().toUpperCase();
 
-            if (!knownZoneOptionNames.contains(optionName)) {
-                throw unexpectedZoneOption(ctx, optionName);
-            } else if (!remainingKnownOptions.remove(optionName)) {
-                throw duplicateZoneOption(ctx, optionName);
-            }
-
-            DdlOptionInfo<AlterZoneCommandBuilder, ?> zoneOptionInfo = alterZoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
-
-            assert zoneOptionInfo != null : optionName;
-            assert option.value() instanceof SqlLiteral : option.value();
-
-            updateCommandOption("Zone", optionName, option.value(), zoneOptionInfo, ctx.query(), builder);
+            updateZoneOption(option, remainingKnownOptions, alterZoneOptionInfos, alterReplicasOptionInfo, ctx, builder);
         }
 
         return builder.build();
@@ -809,7 +790,56 @@ public class DdlSqlToCommandConverter {
         return objId.getSimple();
     }
 
-    private <S, T> void updateCommandOption(
+    private <S> void updateZoneOption(
+            IgniteSqlZoneOption option,
+            Set<String> remainingKnownOptions,
+            Map<ZoneOptionEnum, DdlOptionInfo<S, ?>> optionInfos,
+            DdlOptionInfo<S, Integer> replicasOptionInfo,
+            PlanningContext ctx,
+            S target
+    ) {
+        assert option.key().isSimple() : option.key();
+
+        String optionName = option.key().getSimple().toUpperCase();
+
+        if (!knownZoneOptionNames.contains(optionName)) {
+            throw unexpectedZoneOption(ctx, optionName);
+        } else if (!remainingKnownOptions.remove(optionName)) {
+            throw duplicateZoneOption(ctx, optionName);
+        }
+
+        ZoneOptionEnum zoneOption = ZoneOptionEnum.valueOf(optionName);
+        DdlOptionInfo<S, ?> zoneOptionInfo = optionInfos.get(zoneOption);
+
+        // Options infos doesn't contain REPLICAS, it's handled separately
+        assert zoneOptionInfo != null || zoneOption == REPLICAS : optionName;
+
+        assert option.value() instanceof SqlLiteral : option.value();
+        SqlLiteral literal = (SqlLiteral) option.value();
+
+        if (zoneOption == REPLICAS) {
+            if (literal.getTypeName() == SqlTypeName.SYMBOL) {
+                IgniteSqlZoneOptionMode zoneOptionMode = literal.symbolValue(IgniteSqlZoneOptionMode.class);
+
+                if (zoneOptionMode != IgniteSqlZoneOptionMode.ALL) {
+                    throw new SqlException(STMT_VALIDATION_ERR, format(
+                            "Unexpected value of zone replicas [expected ALL, was {}; query=\"{}\"",
+                            zoneOptionMode, ctx.query()
+                    ));
+                }
+
+                // Directly set the option value and return
+                replicasOptionInfo.setter.accept(target, DistributionAlgorithm.ALL_REPLICAS);
+                return;
+            } else {
+                zoneOptionInfo = replicasOptionInfo;
+            }
+        }
+
+        updateCommandOption("Zone", optionName, literal, zoneOptionInfo, ctx.query(), target);
+    }
+
+    private static <S, T> void updateCommandOption(
             String sqlObjName,
             Object optId,
             SqlNode value,

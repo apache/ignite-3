@@ -51,26 +51,30 @@ select log10(100.0)
 ----
 2.000000
 
-# LOG10 Need to be implemented in a different way https://issues.apache.org/jira/browse/IGNITE-22405
 query R
 select log10(0.1)
 ----
--0.9999999999999998
+-1.0
 
 query R
-select log10(0)
+select log10(0.1::DOUBLE)
 ----
--Infinity
+-1.0
+
+query T
+select log10(0.1)
+----
+-1.0
 
 query R
 select log10(10e8)
 ----
-8.999999999999998
+9.0
 
 query R
 select log10(cast(10e2 as float))
 ----
-2.9999999999999996
+3.0
 
 query R
 select log10(cast(10e-3 as real))

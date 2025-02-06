@@ -28,15 +28,12 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Contains the chain of changed assignments.
  */
 public class AssignmentsChain implements Iterable<AssignmentsLink> {
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Either remove default values or add proper javadoc.
-    private static final long DEFAULT_CONF_TERM = -1;
-    private static final long DEFAULT_CONF_IDX = -1;
-
     /** Chain of assignments. */
     @IgniteToStringInclude
     private final List<AssignmentsLink> chain;
@@ -119,8 +116,14 @@ public class AssignmentsChain implements Iterable<AssignmentsLink> {
         return null;
     }
 
+    /**
+     * Creates a new instance. The configuration term and index are set to -1 for all links. Only for testing purposes.
+     *
+     * @param assignments Partition assignments.
+     */
+    @TestOnly
     public static AssignmentsChain of(Assignments... assignments) {
-        return of(DEFAULT_CONF_TERM, DEFAULT_CONF_IDX, assignments);
+        return of(-1L, -1L, assignments);
     }
 
     /**

@@ -48,6 +48,7 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
                 txCoordinatorId(),
                 commitPartitionId == null ? null : commitPartitionId.asTablePartitionId(),
                 commitTimestamp(),
+                null,
                 initialVacuumObservationTimestamp(),
                 cleanupCompletionTimestamp()
         );
