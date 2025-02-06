@@ -36,9 +36,11 @@ import org.apache.ignite.internal.worker.ThreadAssertions;
 class ZoneResourcesManager implements ManuallyCloseable {
     private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
-    private final Map<Integer, Integer> zonePartitionCounts = new ConcurrentHashMap<>();
+    /** Map from zone IDs to their partition counts. */
+    private final Map<Integer, Integer> partitionCountsByZoneId = new ConcurrentHashMap<>();
 
-    private final Map<Integer, ZoneResources> zoneResourcesMap = new ConcurrentHashMap<>();
+    /** Map from zone IDs to their resource holders. */
+    private final Map<Integer, ZoneResources> resourcesByZoneId = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -53,7 +55,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
      * @param partitionCount Number of partitions the zone has.
      */
     void registerZonePartitionCount(int zoneId, int partitionCount) {
-        zonePartitionCounts.put(zoneId, partitionCount);
+        partitionCountsByZoneId.put(zoneId, partitionCount);
     }
 
     /**
@@ -65,11 +67,11 @@ class ZoneResourcesManager implements ManuallyCloseable {
      */
     TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionId) {
         return inBusyLock(busyLock, () -> {
-            Integer partitionCount = zonePartitionCounts.put(zoneId, partitionId);
+            Integer partitionCount = partitionCountsByZoneId.put(zoneId, partitionId);
             assert partitionCount != null : "No partition count was registered for zone " + zoneId
                     + "; make sure to register it when handling node startup and zone creation";
 
-            ZoneResources zoneResources = zoneResourcesMap.computeIfAbsent(
+            ZoneResources zoneResources = resourcesByZoneId.computeIfAbsent(
                     zoneId,
                     id -> createZoneResources(id, partitionCount)
             );
@@ -98,7 +100,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
     public void close() {
         busyLock.block();
 
-        for (ZoneResources zoneResources : zoneResourcesMap.values()) {
+        for (ZoneResources zoneResources : resourcesByZoneId.values()) {
             zoneResources.txStateStorage.close();
         }
     }
