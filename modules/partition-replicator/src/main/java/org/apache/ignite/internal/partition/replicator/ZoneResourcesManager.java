@@ -36,9 +36,6 @@ import org.apache.ignite.internal.worker.ThreadAssertions;
 class ZoneResourcesManager implements ManuallyCloseable {
     private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
-    /** Map from zone IDs to their partition counts. */
-    private final Map<Integer, Integer> partitionCountsByZoneId = new ConcurrentHashMap<>();
-
     /** Map from zone IDs to their resource holders. */
     private final Map<Integer, ZoneResources> resourcesByZoneId = new ConcurrentHashMap<>();
 
@@ -49,28 +46,14 @@ class ZoneResourcesManager implements ManuallyCloseable {
     }
 
     /**
-     * Registers zone partition count. This must be called before {@link #getOrCreatePartitionTxStateStorage(int, int)}.
+     * Gets or creates a transaction state storage for a zone partition.
      *
      * @param zoneId ID of the zone.
-     * @param partitionCount Number of partitions the zone has.
-     */
-    void registerZonePartitionCount(int zoneId, int partitionCount) {
-        partitionCountsByZoneId.put(zoneId, partitionCount);
-    }
-
-    /**
-     * Gets or creates a transaction state storage for a zone partition. {@link #registerZonePartitionCount(int, int)} must be called before
-     * calling this method.
-     *
-     * @param zoneId ID of the zone.
+     * @param partitionCount Number of partitions in the zone.
      * @param partitionId Partition ID.
      */
-    TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionId) {
+    TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionCount, int partitionId) {
         return inBusyLock(busyLock, () -> {
-            Integer partitionCount = partitionCountsByZoneId.put(zoneId, partitionId);
-            assert partitionCount != null : "No partition count was registered for zone " + zoneId
-                    + "; make sure to register it when handling node startup and zone creation";
-
             ZoneResources zoneResources = resourcesByZoneId.computeIfAbsent(
                     zoneId,
                     id -> createZoneResources(id, partitionCount)

@@ -81,21 +81,16 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void createsTxStatePartitionStorage() {
-        manager.registerZonePartitionCount(1, 10);
-
-        TxStatePartitionStorage txStatePartitionStorage = getOrCreatePartitionTxStateStorage(1, 1);
+        TxStatePartitionStorage txStatePartitionStorage = getOrCreatePartitionTxStateStorage(1, 10, 1);
 
         assertThat(txStatePartitionStorage, is(notNullValue()));
     }
 
     @Test
     void closesResourcesOnShutdown() {
-        manager.registerZonePartitionCount(1, 10);
-        manager.registerZonePartitionCount(2, 10);
-
-        TxStatePartitionStorage zone1storage1 = getOrCreatePartitionTxStateStorage(1, 1);
-        TxStatePartitionStorage zone1storage5 = getOrCreatePartitionTxStateStorage(1, 5);
-        TxStatePartitionStorage zone2storage3 = getOrCreatePartitionTxStateStorage(2, 3);
+        TxStatePartitionStorage zone1storage1 = getOrCreatePartitionTxStateStorage(1, 10, 1);
+        TxStatePartitionStorage zone1storage5 = getOrCreatePartitionTxStateStorage(1, 10, 5);
+        TxStatePartitionStorage zone2storage3 = getOrCreatePartitionTxStateStorage(2, 10, 3);
 
         manager.close();
 
@@ -113,7 +108,7 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionId) {
-        return bypassingThreadAssertions(() -> manager.getOrCreatePartitionTxStateStorage(zoneId, partitionId));
+    private TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionCount, int partitionId) {
+        return bypassingThreadAssertions(() -> manager.getOrCreatePartitionTxStateStorage(zoneId, partitionCount, partitionId));
     }
 }
