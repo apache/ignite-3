@@ -30,6 +30,9 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 
+/**
+ * Manages resources of distribution zones; that is, allows creation of underlying storages and closes them on node stop.
+ */
 class ZoneResourcesManager implements ManuallyCloseable {
     private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
