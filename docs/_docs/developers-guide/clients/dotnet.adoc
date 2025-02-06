@@ -22,14 +22,15 @@ Clients do not become a part of the cluster topology, never hold any data, and a
 
 === Prerequisites
 
-To use C# thin client, .NET 6.0 or newer is required.
+To use C# thin client, .NET 8.0 or newer is required.
 
 === Installation
 
 C# client is available via NuGet. To add it, use the `add package` command:
 
+[source, bash, subs="attributes,specialchars"]
 ----
-dotnet add package Apache.Ignite --version 3.0.0-beta2
+dotnet add package Ignite.Ignite --version 3.0.0
 ----
 
 == Connecting to Cluster
@@ -68,16 +69,6 @@ var cfg = new IgniteClientConfiguration("127.0.0.1:10800")
 IIgniteClient client = await IgniteClient.StartAsync(cfg);
 ----
 --
-
-=== Limitations
-
-There are limitations to user types that can be used for such a mapping. Some limitations are common, and others are platform-specific due to the programming language used.
-
-- Only flat field structure is supported, meaning no nesting user objects. This is because Ignite tables, and therefore tuples have flat structure themselves;
-- Fields should be mapped to Ignite types;
-- All fields in user type should either be mapped to Table column or explicitly excluded;
-- All columns from Table should be mapped to some field in the user type;
-- *.NET only*: Any type (class, struct, record) is supported as long as all fields can be mapped to Ignite types;
 
 === Usage Examples
 

@@ -123,7 +123,8 @@ public class PartitionListener implements RaftGroupListener {
 
     private final UUID localNodeId;
 
-    private Set<String> currentGroupTopology;
+    // This variable is volatile, because it may be updated outside the Raft thread under the colocation feature.
+    private volatile Set<String> currentGroupTopology;
 
     private final MinimumRequiredTimeCollectorService minTimeCollectorService;
 
@@ -295,7 +296,7 @@ public class PartitionListener implements RaftGroupListener {
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
-                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asTablePartitionId(),
                     cmd.rowToUpdate(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
@@ -352,7 +353,7 @@ public class PartitionListener implements RaftGroupListener {
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
-                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asTablePartitionId(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
                     cmd.full() ? safeTimestamp : null,
@@ -563,11 +564,6 @@ public class PartitionListener implements RaftGroupListener {
         storage.close();
     }
 
-    @Override
-    public void onLeaderStop() {
-        // No-op.
-    }
-
     /**
      * Returns underlying storage.
      */
@@ -766,7 +762,8 @@ public class PartitionListener implements RaftGroupListener {
                 full ? COMMITTED : PENDING,
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
-                full ? commitTimestamp : null
+                full ? commitTimestamp : null,
+                old == null ? null : old.tx()
         ));
     }
 
@@ -776,6 +773,7 @@ public class PartitionListener implements RaftGroupListener {
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? partId : old.commitPartitionId(),
                 commit ? commitTimestamp : null,
+                old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp()
         ));

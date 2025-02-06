@@ -192,6 +192,11 @@ public final class NoOpTransaction implements InternalTransaction {
         return nodeAndConsistencyToken;
     }
 
+    @Override
+    public CompletableFuture<Void> kill() {
+        return rollbackAsync();
+    }
+
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */
     public CompletableFuture<Void> commitFuture() {
         return commitFut;

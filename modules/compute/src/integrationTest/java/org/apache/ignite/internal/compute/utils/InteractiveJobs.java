@@ -32,7 +32,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -122,6 +124,10 @@ public final class InteractiveJobs {
         return InteractiveJob.class.getName();
     }
 
+    public static JobDescriptor<String, String> interactiveJobDescriptor() {
+        return JobDescriptor.<String, String>builder(interactiveJobName()).build();
+    }
+
     /**
      * Signals that are sent by test code to the jobs.
      */
@@ -147,6 +153,11 @@ public final class InteractiveJobs {
         RETURN_WORKER_NAME,
 
         /**
+         * Ask job to complete and return partition number.
+         */
+        RETURN_PARTITION_ID,
+
+        /**
          * Signal to the job to continue running and send current worker name to the response channel.
          */
         GET_WORKER_NAME
@@ -165,10 +176,10 @@ public final class InteractiveJobs {
         }
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String arg) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
-            offerArgsAsSignals(args);
+            offerArgAsSignal(arg);
 
             try {
                 while (true) {
@@ -196,11 +207,11 @@ public final class InteractiveJobs {
         }
 
         /**
-         * If any of the args are strings, convert them to signals and offer them to the job.
+         * If argument is a string, convert it to signal and offer to the job.
          *
-         * @param arg Job args.
+         * @param arg Job arg.
          */
-        private static void offerArgsAsSignals(String arg) {
+        private static void offerArgAsSignal(String arg) {
             if (arg == null) {
                 return;
             }
@@ -216,7 +227,7 @@ public final class InteractiveJobs {
      * Interactive job that communicates via {@link #NODE_CHANNELS} and {@link #NODE_SIGNALS}. Also, keeps track of how many times it was
      * executed via {@link #RUNNING_INTERACTIVE_JOBS_CNT}.
      */
-    private static class InteractiveJob implements ComputeJob<Object[], String> {
+    private static class InteractiveJob implements ComputeJob<String, String> {
         private static Signal listenSignal(BlockingQueue<Signal> channel) {
             try {
                 return channel.take();
@@ -226,7 +237,7 @@ public final class InteractiveJobs {
         }
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String arg) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
             try {
@@ -247,6 +258,8 @@ public final class InteractiveJobs {
                             return completedFuture("Done");
                         case RETURN_WORKER_NAME:
                             return completedFuture(workerNodeName);
+                        case RETURN_PARTITION_ID:
+                            return completedFuture(Integer.toString(((HashPartition) context.partition()).partitionId()));
                         case GET_WORKER_NAME:
                             NODE_CHANNELS.get(workerNodeName).add(workerNodeName);
                             break;
@@ -353,6 +366,13 @@ public final class InteractiveJobs {
          */
         public void finishReturnWorkerNames() {
             sendTerminalSignal(Signal.RETURN_WORKER_NAME);
+        }
+
+        /**
+         * Finishes all {@link InteractiveJob}s by returning partition number.
+         */
+        public void finishReturnPartitionNumber() {
+            sendTerminalSignal(Signal.RETURN_PARTITION_ID);
         }
 
         /**

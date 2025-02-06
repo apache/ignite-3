@@ -15,30 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
-
-import java.util.function.Consumer;
-import org.apache.ignite.internal.network.TopologyEventHandler;
-import org.apache.ignite.network.ClusterNode;
+package org.apache.ignite.internal.catalog;
 
 /**
- * NodeLeaveHandler.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * This exception is thrown when catalog was not found by version or by timestamp.
  */
-public class NodeLeaveHandler implements TopologyEventHandler {
-    private final Consumer<ClusterNode> onDisappeared;
+public class CatalogNotFoundException extends CatalogValidationException {
+    private static final long serialVersionUID = 6675295082901837711L;
 
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public NodeLeaveHandler(Consumer<ClusterNode> onDisappeared) {
-        this.onDisappeared = onDisappeared;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onDisappeared(ClusterNode member) {
-        onDisappeared.accept(member);
+    CatalogNotFoundException(String message) {
+        super(message);
     }
 }

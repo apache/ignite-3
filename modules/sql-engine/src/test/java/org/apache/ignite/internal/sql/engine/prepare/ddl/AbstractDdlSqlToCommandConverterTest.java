@@ -21,6 +21,7 @@ import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.mock;
 
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.hamcrest.Matchers;
 
 /**
  * Common methods for {@link DdlSqlToCommandConverter} testing.
@@ -82,7 +82,7 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
 
         UpdateEntry entry = entries.get(0);
 
-        assertThat(entry, Matchers.instanceOf(expected));
+        assertThat(entry, instanceOf(expected));
 
         return (T) entry;
     }

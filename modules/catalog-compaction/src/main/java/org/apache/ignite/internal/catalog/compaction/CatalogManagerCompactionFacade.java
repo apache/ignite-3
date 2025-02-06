@@ -22,6 +22,7 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.jetbrains.annotations.Nullable;
@@ -81,7 +82,7 @@ class CatalogManagerCompactionFacade {
             int catalogVer = catalogManager.activeCatalogVersion(timestamp);
 
             return catalogManager.catalog(catalogVer - 1);
-        } catch (IllegalStateException ignore) {
+        } catch (CatalogNotFoundException ignore) {
             return null;
         }
     }
@@ -97,7 +98,7 @@ class CatalogManagerCompactionFacade {
             int catalogVer = catalogManager.activeCatalogVersion(timestamp);
 
             return catalogManager.catalog(catalogVer);
-        } catch (IllegalStateException ignore) {
+        } catch (CatalogNotFoundException ignore) {
             return null;
         }
     }

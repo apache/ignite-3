@@ -67,7 +67,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service implementation.
@@ -154,7 +153,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         int objectIdGen = 0;
 
-        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
+        Catalog emptyCatalog = new Catalog(0, HybridTimestamp.MIN_VALUE.longValue(), objectIdGen, List.of(), List.of(), null);
 
         registerCatalog(emptyCatalog);
 
@@ -211,8 +210,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable Catalog catalog(int catalogVersion) {
-        return catalogByVer.get(catalogVersion);
+    public Catalog catalog(int catalogVersion) {
+        Catalog catalog = catalogByVer.get(catalogVersion);
+
+        if (catalog == null) {
+            throw new CatalogNotFoundException("Catalog version not found: " + catalogVersion);
+        }
+
+        return catalog;
     }
 
     @Override
@@ -224,7 +229,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         Entry<Long, Catalog> entry = catalogByTs.floorEntry(timestamp);
 
         if (entry == null) {
-            throw new IllegalStateException("No valid schema found for given timestamp: " + timestamp);
+            throw new CatalogNotFoundException("Catalog not found for given timestamp: " + timestamp);
         }
 
         return entry.getValue();

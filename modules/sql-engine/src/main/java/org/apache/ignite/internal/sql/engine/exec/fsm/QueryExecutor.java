@@ -17,7 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -25,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -36,15 +43,19 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryEventsFactory;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
@@ -58,8 +69,10 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
@@ -173,7 +186,7 @@ public class QueryExecutor implements LifecycleAware {
         );
 
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -216,7 +229,7 @@ public class QueryExecutor implements LifecycleAware {
         );
 
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -230,7 +243,7 @@ public class QueryExecutor implements LifecycleAware {
         } catch (QueryCancelledException ex) {
             query.moveTo(ExecutionPhase.TERMINATED);
 
-            return CompletableFuture.failedFuture(ex);
+            return failedFuture(ex);
         }
 
         return Programs.SCRIPT_ITEM_EXECUTION.run(query)
@@ -239,6 +252,220 @@ public class QueryExecutor implements LifecycleAware {
                         cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
                     }
                 });
+    }
+
+    CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeChildBatch(
+            Query parent,
+            QueryTransactionContext scriptTxContext,
+            int batchOffset,
+            List<ParsedResultWithNextCursorFuture> batch
+    ) {
+        if (IgniteUtils.assertionsEnabled()) {
+            int offsetInBatch = 0;
+            for (ParsedResultWithNextCursorFuture item : batch) {
+                assert item.parsedQuery.queryType() == SqlQueryType.DDL 
+                        : item.parsedQuery.queryType() + " at statement #" + (batchOffset + offsetInBatch);
+
+                offsetInBatch++;
+            }
+        }
+
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        List<Query> queries = new ArrayList<>(batch.size());
+
+        try {
+            int offsetInBatch = 0;
+            for (ParsedResultWithNextCursorFuture item : batch) {
+                Query query = new Query(
+                        Instant.ofEpochMilli(clockService.now().getPhysical()),
+                        parent,
+                        item.parsedQuery,
+                        batchOffset + offsetInBatch,
+                        idGenerator.next(),
+                        scriptTxContext,
+                        ArrayUtils.OBJECT_EMPTY_ARRAY,
+                        item.nextCursorFuture
+                );
+
+                offsetInBatch++;
+
+                trackQuery(query, null);
+
+                queries.add(query);
+
+                parent.cancel.attach(query.cancel);
+            }
+        } catch (QueryCancelledException ex) {
+            queries.forEach(query -> query.onError(ex));
+
+            return failedFuture(ex);
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        List<CompletableFuture<?>> preparedQueryFutures = new ArrayList<>(batch.size());
+        for (Query query : queries) {
+            preparedQueryFutures.add(Programs.SCRIPT_ITEM_PREPARATION.run(query));
+        }
+
+        return CompletableFutures.allOf(preparedQueryFutures)
+                .handle((none, ignored) -> {
+                    List<DdlPlan> ddlPlans = new ArrayList<>();
+                    for (Query query : queries) {
+                        QueryPlan plan = query.plan;
+                        if (plan == null) {
+                            assert query.error.get() != null;
+
+                            break;
+                        }
+
+                        ddlPlans.add((DdlPlan) plan);
+                    }
+
+                    return ddlPlans;
+                })
+                .thenCompose(ddlPlans -> {
+                    parent.cancel.throwIfCancelled();
+
+                    // First-statement-error case.
+                    if (ddlPlans.isEmpty()) {
+                        Iterator<Query> it = queries.iterator();
+
+                        Throwable th = it.next().error.get();
+
+                        assert th != null;
+
+                        while (it.hasNext()) {
+                            it.next().onError(th);
+                        }
+
+                        return failedFuture(th);
+                    }
+
+                    return executionService.executeDdlBatch(ddlPlans, scriptTxContext::updateObservableTime)
+                            .handle((dataCursors, error) -> {
+                                if (error != null) {
+                                    // Fallback to statement-by-statement execution
+                                    return executeSequentially(queries);
+                                }
+
+                                AsyncSqlCursor<InternalSqlRow> firstCursor = null;
+                                CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorRef = null;
+                                Iterator<AsyncDataCursor<InternalSqlRow>> dataCursorIterator = dataCursors.iterator();
+                                Throwable th = null;
+                                for (Query query : queries) {
+                                    if (th != null) {
+                                        query.onError(th);
+
+                                        continue;
+                                    }
+
+                                    QueryPlan plan = query.plan;
+
+                                    if (plan == null) {
+                                        th = query.error.get();
+
+                                        assert th != null;
+
+                                        // First-statement-error case is covered before we call executionService,
+                                        // and after first iteration cursorRef must not be null.
+                                        assert cursorRef != null;
+
+                                        cursorRef.completeExceptionally(th);
+
+                                        continue;
+                                    }
+
+                                    query.moveTo(ExecutionPhase.EXECUTING);
+
+                                    AsyncDataCursor<InternalSqlRow> dataCursor = dataCursorIterator.next();
+                                    AsyncSqlCursor<InternalSqlRow> currentCursor = createAndSaveSqlCursor(query, dataCursor); 
+
+                                    if (cursorRef != null) {
+                                        cursorRef.complete(currentCursor);
+                                    }
+
+                                    cursorRef = query.nextCursorFuture;
+
+                                    if (firstCursor == null) {
+                                        firstCursor = currentCursor;
+                                    }
+
+                                    currentCursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                                }
+
+                                return completedFuture(firstCursor);
+                            })
+                            .thenCompose(Function.identity());
+                });
+    }
+
+    @SuppressWarnings("MethodMayBeStatic")
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeSequentially(List<Query> queries) {
+        assert !queries.isEmpty();
+
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> firstCursor = null;
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorRef = null;
+        CompletableFuture<Void> lastStep = nullCompletedFuture();
+        for (Query query : queries) {
+            query.reset();
+
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorRef0 = cursorRef;
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = lastStep
+                    .whenComplete((none, ex) -> {
+                        if (ex != null) {
+                            query.onError(ex);
+                        }
+                    })
+                    .thenCompose(none -> Programs.SCRIPT_ITEM_EXECUTION.run(query)
+                            .whenComplete((cursor, ex) -> {
+                                if (cursorRef0 != null) {
+                                    if (cursor != null) {
+                                        cursorRef0.complete(cursor);
+                                    } else {
+                                        cursorRef0.completeExceptionally(ex);
+                                    }
+                                }
+
+                                if (cursor != null) {
+                                    cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                                }
+                            }));
+
+            lastStep = cursorFuture.thenCompose(AsyncDataCursor::onFirstPageReady);
+            cursorRef = query.nextCursorFuture;
+
+            if (firstCursor == null) {
+                firstCursor = cursorFuture;
+            }
+        }
+
+        return firstCursor;
+    }
+
+    @SuppressWarnings("MethodMayBeStatic")
+    AsyncSqlCursor<InternalSqlRow> createAndSaveSqlCursor(Query query, AsyncDataCursor<InternalSqlRow> dataCursor) {
+        QueryPlan plan = query.plan;
+
+        assert plan != null;
+
+        AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
+                plan.type(),
+                plan.metadata(),
+                dataCursor,
+                query.nextCursorFuture
+        );
+
+        query.cursor = cursor;
+
+        query.cancel.add(timeout -> dataCursor.cancelAsync(
+                timeout ? CancellationReason.TIMEOUT : CancellationReason.CANCEL
+        ));
+
+        return cursor;
     }
 
     /** Looks up parsed result in cache by given query string. */
@@ -311,10 +538,6 @@ public class QueryExecutor implements LifecycleAware {
         return executionService.executePlan(plan, ctx);
     }
 
-    HybridTimestamp clockNow() {
-        return clockService.now();
-    }
-
     MultiStatementHandler createScriptHandler(Query query) {
         List<ParsedResult> parsedResults = query.parsedScript;
 
@@ -383,5 +606,18 @@ public class QueryExecutor implements LifecycleAware {
         Exception ex = new NodeStoppingException();
 
         runningQueries.values().forEach(query -> query.onError(ex));
+    }
+
+    static class ParsedResultWithNextCursorFuture {
+        private final ParsedResult parsedQuery;
+        private final @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture;
+
+        ParsedResultWithNextCursorFuture(
+                ParsedResult parsedQuery,
+                @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture
+        ) {
+            this.parsedQuery = parsedQuery;
+            this.nextCursorFuture = nextCursorFuture;
+        }
     }
 }

@@ -150,4 +150,9 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(transaction);
     }
+
+    @Override
+    public CompletableFuture<Void> kill() {
+        return transaction.kill();
+    }
 }

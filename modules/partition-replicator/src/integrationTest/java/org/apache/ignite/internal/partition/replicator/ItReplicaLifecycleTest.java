@@ -99,6 +99,7 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -261,6 +262,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         nodes.remove(idx);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
     @Test
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
@@ -715,7 +717,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     }
 
     private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {
-        node.converter.set(request ->  {
+        node.setRequestConverter(request ->  {
             if (request.groupId().asReplicationGroupId().equals(tablePartitionId)
                     && !(request instanceof WriteIntentSwitchReplicaRequest)) {
                 return zonePartitionId;

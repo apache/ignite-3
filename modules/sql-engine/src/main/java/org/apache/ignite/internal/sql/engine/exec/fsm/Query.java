@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Encapsulates intermediate state populated throughout query lifecycle.
  */
 class Query {
-    final CompletableFuture<Object> resultHolder = new CompletableFuture<>();
+    volatile CompletableFuture<Object> resultHolder = new CompletableFuture<>();
 
     // Below are attributes the query was initialized with
     final Instant createdAt;
@@ -159,5 +159,10 @@ class Query {
         cancel.cancel();
 
         return onPhaseStarted(ExecutionPhase.TERMINATED);
+    }
+
+    void reset() {
+        resultHolder = new CompletableFuture<>();
+        error.set(null);
     }
 }
