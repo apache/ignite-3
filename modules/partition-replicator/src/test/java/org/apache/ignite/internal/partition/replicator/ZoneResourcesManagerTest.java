@@ -81,7 +81,7 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
         manager.registerZonePartitionCount(1, 10);
 
         TxStatePartitionStorage txStatePartitionStorage = bypassingThreadAssertions(
-                () -> manager.getOrCreatePartitionStorage(1, 1)
+                () -> manager.getOrCreatePartitionTxStateStorage(1, 1)
         );
 
         assertThat(txStatePartitionStorage, is(notNullValue()));

@@ -488,7 +488,7 @@ public class PartitionReplicaLifecycleManager extends
         );
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
-            TxStatePartitionStorage txStatePartitionStorage = zoneResourcesManager.getOrCreatePartitionStorage(zoneId, partId);
+            TxStatePartitionStorage txStatePartitionStorage = zoneResourcesManager.getOrCreatePartitionTxStateStorage(zoneId, partId);
 
             try {
                 return replicaMgr.startReplica(

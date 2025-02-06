@@ -47,7 +47,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
     }
 
     /**
-     * Registers zone partition count. This must be called before {@link #getOrCreatePartitionStorage(int, int)}.
+     * Registers zone partition count. This must be called before {@link #getOrCreatePartitionTxStateStorage(int, int)}.
      *
      * @param zoneId ID of the zone.
      * @param partitionCount Number of partitions the zone has.
@@ -63,7 +63,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
      * @param zoneId ID of the zone.
      * @param partitionId Partition ID.
      */
-    TxStatePartitionStorage getOrCreatePartitionStorage(int zoneId, int partitionId) {
+    TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionId) {
         return inBusyLock(busyLock, () -> {
             Integer partitionCount = zonePartitionCounts.put(zoneId, partitionId);
             assert partitionCount != null : "No partition count was registered for zone " + zoneId
