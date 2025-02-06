@@ -200,7 +200,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
 
             return ConfigFactory.parseString(patch(confString, module), parseOptions);
-        } catch (Parse | ConfigurationValidationException | IOException e) {
+        } catch (Parse | IOException e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
         }
     }

@@ -33,8 +33,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Validates that there are no duplicate keys in the configuration.
- * <p>
- * Imagine configuration like this:
+ *
+ * <p>Imagine configuration like this:
  * <pre>
  * root {
  *   arrayField: [
@@ -43,6 +43,7 @@ import org.jetbrains.annotations.Nullable;
  *   ]
  * }
  * </pre>
+ *
  * <p>This configuration can be represented like this:</p>
  * <ul>
  *   <li>root children: [ ConfigNodePath("root"), ConfigNodeComplexValue(field) ]</li>
@@ -319,7 +320,7 @@ public class ConfigurationDuplicatesValidator {
         private void appendTo(StringBuilder builder) {
             if (basePath != null) {
                 basePath.appendTo(builder);
-                builder.append(".");
+                builder.append('.');
             }
 
             builder.append(path);
