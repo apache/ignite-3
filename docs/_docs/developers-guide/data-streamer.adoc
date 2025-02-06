@@ -28,20 +28,24 @@ tab:Java[]
 [source, java]
 ----
 RecordView<Tuple> view = defaultTable().recordView();
-
 CompletableFuture<Void> streamerFut;
 
-try (var publisher = new SubmissionPublisher<Tuple>()) {
-    var options = DataStreamerOptions.builder().batchSize(batchSize).build();
-    streamerFut = view.streamData(publisher, options);
 
-    var tuple1 = Tuple.create().set("id", 1L).set("name", "foo");
-    var tuple2 = Tuple.create().set("id", 2L).set("name", "bar");
-    publisher.submit(tuple1);
-    publisher.submit(tuple2);
+try (var publisher = new SubmissionPublisher<CustomData>()) {
+   streamerFut = view.<CustomData, String, Boolean>streamData(
+           publisher,
+           null,
+           item -> Tuple.create().set("id", item.getId()),
+           item -> item.serializeToString(),
+           null,
+           List.of(new DeploymentUnit("test", "1.0.0")),
+           "org.foo.bar.StreamReceiver",
+           "receiverArg1");
+
+
+   publisher.submit(new CustomData(1, "x"));
 }
 
-streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 ----
 
 tab:.NET[]
@@ -57,6 +61,41 @@ public async Task TestBasicStreamingRecordBinaryView()
 ----
 --
 
+== Tracking Failed Entries
+
+If data streamer fails to submit data, it stores all failed items, and returns them in the `DataStreamerException#failedItems`. You can then catch the exception to keep track of the entries that were not sent to the cluster:
+
+----
+RecordView<Tuple> view = defaultTable().recordView();
+CompletableFuture<Void> streamerFut;
+
+
+try (var publisher = new SubmissionPublisher<CustomData>()) {
+   streamerFut = view.<CustomData, String, Boolean>streamData(
+           publisher,
+           null,
+           item -> Tuple.create().set("id", item.getId()),
+           item -> item.serializeToString(),
+           null,
+           List.of(new DeploymentUnit("test", "1.0.0")),
+           "org.foo.bar.StreamReceiver",
+           "receiverArg1")
+   .exceptionally(e -> {
+       // Handle entries that failed during background streaming
+       System.out.println(((DataStreamerException)e.getCause()).failedItems())
+   }
+);
+
+
+   publisher.submit(new CustomData(1, "x"));
+}
+catch (DataStreamerException e){
+  Set<?> failedItems = e.failedItems()
+  // Handle entries that failed during submission
+  System.out.println(failedItems)
+}
+----
+
 == Configuring Data Streamer Properties
 
 All data streamer parameters can be configured by using the `DataStreamerOptions` object. For example, the code snippet below sets the data streamer to have 3 retries:
@@ -66,14 +105,14 @@ All data streamer parameters can be configured by using the `DataStreamerOptions
 tab:Java[]
 [source,java]
 ----
-RecordView<Tuple> view = defaultTable().recordView();
+RecordView<Tuple> view = client.tables().table("Person").recordView();
 var publisher = new SubmissionPublisher<Tuple>();
 
 var options = DataStreamerOptions.builder()
 .retryLimit(3)
 .build();
 
-CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
+streamerFut = view.streamData(publisher, options);
 ----
 --
 
@@ -90,7 +129,7 @@ You can change these options the same way you would work with any other options:
 tab:Java[]
 [source,java]
 ----
-RecordView<Tuple> view = defaultTable().recordView();
+RecordView<Tuple> view = client.tables().table("Person").recordView();
 var publisher = new SubmissionPublisher<Tuple>();
 
 var options = DataStreamerOptions.builder()
@@ -98,7 +137,7 @@ var options = DataStreamerOptions.builder()
 .perNodeParallelOperations(10)
 .build();
 
-CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
+streamerFut = view.streamData(publisher, options);
 ----
 --
 
