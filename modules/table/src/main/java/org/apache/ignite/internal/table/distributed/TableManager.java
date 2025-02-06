@@ -47,6 +47,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -262,8 +263,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
-    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     private final TopologyService topologyService;
 
@@ -1646,6 +1646,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 tableName,
+                zoneDescriptor.id(),
                 tableDescriptor.id(),
                 partitions,
                 topologyService,
