@@ -2087,7 +2087,7 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param partId Partition id.
      * @param readTimestamp Read timestamp.
-     * @return Cluster node to evalute read-only request.
+     * @return Cluster node to evaluate read-only request.
      */
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, @Nullable HybridTimestamp readTimestamp) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
@@ -2098,7 +2098,14 @@ public class InternalTableImpl implements InternalTable {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                     } else {
                         if (res == null) {
-                            throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
+                            throw new TransactionException(
+                                    REPLICA_UNAVAILABLE_ERR,
+                                    format(
+                                            "Failed to get the primary replica [tablePartitionId={}, awaitTimestamp={}",
+                                            tablePartitionId,
+                                            readTimestamp
+                                    )
+                            );
                         } else {
                             return getClusterNode(res);
                         }
