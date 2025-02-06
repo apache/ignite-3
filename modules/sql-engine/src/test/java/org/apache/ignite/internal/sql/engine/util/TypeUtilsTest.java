@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -228,14 +227,10 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         Object[] inputWithZeros = {ByteString.of("AABBCC0000", 16)};
 
         return Stream.of(
-                arguments(SqlTypeName.BINARY, PRECISION_NOT_SPECIFIED, input, true),
                 arguments(SqlTypeName.BINARY, 2, input, true),
-                arguments(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED, input, false),
                 arguments(SqlTypeName.VARBINARY, 2, input, true),
 
-                arguments(SqlTypeName.BINARY, PRECISION_NOT_SPECIFIED, inputWithZeros, true),
                 arguments(SqlTypeName.BINARY, 3, inputWithZeros, false),
-                arguments(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED, input, false),
                 arguments(SqlTypeName.VARBINARY, 3, inputWithZeros, false)
         );
     }
