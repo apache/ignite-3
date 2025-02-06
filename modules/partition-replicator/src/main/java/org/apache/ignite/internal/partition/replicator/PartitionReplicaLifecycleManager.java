@@ -128,6 +128,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -487,6 +488,8 @@ public class PartitionReplicaLifecycleManager extends
         );
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
+            TxStatePartitionStorage txStatePartitionStorage = zoneResourcesManager.getOrCreatePartitionStorage(zoneId, partId);
+
             try {
                 return replicaMgr.startReplica(
                                 replicaGrpId,
@@ -498,7 +501,7 @@ public class PartitionReplicaLifecycleManager extends
                                 raftGroupEventsListener,
                                 // TODO: IGNITE-24371 - pass real isVolatile flag
                                 false,
-                                () -> zoneResourcesManager.getOrCreatePartitionStorage(zoneId, partId),
+                                txStatePartitionStorage,
                                 busyLock
                         ).thenCompose(replica -> executeUnderZoneWriteLock(zoneId, () -> {
                             replicationGroupIds.add(replicaGrpId);

@@ -725,7 +725,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGroupListener Raft group listener for raft group starting.
      * @param raftGroupEventsListener Raft group events listener for raft group starting.
      * @param isVolatileStorage Whether partition storage is volatile for this partition.
-     * @param partitionResourcesSupplier Supplies resources managed by this replica (they will be closed on replica shutdown).
+     * @param partitionResources Resources managed by this replica (they will be closed on replica shutdown).
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
      *         started.
@@ -738,7 +738,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             RaftGroupEventsListener raftGroupEventsListener,
             boolean isVolatileStorage,
-            Supplier<ManuallyCloseable> partitionResourcesSupplier,
+            ManuallyCloseable partitionResources,
             IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -757,7 +757,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             replicaGrpId,
                             listenerFactory.apply(raftClient),
                             raftClient,
-                            partitionResourcesSupplier.get()
+                            partitionResources
                     )
             );
         } finally {
