@@ -898,8 +898,12 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx.isReadOnly()) {
-            return evaluateReadOnlyRecipientNode(partitionId(keyRow), tx.readTimestamp())
-                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), tx.id(), tx.coordinatorId(), recipientNode));
+            HybridTimestamp readTimestamp = tx.readTimestamp();
+
+            assert readTimestamp != null : "Read timestamp is not set for read-only transaction";
+
+            return evaluateReadOnlyRecipientNode(partitionId(keyRow), readTimestamp)
+                    .thenCompose(recipientNode -> get(keyRow, readTimestamp, tx.id(), tx.coordinatorId(), recipientNode));
         }
 
         return enlistInTx(
@@ -995,8 +999,12 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
-            return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())
-                    .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), recipientNode));
+            HybridTimestamp readTimestamp = tx.readTimestamp();
+
+            assert readTimestamp != null : "Read timestamp is not set for read-only transaction";
+
+            return evaluateReadOnlyRecipientNode(partitionId(firstRow), readTimestamp)
+                    .thenCompose(recipientNode -> getAll(keyRows, readTimestamp, tx.id(), tx.coordinatorId(), recipientNode));
         }
 
         return enlistInTx(
@@ -2089,7 +2097,7 @@ public class InternalTableImpl implements InternalTable {
      * @param readTimestamp Read timestamp.
      * @return Cluster node to evaluate read-only request.
      */
-    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, @Nullable HybridTimestamp readTimestamp) {
+    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, HybridTimestamp readTimestamp) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
         return awaitPrimaryReplica(tablePartitionId, readTimestamp)
@@ -2098,19 +2106,22 @@ public class InternalTableImpl implements InternalTable {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                     } else {
                         if (res == null) {
-                            throw new TransactionException(
-                                    REPLICA_UNAVAILABLE_ERR,
-                                    format(
-                                            "Failed to get the primary replica [tablePartitionId={}, awaitTimestamp={}",
-                                            tablePartitionId,
-                                            readTimestamp
-                                    )
-                            );
+                            throw createTransactionException(tablePartitionId, readTimestamp);
                         } else {
                             return getClusterNode(res);
                         }
                     }
                 });
+    }
+
+    private static TransactionException createTransactionException(TablePartitionId tablePartitionId, HybridTimestamp readTimestamp) {
+        String errorMessage = format(
+                "Failed to get the primary replica [tablePartitionId={}, awaitTimestamp={}",
+                tablePartitionId,
+                readTimestamp
+        );
+
+        return new TransactionException(REPLICA_UNAVAILABLE_ERR, errorMessage);
     }
 
     @Override
