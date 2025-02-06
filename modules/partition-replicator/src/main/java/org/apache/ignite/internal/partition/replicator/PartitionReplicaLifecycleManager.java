@@ -40,7 +40,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -539,16 +538,6 @@ public class PartitionReplicaLifecycleManager extends
                         LOG.warn("Unable to update raft groups on the node [zonePartitionId={}]", ex, zonePartitionId);
                     }
                 });
-    }
-
-    private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {
-        Catalog catalog = catalogMgr.activeCatalog(timestamp);
-        assert catalog != null : "No catalog for timestamp " + nullableHybridTimestamp(timestamp);
-
-        CatalogZoneDescriptor zone = catalog.zone(zoneId);
-        assert zone != null : "No zone with ID=" + zoneId + " for timestamp " + nullableHybridTimestamp(timestamp);
-
-        return zone;
     }
 
     private CompletableFuture<Set<Assignment>> calculateZoneAssignments(
