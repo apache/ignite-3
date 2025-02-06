@@ -67,6 +67,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -723,17 +724,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param newConfiguration A configuration for new raft group.
      * @param raftGroupListener Raft group listener for raft group starting.
      * @param raftGroupEventsListener Raft group events listener for raft group starting.
+     * @param isVolatileStorage Whether partition storage is volatile for this partition.
+     * @param partitionResources Resources managed by this replica (they will be closed on replica shutdown).
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
      *         started.
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            Function<RaftGroupService, ReplicaListener> createListener,
+            Function<RaftGroupService, ReplicaListener> listenerFactory,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
             RaftGroupEventsListener raftGroupEventsListener,
+            boolean isVolatileStorage,
+            ManuallyCloseable partitionResources,
             IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -747,11 +752,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     newConfiguration,
                     raftGroupListener,
                     raftGroupEventsListener,
-                    false,
+                    isVolatileStorage,
                     (raftClient) -> new ZonePartitionReplicaImpl(
                             replicaGrpId,
-                            createListener.apply(raftClient),
-                            raftClient
+                            listenerFactory.apply(raftClient),
+                            raftClient,
+                            partitionResources
                     )
             );
         } finally {
@@ -766,7 +772,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             RaftGroupEventsListener raftGroupEventsListener,
             boolean isVolatileStorage,
-            Function<TopologyAwareRaftGroupService, Replica> createReplica
+            Function<TopologyAwareRaftGroupService, Replica> replicaFactory
     ) throws NodeStoppingException {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
 
@@ -785,7 +791,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        Replica newReplica = createReplica.apply(raftClient);
+        Replica newReplica = replicaFactory.apply(raftClient);
 
         CompletableFuture<Replica> newReplicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
             if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {

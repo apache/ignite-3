@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -129,8 +130,11 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -213,6 +217,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ConcurrentMap<ZonePartitionId, ZonePartitionRaftListener> zonePartitionRaftListeners = new ConcurrentHashMap<>();
 
+    private final ZoneResourcesManager zoneResourcesManager;
+
     /**
      * The constructor.
      *
@@ -228,6 +234,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param placementDriver Placement driver.
      * @param schemaSyncService Schema synchronization service.
      * @param systemDistributedConfiguration System distributed configuration.
+     * @param sharedTxStateStorage Shared tx state storage.
      */
     public PartitionReplicaLifecycleManager(
             CatalogManager catalogMgr,
@@ -242,7 +249,8 @@ public class PartitionReplicaLifecycleManager extends
             ClockService clockService,
             PlacementDriver placementDriver,
             SchemaSyncService schemaSyncService,
-            SystemDistributedConfiguration systemDistributedConfiguration
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            TxStateRocksDbSharedStorage sharedTxStateStorage
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
@@ -265,6 +273,8 @@ public class PartitionReplicaLifecycleManager extends
                 DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT,
                 Integer::parseInt
         );
+
+        zoneResourcesManager = new ZoneResourcesManager(sharedTxStateStorage);
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -415,14 +425,17 @@ public class PartitionReplicaLifecycleManager extends
 
             return getOrCreateAssignments(zoneDescriptor, causalityToken, catalogVersion)
                     .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, assignments))
-                    .thenCompose(assignments -> createZoneReplicationNodes(zoneId, assignments, causalityToken));
+                    .thenCompose(
+                            assignments -> createZoneReplicationNodes(zoneId, assignments, causalityToken, zoneDescriptor.partitions())
+                    );
         });
     }
 
     private CompletableFuture<Void> createZoneReplicationNodes(
             int zoneId,
             List<Assignments> assignments,
-            long revision
+            long revision,
+            int partitionCount
     ) {
         return inBusyLockAsync(busyLock, () -> {
             assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
@@ -440,7 +453,8 @@ public class PartitionReplicaLifecycleManager extends
                         zonePartitionId,
                         localMemberAssignment,
                         zoneAssignment,
-                        revision
+                        revision,
+                        partitionCount
                 );
             }
 
@@ -456,13 +470,15 @@ public class PartitionReplicaLifecycleManager extends
      * @param localMemberAssignment Assignment of the local member, or null if local member is not part of the assignment.
      * @param stableAssignments Stable assignments.
      * @param revision Event's revision.
+     * @param partitionCount Number of partitions on the zone.
      * @return Future that completes when a replica is started.
      */
     private CompletableFuture<?> createZonePartitionReplicationNode(
             ZonePartitionId zonePartitionId,
             @Nullable Assignment localMemberAssignment,
             Assignments stableAssignments,
-            long revision
+            long revision,
+            int partitionCount
     ) {
         if (localMemberAssignment == null) {
             return nullCompletedFuture();
@@ -490,6 +506,12 @@ public class PartitionReplicaLifecycleManager extends
         );
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
+            TxStatePartitionStorage txStatePartitionStorage = zoneResourcesManager.getOrCreatePartitionTxStateStorage(
+                    zonePartitionId.zoneId(),
+                    partitionCount,
+                    zonePartitionId.partitionId()
+            );
+
             try {
                 return replicaMgr.startReplica(
                                 zonePartitionId,
@@ -499,6 +521,9 @@ public class PartitionReplicaLifecycleManager extends
                                 stablePeersAndLearners,
                                 raftGroupListener,
                                 raftGroupEventsListener,
+                                // TODO: IGNITE-24371 - pass real isVolatile flag
+                                false,
+                                txStatePartitionStorage,
                                 busyLock
                         ).thenCompose(replica -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
                             replicationGroupIds.add(zonePartitionId);
@@ -998,11 +1023,19 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<?> localServicesStartFuture;
 
         if (shouldStartLocalGroupNode) {
+            // We can safely access the Catalog at the timestamp because:
+            // 1. It is guaranteed that Catalog update bringing the Catalog version has been applied (as we are now handling
+            // a Metastorage event that was caused by that same Catalog version we need, so the Catalog version update is already
+            // handled), so no Schema sync is needed.
+            // 2. It is guaranteed that Catalog compactor cannot remove Catalog version corresponding to pending assignments timestamp.
+            CatalogZoneDescriptor zoneDescriptor = zoneDescriptorAt(replicaGrpId.zoneId(), pendingAssignments.timestamp());
+
             localServicesStartFuture = createZonePartitionReplicationNode(
                     replicaGrpId,
                     localMemberAssignment,
                     computedStableAssignments,
-                    revision
+                    revision,
+                    zoneDescriptor.partitions()
             );
         } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
@@ -1039,6 +1072,16 @@ public class PartitionReplicaLifecycleManager extends
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+    private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {
+        Catalog catalog = catalogMgr.activeCatalog(timestamp);
+        assert catalog != null : "Catalog is not available at " + nullableHybridTimestamp(timestamp);
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+        assert zoneDescriptor != null : "Zone descriptor is not available at " + nullableHybridTimestamp(timestamp) + " for zone " + zoneId;
+
+        return zoneDescriptor;
     }
 
     private CompletableFuture<Void> changePeersOnRebalance(
@@ -1189,6 +1232,12 @@ public class PartitionReplicaLifecycleManager extends
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!enabledColocationFeature) {
             return nullCompletedFuture();
+        }
+
+        try {
+            IgniteUtils.closeAllManually(zoneResourcesManager);
+        } catch (Exception e) {
+            return failedFuture(e);
         }
 
         return nullCompletedFuture();
