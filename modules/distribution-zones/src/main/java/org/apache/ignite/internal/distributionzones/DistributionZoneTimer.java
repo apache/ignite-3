@@ -100,7 +100,7 @@ public class DistributionZoneTimer {
             return HybridTimestamp.MAX_VALUE;
         }
 
-        return createTimestamp.addPhysicalTime(timeToWaitInSeconds * 1000L).tick();
+        return createTimestamp.addPhysicalTime(timeToWaitInSeconds * 1000L);
     }
 
     /**

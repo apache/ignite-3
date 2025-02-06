@@ -540,11 +540,13 @@ public class DistributionZoneManager extends
                 byte[] newLogicalTopologyBytes;
 
                 Set<NodeWithAttributes> newLogicalTopology = null;
+                Set<NodeWithAttributes> oldLogicalTopology = null;
 
                 HybridTimestamp timestamp = evt.timestamp();
 
                 for (EntryEvent event : evt.entryEvents()) {
                     Entry e = event.newEntry();
+                    Entry old = event.oldEntry();
 
                     if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
                         newLogicalTopologyBytes = e.value();
@@ -552,12 +554,22 @@ public class DistributionZoneManager extends
                         assert newLogicalTopologyBytes != null : "New topology is null.";
 
                         newLogicalTopology = deserializeLogicalTopologySet(newLogicalTopologyBytes);
+
+                        byte[] oldLogicalTopologyBytes = old.value();
+
+                        if (oldLogicalTopologyBytes != null) {
+                            oldLogicalTopology = deserializeLogicalTopologySet(oldLogicalTopologyBytes);
+                        }
                     }
                 }
 
                 assert newLogicalTopology != null : "The event doesn't contain logical topology";
 
-                return onLogicalTopologyUpdate(newLogicalTopology, evt.revision(), timestamp);
+                if (oldLogicalTopology == null) {
+                    oldLogicalTopology = newLogicalTopology;
+                }
+
+                return onLogicalTopologyUpdate(newLogicalTopology, oldLogicalTopology, evt.revision(), timestamp);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -575,12 +587,14 @@ public class DistributionZoneManager extends
      * Note that all futures of Meta Storage updates that happen in this method are returned from this method.
      *
      * @param newLogicalTopology New logical topology.
+     * @param oldLogicalTopology Old logical topology.
      * @param revision Revision of the event.
      * @param timestamp Event timestamp.
      * @return Future reflecting the completion of the actions needed when logical topology was updated.
      */
     private CompletableFuture<Void> onLogicalTopologyUpdate(
             Set<NodeWithAttributes> newLogicalTopology,
+            Set<NodeWithAttributes> oldLogicalTopology,
             long revision,
             HybridTimestamp timestamp
     ) {
@@ -595,6 +609,7 @@ public class DistributionZoneManager extends
                     zone,
                     timestamp,
                     newLogicalTopology,
+                    oldLogicalTopology,
                     partitionDistributionResetTimeoutConfiguration.currentValue(),
                     () -> fireTopologyReduceLocalEvent(revision, zone.id())
             );
@@ -816,7 +831,7 @@ public class DistributionZoneManager extends
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
 
         if (topologyEntry.value() != null) {
-            Set<NodeWithAttributes> newLogicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
+            Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
 
             long topologyRevision = topologyEntry.revision();
 
@@ -825,7 +840,7 @@ public class DistributionZoneManager extends
             if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLongKeepingOrder(lastUpdateRevisionEntry.value())) {
                 HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(recoveryRevision);
 
-                return onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, timestamp);
+                return onLogicalTopologyUpdate(logicalTopology, logicalTopology, recoveryRevision, timestamp);
             }
         }
 

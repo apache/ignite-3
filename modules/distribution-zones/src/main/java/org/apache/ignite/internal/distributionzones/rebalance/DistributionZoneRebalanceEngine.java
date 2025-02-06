@@ -152,10 +152,10 @@ public class DistributionZoneRebalanceEngine {
             }
 
             if (enabledColocationFeature) {
-                return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)
+                return recoveryRebalanceTrigger(recoveryRevision, catalogVersion)
                         .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
             } else {
-                return rebalanceTriggersRecovery(recoveryRevision, catalogVersion);
+                return recoveryRebalanceTrigger(recoveryRevision, catalogVersion);
             }
         });
     }
@@ -168,7 +168,7 @@ public class DistributionZoneRebalanceEngine {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21058 At the moment this method produce many metastore multi-invokes
     // TODO: which can be avoided by the local logic, which mirror the logic of metastore invokes.
     // TODO: And then run the remote invoke, only if needed.
-    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision, int catalogVersion) {
+    private CompletableFuture<Void> recoveryRebalanceTrigger(long recoveryRevision, int catalogVersion) {
         if (recoveryRevision > 0) {
             List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.catalog(catalogVersion).zones()
                     .stream()

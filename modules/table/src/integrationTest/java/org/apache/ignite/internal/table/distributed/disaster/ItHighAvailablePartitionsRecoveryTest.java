@@ -266,6 +266,8 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
 
+        log.info("Test: restarting nodes.");
+
         var node1 = startNode(1);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(
