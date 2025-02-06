@@ -36,7 +36,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
-import org.apache.ignite.internal.catalog.SchemaNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
@@ -443,7 +442,7 @@ public class CatalogUtils {
         CatalogSchemaDescriptor schema = catalog.schema(name);
 
         if (schema == null) {
-            throw new SchemaNotFoundValidationException(format("Schema with name '{}' not found.", name));
+            throw new CatalogValidationException(format("Schema with name '{}' not found.", name));
         }
 
         return schema;

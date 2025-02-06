@@ -50,7 +50,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()),
-                willThrowFast(SchemaExistsValidationException.class, "Schema with name 'S1' already exists.")
+                willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists.")
         );
 
         tryApplyAndExpectNotApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(true).build());
@@ -68,7 +68,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
             assertThat(
                     manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()),
-                    willThrowFast(SchemaExistsValidationException.class, "Schema with name 'S1' already exists.")
+                    willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists.")
             );
         }
 
@@ -100,7 +100,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).build()),
-                willThrowFast(SchemaNotFoundValidationException.class, "Schema with name 'S1' not found.")
+                willThrowFast(CatalogValidationException.class, "Schema with name 'S1' not found.")
         );
     }
 
@@ -110,7 +110,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(false).build()),
-                willThrowFast(SchemaNotFoundValidationException.class, "Schema with name 'S1' not found.")
+                willThrowFast(CatalogValidationException.class, "Schema with name 'S1' not found.")
         );
 
         tryApplyAndExpectApplied(CreateSchemaCommand.builder().name(TEST_SCHEMA).build());
@@ -128,7 +128,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(simpleTable("test")),
-                willThrowFast(SchemaNotFoundValidationException.class, "Schema with name 'PUBLIC' not found.")
+                willThrowFast(CatalogValidationException.class, "Schema with name 'PUBLIC' not found.")
         );
     }
 
