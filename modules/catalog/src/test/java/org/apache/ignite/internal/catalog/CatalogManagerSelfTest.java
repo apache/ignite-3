@@ -79,9 +79,10 @@ import org.mockito.ArgumentCaptor;
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void invalidCatalogVersions() {
-        assertNull(manager.catalog(manager.latestCatalogVersion() + 1));
-        assertNull(manager.catalog(-1));
-        assertThrows(IllegalStateException.class, () -> manager.activeCatalog(-1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.catalog(manager.latestCatalogVersion() + 1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.catalog(-1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalog(0));
+        assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalog(-1));
     }
 
     @Test
@@ -95,7 +96,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertTrue(catalog.tables().isEmpty());
         assertTrue(catalog.zones().isEmpty());
         assertEquals(0, catalog.objectIdGenState());
-        assertEquals(0L, catalog.time());
+        assertEquals(HybridTimestamp.MIN_VALUE.longValue(), catalog.time());
     }
 
     @Test
@@ -152,18 +153,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void assignsSuccessiveCatalogVersions() {
-        CompletableFuture<Integer> version1Future = manager.execute(TestCommand.ok());
+        CompletableFuture<CatalogApplyResult> version1Future = manager.execute(TestCommand.ok());
         assertThat(version1Future, willCompleteSuccessfully());
 
-        CompletableFuture<Integer> version2Future = manager.execute(TestCommand.ok());
+        CompletableFuture<CatalogApplyResult> version2Future = manager.execute(TestCommand.ok());
         assertThat(version2Future, willCompleteSuccessfully());
 
-        CompletableFuture<Integer> version3Future = manager.execute(TestCommand.ok());
+        CompletableFuture<CatalogApplyResult> version3Future = manager.execute(TestCommand.ok());
         assertThat(version3Future, willCompleteSuccessfully());
 
-        int firstVersion = version1Future.join();
-        assertThat(version2Future.join(), is(firstVersion + 1));
-        assertThat(version3Future.join(), is(firstVersion + 2));
+        int firstVersion = version1Future.join().getCatalogVersion();
+        assertThat(version2Future.join().getCatalogVersion(), is(firstVersion + 1));
+        assertThat(version3Future.join().getCatalogVersion(), is(firstVersion + 2));
     }
 
     @Test
@@ -241,7 +242,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(initialCatalog);
         int initial = initialCatalog.objectIdGenState();
 
-        CompletableFuture<Integer> createTableFuture = manager.execute(TestCommand.ok());
+        CompletableFuture<CatalogApplyResult> createTableFuture = manager.execute(TestCommand.ok());
 
         assertFalse(createTableFuture.isDone());
 
@@ -292,7 +293,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int initialVersion = manager.latestCatalogVersion();
 
-        CompletableFuture<Integer> createTableFuture1 = manager.execute(catalogCommand);
+        CompletableFuture<CatalogApplyResult> createTableFuture1 = manager.execute(catalogCommand);
 
         // we should wait until command will be applied to catalog to avoid races
         // on next command execution
@@ -306,7 +307,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int catalogVerAfterTableCreate = appendCapture.getValue().version();
 
-        CompletableFuture<Integer> commandFuture = manager.execute(catalogCommand);
+        CompletableFuture<CatalogApplyResult> commandFuture = manager.execute(catalogCommand);
 
         verify(catalogCommand, times(2)).get(any());
 
@@ -377,10 +378,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testLatestCatalogVersion() {
         assertEquals(1, manager.latestCatalogVersion());
 
-        assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(TestCommand.ok());
         assertEquals(2, manager.latestCatalogVersion());
 
-        assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(TestCommand.ok());
         assertEquals(3, manager.latestCatalogVersion());
     }
 
@@ -399,7 +400,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(bulkUpdate), willThrowFast(TestCommandFailure.class));
 
         // now let's truncate problematic table and retry
-        assertThat(manager.execute(bulkUpdate.subList(0, bulkUpdate.size() - 1)), willCompleteSuccessfully());
+        tryApplyAndCheckExpect(
+                bulkUpdate.subList(0, bulkUpdate.size() - 1),
+                true, true);
 
         Catalog updatedCatalog = manager.catalog(manager.latestCatalogVersion());
         assertNotNull(updatedCatalog);
@@ -410,10 +413,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void bulkUpdateIncrementsVersionByOne() {
         int versionBefore = manager.latestCatalogVersion();
 
-        assertThat(
-                manager.execute(List.of(TestCommand.ok(), TestCommand.ok())),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndCheckExpect(
+                List.of(TestCommand.ok(), TestCommand.ok()),
+                true, true);
 
         int versionAfter = manager.latestCatalogVersion();
 
@@ -435,26 +437,39 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    void testResultsForFewCommands() {
+        int versionBefore = manager.latestCatalogVersion();
+        tryApplyAndCheckExpect(
+                List.of(TestCommand.empty(), TestCommand.ok(), TestCommand.empty(), TestCommand.ok(), TestCommand.empty()),
+                false, true, false, true, false
+        );
+
+        int versionAfter = manager.latestCatalogVersion();
+
+        assertEquals(versionAfter, versionBefore + 1);
+    }
+
+    @Test
     public void testCatalogCompaction() throws Exception {
-        assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(TestCommand.ok());
+        tryApplyAndExpectApplied(TestCommand.ok());
 
         int compactToVer = manager.latestCatalogVersion();
         Catalog catalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
         // Add more updates
-        assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(TestCommand.ok());
+        tryApplyAndExpectApplied(TestCommand.ok());
 
         assertThat(manager.compactCatalog(compactToVer), willBe(Boolean.TRUE));
         assertTrue(waitForCondition(() -> catalog.version() == manager.earliestCatalogVersion(), 3_000));
 
-        assertNull(manager.catalog(0));
-        assertNull(manager.catalog(catalog.version() - 1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.catalog(0));
+        assertThrows(CatalogNotFoundException.class, () -> manager.catalog(catalog.version() - 1));
         assertNotNull(manager.catalog(catalog.version()));
 
-        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(0));
-        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalogVersion(0));
+        assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
         assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
         assertSame(catalog.version(), compactToVer);
 
@@ -473,6 +488,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotNull(manager.catalog(1));
 
-        assertEquals(0, manager.activeCatalogVersion(0));
+        assertEquals(0, manager.activeCatalogVersion(HybridTimestamp.MIN_VALUE.longValue()));
     }
 }

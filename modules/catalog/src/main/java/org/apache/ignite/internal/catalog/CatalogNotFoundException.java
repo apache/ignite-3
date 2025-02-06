@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.catalog;
 
 /**
- * The clock to be used within the components to ease the testing of time-related parts.
+ * This exception is thrown when catalog was not found by version or by timestamp.
  */
-@FunctionalInterface
-public interface CurrentTimeProvider {
-    /**
-     * Returns the current time in milliseconds.
-     *
-     * @return The difference, measured in milliseconds, between the current time and midnight, January 1, 1970 UTC.
-     */
-    long now();
+public class CatalogNotFoundException extends CatalogValidationException {
+    private static final long serialVersionUID = 6675295082901837711L;
+
+    CatalogNotFoundException(String message) {
+        super(message);
+    }
 }

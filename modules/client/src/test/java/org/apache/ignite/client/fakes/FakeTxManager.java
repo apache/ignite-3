@@ -164,6 +164,16 @@ public class FakeTxManager implements TxManager {
             public boolean isFinishingOrFinished() {
                 return false;
             }
+
+            @Override
+            public long timeout() {
+                return 10_000;
+            }
+
+            @Override
+            public CompletableFuture<Void> kill() {
+                return nullCompletedFuture();
+            }
         };
     }
 
@@ -227,6 +237,11 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> vacuum() {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Boolean> kill(UUID txId) {
         return nullCompletedFuture();
     }
 

@@ -15,17 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.storage.state.test;
+package org.apache.ignite.internal.raft.service;
 
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
+ * The marker interface for a safe time aware command closure.
  */
-public class TestTxStateStorageTest extends AbstractTxStateStorageTest {
-    @Override protected TxStateTableStorage createTableStorage() {
-        return new TestTxStateTableStorage();
-    }
+public interface SafeTimeAwareCommandClosure extends CommandClosure<WriteCommand> {
+    /**
+     * Gets the safe timestamp.
+     *
+     * @return The timestamp.
+     */
+    @Override
+    @Nullable HybridTimestamp safeTimestamp();
+
+    /**
+     * Sets the safe time.
+     *
+     * @param safeTs The timestamp.
+     */
+    default void safeTimestamp(HybridTimestamp safeTs) {}
 }

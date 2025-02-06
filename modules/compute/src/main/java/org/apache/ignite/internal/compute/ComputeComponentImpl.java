@@ -119,9 +119,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         );
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CancellableJobExecution<ComputeJobDataHolder> executeLocally(
+    public CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -129,36 +128,40 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable CancellationToken cancellationToken
     ) {
         if (!busyLock.enterBusy()) {
-            return new DelegatingJobExecution(
-                    failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
-            );
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
 
         try {
             CompletableFuture<JobContext> classLoaderFut = jobContextManager.acquireClassLoader(units);
 
-            CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> future =
+            CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> future =
                     mapClassLoaderExceptions(classLoaderFut, jobClassName)
                             .thenApply(context -> {
                                 JobExecutionInternal<ComputeJobDataHolder> execution = execJob(context, options, jobClassName, arg);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
-                                return execution;
+
+                                if (cancellationToken != null) {
+                                    CancelHandleHelper.addCancelAction(cancellationToken, execution::cancel, execution.resultAsync());
+                                }
+
+                                DelegatingJobExecution delegatingExecution = new DelegatingJobExecution(execution);
+
+                                //noinspection DataFlowIssue Not null since the job was just submitted
+                                executionManager.addExecution(execution.state().id(), delegatingExecution);
+
+                                return delegatingExecution;
                             });
 
             inFlightFutures.registerFuture(future);
             inFlightFutures.registerFuture(classLoaderFut);
 
-            DelegatingJobExecution result = new DelegatingJobExecution(future);
-
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, classLoaderFut);
                 CancelHandleHelper.addCancelAction(cancellationToken, future);
-                CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
             }
 
-            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
-            return result;
+            return future;
         } finally {
             busyLock.leaveBusy();
         }
@@ -201,9 +204,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CancellableJobExecution<ComputeJobDataHolder> executeRemotely(
+    public CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -212,36 +214,34 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable CancellationToken cancellationToken
     ) {
         if (!busyLock.enterBusy()) {
-            return new DelegatingJobExecution(
-                    failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
-           );
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
 
         try {
             CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, arg);
-            CompletableFuture<ComputeJobDataHolder> resultFuture = jobIdFuture.thenCompose(
-                    jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
 
             inFlightFutures.registerFuture(jobIdFuture);
-            inFlightFutures.registerFuture(resultFuture);
 
-            RemoteJobExecution<ComputeJobDataHolder> result = new RemoteJobExecution<>(
-                    remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging
-            );
+            return jobIdFuture.thenApply(jobId -> {
+                RemoteJobExecution execution = new RemoteJobExecution(
+                        remoteNode, jobId, inFlightFutures, messaging
+                );
 
-            if (cancellationToken != null) {
-                CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
-            }
+                if (cancellationToken != null) {
+                    CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+                }
 
-            jobIdFuture.thenAccept(jobId -> executionManager.addExecution(jobId, result));
-            return result;
+                executionManager.addExecution(jobId, execution);
+
+                return execution;
+            });
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     @Override
-    public JobExecution<ComputeJobDataHolder> executeRemotelyWithFailover(
+    public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
@@ -250,19 +250,21 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     ) {
-        CancellableJobExecution<ComputeJobDataHolder> result = new ComputeJobFailover(
-                this, logicalTopologyService, topologyService,
-                remoteNode, nextWorkerSelector, failoverExecutor, units,
-                jobClassName, options, arg
-        ).failSafeExecute();
+        return ComputeJobFailover.failSafeExecute(
+                        this, logicalTopologyService, topologyService,
+                        remoteNode, nextWorkerSelector, failoverExecutor, units,
+                        jobClassName, options, arg
+                )
+                .thenApply(execution -> {
+                    // Do not add cancel action to the underlying jobs, let the FailSafeJobExecution handle it.
+                    if (cancellationToken != null) {
+                        CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+                    }
 
-        // Do not add cancel action to the underlying jobs, let the FailSafeJobExecution handle it.
-        if (cancellationToken != null) {
-            CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
-        }
+                    execution.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, execution));
 
-        result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
-        return result;
+                    return execution;
+                });
     }
 
     @Override

@@ -182,9 +182,19 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
+    public long timeout() {
+        return 10_000;
+    }
+
+    @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
         return nodeAndConsistencyToken;
+    }
+
+    @Override
+    public CompletableFuture<Void> kill() {
+        return rollbackAsync();
     }
 
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */

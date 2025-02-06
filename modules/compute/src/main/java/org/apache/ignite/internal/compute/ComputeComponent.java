@@ -42,9 +42,9 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobClassName Name of the job class.
      * @param arg Job argument.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @return Job execution object.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    CancellableJobExecution<ComputeJobDataHolder> executeLocally(
+    CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -61,9 +61,9 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobClassName Name of the job class.
      * @param arg Job argument.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @return Job execution object.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    CancellableJobExecution<ComputeJobDataHolder> executeRemotely(
+    CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -83,9 +83,9 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param arg Job argument.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @return Job execution object.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    JobExecution<ComputeJobDataHolder> executeRemotelyWithFailover(
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,

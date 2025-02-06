@@ -29,8 +29,8 @@ import org.jetbrains.annotations.Nullable;
  * State machine command to update a row specified by a row id.
  */
 @Transferable(PartitionReplicationMessageGroup.Commands.UPDATE)
-public interface UpdateCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+public interface UpdateCommand extends PartitionCommand, TableAwareCommand {
+    TablePartitionIdMessage commitPartitionId();
 
     UUID rowUuid();
 

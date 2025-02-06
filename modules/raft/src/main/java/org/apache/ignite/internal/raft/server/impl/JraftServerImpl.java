@@ -50,6 +50,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -61,13 +62,13 @@ import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -798,10 +799,14 @@ public class JraftServerImpl implements RaftServer {
         }
 
         @Override
-        public void onRawConfigurationCommitted(ConfigurationEntry entry) {
+        public void onRawConfigurationCommitted(
+                ConfigurationEntry entry,
+                long lastAppliedIndex,
+                long lastAppliedTerm
+        ) {
             boolean hasOldConf = entry.getOldConf() != null && entry.getOldConf().getPeers() != null;
 
-            CommittedConfiguration committedConf = new CommittedConfiguration(
+            RaftGroupConfiguration committedConf = new RaftGroupConfiguration(
                     entry.getId().getIndex(),
                     entry.getId().getTerm(),
                     peersIdsToStrings(entry.getConf().getPeers()),
@@ -810,7 +815,7 @@ public class JraftServerImpl implements RaftServer {
                     hasOldConf ? peersIdsToStrings(entry.getOldConf().getLearners()) : null
             );
 
-            listener.onConfigurationCommitted(committedConf);
+            listener.onConfigurationCommitted(committedConf, lastAppliedIndex, lastAppliedTerm);
         }
 
         private static List<String> peersIdsToStrings(Collection<PeerId> peerIds) {
@@ -907,7 +912,9 @@ public class JraftServerImpl implements RaftServer {
             @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) currentDone;
             ByteBuffer data = iter.getData();
 
+            // done != null means we are on the leader, otherwise a command has been read from the log.
             WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
+            HybridTimestamp safeTs = done == null ? command.safeTime() : done.safeTimestamp();
 
             long commandIndex = iter.getIndex();
             long commandTerm = iter.getTerm();
@@ -921,6 +928,11 @@ public class JraftServerImpl implements RaftServer {
                 @Override
                 public long term() {
                     return commandTerm;
+                }
+
+                @Override
+                public @Nullable HybridTimestamp safeTimestamp() {
+                    return safeTs;
                 }
 
                 @Override

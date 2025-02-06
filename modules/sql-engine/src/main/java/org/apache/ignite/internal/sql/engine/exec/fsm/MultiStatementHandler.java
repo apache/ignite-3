@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.exec.fsm.ValidationHelper.va
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor.ParsedResultWithNextCursorFuture;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
@@ -141,6 +143,23 @@ class MultiStatementHandler {
                                 new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
                                 nextCurFut
                         ));
+            } else if (parsedResult.queryType() == SqlQueryType.DDL) {
+                List<ParsedResultWithNextCursorFuture> ddlBatch = new ArrayList<>();
+
+                do {
+                    ddlBatch.add(new ParsedResultWithNextCursorFuture(scriptStatement.parsedResult, scriptStatement.nextStatementFuture));
+
+                    ScriptStatement statement = statements.peek();
+                    if (statement == null || statement.parsedResult.queryType() != SqlQueryType.DDL) {
+                        break;
+                    }
+
+                    scriptStatement = statement;
+
+                    statements.poll();
+                } while (true);
+
+                fut = query.executor.executeChildBatch(query, scriptTxContext, statementNum, ddlBatch);
             } else {
                 scriptTxContext.registerCursorFuture(parsedResult.queryType(), cursorFuture);
 
@@ -148,7 +167,7 @@ class MultiStatementHandler {
             }
 
             boolean implicitTx = scriptTxContext.explicitTx() == null;
-
+            boolean lastStatement = scriptStatement.isLastStatement();
             fut.whenComplete((cursor, ex) -> {
                 if (ex != null) {
                     scriptTxContext.onError(ex);
@@ -166,7 +185,7 @@ class MultiStatementHandler {
                     dependentQueries.add(cursor.onClose());
                 }
 
-                if (scriptStatement.isLastStatement()) {
+                if (lastStatement) {
                     // Try to rollback script managed transaction, if any.
                     scriptTxContext.rollbackUncommitted();
 

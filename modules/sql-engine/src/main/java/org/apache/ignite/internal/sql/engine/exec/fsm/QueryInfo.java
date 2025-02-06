@@ -23,6 +23,7 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Read-only snapshot of a query state. */
@@ -123,5 +124,10 @@ public class QueryInfo {
     /** Returns an error if one occurred during execution and caused the query to terminate. */
     public @Nullable Throwable error() {
         return error;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

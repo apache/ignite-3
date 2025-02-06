@@ -96,7 +96,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
@@ -377,7 +377,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         logger().info("Index data [node={}, groupId={}, data={}]", name, replicationGroupId, indexMap);
 
-        TxStateStorage stateStorage = IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "txStateStorage");
+        TxStatePartitionStorage stateStorage = IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "txStateStorage");
 
         logger().info("Tx state data [node={}, groupId={}, data={}]", name, replicationGroupId, stateStorage);
     }
@@ -2171,7 +2171,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                     old.txState(),
                     new UUID(1, 2),
                     old.commitPartitionId(),
-                    old.commitTimestamp()
+                    old.commitTimestamp(),
+                    old == null ? null : old.tx()
             ));
         }
 

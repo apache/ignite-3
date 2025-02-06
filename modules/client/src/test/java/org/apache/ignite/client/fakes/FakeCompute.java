@@ -100,7 +100,7 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public JobExecution<ComputeJobDataHolder> executeAsyncWithFailover(
+    public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -149,9 +149,9 @@ public class FakeCompute implements IgniteComputeInternal {
             ComputeJobDataHolder args,
             @Nullable CancellationToken cancellationToken
     ) {
-        return completedFuture(jobExecution(future != null
+        return jobExecution(future != null
                 ? future
-                : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null))));
+                : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null)));
     }
 
     @Override
@@ -177,40 +177,16 @@ public class FakeCompute implements IgniteComputeInternal {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            JobExecution<ComputeJobDataHolder> internalExecution = executeAsyncWithFailover(
+            return executeAsyncWithFailover(
                     nodes,
                     descriptor.units(),
                     descriptor.jobClassName(),
                     descriptor.options(),
                     SharedComputeUtils.marshalArgOrResult(arg, null),
                     cancellationToken
-            );
-
-            return completedFuture(new JobExecution<>() {
-                @Override
-                public CompletableFuture<R> resultAsync() {
-                    return internalExecution.resultAsync()
-                            .thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(
-                                    r, descriptor.resultMarshaller(), descriptor.resultClass()));
-                }
-
-                @Override
-                public CompletableFuture<@Nullable JobState> stateAsync() {
-                    return internalExecution.stateAsync();
-                }
-
-                @Override
-                public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-                    return internalExecution.changePriorityAsync(newPriority);
-                }
-
-                @Override
-                public ClusterNode node() {
-                    return internalExecution.node();
-                }
-            });
+            ).thenApply(internalExecution -> unmarshalingExecution(descriptor, internalExecution));
         } else if (target instanceof ColocatedJobTarget) {
-            return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
+            return jobExecution(future != null ? future : completedFuture((R) nodeName));
         } else {
             throw new IllegalArgumentException("Unsupported job target: " + target);
         }
@@ -224,6 +200,36 @@ public class FakeCompute implements IgniteComputeInternal {
             @Nullable CancellationToken cancellationToken
     ) {
         return nullCompletedFuture();
+    }
+
+    // Don't inline this - it triggers javac bug on JDK 17
+    private static <T, R> JobExecution<R> unmarshalingExecution(
+            JobDescriptor<T, R> descriptor,
+            JobExecution<ComputeJobDataHolder> internalExecution
+    ) {
+        return new JobExecution<>() {
+            @Override
+            public CompletableFuture<R> resultAsync() {
+                return internalExecution.resultAsync()
+                        .thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(
+                                r, descriptor.resultMarshaller(), descriptor.resultClass()));
+            }
+
+            @Override
+            public CompletableFuture<@Nullable JobState> stateAsync() {
+                return internalExecution.stateAsync();
+            }
+
+            @Override
+            public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+                return internalExecution.changePriorityAsync(newPriority);
+            }
+
+            @Override
+            public ClusterNode node() {
+                return internalExecution.node();
+            }
+        };
     }
 
     @Override
@@ -264,11 +270,11 @@ public class FakeCompute implements IgniteComputeInternal {
         return sync(executeMapReduceAsync(taskDescriptor, arg, cancellationToken));
     }
 
-    private <R> JobExecution<ComputeJobDataHolder> completedExecution(R result) {
+    private <R> CompletableFuture<JobExecution<ComputeJobDataHolder>> completedExecution(R result) {
         return jobExecution(completedFuture(SharedComputeUtils.marshalArgOrResult(result, null)));
     }
 
-    private <R> JobExecution<ComputeJobDataHolder> jobExecution(CompletableFuture<R> result) {
+    private <R> CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecution(CompletableFuture<R> result) {
         UUID jobId = UUID.randomUUID();
 
         JobState state = JobStateImpl.builder()
@@ -285,9 +291,9 @@ public class FakeCompute implements IgniteComputeInternal {
             jobStates.put(jobId, newState);
         });
 
-        return new FakeJobExecution<>(result.thenApply(r -> r instanceof ComputeJobDataHolder
+        return completedFuture(new FakeJobExecution<>(result.thenApply(r -> r instanceof ComputeJobDataHolder
                 ? (ComputeJobDataHolder) r
-                : SharedComputeUtils.marshalArgOrResult(r, null)), jobId);
+                : SharedComputeUtils.marshalArgOrResult(r, null)), jobId));
     }
 
     private class FakeJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {

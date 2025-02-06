@@ -408,18 +408,31 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean readOnly,
             InternalTxOptions options
     ) {
-        HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
-        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
-
         startedTxs.add(1);
 
-        if (!readOnly) {
-            txStateVolatileStorage.initialize(txId, localNodeId);
+        InternalTransaction tx;
 
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit);
+        if (readOnly) {
+            HybridTimestamp beginTimestamp = clockService.now();
+
+            UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
+
+            tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, txId, implicit, options);
         } else {
-            return beginReadOnlyTransaction(timestampTracker, beginTimestamp, txId, implicit, options);
+            HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
+
+            UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
+
+            // TODO: RW timeouts will be supported in https://issues.apache.org/jira/browse/IGNITE-24244
+            //  long timeout = options.timeoutMillis() == 0 ? txConfig.readWriteTimeout().value() : options.timeoutMillis();
+            long timeout = 3_000;
+
+            tx = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
         }
+
+        txStateVolatileStorage.initialize(tx);
+
+        return tx;
     }
 
     private ReadOnlyTransactionImpl beginReadOnlyTransaction(
@@ -447,7 +460,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            var transaction = new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, readTimestamp, txFuture);
+            long timeout = options.timeoutMillis() == 0 ? defaultReadOnlyTransactionTimeoutMillis() : options.timeoutMillis();
+
+            var transaction = new ReadOnlyTransactionImpl(
+                    this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture
+            );
 
             // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
             // no need to register them.
@@ -475,7 +492,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private long roExpirationPhysicalTimeFor(HybridTimestamp beginTimestamp, InternalTxOptions options) {
-        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultTransactionTimeoutMillis() : options.timeoutMillis();
+        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultReadOnlyTransactionTimeoutMillis() : options.timeoutMillis();
         return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
     }
 
@@ -493,8 +510,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
     }
 
-    private long defaultTransactionTimeoutMillis() {
-        return txConfig.timeout().value();
+    private long defaultReadOnlyTransactionTimeoutMillis() {
+        return txConfig.readOnlyTimeout().value();
     }
 
     /**
@@ -545,7 +562,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         finalState,
                         old == null ? null : old.txCoordinatorId(),
                         old == null ? null : old.commitPartitionId(),
-                        ts
+                        ts,
+                        old == null ? null : old.tx()
                 ));
 
         decrementRwTxCount(txId);
@@ -572,7 +590,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
             updateTxMeta(txId, old -> new TxStateMeta(
-                    commitIntent ? COMMITTED : ABORTED, localNodeId, commitPartition, commitTimestamp(commitIntent)
+                    commitIntent ? COMMITTED : ABORTED,
+                    localNodeId,
+                    commitPartition,
+                    commitTimestamp(commitIntent),
+                    old == null ? null : old.tx()
             ));
 
             decrementRwTxCount(txId);
@@ -719,6 +741,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                             old == null ? null : old.txCoordinatorId(),
                                             commitPartition,
                                             result.commitTimestamp(),
+                                            old == null ? null : old.tx(),
                                             old == null ? null : old.initialVacuumObservationTimestamp(),
                                             old == null ? null : old.cleanupCompletionTimestamp()
                                     )
@@ -785,6 +808,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     localNodeId,
                                     old == null ? null : old.commitPartitionId(),
                                     txResult.commitTimestamp(),
+                                    old == null ? null : old.tx(),
                                     old == null ? null : old.initialVacuumObservationTimestamp(),
                                     old == null ? null : old.cleanupCompletionTimestamp()
                             ));
@@ -950,6 +974,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         return txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value(),
                 persistentTxStateVacuumizer::vacuumPersistentTxStates);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> kill(UUID txId) {
+        TxStateMeta state = txStateVolatileStorage.state(txId);
+
+        if (state != null && state.tx() != null) {
+            // TODO: IGNITE-24382 Kill implicit read-write transaction.
+            if (!state.tx().isReadOnly() && state.tx().implicit()) {
+                return falseCompletedFuture();
+            }
+
+            return state.tx().kill().thenApply(unused -> true);
+        }
+
+        return falseCompletedFuture();
     }
 
     @Override

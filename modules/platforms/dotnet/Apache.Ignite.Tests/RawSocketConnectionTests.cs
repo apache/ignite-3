@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Buffers;
+    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Net;
@@ -65,6 +66,28 @@ namespace Apache.Ignite.Tests
             StringAssert.Contains("Unsupported version: 33.0.0", ex!.Message);
         }
 
+        [Test]
+        public async Task TestServerIgnoresUnknownFeaturesAndExtensions()
+        {
+            await using var stream = await Connect();
+
+            await stream.WriteAsync(Magic);
+
+            WriteHandshake(
+                stream,
+                features: Guid.NewGuid().ToByteArray(),
+                extensions: new Dictionary<string, object>
+                {
+                    { "foobar", 1 },
+                    { "foobar2", "s" }
+                });
+
+            await stream.FlushAsync();
+            await CheckResponseMagic(stream);
+
+            ReadHandshake(stream);
+        }
+
         private static async Task CheckResponseMagic(NetworkStream stream)
         {
             var responseMagic = new byte[4];
@@ -76,11 +99,11 @@ namespace Apache.Ignite.Tests
         private static unsafe void ReadHandshake(NetworkStream stream)
         {
             var msgSize = 0;
-            stream.Read(new Span<byte>(&msgSize, 4));
+            stream.ReadExactly(new Span<byte>(&msgSize, 4));
             msgSize = IPAddress.NetworkToHostOrder(msgSize);
 
             var msg = new byte[msgSize];
-            stream.Read(msg);
+            stream.ReadExactly(msg);
 
             var str = Encoding.UTF8.GetString(msg);
 
@@ -95,7 +118,11 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(MessagePackCode.Nil, msg[3]);
         }
 
-        private static unsafe void WriteHandshake(Stream stream, int majorVersion = 3)
+        private static unsafe void WriteHandshake(
+            Stream stream,
+            int majorVersion = 3,
+            byte[]? features = null,
+            Dictionary<string, object>? extensions = null)
         {
             var bufferWriter = new ArrayBufferWriter<byte>();
             var writer = new MessagePackWriter(bufferWriter);
@@ -107,8 +134,37 @@ namespace Apache.Ignite.Tests
 
             writer.Write(2); // Client type: general purpose.
 
-            writer.WriteBinHeader(0); // Features.
-            writer.Write(0); // Extensions.
+            if (features == null)
+            {
+                writer.WriteBinHeader(0);
+            }
+            else
+            {
+                writer.Write(features);
+            }
+
+            if (extensions == null)
+            {
+                writer.Write(0);
+            }
+            else
+            {
+                writer.Write(extensions.Count);
+
+                foreach (var (key, value) in extensions)
+                {
+                    writer.Write(key);
+
+                    if (value is string s)
+                    {
+                        writer.Write(s);
+                    }
+                    else
+                    {
+                        writer.Write((int)value);
+                    }
+                }
+            }
 
             writer.Flush();
 

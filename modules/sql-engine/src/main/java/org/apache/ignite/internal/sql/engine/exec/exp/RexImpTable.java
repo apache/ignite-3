@@ -4528,8 +4528,12 @@ public class RexImpTable {
     }
 
     @Override Expression implementSafe(final RexToLixTranslator translator,
-        final RexCall call, final List<Expression> argValueList) {
-      return Expressions.call(IgniteMethod.LOG.method(), args(call, argValueList));
+      final RexCall call, final List<Expression> argValueList) {
+      if ("LOG10".equals(call.getOperator().getName())) {
+        return Expressions.call(IgniteMethod.LOG10.method(), argValueList);
+      } else {
+        return Expressions.call(IgniteMethod.LOG.method(), args(call, argValueList));
+      }
     }
 
     private static List<Expression> args(RexCall call,
@@ -4544,8 +4548,6 @@ public class RexImpTable {
         // fall through
       case "LN":
         return list.append(Expressions.constant(Math.exp(1)));
-      case "LOG10":
-        return list.append(Expressions.constant(BigDecimal.TEN));
       default:
         throw new AssertionError("Operator not found: " + call.getOperator());
       }

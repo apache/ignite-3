@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -92,9 +91,9 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateHashIndex() {
-        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME)));
+        int tableCreationVersion = tryApplyAndExpectApplied(simpleTable(TABLE_NAME)).getCatalogVersion();
 
-        int indexCreationVersion = await(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))));
+        int indexCreationVersion = tryApplyAndExpectApplied(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))).getCatalogVersion();
 
         // Validate catalog version from the past.
         Catalog catalog = manager.catalog(tableCreationVersion);
@@ -129,10 +128,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
     @Test
     public void testCreateHashIndexWithTable() {
-        int catalogVersion = await(manager.execute(List.of(
-                simpleTable(TABLE_NAME),
-                createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID")))
-        ));
+        int catalogVersion = tryApplyAndCheckExpect(
+                List.of(
+                        simpleTable(TABLE_NAME),
+                        createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))),
+                true, true).getCatalogVersion();
 
         Catalog catalog = manager.catalog(catalogVersion);
         assertNotNull(catalog);
@@ -148,14 +148,15 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateSortedIndex() {
-        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME)));
+        int tableCreationVersion = tryApplyAndExpectApplied(simpleTable(TABLE_NAME)).getCatalogVersion();
 
-        int indexCreationVersion = await(manager.execute(createSortedIndexCommand(
-                INDEX_NAME,
-                true,
-                List.of("VAL", "ID"),
-                List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
-        )));
+        int indexCreationVersion = tryApplyAndExpectApplied(
+                createSortedIndexCommand(
+                    INDEX_NAME,
+                    true,
+                    List.of("VAL", "ID"),
+                    List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
+        )).getCatalogVersion();
 
         // Validate catalog version from the past.
         Catalog catalog = manager.catalog(tableCreationVersion);
@@ -192,15 +193,16 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
     @Test
     public void testCreateSortedIndexWithTable() {
-        int catalogVersion = await(manager.execute(List.of(
-                simpleTable(TABLE_NAME),
-                createSortedIndexCommand(
-                        INDEX_NAME,
-                        true,
-                        List.of("VAL", "ID"),
-                        List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
-                ))
-        ));
+        int catalogVersion = tryApplyAndCheckExpect(
+                List.of(
+                        simpleTable(TABLE_NAME),
+                        createSortedIndexCommand(
+                                INDEX_NAME,
+                                true,
+                                List.of("VAL", "ID"),
+                                List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
+                        )),
+                true, true).getCatalogVersion();
 
         Catalog catalog = manager.catalog(catalogVersion);
         assertNotNull(catalog);
@@ -224,7 +226,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         long beforeDropTimestamp = clock.nowLong();
         int beforeDropVersion = manager.latestCatalogVersion();
 
-        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(dropTableCommand(TABLE_NAME));
 
         // Validate catalog version from the past.
         Catalog catalog = manager.catalog(beforeDropVersion);
@@ -288,17 +290,14 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.INDEX_REMOVED, removedListener);
 
         // Let's drop the index.
-        assertThat(
-                manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build());
 
         StoppingIndexEventParameters stoppingEventParameters = stoppingCaptor.getValue();
 
         assertEquals(index.id(), stoppingEventParameters.indexId());
 
         // Let's drop the table.
-        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(dropTableCommand(TABLE_NAME));
 
         // Let's make sure that the PK index has been removed.
         RemoveIndexEventParameters pkRemovedEventParameters = removingCaptor.getAllValues().get(0);
@@ -372,7 +371,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private void startBuildingIndex(int indexId) {
-        assertThat(manager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(StartBuildingIndexCommand.builder().indexId(indexId).build());
     }
 
     @Test
@@ -421,17 +420,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private void removeIndex(int indexId) {
-        assertThat(
-                manager.execute(RemoveIndexCommand.builder().indexId(indexId).build()),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(RemoveIndexCommand.builder().indexId(indexId).build());
     }
 
     private void dropIndex(String indexName) {
-        assertThat(
-                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(SCHEMA_NAME).build()),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(DropIndexCommand.builder().indexName(indexName).schemaName(SCHEMA_NAME).build());
     }
 
     private void dropIndex(int indexId) {
@@ -455,15 +448,9 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     public void testStartHashIndexBuilding() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(
-                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("key1"))),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createHashIndexCommand(INDEX_NAME, List.of("key1")));
 
-        assertThat(
-                manager.execute(StartBuildingIndexCommand.builder().indexId(indexId(INDEX_NAME)).build()),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(StartBuildingIndexCommand.builder().indexId(indexId(INDEX_NAME)).build());
 
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
@@ -474,15 +461,9 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     public void testStartSortedIndexBuilding() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(
-                manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("key1"), List.of(ASC_NULLS_LAST))),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createSortedIndexCommand(INDEX_NAME, List.of("key1"), List.of(ASC_NULLS_LAST)));
 
-        assertThat(
-                manager.execute(StartBuildingIndexCommand.builder().indexId(indexId(INDEX_NAME)).build()),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(StartBuildingIndexCommand.builder().indexId(indexId(INDEX_NAME)).build());
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
@@ -493,10 +474,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     public void testStartBuildingIndexEvent() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(
-                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("key1"))),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createHashIndexCommand(INDEX_NAME, List.of("key1")));
 
         int indexId = index(manager.latestCatalogVersion(), INDEX_NAME).id();
 
@@ -506,10 +484,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
             assertEquals(indexId, parameters.indexId());
         }));
 
-        assertThat(
-                manager.execute(startBuildingIndexCommand(indexId)),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(startBuildingIndexCommand(indexId));
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
     }
@@ -567,7 +542,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         clearInvocations(eventListener);
 
         // Drop table with pk index.
-        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(dropTableCommand(TABLE_NAME));
 
         // Try drop index once again.
         assertThat(manager.execute(dropIndexCmd), willThrow(IndexNotFoundValidationException.class));
@@ -581,10 +556,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     public void testMakeHashIndexAvailable() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(
-                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("key1"))),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createHashIndexCommand(INDEX_NAME, List.of("key1")));
 
         int indexId = indexId(INDEX_NAME);
 
@@ -597,20 +569,14 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private void makeIndexAvailable(int indexId) {
-        assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(MakeIndexAvailableCommand.builder().indexId(indexId).build());
     }
 
     @Test
     public void testMakeSortedIndexAvailable() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(
-                manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("key1"), List.of(ASC_NULLS_LAST))),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createSortedIndexCommand(INDEX_NAME, List.of("key1"), List.of(ASC_NULLS_LAST)));
 
         int indexId = indexId(INDEX_NAME);
 
@@ -626,10 +592,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     public void testAvailableIndexEvent() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(
-                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("key1"))),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createHashIndexCommand(INDEX_NAME, List.of("key1")));
 
         int indexId = index(manager.latestCatalogVersion(), INDEX_NAME).id();
 
@@ -639,10 +602,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
             assertEquals(indexId, parameters.indexId());
         }));
 
-        assertThat(
-                manager.execute(startBuildingIndexCommand(indexId)),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(startBuildingIndexCommand(indexId));
 
         makeIndexAvailable(indexId);
 
@@ -668,8 +628,8 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateIndexWithAlreadyExistingName() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        assertThat(manager.execute(simpleIndex()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+        tryApplyAndExpectApplied(simpleIndex());
 
         assertThat(
                 manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))),
@@ -684,7 +644,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateIndexWithSameNameAsExistingTable() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
         assertThat(
                 manager.execute(createHashIndexCommand(TABLE_NAME, List.of("VAL"))),
@@ -712,7 +672,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateIndexWithMissingTableColumns() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
         assertThat(
                 manager.execute(createHashIndexCommand(INDEX_NAME, List.of("fake"))),
@@ -727,7 +687,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateUniqIndexWithMissingTableColocationColumns() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
         assertThat(
                 manager.execute(createHashIndexCommand(INDEX_NAME, true, List.of("VAL"))),
@@ -744,11 +704,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     public void testIndexes() {
         int initialVersion = manager.latestCatalogVersion();
 
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
         int afterTableCreated = manager.latestCatalogVersion();
 
-        assertThat(manager.execute(simpleIndex()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(simpleIndex());
 
         assertThat(manager.catalog(initialVersion).indexes(), empty());
         assertThat(
@@ -908,24 +868,18 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private void createSomeIndex(String tableName, String indexName) {
-        assertThat(
-                manager.execute(createHashIndexCommand(tableName, indexName, false, List.of("key1"))),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createHashIndexCommand(tableName, indexName, false, List.of("key1")));
     }
 
     private void createSomeSortedIndex(String tableName, String indexName) {
         CatalogCommand newSortedIndexCommand = createSortedIndexCommand(
                 SCHEMA_NAME, tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST));
 
-        assertThat(manager.execute(newSortedIndexCommand), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(newSortedIndexCommand);
     }
 
     private void renameIndex(String indexName, String newIndexName) {
-        assertThat(
-                manager.execute(renameIndexCommand(indexName, newIndexName)),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(renameIndexCommand(indexName, newIndexName));
     }
 
     private void createTableWithIndex(String tableName, String indexName) {

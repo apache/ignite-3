@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 
-/** Initializes script handler and kick starts script execution. */
+/** Initializes script handler and kick-starts script execution. */
 class ScriptInitializationPhaseHandler implements ExecutionPhaseHandler {
     static final ExecutionPhaseHandler INSTANCE = new ScriptInitializationPhaseHandler();
 

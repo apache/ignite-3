@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.service;
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 
 /**
- * The marker interface for a write command closure.
+ * Defines a class of commands bound to a partition of a particular table.
  */
-public interface WriteCommandClosure extends CommandClosure<WriteCommand> {
+public interface TableAwareCommand extends NetworkMessage {
+    TablePartitionIdMessage tablePartitionId();
 }
