@@ -130,4 +130,11 @@ public interface InternalTransaction extends Transaction {
      * @return The transaction timeout.
      */
     long timeout();
+
+    /**
+     * Kills this transaction.
+     *
+     * @return The future.
+     */
+    CompletableFuture<Void> kill();
 }

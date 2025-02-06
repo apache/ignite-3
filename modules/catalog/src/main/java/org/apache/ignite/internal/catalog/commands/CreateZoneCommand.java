@@ -137,7 +137,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     }
 
     private CatalogZoneDescriptor descriptor(int objectId) {
-        CatalogZoneDescriptor zone = new CatalogZoneDescriptor(
+        return new CatalogZoneDescriptor(
                 objectId,
                 zoneName,
                 Objects.requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT),
@@ -152,8 +152,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 fromParams(storageProfileParams),
                 Objects.requireNonNullElse(consistencyMode, STRONG_CONSISTENCY)
         );
-
-        return zone;
     }
 
     private void validate() {

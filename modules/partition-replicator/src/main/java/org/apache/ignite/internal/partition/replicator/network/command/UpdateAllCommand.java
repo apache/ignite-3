@@ -32,8 +32,8 @@ import org.jetbrains.annotations.Nullable;
  * State machine command for updating a batch of entries.
  */
 @Transferable(PartitionReplicationMessageGroup.Commands.UPDATE_ALL)
-public interface UpdateAllCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+public interface UpdateAllCommand extends PartitionCommand, TableAwareCommand {
+    TablePartitionIdMessage commitPartitionId();
 
     Map<UUID, TimedBinaryRowMessage> messageRowsToUpdate();
 

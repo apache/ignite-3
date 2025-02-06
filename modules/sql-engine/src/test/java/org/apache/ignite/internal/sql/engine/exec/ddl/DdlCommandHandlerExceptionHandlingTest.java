@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -48,7 +47,6 @@ import org.hamcrest.core.Is;
 import org.hamcrest.core.IsNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -102,7 +100,6 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundValidationException.class));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24339")
     @Test
     public void testZoneNotFoundOnDrop2() {
         CatalogCommand cmd = DropZoneCommand.builder()
@@ -121,6 +118,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 .ifNotExists(ifNotExists)
                 .build();
 
-        return commandHandler.handle(cmd).thenApply(Objects::nonNull);
+        return commandHandler.handle(cmd)
+                .thenApply(result -> result.isApplied(0));
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 
 /** Enumerates all programs available for execution. */
 class Programs {
@@ -27,4 +28,7 @@ class Programs {
 
     /** A program to execute child query within a script. As input expects already parsed AST and returns cursor as result. */
     static final Program<AsyncSqlCursor<InternalSqlRow>> SCRIPT_ITEM_EXECUTION = ScriptItemExecutionProgram.INSTANCE;
+
+    /** A program to prepare child query within a script. As input expects already parsed AST and returns prepared plan as result. */
+    static final Program<QueryPlan> SCRIPT_ITEM_PREPARATION = ScriptItemPrepareProgram.INSTANCE;
 }

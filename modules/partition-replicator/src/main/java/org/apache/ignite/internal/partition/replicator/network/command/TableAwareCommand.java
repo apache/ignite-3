@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.partition.replicator.network.command;
+
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 
 /**
- * The clock to be used within the components to ease the testing of time-related parts.
+ * Defines a class of commands bound to a partition of a particular table.
  */
-@FunctionalInterface
-public interface CurrentTimeProvider {
-    /**
-     * Returns the current time in milliseconds.
-     *
-     * @return The difference, measured in milliseconds, between the current time and midnight, January 1, 1970 UTC.
-     */
-    long now();
+public interface TableAwareCommand extends NetworkMessage {
+    TablePartitionIdMessage tablePartitionId();
 }

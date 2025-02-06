@@ -86,7 +86,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
@@ -295,14 +294,19 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
         {
-            commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                    raftIndex.incrementAndGet(),
-                    1,
-                    List.of(clusterService.nodeName()),
-                    Collections.emptyList(),
-                    null,
-                    null
-            ));
+            long index = raftIndex.incrementAndGet();
+            commandListener.onConfigurationCommitted(
+                    new RaftGroupConfiguration(
+                            index,
+                            1,
+                            List.of(clusterService.nodeName()),
+                            Collections.emptyList(),
+                            null,
+                            null
+                    ),
+                    index,
+                    1
+            );
 
             PrimaryReplicaChangeCommand command = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
                     .primaryReplicaNodeName("primary")
@@ -540,6 +544,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         UpdateCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                 .rowUuid(UUID.randomUUID())
                 .tablePartitionId(defaultPartitionIdMessage())
+                .commitPartitionId(defaultPartitionIdMessage())
                 .txCoordinatorId(UUID.randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
                 .initiatorTime(hybridClock.now())
@@ -562,6 +567,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                         PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage().build())
                 )
                 .tablePartitionId(defaultPartitionIdMessage())
+                .commitPartitionId(defaultPartitionIdMessage())
                 .txCoordinatorId(UUID.randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
                 .initiatorTime(hybridClock.now())
@@ -611,11 +617,17 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void updatesGroupConfigurationOnConfigCommit() {
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                raftIndex.incrementAndGet(), 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
-        ));
+        long index = raftIndex.incrementAndGet();
+
+        commandListener.onConfigurationCommitted(
+                new RaftGroupConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                index,
+                2
+        );
 
         RaftGroupConfiguration expectedConfig = new RaftGroupConfiguration(
+                index,
+                2,
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),
@@ -628,9 +640,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void updatesLastAppliedIndexAndTermOnConfigCommit() {
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                3, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
-        ));
+        commandListener.onConfigurationCommitted(
+                new RaftGroupConfiguration(3, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                3,
+                2
+        );
 
         verify(mvPartitionStorage).lastApplied(3, 2);
     }
@@ -639,9 +653,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void skipsUpdatesOnConfigCommitIfIndexIsStale() {
         mvPartitionStorage.lastApplied(10, 3);
 
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
-        ));
+        commandListener.onConfigurationCommitted(
+                new RaftGroupConfiguration(
+                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                1, 2
+        );
 
         // Exact one call is expected because it's done in @BeforeEach in order to prepare initial configuration.
         verify(mvPartitionStorage, times(1)).committedGroupConfiguration(any());
@@ -650,9 +666,12 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void locksOnConfigCommit() {
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                raftIndex.incrementAndGet(), 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
-        ));
+        long index = raftIndex.incrementAndGet();
+        commandListener.onConfigurationCommitted(
+                new RaftGroupConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                index,
+                2
+        );
 
         InOrder inOrder = inOrder(partitionDataStorage);
 
@@ -827,6 +846,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
                 .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
+                .commitPartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
                 .messageRowsToUpdate(rows)
                 .txId(txId)
                 .initiatorTime(hybridClock.now())
@@ -867,6 +887,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
                 .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
+                .commitPartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
                 .messageRowsToUpdate(rows)
                 .txId(txId)
                 .initiatorTime(hybridClock.now())
@@ -902,6 +923,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
                 .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
+                .commitPartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
                 .messageRowsToUpdate(keyRows)
                 .txId(txId)
                 .initiatorTime(hybridClock.now())
@@ -939,6 +961,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.command()).thenReturn(
                     PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                             .tablePartitionId(defaultPartitionIdMessage())
+                            .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(readResult.rowId().uuid())
                             .messageRowToUpdate(PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                     .binaryRowMessage(row)
@@ -992,6 +1015,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.command()).thenReturn(
                     PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                             .tablePartitionId(defaultPartitionIdMessage())
+                            .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(readResult.rowId().uuid())
                             .txId(txId)
                             .initiatorTime(hybridClock.now())
@@ -1065,6 +1089,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.command()).thenReturn(
                     PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                             .tablePartitionId(defaultPartitionIdMessage())
+                            .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(UUID.randomUUID())
                             .messageRowToUpdate(PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                     .binaryRowMessage(getTestRow(i, i))

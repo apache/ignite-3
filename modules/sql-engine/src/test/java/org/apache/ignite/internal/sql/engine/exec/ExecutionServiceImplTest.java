@@ -73,6 +73,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -988,8 +989,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         HybridTimestamp expectedCatalogActivationTimestamp = HybridTimestamp.hybridTimestamp(100L);
 
         DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
+        CatalogApplyResult result = mock(CatalogApplyResult.class);
+
+        when(result.getCatalogTime()).thenReturn(expectedCatalogActivationTimestamp.longValue());
         when(ddlCommandHandler.handle(any(CatalogCommand.class)))
-                .thenReturn(CompletableFuture.completedFuture(expectedCatalogActivationTimestamp.longValue()));
+                .thenReturn(CompletableFuture.completedFuture(result));
 
         await(execService.executePlan(plan, planCtx));
 

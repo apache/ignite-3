@@ -187,8 +187,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("EXP(2)").returns(Math.exp(2)).check();
         assertExpression("POWER(2, 2)").returns(Math.pow(2, 2)).check();
         assertExpression("LN(2)").returns(Math.log(2)).check();
-        // TODO LOG10 Need to be implemented in a different way https://issues.apache.org/jira/browse/IGNITE-22405
-        assertExpression("LOG10(2) ").returns(Math.log(2) / Math.log(10)).check();
+        assertExpression("LOG10(0.1) ").returns(-1.0).check();
         assertExpression("ABS(-1)").returns(Math.abs(-1)).check();
         assertExpression("RAND()").check();
         assertExpression("RAND_INTEGER(10)").check();
@@ -355,10 +354,10 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         //  this issue is resolved
         String error = "Expression is not supported: FORMAT JSON";
 
-        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error, 
+        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error,
                 () -> sql("SELECT '{\"a\":1}' FORMAT JSON"));
 
-        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error, 
+        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error,
                 () -> sql("SELECT JSON_VALUE('{\"a\":1}' FORMAT JSON, '$.a')"));
 
         assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error,

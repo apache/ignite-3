@@ -597,11 +597,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveConfiguration(byte[] configuration, long index, long term) {
+    public void saveConfiguration(byte[] configuration, long lastAppliedIndex, long lastAppliedTerm) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
+            data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, lastAppliedIndex, lastAppliedTerm));
             data.put(batch, CONFIGURATION_KEY, configuration);
 
             db.write(writeOptions, batch);

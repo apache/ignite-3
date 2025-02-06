@@ -58,7 +58,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
@@ -124,7 +123,8 @@ public class PartitionListener implements RaftGroupListener {
 
     private final UUID localNodeId;
 
-    private Set<String> currentGroupTopology;
+    // This variable is volatile, because it may be updated outside the Raft thread under the colocation feature.
+    private volatile Set<String> currentGroupTopology;
 
     private final MinimumRequiredTimeCollectorService minTimeCollectorService;
 
@@ -296,7 +296,7 @@ public class PartitionListener implements RaftGroupListener {
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
-                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asTablePartitionId(),
                     cmd.rowToUpdate(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
@@ -353,7 +353,7 @@ public class PartitionListener implements RaftGroupListener {
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
-                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asTablePartitionId(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
                     cmd.full() ? safeTimestamp : null,
@@ -493,7 +493,11 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     @Override
-    public void onConfigurationCommitted(CommittedConfiguration config) {
+    public void onConfigurationCommitted(
+            RaftGroupConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
         currentGroupTopology = new HashSet<>(config.peers());
         currentGroupTopology.addAll(config.learners());
 
@@ -509,8 +513,8 @@ public class PartitionListener implements RaftGroupListener {
 
         try {
             storage.runConsistently(locker -> {
-                storage.committedGroupConfiguration(RaftGroupConfiguration.fromCommittedConfiguration(config));
-                storage.lastApplied(config.index(), config.term());
+                storage.committedGroupConfiguration(config);
+                storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
                 updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 
                 return null;
@@ -558,11 +562,6 @@ public class PartitionListener implements RaftGroupListener {
     @Override
     public void onShutdown() {
         storage.close();
-    }
-
-    @Override
-    public void onLeaderStop() {
-        // No-op.
     }
 
     /**
@@ -763,7 +762,8 @@ public class PartitionListener implements RaftGroupListener {
                 full ? COMMITTED : PENDING,
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
-                full ? commitTimestamp : null
+                full ? commitTimestamp : null,
+                old == null ? null : old.tx()
         ));
     }
 
@@ -773,6 +773,7 @@ public class PartitionListener implements RaftGroupListener {
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? partId : old.commitPartitionId(),
                 commit ? commitTimestamp : null,
+                old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp()
         ));

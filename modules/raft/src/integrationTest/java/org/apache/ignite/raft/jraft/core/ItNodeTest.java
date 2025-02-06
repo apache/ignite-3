@@ -126,6 +126,7 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.entity.UserLog;
 import org.apache.ignite.raft.jraft.error.LogIndexOutOfBoundsException;
@@ -3459,10 +3460,14 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
                     opts.setFsm(new MockStateMachine(peerId) {
                         @Override
-                        public void onRawConfigurationCommitted(ConfigurationEntry conf) {
+                        public void onRawConfigurationCommitted(
+                                ConfigurationEntry conf,
+                                long lastAppliedIndex,
+                                long lastAppliedTerm
+                        ) {
                             term.set(conf.getId().getTerm());
                             index.set(conf.getId().getIndex());
-                            super.onRawConfigurationCommitted(conf);
+                            super.onRawConfigurationCommitted(conf, lastAppliedIndex, lastAppliedTerm);
                         }
                     });
                 },
@@ -3481,9 +3486,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
 
-        // Wait until new node node sees every other node, otherwise
+        // Wait until new node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
-        waitForTopologyOnEveryNode(1, cluster);
+        waitForTopologyOnEveryNode(2, cluster);
 
         SynchronizedClosure done = new SynchronizedClosure();
         leader.changePeersAndLearnersAsync(
@@ -3504,6 +3509,112 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 raftGrpEvtsLsnr,
                 times(1)).onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get()
         );
+    }
+
+    /**
+     * Test that index and term of configuration are propagated to snapshot meta.
+     * <p>
+     * To check that, we change configuration from [A] to [A, B, C] and track index and term propagated to
+     * onRawConfigurationCommitted, also we force snapshot installation and check index and term
+     * propagated to onSnapshotLoad, and all of this we assert with expected values of configuration entry.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testIndexAndTermOfCfgArePropagatedToSnapshotMeta() throws Exception {
+        TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
+
+        TestPeer restartingPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
+        TestPeer otherPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 2);
+
+        AtomicLong configTerm = new AtomicLong(-1);
+        AtomicLong configIndex = new AtomicLong(-1);
+
+        AtomicLong metaConfigTerm = new AtomicLong(-1);
+        AtomicLong metaConfigIndex = new AtomicLong(-1);
+
+        cluster = new TestCluster(
+                "testIndexAndTermOfCfgArePropagatedToSnapshotMeta",
+                dataPath,
+                Collections.singletonList(peer0),
+                new LinkedHashSet<>(),
+                ELECTION_TIMEOUT_MILLIS,
+                (peerId, opts) -> {
+                    opts.setFsm(new MockStateMachine(peerId) {
+                        @Override
+                        public boolean onSnapshotLoad(SnapshotReader reader) {
+                            if (this.getPeerId().equals(restartingPeer.getPeerId())) {
+                                SnapshotMeta meta = reader.load();
+
+                                metaConfigTerm.set(meta.cfgTerm());
+                                metaConfigIndex.set(meta.cfgIndex());
+                            }
+
+                            return super.onSnapshotLoad(reader);
+                        }
+
+                        @Override
+                        public void onRawConfigurationCommitted(
+                                ConfigurationEntry conf,
+                                long lastAppliedIndex,
+                                long lastAppliedTerm
+                        ) {
+                            configTerm.set(conf.getId().getTerm());
+                            configIndex.set(conf.getId().getIndex());
+                            super.onRawConfigurationCommitted(conf, lastAppliedIndex, lastAppliedTerm);
+                        }
+                    });
+                },
+                testInfo
+        );
+
+        assertTrue(cluster.start(peer0));
+
+        Node leader = cluster.waitAndGetLeader();
+
+        assertEquals(1, configTerm.get());
+        assertEquals(1, configIndex.get());
+
+        assertTrue(cluster.start(restartingPeer, false, 300));
+        assertTrue(cluster.start(otherPeer, false, 300));
+
+        // Wait until new node sees every other node, otherwise
+        // changePeersAndLearnersAsync can fail.
+        waitForTopologyOnEveryNode(3, cluster);
+
+        SynchronizedClosure done = new SynchronizedClosure();
+        leader.changePeersAndLearnersAsync(
+                new Configuration(List.of(peer0.getPeerId(), restartingPeer.getPeerId(), otherPeer.getPeerId()), List.of()), leader.getCurrentTerm(),
+                done
+        );
+
+        assertEquals(done.await(), Status.OK());
+
+        assertTrue(waitForCondition(() -> cluster.getLeader().listAlivePeers().contains(restartingPeer.getPeerId()), 10_000));
+
+        assertTrue(cluster.stop(restartingPeer.getPeerId()));
+
+        // Apply something more.
+        sendTestTaskAndWait(leader);
+        triggerLeaderSnapshot(cluster, leader);
+
+        sendTestTaskAndWait(leader, 10);
+
+        triggerLeaderSnapshot(cluster, leader, 2);
+
+        // Restart follower.
+        cluster.clean(restartingPeer.getPeerId());
+        assertTrue(cluster.start(restartingPeer, false, 300));
+
+        cluster.ensureSame();
+
+        // Leader hasn't been changed, term must stay the same.
+        assertEquals(1, configTerm.get());
+        // idx_2 == joint consensus, idx_3 is expected final cfg.
+        assertEquals(3, configIndex.get());
+
+        assertEquals(1, metaConfigTerm.get());
+        assertEquals(3, metaConfigIndex.get());
     }
 
     @Test

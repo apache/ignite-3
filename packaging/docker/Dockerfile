@@ -45,4 +45,8 @@ COPY dist/cli $IGNITE_CLI_HOME
 # Copy entrypoint script
 COPY dist/docker-entrypoint.sh /usr/local/bin/
 
+# Make sure the locale is UTF-8 so that CLI prints tables correctly
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 ENTRYPOINT ["docker-entrypoint.sh"]

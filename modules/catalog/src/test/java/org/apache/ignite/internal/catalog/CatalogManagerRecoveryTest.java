@@ -185,8 +185,8 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         // Let's check Catalog was recovered from a snapshot and history starts from the expected version.
         assertThat(catalogManager.earliestCatalogVersion(), equalTo(earliestVersion));
-        assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(0));
-        assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(earliestVersionActivationTime - 1));
+        assertThrows(CatalogNotFoundException.class, () -> catalogManager.activeCatalogVersion(0));
+        assertThrows(CatalogNotFoundException.class, () -> catalogManager.activeCatalogVersion(earliestVersionActivationTime - 1));
         assertThat(catalogManager.activeCatalogVersion(earliestVersionActivationTime), equalTo(earliestVersion));
         assertThat(catalogManager.activeCatalogVersion(latestVersionActivationTime), equalTo(latestVersion));
     }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.snapshot;
+package org.apache.ignite.internal.partition.replicator.raft;
 
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
