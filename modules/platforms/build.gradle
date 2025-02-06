@@ -74,6 +74,12 @@ def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
     commandLine "doxygen"
 }
 
+def windowsDbApiWheels = tasks.register('windowsDbApiWheels', Exec) {
+    workingDir "$projectDir/python"
+
+    commandLine 'cmd', '/c', 'Powershell  -File  .\scripts\BuildWheels.ps1'
+}
+
 def copyNativeLibs = tasks.register('copyNativeLibs', Copy) {
     include "**/*.so"
     from "$projectDir/cpp"
