@@ -31,13 +31,6 @@ repositories {
     maven {
         url = uri('https://repo.maven.apache.org/maven2/')
     }
-
-    maven {
-        url = uri('https://repository.apache.org/snapshots')
-        mavenContent {
-            snapshotsOnly()
-        }
-    }
 }
 
 ext {
@@ -133,13 +126,6 @@ subprojects {
             url = uri('https://repo.maven.apache.org/maven2/')
             mavenContent {
                 releasesOnly()
-            }
-        }
-
-        maven {
-            url = uri('https://repository.apache.org/snapshots')
-            mavenContent {
-                snapshotsOnly()
             }
         }
 
