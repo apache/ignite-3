@@ -283,11 +283,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             createTable(node, "test_zone", "test_table");
             int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
 
-            prepareTableIdToZoneIdConverter(
-                    node,
-                    new TablePartitionId(tableId, 0),
-                    new ZonePartitionId(zoneId, 0)
-            );
+            prepareTableIdToZoneIdConverter(node, zoneId);
 
             KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
@@ -309,11 +305,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             createTable(node, "test_zone", "test_table1");
             int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table1", node.hybridClock.nowLong());
 
-            prepareTableIdToZoneIdConverter(
-                    node,
-                    new TablePartitionId(tableId, 0),
-                    new ZonePartitionId(zoneId, 0)
-            );
+            prepareTableIdToZoneIdConverter(node, zoneId);
 
             KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
@@ -718,63 +710,80 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
 
     @Test
     public void testTableEstimatedSize(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+        startNodes(testInfo, 1);
 
-        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+        Assignment replicaAssignment1 = (Assignment) calculateAssignmentForPartition(
+                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 2, 1).toArray()[0];
 
-        Node node = getNode(replicaAssignment.consistentId());
+        Node node = getNode(replicaAssignment1.consistentId());
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
-        createZone(node, "test_zone", 1, 1);
+        createZone(node, "test_zone", 2, 1);
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
-        long key = 1;
-
         {
-            createTable(node, "test_zone", "test_table");
-            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
+            createTable(node, "test_zone", "test_table_1");
+            int tableId1 = TableTestUtils.getTableId(node.catalogManager, "test_table_1", node.hybridClock.nowLong());
 
-            prepareTableIdToZoneIdConverter(
-                    node,
-                    new TablePartitionId(tableId, 0),
-                    new ZonePartitionId(zoneId, 0)
-            );
+            createTable(node, "test_zone", "test_table_2");
+            int tableId2 = TableTestUtils.getTableId(node.catalogManager, "test_table_2", node.hybridClock.nowLong());
 
-            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+            prepareTableIdToZoneIdConverter(node, zoneId);
 
-            int val = 100;
+            KeyValueView<Long, Integer> keyValueView1 = node.tableManager.table(tableId1).keyValueView(Long.class, Integer.class);
+            KeyValueView<Long, Integer> keyValueView2 = node.tableManager.table(tableId2).keyValueView(Long.class, Integer.class);
+
+            Map<Long, Integer> kv1 = new HashMap<>();
+            Map<Long, Integer> kv2 = new HashMap<>();
+
+            for (int i = 1; i <= 5; ++i){
+                kv1.put((long) i, i * 100);
+            }
+
+            for (int i = 10; i <= 15; ++i){
+                kv2.put((long) i, i * 100);
+            }
 
             node.transactions().runInTransaction(tx -> {
-                assertDoesNotThrow(() -> keyValueView.putAll(tx, Map.of(key, val)));
+                assertDoesNotThrow(() -> keyValueView1.putAll(tx, kv1));
 
-                assertEquals(val, keyValueView.get(tx, key));
+                assertDoesNotThrow(() -> keyValueView2.putAll(tx, kv2));
             });
 
             // Read the key from another transaction to trigger write intent resolution, and so incrementing the estimated size.
             // TODO https://issues.apache.org/jira/browse/IGNITE-24384 Perhaps, it should be reworked some way
             // when the write intent resolution will be 're-implemented' using colocation feature.
             node.transactions().runInTransaction(tx -> {
-                assertEquals(val, keyValueView.get(tx, key));
+                keyValueView1.getAll(tx, kv1.keySet());
+
+                keyValueView2.getAll(tx, kv2.keySet());
             });
 
-            CompletableFuture<Long> sizeFuture = node.tableManager.table(tableId).internalTable().estimatedSize();
+            CompletableFuture<Long> sizeFuture1 = node.tableManager.table(tableId1).internalTable().estimatedSize();
+            CompletableFuture<Long> sizeFuture2 = node.tableManager.table(tableId2).internalTable().estimatedSize();
 
-            assertEquals(1, sizeFuture.get());
+            assertEquals(kv1.size(), sizeFuture1.get());
+            assertEquals(kv2.size(), sizeFuture2.get());
         }
     }
 
-    private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {
+    private void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
         node.setRequestConverter(request ->  {
-            if (request.groupId().asReplicationGroupId().equals(tablePartitionId)
-                    && !(request instanceof WriteIntentSwitchReplicaRequest)) {
-                return zonePartitionId;
-            } else {
+            if (request instanceof WriteIntentSwitchReplicaRequest) {
                 return request.groupId().asReplicationGroupId();
             }
-        });
 
+            boolean colocationAwareRequest = request.groupId().asReplicationGroupId() instanceof ZonePartitionId;
+
+            if (colocationAwareRequest) {
+                return request.groupId().asReplicationGroupId();
+            } else {
+                TablePartitionId tablePartId = (TablePartitionId) request.groupId().asReplicationGroupId();
+
+                return new ZonePartitionId(zoneId, tablePartId.partitionId());
+            }
+        });
     }
 
     private Node getNode(int nodeIndex) {

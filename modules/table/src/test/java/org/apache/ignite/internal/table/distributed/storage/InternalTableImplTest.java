@@ -60,10 +60,10 @@ import org.junit.jupiter.api.Test;
  */
 public class InternalTableImplTest extends BaseIgniteAbstractTest {
     /** Zone identifier. */
-    private static final int ZONE_ID = 2;
+    private static final int ZONE_ID = 1;
 
     /** Table identifier. */
-    private static final int TABLE_ID = 1;
+    private static final int TABLE_ID = 2;
 
     @Test
     void testUpdatePartitionTrackers() {

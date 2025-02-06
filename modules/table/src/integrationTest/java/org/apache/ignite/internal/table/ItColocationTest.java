@@ -232,8 +232,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
-        int tblId = 1;
-        int zoneId = 2;
+        int zoneId = 1;
+        int tblId = 2;
 
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
