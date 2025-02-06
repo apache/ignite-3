@@ -66,7 +66,7 @@ Creates an `exampleZone` distribution zone that will only use nodes with SSD att
 
 [source,sql]
 ----
-CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER=SSD, DATA_NODES_AUTO_ADJUST_SCALE_UP=300, STORAGE_PROFILES='default'
+CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER='SSD', DATA_NODES_AUTO_ADJUST_SCALE_UP=300, STORAGE_PROFILES='default'
 ----
 
 == ALTER ZONE
@@ -90,6 +90,15 @@ Keywords and parameters:
 * `qualified_zone_name` - the current name of the distribution zone.
 * `RENAME TO` - renames the selected zone to the new name.
 * `new_qualified_zone_name` - the new name of the distribution zone (assigned by `RENAME`).
+
+Examples:
+
+Renames the `exampleZone` to `renamedZone`:
+
+[source,sql]
+----
+ALTER ZONE IF EXISTS exampleZone RENAME TO renamedZone;
+----
 
 === ALTER ZONE SET
 

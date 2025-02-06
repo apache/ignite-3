@@ -516,7 +516,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         PENDING,
                         req.coordinatorId(),
                         req.commitPartitionId().asTablePartitionId(),
-                        null
+                        null,
+                        old == null ? null : old.tx()
                 ));
             }
         }
@@ -811,7 +812,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     PENDING,
                     req.coordinatorId(),
                     req.commitPartitionId().asTablePartitionId(),
-                    null
+                    null,
+                    old == null ? null : old.tx()
             ));
 
             var opId = new OperationId(senderId, req.timestamp().longValue());
@@ -3945,6 +3947,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
                 txState == COMMITTED ? commitTimestamp : null,
+                old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp()
         ));

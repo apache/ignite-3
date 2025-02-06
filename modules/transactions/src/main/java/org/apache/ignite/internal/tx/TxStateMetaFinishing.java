@@ -45,7 +45,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * @param commitPartitionId Commit partition id.
      */
     public TxStateMetaFinishing(@Nullable UUID txCoordinatorId, @Nullable TablePartitionId commitPartitionId) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null);
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null);
     }
 
     /**

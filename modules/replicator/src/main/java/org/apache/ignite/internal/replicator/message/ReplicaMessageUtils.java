@@ -52,7 +52,6 @@ public class ReplicaMessageUtils {
     ) {
         return messagesFactory.zonePartitionIdMessage()
                 .zoneId(zonePartitionId.zoneId())
-                .tableId(zonePartitionId.tableId())
                 .partitionId(zonePartitionId.partitionId())
                 .build();
     }

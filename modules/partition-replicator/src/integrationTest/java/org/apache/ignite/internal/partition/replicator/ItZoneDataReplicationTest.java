@@ -81,6 +81,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -348,6 +349,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     /**
      * Tests that inserted data is replicated to a newly joined replica node.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24394")
     @ParameterizedTest(name = "truncateRaftLog={0}")
     @ValueSource(booleans = {false, true})
     void testDataRebalance(boolean truncateRaftLog) throws Exception {

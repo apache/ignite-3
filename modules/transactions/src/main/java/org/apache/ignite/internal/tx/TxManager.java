@@ -225,6 +225,14 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> vacuum();
 
     /**
+     * Kills a local transaction by its id. The behavior is similar to the transaction rollback.
+     *
+     * @param txId Transaction id.
+     * @return Future will be completed with value true if the transaction was started locally and completed by this call.
+     */
+    CompletableFuture<Boolean> kill(UUID txId);
+
+    /**
      * Returns a number of finished transactions.
      *
      * @return A number of finished transactions.

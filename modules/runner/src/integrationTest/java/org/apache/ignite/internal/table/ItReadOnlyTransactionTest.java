@@ -46,6 +46,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -108,7 +109,13 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             ignite.tables().table(TABLE_NAME).keyValueView().get(null, Tuple.create().set("id", 12));
             ignite.tables().table(TABLE_NAME).keyValueView().getAll(null, Set.of(Tuple.create().set("id", 12)));
 
-            int txRwStatesAfter = txManager.states().size();
+            int txRwStatesAfter = 0;
+
+            for (TxStateMeta stateMeta : txManager.states()) {
+                if (stateMeta.tx() == null || !stateMeta.tx().isReadOnly()) {
+                    txRwStatesAfter++;
+                }
+            }
 
             int txFinishedAfter = txManager.finished();
 
