@@ -639,7 +639,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "TIME precision 10000000 must be between 0 and 9 [column=VAL]",
+                "TIME precision 10000000 must be between 0 and 9. [column=VAL]",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val TIME(10000000) )")
         );
 
@@ -647,7 +647,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "TIMESTAMP precision 10000000 must be between 0 and 9 [column=VAL]",
+                "TIMESTAMP precision 10000000 must be between 0 and 9. [column=VAL]",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val TIMESTAMP(10000000) )")
         );
     }
