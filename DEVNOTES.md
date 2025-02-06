@@ -124,7 +124,7 @@ Run integration tests only:
 Say, you want to run a benchmark for the `ignite-transactions` module. You can do it with the following command:
 
 ```shell
-./gradlew :ignite-transactions:jmh
+./gradlew clean :ignite-transactions:jmh
 ```
 
 To open the JMH report, you can use the following command:
@@ -139,7 +139,7 @@ If you want to open the flamegraph of this benchmark, you can find them in the m
 If you want to run single benchmark, you can do it with the following command:
 
 ```shell
-./gradlew :ignite-transactions:jmh -PjmhBench=TransactionExpirationRegistryBenchmark.registerUnregister
+./gradlew clean :ignite-transactions:jmh -PjmhBench=TransactionExpirationRegistryBenchmark.registerUnregister
 ```
 
 ### How to add your own benchmark
@@ -157,13 +157,16 @@ The default configuration are located in the `buildscripts/jmh.gradle` file. You
 If you want to configure your benchmark on the class level, use annotations see 
 [example](modules/transactions/src/jmh/java/org/apache/ignite/internal/tx/impl/TransactionExpirationRegistryBenchmark.java).
 
+NOTE: now you can not pass custom jmh arguments through the command line. 
+You can only override them in the `jmh` block in the `build.gradle`/`jmh.gradle` file or use annotations in the benchmark class. 
+The only exception is the `-PjmhBench`.
+
 Here is how configurations override each other:
 1. Annotations
 2. `jmh` block in the `build.gradle` file
 3. `jmh` block in the `buildscripts/jmh.gradle` file
-4. CMD line arguments (for example `-PjmhIterations=10`)
 
-Meaning 1 is overridden by 2, 2 is overridden by 3, etc.
+Meaning 1 is overridden by 2, 2 is overridden by 3.
 
 ***
 

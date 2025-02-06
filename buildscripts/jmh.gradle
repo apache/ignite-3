@@ -90,7 +90,7 @@ jmh {
     // threads = 1
 
     // Output time unit. Available time units are: [m, s, ms, us, ns].
-    // timeUnit = 'ns'
+    // timeUnit = 's'
 
     // Verbosity mode. Available modes are: [SILENT, NORMAL, EXTRA]
     // verbosity = 'NORMAL'
