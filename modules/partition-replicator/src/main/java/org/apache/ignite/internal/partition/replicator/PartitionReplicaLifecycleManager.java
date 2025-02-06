@@ -419,6 +419,8 @@ public class PartitionReplicaLifecycleManager extends
         return inBusyLockAsync(busyLock, () -> {
             int zoneId = zoneDescriptor.id();
 
+            zoneResourcesManager.registerZonePartitionCount(zoneId, zoneDescriptor.partitions());
+
             return getOrCreateAssignments(zoneDescriptor, causalityToken, catalogVersion)
                     .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, assignments))
                     .thenCompose(assignments -> createZoneReplicationNodes(zoneId, assignments));
@@ -496,10 +498,7 @@ public class PartitionReplicaLifecycleManager extends
                                 raftGroupEventsListener,
                                 // TODO: IGNITE-24371 - pass real isVolatile flag
                                 false,
-                                () -> zoneResourcesManager.getOrCreatePartitionStorage(
-                                        zoneDescriptorAt(zoneId, stableAssignments.timestamp()),
-                                        partId
-                                ),
+                                () -> zoneResourcesManager.getOrCreatePartitionStorage(zoneId, partId),
                                 busyLock
                         ).thenCompose(replica -> executeUnderZoneWriteLock(zoneId, () -> {
                             replicationGroupIds.add(replicaGrpId);

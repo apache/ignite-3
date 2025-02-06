@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
@@ -34,6 +33,8 @@ import org.apache.ignite.internal.worker.ThreadAssertions;
 class ZoneResourcesManager implements ManuallyCloseable {
     private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
+    private final Map<Integer, Integer> zonePartitionCounts = new ConcurrentHashMap<>();
+
     private final Map<Integer, ZoneResources> zoneResourcesMap = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -43,32 +44,43 @@ class ZoneResourcesManager implements ManuallyCloseable {
     }
 
     /**
-     * Gets or creates a transaction state storage for a zone partition.
+     * Registers zone partition count. This must be called before {@link #getOrCreatePartitionStorage(int, int)}.
      *
-     * @param zoneDescriptor Zone descriptor.
+     * @param zoneId ID of the zone.
+     * @param partitionCount Number of partitions the zone has.
+     */
+    void registerZonePartitionCount(int zoneId, int partitionCount) {
+        zonePartitionCounts.put(zoneId, partitionCount);
+    }
+
+    /**
+     * Gets or creates a transaction state storage for a zone partition. {@link #registerZonePartitionCount(int, int)} must be called before
+     * calling this method.
+     *
+     * @param zoneId ID of the zone.
      * @param partitionId Partition ID.
      */
-    TxStatePartitionStorage getOrCreatePartitionStorage(CatalogZoneDescriptor zoneDescriptor, int partitionId) {
+    TxStatePartitionStorage getOrCreatePartitionStorage(int zoneId, int partitionId) {
         return inBusyLock(busyLock, () -> {
+            Integer partitionCount = zonePartitionCounts.put(zoneId, partitionId);
+            assert partitionCount != null : "No partition count was registered for zone " + zoneId
+                    + "; make sure to register it when handling node startup and zone creation";
+
             ZoneResources zoneResources = zoneResourcesMap.computeIfAbsent(
-                    zoneDescriptor.id(),
-                    zoneId -> createZoneResources(zoneDescriptor)
+                    zoneId,
+                    id -> createZoneResources(id, partitionCount)
             );
 
             return zoneResources.txStateStorage.getOrCreatePartitionStorage(partitionId);
         });
     }
 
-    private ZoneResources createZoneResources(CatalogZoneDescriptor zoneDescriptor) {
-        return new ZoneResources(createTxStateStorage(zoneDescriptor));
+    private ZoneResources createZoneResources(int zoneId, int partitionCount) {
+        return new ZoneResources(createTxStateStorage(zoneId, partitionCount));
     }
 
-    private TxStateStorage createTxStateStorage(CatalogZoneDescriptor zoneDescriptor) {
-        TxStateStorage txStateStorage = new TxStateRocksDbStorage(
-                zoneDescriptor.id(),
-                zoneDescriptor.partitions(),
-                sharedTxStateStorage
-        );
+    private TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
+        TxStateStorage txStateStorage = new TxStateRocksDbStorage(zoneId, partitionCount, sharedTxStateStorage);
 
         if (ThreadAssertions.enabled()) {
             txStateStorage = new ThreadAssertingTxStateStorage(txStateStorage);

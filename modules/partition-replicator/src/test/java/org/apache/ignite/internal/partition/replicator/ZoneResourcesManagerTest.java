@@ -22,12 +22,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -51,9 +49,6 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
     private TxStateRocksDbSharedStorage sharedStorage;
 
     @Mock
-    private CatalogZoneDescriptor zoneDescriptor;
-
-    @Mock
     private LogSyncer logSyncer;
 
     private ZoneResourcesManager manager;
@@ -73,8 +68,6 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
 
         manager = new ZoneResourcesManager(sharedStorage);
 
-        when(zoneDescriptor.partitions()).thenReturn(10);
-
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
@@ -85,8 +78,10 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void createsTxStatePartitionStorage() {
+        manager.registerZonePartitionCount(1, 10);
+
         TxStatePartitionStorage txStatePartitionStorage = bypassingThreadAssertions(
-                () -> manager.getOrCreatePartitionStorage(zoneDescriptor, 1)
+                () -> manager.getOrCreatePartitionStorage(1, 1)
         );
 
         assertThat(txStatePartitionStorage, is(notNullValue()));
