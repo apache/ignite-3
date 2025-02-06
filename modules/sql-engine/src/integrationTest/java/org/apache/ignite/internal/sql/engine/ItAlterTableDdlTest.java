@@ -345,13 +345,13 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARCHAR length 10000000 must be between 1 and 65536 [column=VAL2]",
+                "VARCHAR length 10000000 must be between 1 and 65536. [column=VAL2]",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(10000000)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARCHAR length 10000000 must be between 1 and 65536 [column=VAL2]",
+                "VARCHAR length 10000000 must be between 1 and 65536. [column=VAL2]",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(10000000) ")
         );
 
@@ -359,13 +359,13 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "BINARY length 10000000 must be between 1 and 65536 [column=VAL2]",
+                "BINARY length 10000000 must be between 1 and 65536. [column=VAL2]",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(10000000)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARBINARY length 10000000 must be between 1 and 65536 [column=VAL2]",
+                "VARBINARY length 10000000 must be between 1 and 65536. [column=VAL2]",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 VARBINARY(10000000)")
         );
 
@@ -373,13 +373,13 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "DECIMAL precision 10000000 must be between 1 and 32767 [column=VAL2]",
+                "DECIMAL precision 10000000 must be between 1 and 32767. [column=VAL2]",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 DECIMAL(10000000)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "DECIMAL scale 10000000 must be between 0 and 32767 [column=VAL2]",
+                "DECIMAL scale 10000000 must be between 0 and 32767. [column=VAL2]",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 DECIMAL(100, 10000000)")
         );
 
@@ -387,7 +387,7 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "TIME precision 10000000 must be between 0 and 9 [column=VAL2]",
+                "TIME precision 10000000 must be between 0 and 9. [column=VAL2]",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 TIME(10000000)")
         );
 
@@ -395,7 +395,7 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "TIMESTAMP precision 10000000 must be between 0 and 9 [column=VAL2]",
+                "TIMESTAMP precision 10000000 must be between 0 and 9. [column=VAL2]",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 TIMESTAMP(10000000)")
         );
     }

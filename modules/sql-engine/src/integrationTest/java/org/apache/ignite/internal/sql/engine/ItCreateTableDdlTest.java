@@ -523,19 +523,19 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARCHAR length 0 must be between 1 and 65536 [column=ID]",
+                "VARCHAR length 0 must be between 1 and 65536. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARCHAR(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "BINARY length 0 must be between 1 and 65536 [column=ID]",
+                "BINARY length 0 must be between 1 and 65536. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARBINARY length 0 must be between 1 and 65536 [column=ID]",
+                "VARBINARY length 0 must be between 1 and 65536. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
         );
     }
@@ -603,7 +603,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARCHAR length 10000000 must be between 1 and 65536 [column=VAL]",
+                "VARCHAR length 10000000 must be between 1 and 65536. [column=VAL]",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR(10000000) )")
         );
 
@@ -611,13 +611,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "BINARY length 10000000 must be between 1 and 65536 [column=VAL]",
+                "BINARY length 10000000 must be between 1 and 65536. [column=VAL]",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(10000000) )")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARBINARY length 10000000 must be between 1 and 65536 [column=VAL]",
+                "VARBINARY length 10000000 must be between 1 and 65536. [column=VAL]",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARBINARY(10000000) )")
         );
 
@@ -625,7 +625,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "DECIMAL precision 10000000 must be between 1 and 32767 [column=VAL]",
+                "DECIMAL precision 10000000 must be between 1 and 32767. [column=VAL]",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(10000000) )")
         );
 

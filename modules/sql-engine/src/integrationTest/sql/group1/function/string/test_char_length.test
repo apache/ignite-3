@@ -35,7 +35,7 @@ SELECT char_length(null)
 NULL
 
 
-statement error: VARCHAR length 0 must be between 1 and 65536 [column=C1]
+statement error: VARCHAR length 0 must be between 1 and 65536. [column=C1]
 CREATE TABLE t_invalid_length(c1 VARCHAR(0));
 
 # length shouldn't be zero;

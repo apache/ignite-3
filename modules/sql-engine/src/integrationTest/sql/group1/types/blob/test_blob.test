@@ -76,10 +76,10 @@ SELECT NULL::VARBINARY
 ----
 NULL
 
-statement error: BINARY length 0 must be between 1 and 65536 [column=C1]
+statement error: BINARY length 0 must be between 1 and 65536. [column=C1]
 CREATE TABLE t_invalid_length(c1 BINARY(0));
 
-statement error: VARBINARY length 0 must be between 1 and 65536 [column=C1]
+statement error: VARBINARY length 0 must be between 1 and 65536. [column=C1]
 CREATE TABLE t_invalid_length(c1 VARBINARY(0));
 
 statement error: BINARY length 0 must be between 1 and 65536
