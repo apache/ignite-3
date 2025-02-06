@@ -161,6 +161,8 @@ NOTE: now you can not pass custom jmh arguments through the command line.
 You can only override them in the `jmh` block in the `build.gradle`/`jmh.gradle` file or use annotations in the benchmark class. 
 The only exception is the `-PjmhBench`.
 
+For more details see the [issue](https://github.com/melix/jmh-gradle-plugin/issues/239).
+
 Here is how configurations override each other:
 1. Annotations
 2. `jmh` block in the `build.gradle` file
