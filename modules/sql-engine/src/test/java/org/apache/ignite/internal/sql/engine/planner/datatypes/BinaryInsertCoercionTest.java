@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
+import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.sql.type.SqlTypeName.BINARY_TYPES;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -36,10 +38,12 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -50,6 +54,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which values.
  */
 public class BinaryInsertCoercionTest extends BaseTypeCoercionTest {
+    private static final NativeType DYN_VARBINARY_TYPE = NativeTypes.blobOf(PRECISION_NOT_SPECIFIED);
+
     @ParameterizedTest
     @MethodSource("args")
     public void insert(
@@ -58,9 +64,7 @@ public class BinaryInsertCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithSingleColumnTable(pair.first());
 
-        int length = ((VarlenNativeType) pair.second()).length();
-
-        String byteVal = "x'" + "01".repeat(length) + "'";
+        String byteVal = generateLiteral(pair.second(), false);
 
         assertPlan("INSERT INTO T VALUES(" + byteVal + ")", schema, keyValOperandMatcher(operandMatcher)::matches, List.of());
     }
@@ -73,11 +77,18 @@ public class BinaryInsertCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithSingleColumnTable(pair.first());
 
-        int length = ((VarlenNativeType) pair.second()).length();
-
-        byte[] byteVal = new byte[length];
+        Object byteVal = generateValueByType(pair.second());
 
         assertPlan("INSERT INTO T VALUES(?)", schema, keyValOperandMatcher(operandMatcher)::matches, List.of(byteVal));
+    }
+
+    /**
+     * This test ensures that {@link #args()} and {@link #argsDyn()} doesn't miss any type pair from {@link BinaryPair}.
+     */
+    @Test
+    void insertArgsIncludesAllTypePairs() {
+        checkIncludesAllTypePairs(args(), BinaryPair.class);
+        checkIncludesAllTypePairs(argsDyn(), BinaryPair.class);
     }
 
     private static Matcher<IgniteRel> keyValOperandMatcher(Matcher<RexNode> matcher) {
@@ -102,33 +113,45 @@ public class BinaryInsertCoercionTest extends BaseTypeCoercionTest {
 
     private static Stream<Arguments> args() {
         return Stream.of(
-                forTypePair(BinaryPair.VARBINARY_VARBINARY2)
-                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_2)),
-
-                forTypePair(BinaryPair.VARBINARY1_VARBINARY2)
-                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_2)),
-
-                forTypePair(BinaryPair.VARBINARY2_VARBINARY1)
+                forTypePair(BinaryPair.VARBINARY_1_VARBINARY_1)
                         .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_1)),
 
-                forTypePair(BinaryPair.VARBINARY1_VARBINARY1)
-                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_1))
+                forTypePair(BinaryPair.VARBINARY_1_VARBINARY_2)
+                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_2)),
+
+                forTypePair(BinaryPair.VARBINARY_1_VARBINARY_128)
+                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_128)),
+
+                forTypePair(BinaryPair.VARBINARY_2_VARBINARY_2)
+                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_2)),
+
+                forTypePair(BinaryPair.VARBINARY_2_VARBINARY_128)
+                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_128)),
+
+                forTypePair(BinaryPair.VARBINARY_128_VARBINARY_128)
+                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY_128))
         );
     }
 
     private static Stream<Arguments> argsDyn() {
         return Stream.of(
-                forTypePair(BinaryPair.VARBINARY_VARBINARY2)
-                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY)),
+                forTypePair(BinaryPair.VARBINARY_1_VARBINARY_1)
+                        .opMatches(ofBinaryTypeWithoutCast(DYN_VARBINARY_TYPE)),
 
-                forTypePair(BinaryPair.VARBINARY1_VARBINARY2)
-                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY)),
+                forTypePair(BinaryPair.VARBINARY_1_VARBINARY_2)
+                        .opMatches(ofBinaryTypeWithoutCast(DYN_VARBINARY_TYPE)),
 
-                forTypePair(BinaryPair.VARBINARY2_VARBINARY1)
-                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY)),
+                forTypePair(BinaryPair.VARBINARY_1_VARBINARY_128)
+                        .opMatches(ofBinaryTypeWithoutCast(DYN_VARBINARY_TYPE)),
 
-                forTypePair(BinaryPair.VARBINARY1_VARBINARY1)
-                        .opMatches(ofBinaryTypeWithoutCast(Types.VARBINARY))
+                forTypePair(BinaryPair.VARBINARY_2_VARBINARY_2)
+                        .opMatches(ofBinaryTypeWithoutCast(DYN_VARBINARY_TYPE)),
+
+                forTypePair(BinaryPair.VARBINARY_2_VARBINARY_128)
+                        .opMatches(ofBinaryTypeWithoutCast(DYN_VARBINARY_TYPE)),
+
+                forTypePair(BinaryPair.VARBINARY_128_VARBINARY_128)
+                        .opMatches(ofBinaryTypeWithoutCast(DYN_VARBINARY_TYPE))
         );
     }
 

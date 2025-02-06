@@ -757,13 +757,12 @@ public class TypeUtils {
 
             int colPrecision = colType.getPrecision();
 
+            assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
+
             // Validate and trim if needed.
 
             if (BINARY_TYPES.contains(typeName)) {
                 assert data instanceof ByteString;
-                if (typeName == SqlTypeName.VARBINARY && colType.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED) {
-                    continue;
-                }
 
                 ByteString byteString = (ByteString) data;
 
@@ -784,9 +783,6 @@ public class TypeUtils {
 
             if (CHAR_TYPES.contains(typeName)) {
                 assert data instanceof String;
-                if (typeName == SqlTypeName.VARCHAR && colType.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED) {
-                    continue;
-                }
 
                 String str = (String) data;
 

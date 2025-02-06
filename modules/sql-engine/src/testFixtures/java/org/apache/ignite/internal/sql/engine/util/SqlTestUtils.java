@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -426,7 +425,8 @@ public class SqlTestUtils {
             case DATETIME:
                 return "TIMESTAMP '" + ((LocalDateTime) value).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'";
             case BYTE_ARRAY:
-                return "X'" + StringUtils.toHexString(value.toString().getBytes(StandardCharsets.UTF_8)) + "'";
+                assert value instanceof byte[];
+                return "X'" + StringUtils.toHexString((byte[]) value) + "'";
             case NULL:
             case UUID:
             case PERIOD:

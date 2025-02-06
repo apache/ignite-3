@@ -23,10 +23,14 @@ import org.apache.ignite.internal.type.NativeType;
  * Enumerates possible binary type pairs for test purposes.
  */
 public enum BinaryPair implements TypePair {
-    VARBINARY1_VARBINARY2(Types.VARBINARY_1, Types.VARBINARY_2),
-    VARBINARY2_VARBINARY1(Types.VARBINARY_2, Types.VARBINARY_1),
-    VARBINARY1_VARBINARY1(Types.VARBINARY_1, Types.VARBINARY_1),
-    VARBINARY_VARBINARY2(Types.VARBINARY, Types.VARBINARY_2);
+    VARBINARY_1_VARBINARY_1(Types.VARBINARY_1, Types.VARBINARY_1),
+    VARBINARY_1_VARBINARY_2(Types.VARBINARY_1, Types.VARBINARY_2),
+    VARBINARY_1_VARBINARY_128(Types.VARBINARY_1, Types.VARBINARY_128),
+
+    VARBINARY_2_VARBINARY_2(Types.VARBINARY_2, Types.VARBINARY_2),
+    VARBINARY_2_VARBINARY_128(Types.VARBINARY_2, Types.VARBINARY_128),
+
+    VARBINARY_128_VARBINARY_128(Types.VARBINARY_128, Types.VARBINARY_128);
 
     private final NativeType first;
     private final NativeType second;
