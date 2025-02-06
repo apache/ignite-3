@@ -29,14 +29,14 @@ apply from: "$rootDir/buildscripts/javadoc.gradle"
 
 repositories {
     maven {
+        url = uri('https://repo.maven.apache.org/maven2/')
+    }
+
+    maven {
         url = uri('https://repository.apache.org/snapshots')
         mavenContent {
             snapshotsOnly()
         }
-    }
-
-    maven {
-        url = uri('https://repo.maven.apache.org/maven2/')
     }
 }
 
@@ -130,16 +130,16 @@ subprojects {
 
     repositories {
         maven {
-            url = uri('https://repository.apache.org/snapshots')
+            url = uri('https://repo.maven.apache.org/maven2/')
             mavenContent {
-                snapshotsOnly()
+                releasesOnly()
             }
         }
 
         maven {
-            url = uri('https://repo.maven.apache.org/maven2/')
+            url = uri('https://repository.apache.org/snapshots')
             mavenContent {
-                releasesOnly()
+                snapshotsOnly()
             }
         }
 
