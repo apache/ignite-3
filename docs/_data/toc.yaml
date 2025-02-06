@@ -54,6 +54,8 @@
           url: developers-guide/sql/calcite-based-sql-engine
         - title: JDBC Driver
           url: developers-guide/sql/jdbc-driver
+        - title: SQL API
+          url: developers-guide/sql/sql-api
         - title: System Views
           url: developers-guide/sql/system-views
         - title: ODBC Driver
