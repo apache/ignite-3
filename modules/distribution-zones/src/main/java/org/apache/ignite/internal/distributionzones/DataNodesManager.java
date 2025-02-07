@@ -19,6 +19,8 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -28,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
@@ -36,6 +39,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
@@ -737,11 +741,42 @@ public class DataNodesManager {
 
     public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp) {
         return getValueFromMetaStorage(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize)
-                .thenApply(history -> {
+                .thenCompose(history -> {
+                    if (history == null) {
+                        // It means that the zone was created but the data nodes value had not been updated yet.
+                        // So the data nodes value will be equals to the logical topology.
+                        return defaultNodesFromTopology().thenApply(topology -> {
+                            CatalogZoneDescriptor zone = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneId);
+
+                            return filterDataNodes(topology, zone);
+                        });
+                    }
+
                     Pair<HybridTimestamp, Set<NodeWithAttributes>> entry = history.dataNodesForTimestamp(timestamp);
 
-                    return entry.getSecond().stream().map(NodeWithAttributes::nodeName).collect(toSet());
-                });
+                    return completedFuture(entry.getSecond());
+                })
+                .thenApply(nodes -> nodes.stream().map(NodeWithAttributes::nodeName).collect(toSet()));
+    }
+
+    private CompletableFuture<Set<NodeWithAttributes>> defaultNodesFromTopology() {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            CompletableFuture<Entry> topologyFut = metaStorageManager.get(zonesLogicalTopologyKey());
+
+            return topologyFut.thenApply(topologyEntry -> {
+                if (topologyEntry != null && topologyEntry.value() != null) {
+                    return deserializeLogicalTopologySet(topologyEntry.value());
+                } else {
+                    return emptySet();
+                }
+            });
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private static Condition dataNodesHistoryEqualToOrNotExists(int zoneId, DataNodesHistory history) {
@@ -807,7 +842,7 @@ public class DataNodesManager {
     private CompletableFuture<DataNodeHistoryContext> getDataNodeHistoryContextMsLocally(List<ByteArray> keys) {
         List<Entry> entries = metaStorageManager.getAllLocally(keys);
 
-        return CompletableFuture.completedFuture(dataNodeHistoryContextFromValues(entries));
+        return completedFuture(dataNodeHistoryContextFromValues(entries));
     }
 
     @Nullable
