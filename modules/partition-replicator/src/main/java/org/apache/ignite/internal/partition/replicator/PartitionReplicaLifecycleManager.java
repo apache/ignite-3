@@ -517,6 +517,7 @@ public class PartitionReplicaLifecycleManager extends
                                 zonePartitionId,
                                 raftClient -> new ZonePartitionReplicaListener(
                                         clockService,
+                                        catalogMgr,
                                         new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
                                 new FailFastSnapshotStorageFactory(),
                                 stablePeersAndLearners,
