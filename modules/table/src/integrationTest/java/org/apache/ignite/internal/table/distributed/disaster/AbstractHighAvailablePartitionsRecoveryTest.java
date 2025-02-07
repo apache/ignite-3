@@ -17,25 +17,32 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
+import static java.util.Map.of;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +51,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -67,6 +75,11 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionException;
 
 /** Parent for tests of HA zones feature. */
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
@@ -81,6 +94,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private static final String SC_TABLE_NAME = "SC_TABLE";
 
     private static final int PARTITIONS_NUMBER = 2;
+
+    private static final int ENTRIES = 2;
 
     static Set<Integer> PARTITION_IDS = IntStream
             .range(0, PARTITIONS_NUMBER)
@@ -233,7 +248,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
         return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
-                .map(tableId -> partitionAssignments(node.metaStorageManager(), tableId, partNum).join())
+                .map(tableId -> stablePartitionAssignments(node.metaStorageManager(), tableId, partNum).join())
                 .orElse(Set.of());
     }
 
@@ -415,5 +430,76 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .stream(indexes)
                 .map(i -> node(i).name())
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private List<Integer> getNodesWithRaftGroups(IgniteImpl node0, int partId, int tableId, String zoneName) {
+        CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
+                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
+        assertThat(partitionStatesFut, willCompleteSuccessfully());
+
+        LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
+
+        if (partitionStates == null) {
+            return emptyList();
+        }
+
+        return partitionStates.keySet()
+                .stream()
+                .map(cluster::nodeIndex)
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    void assertRaftGroupsOnNodes(IgniteImpl node0, int partId, int tableId, String zoneName, Integer... expected)
+            throws InterruptedException {
+        assertTrue(
+                waitForCondition(() -> List.of(expected).equals(getNodesWithRaftGroups(node0, partId, tableId, zoneName)), 5000),
+                () -> "Expected: " + List.of(expected) + ", actual: " + getNodesWithRaftGroups(node0, partId, tableId, zoneName)
+        );
+    }
+
+    static List<Throwable> insertValues(Table table, int offset) {
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        List<Throwable> errors = new ArrayList<>();
+
+        for (int i = 0; i < ENTRIES; i++) {
+            Tuple key = Tuple.create(of("id", i));
+
+            CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
+
+            try {
+                insertFuture.get(10, SECONDS);
+
+                Tuple value = keyValueView.get(null, key);
+                assertNotNull(value);
+            } catch (Throwable e) {
+                Throwable cause = unwrapCause(e);
+
+                if (cause instanceof IgniteException && isPrimaryReplicaHasChangedException((IgniteException) cause)
+                        || cause instanceof TransactionException
+                        || cause instanceof TimeoutException
+                ) {
+                    errors.add(cause);
+                } else {
+                    fail("Unexpected exception", e);
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    static void assertValuesPresent(Table table) {
+        IntStream.range(0, ENTRIES).forEach(i -> {
+            CompletableFuture<Tuple> fut = table.keyValueView().getAsync(null, Tuple.create(of("id", i)));
+            assertThat(fut, willCompleteSuccessfully());
+
+            assertNotNull(fut.join());
+        });
+    }
+
+    private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
+        return cause.getMessage() != null && cause.getMessage().contains("The primary replica has changed");
     }
 }
