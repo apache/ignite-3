@@ -433,7 +433,11 @@ public class CatalogUtils {
      * @throws CatalogValidationException If schema with given name is not exists.
      */
     public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
-        return schema(catalog, name, true);
+        CatalogSchemaDescriptor schemaDescriptor = schema(catalog, name, true);
+
+        assert schemaDescriptor != null;
+
+        return schemaDescriptor;
     }
 
     /**
@@ -463,7 +467,7 @@ public class CatalogUtils {
      * @return Schema with given name. Never null.
      * @throws CatalogValidationException If schema with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
-    public static CatalogSchemaDescriptor schema(Catalog catalog, String name, boolean shouldThrowIfNotExists)
+    public static @Nullable CatalogSchemaDescriptor schema(Catalog catalog, String name, boolean shouldThrowIfNotExists)
             throws CatalogValidationException {
         name = Objects.requireNonNull(name, "schemaName");
 
