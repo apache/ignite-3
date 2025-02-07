@@ -753,7 +753,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for type CHAR must be at least 1",
+                "CHAR length 0 must be between 1 and 65536",
                 () -> sql("SELECT CAST(1 AS CHAR(0))")
         );
 
@@ -762,7 +762,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for type VARCHAR must be at least 1",
+                "VARCHAR length 0 must be between 1 and 65536",
                 () -> sql("SELECT CAST(1 AS VARCHAR(0))")
         );
 
@@ -770,15 +770,76 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for type BINARY must be at least 1",
+                "BINARY length 0 must be between 1 and 65536",
                 () -> sql("SELECT CAST(x'0101' AS BINARY(0))")
         );
         // Varbinary
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for type VARBINARY must be at least 1",
+                "VARBINARY length 0 must be between 1 and 65536",
                 () -> sql("SELECT CAST(x'0101' AS VARBINARY(0))")
+        );
+    }
+
+    @Test
+    public void testInvalidTypeInCast() {
+        // Char
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "CHAR length 100000000 must be between 1 and 65536",
+                () -> sql("SELECT CAST(1 AS CHAR(100000000))")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARCHAR length 100000000 must be between 1 and 65536",
+                () -> sql("SELECT CAST(1 AS VARCHAR(100000000))")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARBINARY length 100000000 must be between 1 and 65536",
+                () -> sql("SELECT CAST(x'01' AS VARBINARY(100000000))")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "BINARY length 100000000 must be between 1 and 65536",
+                () -> sql("SELECT CAST(x'01' AS BINARY(100000000))")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL precision 100000000 must be between 1 and 32767",
+                () -> sql("SELECT CAST(1 AS DECIMAL(100000000))")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL scale 100000000 must be between 0 and 32767",
+                () -> sql("SELECT CAST(1 AS DECIMAL(100, 100000000))")
+        );
+
+        // Time
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIME precision 100000000 must be between 0 and 9",
+                () -> sql("SELECT CAST('00:00:00' AS TIME(100000000))")
+        );
+
+        // Timestamp
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIMESTAMP precision 100000000 must be between 0 and 9",
+                () -> sql("SELECT CAST('2000-01-01 00:00:00' AS TIMESTAMP(100000000))")
         );
     }
 

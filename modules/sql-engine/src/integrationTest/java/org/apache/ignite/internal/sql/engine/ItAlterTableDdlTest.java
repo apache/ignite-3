@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -333,5 +334,128 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                     .returns(9, null)
                     .check();
         }
+    }
+
+
+    @Test
+    public void testAddColumnWithIncorrectType() {
+        sql("CREATE TABLE test(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        // Char
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARCHAR length 10000000 must be between 1 and 65536. [column=VAL2]",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(10000000)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARCHAR length 10000000 must be between 1 and 65536. [column=VAL2]",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(10000000) ")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "BINARY length 10000000 must be between 1 and 65536. [column=VAL2]",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(10000000)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARBINARY length 10000000 must be between 1 and 65536. [column=VAL2]",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 VARBINARY(10000000)")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL precision 10000000 must be between 1 and 32767. [column=VAL2]",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 DECIMAL(10000000)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL scale 10000000 must be between 0 and 32767. [column=VAL2]",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 DECIMAL(100, 10000000)")
+        );
+
+        // Time
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIME precision 10000000 must be between 0 and 9. [column=VAL2]",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 TIME(10000000)")
+        );
+
+        // Timestamp
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIMESTAMP precision 10000000 must be between 0 and 9. [column=VAL2]",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 TIMESTAMP(10000000)")
+        );
+    }
+
+    @Test
+    public void testAddColumnWithNotFittingDefaultValues() {
+        // Char
+
+        String longString = "1".repeat(101);
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL2'",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(100) DEFAULT x'" + longString + "'")
+        );
+
+        // Binary
+
+        String longByteString = "01".repeat(101);
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL2'",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(100) DEFAULT x'" + longByteString + "'")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL2'",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 VARBINARY(100) DEFAULT x'" + longByteString + "'")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL2'",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 DECIMAL(5) DEFAULT 1000000")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL2'",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 DECIMAL(3, 2) DEFAULT 333.123")
+        );
+
+        // Time
+
+        sql("CREATE TABLE test_time (id INT PRIMARY KEY, val INT)");
+        sql("ALTER TABLE test_time ADD COLUMN val2 TIME(2) DEFAULT '00:00:00.1234'");
+        sql("INSERT INTO test_time VALUES (1, 1, DEFAULT)");
+        assertQuery("SELECT val2 FROM test_time")
+                .returns(LocalTime.of(0, 0, 0, 120_000_000))
+                .check();
+
+        // Timestamp
+
+        sql("CREATE TABLE test_ts (id INT PRIMARY KEY, val INT)");
+        sql("ALTER TABLE test_ts ADD COLUMN val2 TIMESTAMP(2) DEFAULT '2000-01-01 00:00:00.1234'");
+        sql("INSERT INTO test_ts VALUES (1, 1, DEFAULT)");
+        assertQuery("SELECT val2 FROM test_ts")
+                .returns(LocalDateTime.of(2000, 1, 1, 0, 0, 0, 120_000_000))
+                .check();
     }
 }

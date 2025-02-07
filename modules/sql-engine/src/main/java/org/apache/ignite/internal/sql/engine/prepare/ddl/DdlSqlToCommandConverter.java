@@ -434,7 +434,19 @@ public class DdlSqlToCommandConverter {
         assert col.name.isSimple();
 
         String name = col.name.getSimple();
-        RelDataType relType = planner.convert(col.dataType, nullable);
+
+        RelDataType relType;
+        try {
+            relType = planner.convert(col.dataType, nullable);
+        } catch (CalciteContextException e) {
+            String errorMessage = e.getMessage();
+            if (errorMessage == null) {
+                errorMessage = "Unable to resolve data type";
+            }
+
+            String message = format("{} [column={}]", errorMessage, name);
+            throw new SqlException(STMT_VALIDATION_ERR, message, e);
+        }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
         //  Remove this after interval type support is added.

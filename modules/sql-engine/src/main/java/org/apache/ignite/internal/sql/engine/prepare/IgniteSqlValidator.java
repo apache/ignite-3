@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
@@ -45,6 +47,7 @@ import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.runtime.PairList;
 import org.apache.calcite.runtime.Resources;
@@ -53,6 +56,7 @@ import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.JoinType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDataTypeSpec;
@@ -71,6 +75,8 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlTypeNameSpec;
+import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.SqlWithItem;
@@ -78,6 +84,7 @@ import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.BasicSqlType;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
@@ -105,6 +112,7 @@ import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -539,9 +547,26 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public void validateLiteral(SqlLiteral literal) {
-        if (literal.getTypeName() != SqlTypeName.DECIMAL) {
+        SqlTypeName typeName = literal.getTypeName();
+
+        if (typeName != SqlTypeName.DECIMAL) {
             super.validateLiteral(literal);
         }
+
+        // SqlLiteral createSqlType can not be called on
+        // SqlUnknownLiteral because SELECT TIMESTAMP 'valid-ts' is a SqlUnknownLiteral later converted to timestamp literal
+        if (literal instanceof SqlUnknownLiteral) {
+            return;
+        } else if (literal.getClass() == SqlLiteral.class
+                && !SqlTypeName.CHAR_TYPES.contains(typeName)
+                && !SqlTypeName.INTERVAL_TYPES.contains(typeName)
+                && !SqlTypeName.BINARY_TYPES.contains(typeName)) {
+            // createSqlType can not be called in this case as well.
+            return;
+        }
+
+        RelDataType dataType = literal.createSqlType(typeFactory);
+        validatePrecisionScale(literal, dataType, dataType.getPrecision(), dataType.getScale());
     }
 
     @Override
@@ -932,13 +957,64 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public void validateDataType(SqlDataTypeSpec dataType) {
         RelDataType type = dataType.deriveType(this);
 
-        if (SqlTypeUtil.isString(type) && type.getPrecision() == 0) {
-            String typeName = type.getSqlTypeName().getSpaceName();
+        SqlTypeNameSpec sqlTypeNameSpec = dataType.getTypeNameSpec();
+        if (sqlTypeNameSpec instanceof SqlBasicTypeNameSpec) {
+            SqlBasicTypeNameSpec typeNameSpec = (SqlBasicTypeNameSpec) sqlTypeNameSpec;
 
-            throw newValidationError(dataType, IgniteResource.INSTANCE.invalidStringLength(typeName));
+            validatePrecisionScale(dataType, type, typeNameSpec.getPrecision(), typeNameSpec.getScale());
         }
 
         super.validateDataType(dataType);
+    }
+
+    private void validatePrecisionScale(
+            SqlNode typeNode,
+            RelDataType type,
+            int precision,
+            int scale
+    ) {
+        // TypeFactory sets type's precision to maxPrecision if it exceeds type's maxPrecision.
+        // Use precision/scale from type name spec to correct this issue.
+        // Negative values are rejected by the parser so we need to check only max values.
+
+        SqlTypeName typeName = type.getSqlTypeName();
+        ColumnType columnType = TypeUtils.columnType(type);
+        boolean allowsLength = columnType.lengthAllowed();
+        boolean allowsScale = columnType.scaleAllowed();
+        boolean allowsPrecision = columnType.precisionAllowed();
+
+        RelDataTypeSystem typeSystem = typeFactory.getTypeSystem();
+
+        if (precision != PRECISION_NOT_SPECIFIED && (allowsPrecision || allowsLength)) {
+            int minPrecision = typeSystem.getMinPrecision(typeName);
+            int maxPrecision = typeSystem.getMaxPrecision(typeName);
+
+            // Empty varchar/bytestring literals have zero precision
+            if (typeNode instanceof SqlLiteral && SqlTypeFamily.STRING.contains(type)) {
+                minPrecision = 0;
+            }
+
+            if (precision < minPrecision || precision > maxPrecision) {
+                String spaceName = typeName.getSpaceName();
+                if (allowsLength) {
+                    throw newValidationError(typeNode,
+                            IgniteResource.INSTANCE.invalidLengthForType(spaceName, precision, minPrecision, maxPrecision));
+                } else {
+                    throw newValidationError(typeNode,
+                            IgniteResource.INSTANCE.invalidPrecisionForType(spaceName, precision, minPrecision, maxPrecision));
+                }
+            }
+        }
+
+        if (scale != SCALE_NOT_SPECIFIED && allowsScale) {
+            int minScale = typeSystem.getMinScale(typeName);
+            int maxScale = typeSystem.getMaxScale(typeName);
+
+            if (scale < minScale || scale > maxScale) {
+                throw newValidationError(typeNode,
+                        IgniteResource.INSTANCE.invalidScaleForType(typeName.getSpaceName(), scale, minScale, maxScale));
+            }
+        }
     }
 
     @Override

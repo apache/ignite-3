@@ -316,7 +316,7 @@ public class CatalogTestUtils {
     /** Append precision\scale according to type requirement. */
     public static Builder initializeColumnWithDefaults(ColumnType type, Builder colBuilder) {
         if (type.precisionAllowed()) {
-            colBuilder.precision(11);
+            colBuilder.precision(4);
         }
 
         if (type.scaleAllowed()) {
