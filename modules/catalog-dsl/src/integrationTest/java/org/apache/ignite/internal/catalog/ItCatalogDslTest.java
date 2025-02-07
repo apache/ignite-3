@@ -218,7 +218,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         assertThrows(
                 SqlException.class,
                 () -> catalog().dropTable(nameWithMissedSchema),
-                "Schema not found [schemaName=" + missedSchemaName + "]"
+                "Schema with name '" + missedSchemaName + "' not found"
         );
     }
 
