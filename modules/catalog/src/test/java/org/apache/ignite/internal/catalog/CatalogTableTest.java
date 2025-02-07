@@ -390,14 +390,16 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropColumnWithNotExistingTable() {
-        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "key")), willThrowFast(TableNotFoundValidationException.class));
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "key")),
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found."));
     }
 
     @Test
     public void testDropColumnWithMissingTableColumns() {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
-        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "fake")), willThrowFast(CatalogValidationException.class));
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "fake")),
+                willThrowFast(CatalogValidationException.class, "Column with name 'fake' not found in table 'PUBLIC.test_table'."));
     }
 
     @Test
@@ -427,7 +429,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     @Test
     public void testAddColumnWithNotExistingTable() {
         assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("key", INT32))),
-                willThrowFast(TableNotFoundValidationException.class));
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found."));
     }
 
     @Test
@@ -435,7 +437,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
         assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("ID", INT32))),
-                willThrowFast(CatalogValidationException.class));
+                willThrowFast(CatalogValidationException.class, "Column with name 'ID' already exists."));
     }
 
     @Test
@@ -602,7 +604,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         // Try to add column without table.
         assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32))),
-                willThrow(TableNotFoundValidationException.class));
+                willThrow(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found."));
         verifyNoInteractions(eventListener);
 
         // Create table.
@@ -1097,7 +1099,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     public void testAlterColumnForNonExistingTableRejected() {
         int versionBefore = manager.latestCatalogVersion();
 
-        assertThat(changeColumn(TABLE_NAME, "ID", null, null, null), willThrowFast(TableNotFoundValidationException.class));
+        assertThat(changeColumn(TABLE_NAME, "ID", null, null, null),
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found."));
 
         int versionAfter = manager.latestCatalogVersion();
 

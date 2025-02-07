@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import java.util.Objects;
@@ -46,7 +45,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     }
 
     private static final TypeChangeValidationListener TYPE_CHANGE_VALIDATION_HANDLER = (pattern, originalType, newType) -> {
-        throw new CatalogValidationException(format(pattern, originalType, newType));
+        throw new CatalogValidationException(pattern, originalType, newType);
     };
 
     private final String columnName;
@@ -101,8 +100,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         CatalogTableColumnDescriptor origin = table.column(columnName);
 
         if (origin == null) {
-            throw new CatalogValidationException(format(
-                    "Column with name '{}' not found in table '{}.{}'", columnName, schemaName, tableName));
+            throw new CatalogValidationException("Column with name '{}' not found in table '{}.{}'.", columnName, schemaName, tableName);
         }
 
         if (table.isPrimaryKeyColumn(origin.name())) {
@@ -143,16 +141,16 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
     private void validatePkColumnChange(CatalogTableColumnDescriptor origin) {
         if (type != null && type != origin.type()) {
-            throw new CatalogValidationException("Changing the type of key column is not allowed");
+            throw new CatalogValidationException("Changing the type of key column is not allowed.");
         }
         if (precision != null && precision != origin.precision()) {
-            throw new CatalogValidationException("Changing the precision of key column is not allowed");
+            throw new CatalogValidationException("Changing the precision of key column is not allowed.");
         }
         if (scale != null && scale != origin.scale()) {
-            throw new CatalogValidationException("Changing the scale of key column is not allowed");
+            throw new CatalogValidationException("Changing the scale of key column is not allowed.");
         }
         if (nullable != null && nullable) {
-            throw new CatalogValidationException("Dropping NOT NULL constraint on key column is not allowed");
+            throw new CatalogValidationException("Dropping NOT NULL constraint on key column is not allowed.");
         }
         if (deferredDefault != null) {
             DefaultValue defaultValue = deferredDefault.derive(origin.type());
@@ -173,7 +171,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         CatalogUtils.validateColumnChange(origin, type, precision, scale, length, TYPE_CHANGE_VALIDATION_HANDLER);
 
         if (nullable != null && !nullable && origin.nullable()) {
-            throw new CatalogValidationException("Adding NOT NULL constraint is not allowed");
+            throw new CatalogValidationException("Adding NOT NULL constraint is not allowed.");
         }
     }
 

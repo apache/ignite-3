@@ -205,7 +205,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertNull(catalog.zone(zone.id()));
 
         // Try to drop non-existing zone.
-        assertThat(manager.execute(dropCommand), willThrow(DistributionZoneNotFoundValidationException.class));
+        assertThat(manager.execute(dropCommand),
+                willThrow(CatalogValidationException.class, "Distribution zone with name 'TEST_ZONE_NAME' not found."));
 
         // Operation increments catalog version.
         assertEquals(manager.activeCatalog(beforeDropTimestamp).version() + 1, catalog.version());
@@ -220,7 +221,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                     .zoneName(catalog.defaultZone().name())
                     .build();
 
-            assertThat(manager.execute(dropCommand), willThrow(DistributionZoneCantBeDroppedValidationException.class));
+            assertThat(manager.execute(dropCommand),
+                    willThrow(CatalogValidationException.class, "Default distribution zone can't be dropped: zoneName=Default."));
 
             assertSame(catalog, manager.activeCatalog(clock.nowLong()));
             assertEquals(catalog.version(), manager.latestCatalogVersion());
@@ -248,7 +250,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                     .zoneName(TEST_ZONE_NAME)
                     .build();
 
-            assertThat(manager.execute(dropCommand), willThrow(DistributionZoneCantBeDroppedValidationException.class));
+            assertThat(manager.execute(dropCommand),
+                    willThrow(CatalogValidationException.class, "Default distribution zone can't be dropped: zoneName=TEST_ZONE_NAME."));
 
             // Renamed default zone is still available.
             catalog = latestActiveCatalog();
@@ -337,7 +340,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .replicas(15)
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
-        assertThat(manager.execute(cmd), willThrow(DistributionZoneExistsValidationException.class));
+        assertThat(manager.execute(cmd),
+                willThrow(CatalogValidationException.class, "Distribution zone with name 'Default' already exists."));
 
         // Validate default zone wasn't changed.
         assertSame(defaultZone, latestActiveCatalog().zone(defaultZone.name()));
@@ -414,7 +418,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
-        assertThat(manager.execute(cmd), willThrowFast(DistributionZoneExistsValidationException.class));
+        assertThat(manager.execute(cmd), willThrowFast(CatalogValidationException.class, "Distribution zone with name 'TEST_ZONE_NAME'"));
 
         // Validate zone was NOT changed
         Catalog catalog = latestActiveCatalog();

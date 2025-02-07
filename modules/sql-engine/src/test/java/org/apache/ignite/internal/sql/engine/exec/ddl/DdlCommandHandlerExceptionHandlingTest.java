@@ -31,8 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -82,7 +81,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @Test
     public void testZoneAlreadyExistsOnCreate1() {
-        assertThat(handleCreateZoneCommand(false), willThrow(DistributionZoneExistsValidationException.class));
+        assertThat(handleCreateZoneCommand(false),
+                willThrow(CatalogValidationException.class, "Distribution zone with name 'zone1' already exists."));
     }
 
     @Test
@@ -96,7 +96,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 .zoneName(ZONE_NAME)
                 .build();
 
-        assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundValidationException.class));
+        assertThat(commandHandler.handle(cmd),
+                willThrow(CatalogValidationException.class, "Distribution zone with name 'zone1' not found."));
     }
 
     @Test
