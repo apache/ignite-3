@@ -706,7 +706,7 @@ public class TypeUtils {
         }
     }
 
-    /** Check limitation for character and binary types and throws exception if row does not fit into type defined
+    /** Check limitation for character and binary types and throws exception if row does not fit into type defined.
      *  <br>
      *  Store assignment section defines:
      *  If the declared type of T is fixed-length character string with length in characters L and
@@ -721,10 +721,10 @@ public class TypeUtils {
      *  If the declared type of T is binary string and the length in octets M of V is greater than
      *   the maximum length in octets L of T, then:
      *  <br>
-     *  1) If the rightmost M0L octets of V are all equal to X’00’, then the value of T is set to
+     *  1) If the rightmost M-L octets of V are all equal to X’00’, then the value of T is set to
      *   the first L octets of V and the length in octets of T is set to L.
      *  <br>
-     *  2) If one or more of the rightmost M0L octets of V are not equal to X’00’, then an
+     *  2) If one or more of the rightmost M-L octets of V are not equal to X’00’, then an
      *   exception condition is raised: data exception — string data, right truncation.
      */
     public static <RowT> RowT validateStringTypesOverflowAndTrimIfPossible(
