@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -48,11 +49,13 @@ import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -78,6 +81,13 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
             "C",
             UUID.randomUUID(),
             Map.of("region", "US"),
+            List.of("default")
+    );
+
+    private static final NodeWithAttributes C_DIFFERENT_ATTRS = new NodeWithAttributes(
+            "C",
+            UUID.randomUUID(),
+            Map.of("region", "EU"),
             List.of("default")
     );
 
@@ -348,6 +358,82 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(partitionResetTriggered::get, 2000));
     }
 
+    @Test
+    public void nodeRejoin() throws InterruptedException {
+        removeNodes(Set.of(A));
+        addNodes(Set.of(A));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B));
+    }
+
+    @Test
+    public void nodeRejoinWithAnotherNodeJoin() throws InterruptedException {
+        addNodes(Set.of(C));
+        removeNodes(Set.of(A));
+        addNodes(Set.of(A));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+    }
+
+    @Test
+    public void nodeRejoinWithAnotherNodeJoinWithAutoAdjustChange() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 100, 100, null);
+
+        addNodes(Set.of(C));
+        removeNodes(Set.of(A));
+        addNodes(Set.of(A));
+
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+    }
+
+    @Test
+    public void nodeRejoinWithDifferentAttributes() throws InterruptedException {
+        removeNodes(Set.of(C));
+        addNodes(Set.of(C_DIFFERENT_ATTRS));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        NodeWithAttributes c = nodeFromHistory(dataNodesHistory(ZONE_NAME_1), C.nodeName(), HybridTimestamp.MAX_VALUE);
+
+        assertEquals(C_DIFFERENT_ATTRS.userAttributes().get("region"), c.userAttributes().get("region"));
+    }
+
+    @Test
+    public void nodeRejoinWithDifferentAttributesWithAutoAdjustAlteration() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 100, 100, null);
+
+        removeNodes(Set.of(C));
+        addNodes(Set.of(C_DIFFERENT_ATTRS));
+
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        NodeWithAttributes c = nodeFromHistory(dataNodesHistory(ZONE_NAME_1), C.nodeName(), HybridTimestamp.MAX_VALUE);
+
+        assertEquals(C_DIFFERENT_ATTRS.userAttributes().get("region"), c.userAttributes().get("region"));
+    }
+
+    private static NodeWithAttributes nodeFromHistory(DataNodesHistory history, String nodeName, HybridTimestamp timestamp) {
+        return history.dataNodesForTimestamp(timestamp).getSecond().stream()
+                .filter(n -> n.nodeName().equals(nodeName))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private DataNodesHistory dataNodesHistory(String zoneName) {
+        CompletableFuture<Entry> entryFut = metaStorageManager.get(zoneDataNodesHistoryKey(zoneId(zoneName)));
+        assertThat(entryFut, willCompleteSuccessfully());
+        Entry e = entryFut.join();
+
+        assertNotNull(e);
+        assertNotNull(e.value());
+
+        return DataNodesHistorySerializer.deserialize(e.value());
+    }
+
     private void addNodes(Set<NodeWithAttributes> nodes) {
         currentTopology.addAll(nodes);
 
@@ -427,10 +513,17 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void assertScaleDownScheduledOrDone(String zoneName) throws InterruptedException {
-        assertTrue(waitForCondition(() -> {
+        boolean success = waitForCondition(() -> {
             ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown;
             return schedule.taskIsScheduled() || schedule.taskIsDone();
-        }, 2000));
+        }, 2000);
+
+        if (!success) {
+            ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown;
+            System.out.println(schedule);
+        }
+
+        assertTrue(success);
     }
 
     private void assertScaleDownNotScheduled(String zoneName) throws InterruptedException {

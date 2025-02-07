@@ -64,6 +64,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
@@ -251,10 +252,10 @@ public class DataNodesManager {
                         }
 
                         DistributionZoneTimer mergedScaleUpTimer = newScaleUpTimerOnTopologyChange(zoneDescriptor, timestamp,
-                                scaleUpTimer, addedNodes);
+                                scaleUpTimer, addedNodes, newLogicalTopology);
 
                         DistributionZoneTimer mergedScaleDownTimer = newScaleDownTimerOnTopologyChange(zoneDescriptor, timestamp,
-                                scaleDownTimer, removedNodes);
+                                scaleDownTimer, removedNodes, newLogicalTopology);
 
                         Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
                                 timestamp,
@@ -297,34 +298,70 @@ public class DataNodesManager {
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
             DistributionZoneTimer currentTimer,
-            Set<NodeWithAttributes> addedNodes
+            Set<NodeWithAttributes> addedNodes,
+            Set<NodeWithAttributes> logicalTopology
     ) {
+        DistributionZoneTimer timer;
+
         if (addedNodes.isEmpty()) {
-            return currentTimer;
+            timer = currentTimer;
         } else {
-            return new DistributionZoneTimer(
+            timer = new DistributionZoneTimer(
                     timestamp,
                     zoneDescriptor.dataNodesAutoAdjustScaleUp(),
                     union(addedNodes, currentTimer.nodes())
             );
         }
+
+        return filterTimerNodesWithTopology(timer, logicalTopology, true);
     }
 
     private static DistributionZoneTimer newScaleDownTimerOnTopologyChange(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
             DistributionZoneTimer currentTimer,
-            Set<NodeWithAttributes> removedNodes
+            Set<NodeWithAttributes> removedNodes,
+            Set<NodeWithAttributes> logicalTopology
     ) {
+        DistributionZoneTimer timer;
+
         if (removedNodes.isEmpty()) {
-            return currentTimer;
+            timer = currentTimer;
         } else {
-            return new DistributionZoneTimer(
+            timer = new DistributionZoneTimer(
                     timestamp,
                     zoneDescriptor.dataNodesAutoAdjustScaleDown(),
                     union(removedNodes, currentTimer.nodes())
             );
         }
+
+        return filterTimerNodesWithTopology(timer, logicalTopology, false);
+    }
+
+    /**
+     * Filters timer's nodes according to the given topology. For scale up timer there should be no nodes that are not already
+     * in the current topology. For scale down there should be no nodes that are returned to current topology. This will prevent
+     * stale nodes data from being applied.
+     *
+     * @param timer Timer.
+     * @param topology Topology.
+     * @param scaleUp Scale up flag. Should be {@code false} for scale down timer.
+     * @return Timer with filtered nodes.
+     */
+    private static DistributionZoneTimer filterTimerNodesWithTopology(
+            DistributionZoneTimer timer,
+            Set<NodeWithAttributes> topology,
+            boolean scaleUp
+    ) {
+        Predicate<NodeWithAttributes> filterPredicate = scaleUp
+                ? n -> nodeNames(topology).contains(n.nodeName())
+                : n -> !nodeNames(topology).contains(n.nodeName());
+
+        return new DistributionZoneTimer(
+                timer.createTimestamp(),
+                timer.timeToWaitInSeconds(),
+                timer.nodes().stream().filter(filterPredicate).collect(toSet())
+        );
     }
 
     private static DistributionZoneTimer timerToSave(HybridTimestamp timestamp, DistributionZoneTimer timer) {
