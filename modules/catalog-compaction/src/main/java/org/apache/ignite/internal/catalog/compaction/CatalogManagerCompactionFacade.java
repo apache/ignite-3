@@ -41,6 +41,7 @@ class CatalogManagerCompactionFacade {
     // TODO https://issues.apache.org/jira/browse/IGNITE-22115
     // Remove boolean parameter {@code includeZones}, always return a map zoneId -> number of partitions
     // and rename the method to collectZonesWithPartitionsBetween
+    // Probably, it makes sense to create a new method instead of changing this one.
     /**
      * Scans catalog versions in a given time interval (including interval boundaries).
      * Extracts all tables or zones contained in these catalog versions and creates a mapping
@@ -62,13 +63,19 @@ class CatalogManagerCompactionFacade {
 
             assert catalog != null : "Failed to find a catalog for the given version [version=" + curVer + ", lastVersion=" + lastVer + ']';
 
-            for (CatalogTableDescriptor table : catalog.tables()) {
-                CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
+            if (includeZones) {
+                for (CatalogZoneDescriptor zone : catalog.zones()) {
+                    idsWithPartitions.put(zone.id(), zone.partitions());
+                }
+            } else {
+                for (CatalogTableDescriptor table : catalog.tables()) {
+                    CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
-                assert zone != null :
-                        "Failed to find a zone for the given catalog version [version=" + curVer + ", tableId=" + table.id() + ']';
+                    assert zone != null :
+                            "Failed to find a zone for the given catalog version [version=" + curVer + ", tableId=" + table.id() + ']';
 
-                idsWithPartitions.put(table.id(), zone.partitions());
+                    idsWithPartitions.put(includeZones ? zone.id() : table.id(), zone.partitions());
+                }
             }
         } while (++curVer <= lastVer);
 
