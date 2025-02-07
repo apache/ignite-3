@@ -832,12 +832,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
-                return ClientSqlExecuteScriptRequest.process(in, queryProcessor).thenRun(() -> {
-                    if (out.meta() == null) {
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-24275 Must set updated time instead of current time.
-                        out.meta(clockService.current());
-                    }
-                });
+                return ClientSqlExecuteScriptRequest.process(in, out, queryProcessor);
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
