@@ -122,8 +122,8 @@ public class ItSchemaTest extends BaseSqlIntegrationTest {
             );
 
             assertThrowsSqlException(
-                    Sql.SCHEMA_NOT_FOUND_ERR,
-                    "Schema not found [schemaName=SCHEMA1]",
+                    Sql.STMT_VALIDATION_ERR,
+                    "Schema with name 'SCHEMA1' not found",
                     () -> sql("CREATE TABLE schema1.test1 (id INT PRIMARY KEY, val INT)")
             );
         }
@@ -143,8 +143,8 @@ public class ItSchemaTest extends BaseSqlIntegrationTest {
             );
 
             assertThrowsSqlException(
-                    Sql.SCHEMA_NOT_FOUND_ERR,
-                    "Schema not found [schemaName=SCHEMA2]",
+                    Sql.STMT_VALIDATION_ERR,
+                    "Schema with name 'SCHEMA2' not found",
                     () -> sql("CREATE TABLE schema2.test1 (id INT PRIMARY KEY, val INT)")
             );
         }
@@ -175,8 +175,8 @@ public class ItSchemaTest extends BaseSqlIntegrationTest {
             sql("DROP SCHEMA IF EXISTS \"Sche ma2\"");
 
             assertThrowsSqlException(
-                    Sql.SCHEMA_NOT_FOUND_ERR,
-                    "Schema not found [schemaName=Sche ma2]",
+                    Sql.STMT_VALIDATION_ERR,
+                    "Schema with name 'Sche ma2' not found",
                     () -> sql("CREATE TABLE \"Sche ma2\".test1 (id INT PRIMARY KEY, val INT)")
             );
         }

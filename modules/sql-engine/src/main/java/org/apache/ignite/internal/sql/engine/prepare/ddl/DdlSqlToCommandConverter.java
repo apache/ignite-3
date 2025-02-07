@@ -141,7 +141,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -776,10 +775,6 @@ public class DdlSqlToCommandConverter {
             }
 
             schemaName = schemaId.getSimple();
-        }
-
-        if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
-            throw new SchemaNotFoundException(schemaName);
         }
 
         return schemaName;
