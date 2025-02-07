@@ -38,35 +38,41 @@ class CatalogManagerCompactionFacade {
         this.catalogManager = catalogManager;
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22115
+    // Remove boolean parameter {@code includeZones}, always return a map zoneId -> number of partitions
+    // and rename the method to collectZonesWithPartitionsBetween
     /**
      * Scans catalog versions in a given time interval (including interval boundaries).
-     * Extracts all tables contained in these catalog versions and creates a mapping
-     * tableId -> number of partitions in this table.
+     * Extracts all tables or zones contained in these catalog versions and creates a mapping
+     * tableId/zoneId -> number of partitions in this table.
      *
      * @param minTsInclusive Lower timestamp (inclusive).
      * @param maxTsInclusive Upper timestamp (inclusive).
+     * @param includeZones This flag indicates which mapping is returned. If {@code true} the mapping is zoneId -> number of partitions,
+     *                    otherwise the mapping is tableId -> number of partitions.
      * @return Mapping tableId to number of partitions in this table.
      */
-    Int2IntMap collectTablesWithPartitionsBetween(long minTsInclusive, long maxTsInclusive) {
-        Int2IntMap tablesWithPartitions = new Int2IntOpenHashMap();
+    Int2IntMap collectTablesWithPartitionsBetween(long minTsInclusive, long maxTsInclusive, boolean includeZones) {
+        Int2IntMap idsWithPartitions = new Int2IntOpenHashMap();
         int curVer = catalogManager.activeCatalogVersion(minTsInclusive);
         int lastVer = catalogManager.activeCatalogVersion(maxTsInclusive);
 
         do {
             Catalog catalog = catalogManager.catalog(curVer);
 
-            assert catalog != null : "ver=" + curVer + ", last=" + lastVer;
+            assert catalog != null : "Failed to find a catalog for the given version [version=" + curVer + ", lastVersion=" + lastVer + ']';
 
             for (CatalogTableDescriptor table : catalog.tables()) {
                 CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
-                assert zone != null : table.zoneId();
+                assert zone != null :
+                        "Failed to find a zone for the given catalog version [version=" + curVer + ", tableId=" + table.id() + ']';
 
-                tablesWithPartitions.put(table.id(), zone.partitions());
+                idsWithPartitions.put(table.id(), zone.partitions());
             }
         } while (++curVer <= lastVer);
 
-        return tablesWithPartitions;
+        return idsWithPartitions;
     }
 
     /**
