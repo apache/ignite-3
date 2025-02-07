@@ -42,7 +42,7 @@ public class DataStorageManager implements IgniteComponent {
     private Map<String, String> profilesToEngines;
 
     /** Storage configuration. **/
-    private StorageConfiguration storageConfiguration;
+    private final StorageConfiguration storageConfiguration;
 
     /**
      * Constructor.

@@ -276,6 +276,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -303,6 +304,9 @@ public class IgniteImpl implements Ignite {
 
     /** Used for durable destruction purposes. */
     private static final String PARTITION_GROUP_NAME = "partition";
+
+    /** Name of a transaction state directory. */
+    private static final String TX_STATE_DIR = "tx-state";
 
     /** Ignite node name. */
     private final String name;
@@ -372,6 +376,8 @@ public class IgniteImpl implements Ignite {
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
+
+    private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
     /** Disaster recovery manager. */
     private final DisasterRecoveryManager disasterRecoveryManager;
@@ -938,6 +944,13 @@ public class IgniteImpl implements Ignite {
                 systemDistributedConfiguration
         );
 
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve(TX_STATE_DIR),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaMgr,
@@ -951,7 +964,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 placementDriverMgr.placementDriver(),
                 schemaSyncService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                sharedTxStateStorage
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1041,7 +1055,7 @@ public class IgniteImpl implements Ignite {
                 replicaSvc,
                 txManager,
                 dataStorageMgr,
-                storagePath,
+                sharedTxStateStorage,
                 metaStorageMgr,
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
@@ -1457,6 +1471,7 @@ public class IgniteImpl implements Ignite {
                                 dataStorageMgr,
                                 schemaManager,
                                 outgoingSnapshotsManager,
+                                sharedTxStateStorage,
                                 partitionReplicaLifecycleManager,
                                 distributedTblMgr,
                                 disasterRecoveryManager,

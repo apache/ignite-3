@@ -86,3 +86,21 @@ SELECT /*+ NO_INDEX(TBL1_IDX2, TBL2_IDX1) */ T1.V1, T2.V1 FROM TBL1 T1, TBL2 T2 
 ----
 
 NOTE: The query cannot have both `FORCE_INDEX` and `NO_INDEX` hints at the same time.
+
+== Using the EXPLAIN PLAN FOR Statement
+
+Ignite supports the `EXPLAIN PLAN FOR` statement that can be used to read the execution plan of a query.
+
+Use this command to analyse your queries for possible optimization, for example:
+
+[source, sql]
+----
+EXPLAIN PLAN FOR SELECT name FROM Person WHERE age = 26;
+----
+
+Here is how the results of the explanation may look like:
+
+----
+Exchange(distribution=[single]): rowcount = 1500.0, cumulative cost = IgniteCost [rowCount=11500.0, cpu=41500.0, memory=0.0, io=40000.0, network=6000.0], id = 47
+    TableScan(table=[[PUBLIC, PERSON]], tableId=[9], filters=[=($t1, 26)], projects=[[$t0]], requiredColumns=[{2, 3}]): rowcount = 1500.0, cumulative cost = IgniteCost [rowCount=10000.0, cpu=40000.0, memory=0.0, io=40000.0, network=0.0], id = 46
+----

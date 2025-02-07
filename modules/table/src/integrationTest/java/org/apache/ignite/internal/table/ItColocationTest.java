@@ -87,6 +87,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -114,7 +115,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -231,7 +232,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
-        int tblId = 1;
+        int zoneId = 1;
+        int tblId = 2;
 
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
@@ -262,7 +264,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         Answer<CompletableFuture<?>> clo = invocation -> {
             ClusterNode node = invocation.getArgument(0);
             ReplicaRequest request = invocation.getArgument(1);
-            var commitPartId = new TablePartitionId(2, 0);
+
+            TablePartitionIdMessage commitPartId = toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(2, 0));
 
             RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
 
@@ -278,7 +281,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         );
 
                 return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                        .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
+                        .tablePartitionId(commitPartId)
+                        .commitPartitionId(commitPartId)
                         .messageRowsToUpdate(rows)
                         .txId(UUID.randomUUID())
                         .txCoordinatorId(node.id())
@@ -290,7 +294,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
                 return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                        .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
+                        .tablePartitionId(commitPartId)
+                        .commitPartitionId(commitPartId)
                         .rowUuid(UUID.randomUUID())
                         .messageRowToUpdate(PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                 .binaryRowMessage(binaryRowMessage(singleRowReplicaRequest.binaryTuple(), singleRowReplicaRequest))
@@ -337,18 +342,18 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         intTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "TEST"),
-                tblId,
-                PARTS,
+                zoneId, // zone id.
+                tblId, // table id.
+                PARTS, // number of partitions.
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
-                new TestTxStateTableStorage(),
+                new TestTxStateStorage(),
                 replicaService,
                 clockService,
                 observableTimestampTracker,
                 new TestPlacementDriver(clusterNode),
                 transactionInflights,
-                3_000,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)

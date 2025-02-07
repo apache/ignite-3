@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
@@ -76,7 +75,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
 
             assertThat(transactionInfo, notNullValue());
             assertThat(transactionInfo.type(), is("READ_ONLY"));
-            assertThat(transactionInfo.state(), nullValue());
+            assertThat(transactionInfo.state(), is("PENDING"));
             assertThat(transactionInfo.priority(), is("NORMAL"));
 
             roTx.rollback();
@@ -103,7 +102,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
         {
             assertThat(roTransactionInfo, notNullValue());
             assertThat(roTransactionInfo.type(), is("READ_ONLY"));
-            assertThat(roTransactionInfo.state(), nullValue());
+            assertThat(roTransactionInfo.state(), is("PENDING"));
             assertThat(roTransactionInfo.priority(), is("NORMAL"));
 
             roTx.rollback();

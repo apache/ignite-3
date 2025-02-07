@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -113,8 +113,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(SystemPropertiesExtension.class)
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
-@WithSystemProperty(key = FEATURE_FLAG_NAME, value = "true")
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     private static final int NODE_COUNT = 3;
 
@@ -185,10 +184,11 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             int amount,
             @Nullable InvokeInterceptor invokeInterceptor
     ) throws NodeStoppingException, InterruptedException {
-        IntStream.range(0, amount)
-                .mapToObj(i -> newNode(testInfo, i, invokeInterceptor))
-                .parallel()
-                .forEach(Node::start);
+        IntStream.range(0, amount).forEach(i -> newNode(testInfo, i, invokeInterceptor));
+
+        assert nodes.size() == amount : "Not all amount of nodes were created.";
+
+        nodes.values().stream().parallel().forEach(Node::start);
 
         Node node0 = getNode(0);
 
@@ -262,6 +262,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         nodes.remove(idx);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
     @Test
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
@@ -282,11 +283,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             createTable(node, "test_zone", "test_table");
             int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
 
-            prepareTableIdToZoneIdConverter(
-                    node,
-                    new TablePartitionId(tableId, 0),
-                    new ZonePartitionId(zoneId, 0)
-            );
+            prepareTableIdToZoneIdConverter(node, zoneId);
 
             KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
@@ -308,11 +305,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             createTable(node, "test_zone", "test_table1");
             int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table1", node.hybridClock.nowLong());
 
-            prepareTableIdToZoneIdConverter(
-                    node,
-                    new TablePartitionId(tableId, 0),
-                    new ZonePartitionId(zoneId, 0)
-            );
+            prepareTableIdToZoneIdConverter(node, zoneId);
 
             KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
@@ -327,7 +320,6 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22944")
     void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -716,16 +708,82 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> getNode(0).replicaManager.isReplicaStarted(partId), 10_000L));
     }
 
-    private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {
-        node.converter.set(request ->  {
-            if (request.groupId().asReplicationGroupId().equals(tablePartitionId)
-                    && !(request instanceof WriteIntentSwitchReplicaRequest)) {
-                return zonePartitionId;
-            } else {
+    @Test
+    public void testTableEstimatedSize(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 1);
+
+        Assignment replicaAssignment1 = (Assignment) calculateAssignmentForPartition(
+                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 2, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment1.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        createZone(node, "test_zone", 2, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+
+        {
+            createTable(node, "test_zone", "test_table_1");
+            int tableId1 = TableTestUtils.getTableId(node.catalogManager, "test_table_1", node.hybridClock.nowLong());
+
+            createTable(node, "test_zone", "test_table_2");
+            int tableId2 = TableTestUtils.getTableId(node.catalogManager, "test_table_2", node.hybridClock.nowLong());
+
+            prepareTableIdToZoneIdConverter(node, zoneId);
+
+            KeyValueView<Long, Integer> keyValueView1 = node.tableManager.table(tableId1).keyValueView(Long.class, Integer.class);
+            KeyValueView<Long, Integer> keyValueView2 = node.tableManager.table(tableId2).keyValueView(Long.class, Integer.class);
+
+            Map<Long, Integer> kv1 = new HashMap<>();
+            Map<Long, Integer> kv2 = new HashMap<>();
+
+            for (int i = 1; i <= 5; ++i) {
+                kv1.put((long) i, i * 100);
+            }
+
+            for (int i = 10; i <= 15; ++i) {
+                kv2.put((long) i, i * 100);
+            }
+
+            node.transactions().runInTransaction(tx -> {
+                assertDoesNotThrow(() -> keyValueView1.putAll(tx, kv1));
+
+                assertDoesNotThrow(() -> keyValueView2.putAll(tx, kv2));
+            });
+
+            // Read the key from another transaction to trigger write intent resolution, and so incrementing the estimated size.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24384 Perhaps, it should be reworked some way
+            // when the write intent resolution will be 're-implemented' using colocation feature.
+            node.transactions().runInTransaction(tx -> {
+                keyValueView1.getAll(tx, kv1.keySet());
+
+                keyValueView2.getAll(tx, kv2.keySet());
+            });
+
+            CompletableFuture<Long> sizeFuture1 = node.tableManager.table(tableId1).internalTable().estimatedSize();
+            CompletableFuture<Long> sizeFuture2 = node.tableManager.table(tableId2).internalTable().estimatedSize();
+
+            assertEquals(kv1.size(), sizeFuture1.get());
+            assertEquals(kv2.size(), sizeFuture2.get());
+        }
+    }
+
+    private void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
+        node.setRequestConverter(request ->  {
+            if (request instanceof WriteIntentSwitchReplicaRequest) {
                 return request.groupId().asReplicationGroupId();
             }
-        });
 
+            boolean colocationAwareRequest = request.groupId().asReplicationGroupId() instanceof ZonePartitionId;
+
+            if (colocationAwareRequest) {
+                return request.groupId().asReplicationGroupId();
+            } else {
+                TablePartitionId tablePartId = (TablePartitionId) request.groupId().asReplicationGroupId();
+
+                return new ZonePartitionId(zoneId, tablePartId.partitionId());
+            }
+        });
     }
 
     private Node getNode(int nodeIndex) {

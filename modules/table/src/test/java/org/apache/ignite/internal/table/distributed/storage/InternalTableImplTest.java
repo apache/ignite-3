@@ -49,7 +49,7 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -59,22 +59,28 @@ import org.junit.jupiter.api.Test;
  * For {@link InternalTableImpl} testing.
  */
 public class InternalTableImplTest extends BaseIgniteAbstractTest {
+    /** Zone identifier. */
+    private static final int ZONE_ID = 1;
+
+    /** Table identifier. */
+    private static final int TABLE_ID = 2;
+
     @Test
     void testUpdatePartitionTrackers() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                1,
-                1,
+                ZONE_ID,
+                TABLE_ID,
+                1, // number of partitions.
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
+                mock(TxStateStorage.class),
                 mock(ReplicaService.class),
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),
                 mock(PlacementDriver.class),
                 mock(TransactionInflights.class),
-                3_000,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)
@@ -113,18 +119,18 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     void testRowBatchByPartitionId() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                1,
-                3,
+                ZONE_ID,
+                TABLE_ID,
+                3, // number of partitions.
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
+                mock(TxStateStorage.class),
                 mock(ReplicaService.class),
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),
                 mock(PlacementDriver.class),
                 mock(TransactionInflights.class),
-                3_000,
                 0,
                 null,
                 null

@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
@@ -26,42 +27,37 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Delegates {@link JobExecution} to the future of {@link JobExecutionInternal}.
+ * Delegates {@link JobExecution} to the {@link JobExecutionInternal}.
  */
 class DelegatingJobExecution implements CancellableJobExecution<ComputeJobDataHolder> {
-    private final CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> delegate;
+    private final JobExecutionInternal<ComputeJobDataHolder> delegate;
 
-    DelegatingJobExecution(CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> delegate) {
+    DelegatingJobExecution(JobExecutionInternal<ComputeJobDataHolder> delegate) {
         this.delegate = delegate;
     }
 
     @Override
     public CompletableFuture<ComputeJobDataHolder> resultAsync() {
-        return delegate.thenCompose(JobExecutionInternal::resultAsync);
+        return delegate.resultAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable JobState> stateAsync() {
-        return delegate.thenApply(JobExecutionInternal::state);
+        return completedFuture(delegate.state());
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return delegate.thenApply(JobExecutionInternal::cancel);
+        return completedFuture(delegate.cancel());
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return delegate.thenApply(jobExecutionInternal -> jobExecutionInternal.changePriority(newPriority));
+        return completedFuture(delegate.changePriority(newPriority));
     }
 
     @Override
     public ClusterNode node() {
-        try {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24184
-            return delegate.thenApply(JobExecutionInternal::node).get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        return delegate.node();
     }
 }

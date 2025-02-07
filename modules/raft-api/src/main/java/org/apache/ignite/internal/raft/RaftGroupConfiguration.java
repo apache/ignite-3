@@ -21,16 +21,25 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A POJO for a RAFT group configuration, could be used by other modules. Not used by the RAFT module itself.
+ * A POJO for a RAFT group configuration with index and term at which it was committed,
+ * could be used by other modules. Not used by the RAFT module itself.
  */
 public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;
+
+    /** Unknown index value. */
+    public static final long UNKNOWN_INDEX = -1L;
+
+    /** Unknown term value. */
+    public static final long UNKNOWN_TERM = -1L;
+
+    private final long index;
+    private final long term;
 
     @IgniteToStringInclude
     private final List<String> peers;
@@ -46,11 +55,16 @@ public class RaftGroupConfiguration implements Serializable {
      * Creates a new instance.
      */
     public RaftGroupConfiguration(
+            long index,
+            long term,
             Collection<String> peers,
             Collection<String> learners,
             @Nullable Collection<String> oldPeers,
             @Nullable Collection<String> oldLearners
+
     ) {
+        this.index = index;
+        this.term = term;
         this.peers = List.copyOf(peers);
         this.learners = List.copyOf(learners);
         this.oldPeers = oldPeers == null ? null : List.copyOf(oldPeers);
@@ -58,15 +72,21 @@ public class RaftGroupConfiguration implements Serializable {
     }
 
     /**
-     * Creates a {@link RaftGroupConfiguration} instance from {@link CommittedConfiguration}.
+     * Returns RAFT index corresponding to this configuration entry.
+     *
+     * @return RAFT index.
      */
-    public static RaftGroupConfiguration fromCommittedConfiguration(CommittedConfiguration config) {
-        return new RaftGroupConfiguration(
-                config.peers(),
-                config.learners(),
-                config.oldPeers(),
-                config.oldLearners()
-        );
+    public long index() {
+        return index;
+    }
+
+    /**
+     * Returns RAFT term corresponding to this configuration entry.
+     *
+     * @return RAFT term.
+     */
+    public long term() {
+        return term;
     }
 
     /**
@@ -121,13 +141,13 @@ public class RaftGroupConfiguration implements Serializable {
             return false;
         }
         RaftGroupConfiguration that = (RaftGroupConfiguration) o;
-        return Objects.equals(peers, that.peers) && Objects.equals(learners, that.learners)
+        return index == that.index && term == that.term && Objects.equals(peers, that.peers) && Objects.equals(learners, that.learners)
                 && Objects.equals(oldPeers, that.oldPeers) && Objects.equals(oldLearners, that.oldLearners);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(peers, learners, oldPeers, oldLearners);
+        return Objects.hash(index, term, peers, learners, oldPeers, oldLearners);
     }
 
     @Override

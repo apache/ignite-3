@@ -25,6 +25,10 @@ import java.util.Set;
  * Partition distribution algorithm.
  */
 public interface DistributionAlgorithm {
+    /**
+     * Passing this value as a partition replicas number means that the replica will be created on every node of the distribution zone.
+     */
+    int ALL_REPLICAS = Integer.MAX_VALUE;
 
     /**
      * Generates an assignment by the given parameters.

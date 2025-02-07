@@ -87,7 +87,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
@@ -239,6 +239,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
     }
 
     private static class TestInternalTableImpl extends InternalTableImpl {
+        private static final int ZONE_ID = 1;
+
+        private static final int TABLE_ID = 2;
 
         private static final Object[] ROW = {1, "2", 3};
 
@@ -263,18 +266,18 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         ) {
             super(
                     QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                    1,
+                    ZONE_ID,
+                    TABLE_ID,
                     PART_CNT,
                     new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,
                     mock(MvTableStorage.class),
-                    mock(TxStateTableStorage.class),
+                    mock(TxStateStorage.class),
                     replicaSvc,
                     clockService,
                     timestampTracker,
                     mock(PlacementDriver.class),
                     mock(TransactionInflights.class),
-                    3_000,
                     0,
                     null,
                     mock(StreamerReceiverRunner.class)

@@ -70,15 +70,16 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -120,7 +121,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -151,6 +152,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public static final HybridClock CLOCK = new TestHybridClock(() -> 2000);
 
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
+
+    private static final int ZONE_ID = 2;
 
     private static final int PART_ID = 0;
 
@@ -260,18 +263,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         super(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                nextTableId.getAndIncrement(),
-                1,
+                ZONE_ID, // zone id.
+                nextTableId.getAndIncrement(), // table id.
+                1, // number of partitions.
                 new SingleClusterNodeResolver(LOCAL_NODE),
                 txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),
                 mock(MvTableStorage.class),
-                new TestTxStateTableStorage(),
+                new TestTxStateStorage(),
                 replicaSvc,
                 CLOCK_SERVICE,
                 tracker,
                 placementDriver,
                 transactionInflights,
-                3_000,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)
@@ -355,6 +358,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                         long commandIndex = raftIndex.incrementAndGet();
 
+                        HybridTimestamp safeTs = cmd instanceof SafeTimePropagatingCommand ? CLOCK.now() : null;
+
                         CompletableFuture<Serializable> res = new CompletableFuture<>();
 
                         // All read commands are handled directly throw partition replica listener.
@@ -367,7 +372,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                             /** {@inheritDoc} */
                             @Override
-                            public WriteCommand command() {
+                            public HybridTimestamp safeTimestamp() {
+                                return safeTs;
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public @Nullable WriteCommand command() {
                                 return (WriteCommand) cmd;
                             }
 
@@ -380,14 +391,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     res.complete(r);
                                 }
                             }
-
-                            @Override
-                            public void patch(HybridTimestamp safeTs) {
-                                command().patch(safeTs);
-                            }
                         };
-
-                        clo.patch(CLOCK.now());
 
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());
@@ -462,7 +466,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Map::of,
                 CLOCK_SERVICE,
                 safeTime,
-                txStateStorage().getOrCreateTxStateStorage(PART_ID),
+                txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 transactionStateResolver,
                 storageUpdateHandler,
                 new DummyValidationSchemasSource(schemaManager),
@@ -481,7 +485,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
-                txStateStorage().getOrCreateTxStateStorage(PART_ID),
+                txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 safeTime,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
@@ -494,14 +498,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
         {
-            partitionListener.onConfigurationCommitted(new CommittedConfiguration(
+            partitionListener.onConfigurationCommitted(
+                    new RaftGroupConfiguration(
+                            1,
+                            1,
+                            List.of(LOCAL_NODE.name()),
+                            Collections.emptyList(),
+                            null,
+                            null
+                    ),
                     1,
-                    1,
-                    List.of(LOCAL_NODE.name()),
-                    Collections.emptyList(),
-                    null,
-                    null
-            ));
+                    1
+            );
 
             CompletableFuture<ReplicaMeta> primaryMetaFuture = placementDriver.getPrimaryReplica(groupId, CLOCK.now());
 

@@ -410,8 +410,14 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Patch.
             reader.Skip(); // Pre-release.
 
-            reader.Skip(); // Features.
-            reader.Skip(); // Extensions.
+            reader.Skip(); // Features, binary.
+
+            int extensionMapSize = reader.ReadInt32();
+            for (int i = 0; i < extensionMapSize; i++)
+            {
+                reader.Skip(); // Extension key, string.
+                reader.Skip(); // Extension value.
+            }
 
             return new ConnectionContext(
                 serverVer,

@@ -127,7 +127,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         // When broadcast a job
         CompletableFuture<BroadcastExecution<String>> executionFut = compute().submitAsync(
                 BroadcastJobTarget.nodes(nodes),
-                JobDescriptor.<Object[], String>builder(InteractiveJobs.interactiveJobName()).build(),
+                InteractiveJobs.interactiveJobDescriptor(),
                 null
         );
 

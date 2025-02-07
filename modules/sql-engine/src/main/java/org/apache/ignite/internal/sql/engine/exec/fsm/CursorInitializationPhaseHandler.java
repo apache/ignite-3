@@ -20,11 +20,10 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 
 /** Handler that acquires data cursor and saves it to {@link Query query state}. */
@@ -47,18 +46,7 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
 
         CompletableFuture<Void> awaitFuture = query.executor.executePlan(context, plan)
                 .thenCompose(dataCursor -> {
-                    AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
-                            queryType,
-                            plan.metadata(),
-                            dataCursor,
-                            query.nextCursorFuture
-                    );
-
-                    query.cursor = cursor;
-
-                    query.cancel.add(timeout -> dataCursor.cancelAsync(
-                            timeout ? CancellationReason.TIMEOUT : CancellationReason.CANCEL
-                    ));
+                    AsyncSqlCursor<InternalSqlRow> cursor = query.executor.createAndSaveSqlCursor(query, dataCursor); 
 
                     if (queryType == SqlQueryType.QUERY) {
                         // preserve lazy execution for statements that only reads

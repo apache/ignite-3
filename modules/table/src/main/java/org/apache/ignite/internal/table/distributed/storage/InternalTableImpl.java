@@ -24,6 +24,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -42,6 +44,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
@@ -104,14 +107,18 @@ import org.apache.ignite.internal.partition.replicator.network.replication.SwapR
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -124,7 +131,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -153,6 +160,12 @@ public class InternalTableImpl implements InternalTable {
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
+    public static final int DEFAULT_RW_TIMEOUT = 10_000;
+
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
+
     /** Partitions. */
     private final int partitions;
 
@@ -166,6 +179,9 @@ public class InternalTableImpl implements InternalTable {
     /** Table identifier. */
     private final int tableId;
 
+    /** Distribution zone identifier. */
+    private final int zoneId;
+
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
 
@@ -178,7 +194,7 @@ public class InternalTableImpl implements InternalTable {
     private final MvTableStorage tableStorage;
 
     /** Storage for transaction states. */
-    private final TxStateTableStorage txStateStorage;
+    private final TxStateStorage txStateStorage;
 
     /** Replica service. */
     private final ReplicaService replicaSvc;
@@ -201,9 +217,6 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
-    /** Implicit transaction timeout. */
-    private final long implicitTransactionTimeout;
-
     /** Attempts to take lock. */
     private final int attemptsObtainLock;
 
@@ -211,8 +224,9 @@ public class InternalTableImpl implements InternalTable {
      * Constructor.
      *
      * @param tableName Table name.
-     * @param tableId Table id.
-     * @param partitions Partitions.
+     * @param zoneId Distribution zone identifier.
+     * @param tableId Table identifier.
+     * @param partitions Number of partitions.
      * @param clusterNodeResolver Cluster node resolver.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
@@ -221,28 +235,28 @@ public class InternalTableImpl implements InternalTable {
      * @param clockService A hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param transactionInflights Transaction inflights.
-     * @param implicitTransactionTimeout Implicit transaction timeout.
      * @param attemptsObtainLock Attempts to take lock.
      */
     public InternalTableImpl(
             QualifiedName tableName,
+            int zoneId,
             int tableId,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
-            TxStateTableStorage txStateStorage,
+            TxStateStorage txStateStorage,
             ReplicaService replicaSvc,
             ClockService clockService,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             TransactionInflights transactionInflights,
-            long implicitTransactionTimeout,
             int attemptsObtainLock,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner
     ) {
         this.tableName = tableName;
+        this.zoneId = zoneId;
         this.tableId = tableId;
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
@@ -254,7 +268,6 @@ public class InternalTableImpl implements InternalTable {
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
         this.transactionInflights = transactionInflights;
-        this.implicitTransactionTimeout = implicitTransactionTimeout;
         this.attemptsObtainLock = attemptsObtainLock;
         this.streamerFlushExecutor = streamerFlushExecutor;
         this.streamerReceiverRunner = streamerReceiverRunner;
@@ -371,9 +384,12 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
+                    // TODO: IGNITE-24244
+                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : DEFAULT_RW_TIMEOUT;
+
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (canRetry(e, ts, timeout)) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
                     }
                 }
@@ -489,9 +505,12 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
+                    // TODO: IGNITE-24244
+                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 3_000;
+
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (canRetry(e, ts, timeout)) {
                         return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
                     }
                 }
@@ -581,6 +600,10 @@ public class InternalTableImpl implements InternalTable {
                 .tuple(binaryTuple.byteBuffer())
                 .elementCount(binaryTuple.elementCount())
                 .build();
+    }
+
+    private static boolean canRetry(Throwable e, long ts, long timeout) {
+        return exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < timeout;
     }
 
     /**
@@ -1107,6 +1130,10 @@ public class InternalTableImpl implements InternalTable {
         return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, id);
     }
 
+    private static ZonePartitionIdMessage serializeZonePartitionId(ZonePartitionId id) {
+        return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, id);
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
@@ -1179,9 +1206,12 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
+                // TODO: IGNITE-24244
+                long timeout = tx.isReadOnly() ? tx.timeout() : 3_000;
+
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
-                if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                if (canRetry(e, ts, timeout)) {
                     return updateAllWithRetry(rows, deleted, partition, ts);
                 }
 
@@ -1857,7 +1887,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public TxStateTableStorage txStateStorage() {
+    public TxStateStorage txStateStorage() {
         return txStateStorage;
     }
 
@@ -2078,9 +2108,9 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param partId Partition id.
      * @param readTimestamp Read timestamp.
-     * @return Cluster node to evalute read-only request.
+     * @return Cluster node to evaluate read-only request.
      */
-    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, @Nullable HybridTimestamp readTimestamp) {
+    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, HybridTimestamp readTimestamp) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
         return awaitPrimaryReplica(tablePartitionId, readTimestamp)
@@ -2089,12 +2119,25 @@ public class InternalTableImpl implements InternalTable {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                     } else {
                         if (res == null) {
-                            throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
+                            throw createFailedGetPrimaryReplicaTransactionException(tablePartitionId, readTimestamp);
                         } else {
                             return getClusterNode(res);
                         }
                     }
                 });
+    }
+
+    private static TransactionException createFailedGetPrimaryReplicaTransactionException(
+            TablePartitionId tablePartitionId,
+            HybridTimestamp readTimestamp
+    ) {
+        String errorMessage = format(
+                "Failed to get the primary replica [tablePartitionId={}, awaitTimestamp={}",
+                tablePartitionId,
+                readTimestamp
+        );
+
+        return new TransactionException(REPLICA_UNAVAILABLE_ERR, errorMessage);
     }
 
     @Override
@@ -2119,13 +2162,21 @@ public class InternalTableImpl implements InternalTable {
         var invokeFutures = new CompletableFuture<?>[partitions];
 
         for (int partId = 0; partId < partitions; partId++) {
-            var replicaGroupId = new TablePartitionId(tableId, partId);
+            ReplicationGroupIdMessage partitionIdMessage;
+            ReplicationGroupId replicaGroupId;
 
-            TablePartitionIdMessage partitionIdMessage = serializeTablePartitionId(replicaGroupId);
+            if (enabledColocationFeature) {
+                replicaGroupId = new ZonePartitionId(zoneId, partId);
+                partitionIdMessage = serializeZonePartitionId((ZonePartitionId) replicaGroupId);
+            } else {
+                replicaGroupId = new TablePartitionId(tableId, partId);
+                partitionIdMessage = serializeTablePartitionId((TablePartitionId) replicaGroupId);
+            }
 
             Function<ReplicaMeta, ReplicaRequest> requestFactory = replicaMeta ->
                     TABLE_MESSAGES_FACTORY.getEstimatedSizeRequest()
                             .groupId(partitionIdMessage)
+                            .tableId(tableId)
                             .enlistmentConsistencyToken(enlistmentConsistencyToken(replicaMeta))
                             .build();
 
@@ -2142,12 +2193,12 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private <T> CompletableFuture<T> sendToPrimaryWithRetry(
-            TablePartitionId tablePartitionId,
+            ReplicationGroupId replicationGroupId,
             HybridTimestamp hybridTimestamp,
             int numRetries,
             Function<ReplicaMeta, ReplicaRequest> requestFactory
     ) {
-        return awaitPrimaryReplica(tablePartitionId, hybridTimestamp)
+        return awaitPrimaryReplica(replicationGroupId, hybridTimestamp)
                 .thenCompose(replicaMeta -> {
                     String leaseHolderName = replicaMeta.getLeaseholder();
 
@@ -2178,7 +2229,7 @@ public class InternalTableImpl implements InternalTable {
 
                                     // Primary Replica has changed, need to wait for the new replica to appear.
                                     return this.<T>sendToPrimaryWithRetry(
-                                            tablePartitionId,
+                                            replicationGroupId,
                                             replicaMeta.getExpirationTime().tick(),
                                             numRetries - 1,
                                             requestFactory
@@ -2262,9 +2313,9 @@ public class InternalTableImpl implements InternalTable {
         return matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR);
     }
 
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId tablePartitionId, HybridTimestamp timestamp) {
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+                replicationGroupId,
                 timestamp,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS

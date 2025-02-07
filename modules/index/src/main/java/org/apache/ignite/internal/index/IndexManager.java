@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -309,7 +308,9 @@ public class IndexManager implements IgniteComponent {
         // LWM starts updating only after the node is restored.
         HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
-        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
+        int earliestCatalogVersion = lwm == null
+                ? catalogService.earliestCatalogVersion()
+                : catalogService.activeCatalogVersion(lwm.longValue());
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         Catalog nextCatalog = catalogService.catalog(latestCatalogVersion);
