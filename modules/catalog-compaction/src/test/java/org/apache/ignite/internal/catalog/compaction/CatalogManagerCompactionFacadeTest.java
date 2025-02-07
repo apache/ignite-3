@@ -48,6 +48,8 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22115
+    // Need to update this test to colocation track.
     @Test
     void testCollectTablesWithPartitionsBetween() {
         CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
@@ -74,22 +76,28 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         assertThat(catalogManager.execute(dropTableCommandBuilder.tableName("test3").build()), willCompleteSuccessfully());
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from1,
-                    clockService.nowLong());
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
+                    from1,
+                    clockService.nowLong(),
+                    false);
 
             assertThat(tablesWithParts.keySet(), hasSize(3));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from2,
-                    clockService.nowLong());
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
+                    from2,
+                    clockService.nowLong(),
+                    false);
 
             assertThat(tablesWithParts.keySet(), hasSize(2));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from3,
-                    clockService.nowLong());
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
+                    from3,
+                    clockService.nowLong(),
+                    false);
 
             assertThat(tablesWithParts.keySet(), hasSize(1));
         }
@@ -97,7 +105,8 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         {
             Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
                     clockService.nowLong(),
-                    clockService.nowLong()
+                    clockService.nowLong(),
+                    false
             );
 
             assertThat(tablesWithParts.keySet(), hasSize(0));
