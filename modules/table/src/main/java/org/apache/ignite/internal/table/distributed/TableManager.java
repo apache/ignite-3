@@ -47,11 +47,14 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
+import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_INDEX;
+import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_TERM;
 import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -260,8 +263,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
-    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     private final TopologyService topologyService;
 
@@ -604,8 +606,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         partitionReplicaLifecycleManager.listen(
-                LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
-                this::onZoneReplicaStopped
+                LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                this::onZoneReplicaDestroyed
         );
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -716,7 +718,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
-    private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
+    private CompletableFuture<Boolean> onZoneReplicaDestroyed(LocalPartitionReplicaEventParameters parameters) {
         if (!enabledColocationFeature) {
             return falseCompletedFuture();
         }
@@ -1023,7 +1025,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 if (haMode) {
                     ByteArray assignmentsChainKey = assignmentsChainKey(tablePartitionId);
-                    byte[] assignmentChain = AssignmentsChain.of(newAssignments.get(i)).toBytes();
+                    byte[] assignmentChain = AssignmentsChain.of(UNKNOWN_TERM, UNKNOWN_INDEX, newAssignments.get(i)).toBytes();
                     Operation chainOp = put(assignmentsChainKey, assignmentChain);
                     partitionAssignments.add(chainOp);
                 }
@@ -1644,6 +1646,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 tableName,
+                zoneDescriptor.id(),
                 tableDescriptor.id(),
                 partitions,
                 topologyService,
