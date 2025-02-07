@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
+package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshot;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -34,38 +38,40 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
- * Test implementation of {@link PartitionDataStorage}.
+ * {@link PartitionDataStorage} that adds snapshot awareness. This means that MV writes coordinate with ongoing
+ * snapshots to make sure that the writes do not interfere with the snapshots.
  */
-public class TestPartitionDataStorage implements PartitionDataStorage {
-    private final int tableId;
-
-    private final int partitionId;
-
+public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     private final MvPartitionStorage partitionStorage;
+    private final PartitionsSnapshots partitionsSnapshots;
+    private final PartitionKey partitionKey;
 
-    private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
+    private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
-    /** Constructor. */
-    public TestPartitionDataStorage(
-            int tableId,
-            int partitionId,
-            MvPartitionStorage partitionStorage
+    /**
+     * Creates a new instance.
+     */
+    public SnapshotAwarePartitionDataStorage(
+            MvPartitionStorage partitionStorage,
+            PartitionsSnapshots partitionsSnapshots,
+            PartitionKey partitionKey
     ) {
-        this.tableId = tableId;
-        this.partitionId = partitionId;
         this.partitionStorage = partitionStorage;
+        this.partitionsSnapshots = partitionsSnapshots;
+        this.partitionKey = partitionKey;
     }
 
     @Override
     public int tableId() {
-        return tableId;
+        return partitionKey.tableId();
     }
 
     @Override
     public int partitionId() {
-        return partitionId;
+        return partitionKey.partitionId();
     }
 
     @Override
@@ -75,12 +81,20 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public void acquirePartitionSnapshotsReadLock() {
-        // There is no 'write' side, so we don't need to take any lock.
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        partitionSnapshots.acquireReadLock();
     }
 
     @Override
     public void releasePartitionSnapshotsReadLock() {
-        // There is no 'write' side, so we don't need to releasetestbala any lock.
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        partitionSnapshots.releaseReadLock();
+    }
+
+    private PartitionSnapshots getPartitionSnapshots() {
+        return partitionsSnapshots.partitionSnapshots(partitionKey);
     }
 
     @Override
@@ -105,27 +119,36 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        partitionStorage.committedGroupConfiguration(configurationConverter.toBytes(config));
+        partitionStorage.committedGroupConfiguration(raftGroupConfigurationConverter.toBytes(config));
     }
 
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
+        handleSnapshotInterference(rowId);
+
         return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs) {
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs)
+            throws TxIdMismatchException, StorageException {
+        handleSnapshotInterference(rowId);
+
         partitionStorage.addWriteCommitted(rowId, row, commitTs);
     }
 
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
+        handleSnapshotInterference(rowId);
+
         return partitionStorage.abortWrite(rowId);
     }
 
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
+        handleSnapshotInterference(rowId);
+
         partitionStorage.commitWrite(rowId, timestamp);
     }
 
@@ -134,13 +157,61 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
         return partitionStorage.scanVersions(rowId);
     }
 
-    @Override
-    public MvPartitionStorage getStorage() {
-        return partitionStorage;
+    /**
+     * Handles the situation when snapshots are running concurrently with write operations.
+     * In case if a row that is going to be changed was not yet sent in an ongoing snapshot,
+     * schedule an out-of-order sending of said row.
+     *
+     * @param rowId Row id.
+     */
+    private void handleSnapshotInterference(RowId rowId) {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
+            snapshot.acquireMvLock();
+
+            try {
+                if (snapshot.alreadyPassed(rowId)) {
+                    // Row already sent.
+                    continue;
+                }
+
+                if (!snapshot.addRowIdToSkip(rowId)) {
+                    // Already scheduled.
+                    continue;
+                }
+
+                // Collect all versions of row and schedule the send operation.
+                snapshot.enqueueForSending(rowId);
+            } finally {
+                snapshot.releaseMvLock();
+            }
+        }
     }
 
     @Override
     public void close() {
+        cleanupSnapshots();
+    }
+
+    private void cleanupSnapshots() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        partitionSnapshots.acquireReadLock();
+
+        try {
+            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
+
+            partitionsSnapshots.removeSnapshots(partitionKey);
+        } finally {
+            partitionSnapshots.releaseReadLock();
+        }
+    }
+
+    @Override
+    @TestOnly
+    public MvPartitionStorage getStorage() {
+        return partitionStorage;
     }
 
     @Override
