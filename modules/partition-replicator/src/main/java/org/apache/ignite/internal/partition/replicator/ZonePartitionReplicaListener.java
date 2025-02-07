@@ -24,32 +24,34 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -57,35 +59,51 @@ import org.jetbrains.annotations.VisibleForTesting;
  * Zone partition replica listener.
  */
 public class ZonePartitionReplicaListener implements ReplicaListener {
+    private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
+
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
-    private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
+    /** Factory to create RAFT command messages. */
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
     private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
+    /** Raft client. */
     private final RaftCommandRunner raftClient;
 
     /** Clock service. */
     private final ClockService clockService;
 
-    /** Catalog service. */
-    private final CatalogService catalogService;
+    // TODO Probably the list of handlers should be moved to a map or something appropriate.
+    // Handler for minimum active tx time request.
+    private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
+
+    /** Zone replication group id. */
+    ZonePartitionId replicationGroupId;
 
     /**
      * The constructor.
      *
+     * @param replicationGroupId Zone replication group identifier.
      * @param clockService Clock service.
-     * @param catalogService Catalog service.
      * @param raftClient Raft client.
      */
     public ZonePartitionReplicaListener(
+            ZonePartitionId replicationGroupId,
             ClockService clockService,
-            CatalogService catalogService,
             RaftCommandRunner raftClient) {
+        this.replicationGroupId = replicationGroupId;
         this.clockService = clockService;
-        this.catalogService = catalogService;
         this.raftClient = raftClient;
+
+        // Request handlers initialization.
+        minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
+                PARTITION_REPLICATION_MESSAGES_FACTORY,
+                clockService,
+                this::applyCmdWithExceptionHandling
+        );
     }
 
     @Override
@@ -146,7 +164,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
         ReplicationGroupId replicationGroupId = request.groupId().asReplicationGroupId();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Refine this code when the zone based replication will done.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Refine this code when the zone based replication will be done.
         if (replicationGroupId instanceof  TablePartitionId) {
             partitionId = ((TablePartitionId) replicationGroupId).partitionId();
         } else if (replicationGroupId instanceof ZonePartitionId) {
@@ -244,6 +262,9 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         );
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22115
+    // Method's name and signature are the same as PartitionReplicaListener,
+    // to keep the same 'structure' and simplify the process of porting the requests processing.
     private CompletableFuture<?> processOperationRequestWithTxOperationManagementLogic(
             UUID senderId,
             ReplicaRequest request,
@@ -251,50 +272,16 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp opStartTsIfDirectRo,
             @Nullable Long leaseStartTime
     ) {
-        incrementRwOperationCountIfNeeded(request);
-
-        UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
-
         try {
-            return processOperationRequest(senderId, request, isPrimary, opStartTsIfDirectRo, leaseStartTime)
-                    .whenComplete((unused, throwable) -> {
-                        unlockLwmIfNeeded(txIdLockingLwm, request);
-                        decrementRwOperationCountIfNeeded(request);
-                    });
+            if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
+                return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
+            } else {
+                // TODO Probably, it would be better to throw an exception here.
+                LOG.debug("Non table request is not supported by the zone partition yet " + request);
+                return nullCompletedFuture();
+            }
         } catch (Throwable e) {
-            try {
-                unlockLwmIfNeeded(txIdLockingLwm, request);
-            } catch (Throwable unlockProblem) {
-                e.addSuppressed(unlockProblem);
-            }
-
-            try {
-                decrementRwOperationCountIfNeeded(request);
-            } catch (Throwable decrementProblem) {
-                e.addSuppressed(decrementProblem);
-            }
             throw e;
-        }
-    }
-
-    private void incrementRwOperationCountIfNeeded(ReplicaRequest request) {
-        if (request instanceof ReadWriteReplicaRequest) {
-            int rwTxActiveCatalogVersion = rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request);
-
-            // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
-            // otherwise there may be races/errors and the index will not be able to start building.
-            if (!txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion)) {
-                // TODO move this exception to this module.
-                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
-            }
-        }
-    }
-
-    private void decrementRwOperationCountIfNeeded(ReplicaRequest request) {
-        if (request instanceof ReadWriteReplicaRequest) {
-            txRwOperationTracker.decrementOperationCount(
-                    rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request)
-            );
         }
     }
 
@@ -364,68 +351,57 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * For an operation of an RO transaction, attempts to lock LWM on current node (either if the operation is not direct,
-     * or if it's direct and concerns more than one key), and does nothing for other types of requests.
+     * Executes a command and handles exceptions. A result future can be finished with exception by following rules:
+     * <ul>
+     *     <li>If RAFT command cannot finish due to timeout, the future finished with {@link ReplicationTimeoutException}.</li>
+     *     <li>If RAFT command finish with a runtime exception, the exception is moved to the result future.</li>
+     *     <li>If RAFT command finish with any other exception, the future finished with {@link ReplicationException}.
+     *     The original exception is set as cause.</li>
+     * </ul>
      *
-     * <p>If lock attempt fails, throws an exception with a specific error code ({@link Transactions#TX_STALE_READ_ONLY_OPERATION_ERR}).
-     *
-     * <p>For explicit RO transactions, the lock will be later released when cleaning up after the RO transaction had been finished.
-     *
-     * <p>For direct RO operations (which happen in implicit RO transactions), LWM will be unlocked right after the read had been done
-     * (see {@link #unlockLwmIfNeeded(UUID, ReplicaRequest)}).
-     *
-     * <p>Also, for explicit RO transactions, an automatic unlock is registered on coordinator leave.
-     *
-     * @param request Request that is being handled.
-     * @param opStartTsIfDirectRo Timestamp of operation start if the operation is a direct RO operation, {@code null} otherwise.
-     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that shoiuld be used to lock LWM,
-     *     or {@code null} if LWM doesn't need to be locked..
+     * @param cmd Raft command.
+     * @return Raft future or raft decorated future with command that was processed.
      */
-    private @Nullable UUID tryToLockLwmIfNeeded(ReplicaRequest request, @Nullable HybridTimestamp opStartTsIfDirectRo) {
-        UUID txIdToLockLwm;
-        HybridTimestamp tsToLockLwm = null;
+    private CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
+        CompletableFuture<ResultWrapper<Object>> resultFuture = new CompletableFuture<>();
 
-        if (request instanceof ReadOnlyDirectMultiRowReplicaRequest
-                && ((ReadOnlyDirectMultiRowReplicaRequest) request).primaryKeys().size() > 1) {
-            assert opStartTsIfDirectRo != null;
-
-            txIdToLockLwm = newFakeTxId();
-            tsToLockLwm = opStartTsIfDirectRo;
-        } else if (request instanceof ReadOnlyReplicaRequest) {
-            ReadOnlyReplicaRequest readOnlyRequest = (ReadOnlyReplicaRequest) request;
-            txIdToLockLwm = readOnlyRequest.transactionId();
-            tsToLockLwm = readOnlyRequest.readTimestamp();
-        } else {
-            txIdToLockLwm = null;
-        }
-
-        if (txIdToLockLwm != null) {
-            if (!lowWatermark.tryLock(txIdToLockLwm, tsToLockLwm)) {
-                throw new TransactionException(Transactions.TX_STALE_READ_ONLY_OPERATION_ERR, "Read timestamp is not available anymore.");
+        raftClient.run(cmd).whenComplete((res, ex) -> {
+            if (ex != null) {
+                resultFuture.completeExceptionally(ex);
+            } else {
+                resultFuture.complete(new ResultWrapper<>(cmd, res));
             }
+        });
 
-            registerAutoLwmUnlockOnCoordinatorLeaveIfNeeded(request, txIdToLockLwm);
-        }
-
-        return txIdToLockLwm;
+        return resultFuture.exceptionally(throwable -> {
+            if (throwable instanceof TimeoutException) {
+                throw new ReplicationTimeoutException(replicationGroupId);
+            } else if (throwable instanceof RuntimeException) {
+                throw (RuntimeException) throwable;
+            } else {
+                throw new ReplicationException(replicationGroupId, throwable);
+            }
+        });
     }
 
-    private void unlockLwmIfNeeded(@Nullable UUID txIdToUnlockLwm, ReplicaRequest request) {
-        if (txIdToUnlockLwm != null && request instanceof ReadOnlyDirectReplicaRequest) {
-            lowWatermark.unlock(txIdToUnlockLwm);
+    /**
+     * Wrapper for the update(All)Command processing result that besides result itself stores actual command that was processed.
+     */
+    private static class ResultWrapper<T> {
+        private final Command command;
+        private final T result;
+
+        ResultWrapper(Command command, T result) {
+            this.command = command;
+            this.result = result;
         }
-    }
 
-    private void registerAutoLwmUnlockOnCoordinatorLeaveIfNeeded(ReplicaRequest request, UUID txIdToLockLwm) {
-        if (request instanceof ReadOnlyReplicaRequest) {
-            ReadOnlyReplicaRequest readOnlyReplicaRequest = (ReadOnlyReplicaRequest) request;
+        Command getCommand() {
+            return command;
+        }
 
-            UUID coordinatorId = readOnlyReplicaRequest.coordinatorId();
-            // TODO: remove null check after IGNITE-24120 is sorted out.
-            if (coordinatorId != null) {
-                FullyQualifiedResourceId resourceId = new FullyQualifiedResourceId(txIdToLockLwm, txIdToLockLwm);
-                remotelyTriggeredResourceRegistry.register(resourceId, coordinatorId, () -> () -> lowWatermark.unlock(txIdToLockLwm));
-            }
+        T getResult() {
+            return result;
         }
     }
 }
