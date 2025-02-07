@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -64,12 +65,16 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     private final RaftCommandRunner raftClient;
 
+    /** Clock service. */
+    private final ClockService clockService;
+
     /**
      * The constructor.
      *
      * @param raftClient Raft client.
      */
-    public ZonePartitionReplicaListener(RaftCommandRunner raftClient) {
+    public ZonePartitionReplicaListener(ClockService clockService, RaftCommandRunner raftClient) {
+        this.clockService = clockService;
         this.raftClient = raftClient;
     }
 

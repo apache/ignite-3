@@ -516,6 +516,7 @@ public class PartitionReplicaLifecycleManager extends
                 return replicaMgr.startReplica(
                                 zonePartitionId,
                                 raftClient -> new ZonePartitionReplicaListener(
+                                        clockService,
                                         new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
                                 new FailFastSnapshotStorageFactory(),
                                 stablePeersAndLearners,
