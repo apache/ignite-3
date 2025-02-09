@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -51,6 +53,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -82,6 +86,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -91,6 +96,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.network.NetworkAddress;
@@ -768,7 +774,63 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         }
     }
 
-    private void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
+    @Test
+    public void testScanCloseReplicaRequest(TestInfo testInfo) throws Exception {
+        // Prepare a single node cluster.
+        startNodes(testInfo, 1);
+        Node node = getNode(0);
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        // Prepare a zone.
+        createZone(node, "test_zone", 1, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+        prepareTableIdToZoneIdConverter(node, zoneId);
+
+        // Create a table to work with.
+        createTable(node, "test_zone", "test_table_1");
+        int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table_1", node.hybridClock.nowLong());
+        TableViewInternal tableViewInternal = node.tableManager.table(tableId);
+        KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
+
+        // Write 3 rows to the table.
+        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1, 2L, 2);
+        assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
+
+        InternalTable table = tableViewInternal.internalTable();
+
+        // Be sure that the only partition identifier is 0.
+        assertEquals(1, table.partitions());
+        int partId = 0;
+
+        // We have to use explicit transaction to check scan close scenario.
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        // Prepare a subscription on table scan in explicit transaction.
+        List<BinaryRow> scannedRows = new ArrayList<>();
+        Publisher<BinaryRow> publisher = table.scan(partId, tx);
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+        // Let's request N+1 rows to be ensure later that rows count is exactly N and scan is done.
+        subscription.request(valuesToPut.size() + 1);
+
+        // Waiting while scan will be done.
+        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), AWAIT_TIMEOUT_MILLIS));
+
+        // And double check it with the non-exceptionally completed future on subscriber's complete event.
+        assertTrue(scanned.isDone() && !scanned.isCompletedExceptionally());
+
+        // Check there that scanned rows count is equals to written ones.
+        assertEquals(valuesToPut.size(), scannedRows.size());
+
+        // Triggers scan close with the corresponding request.
+        assertDoesNotThrow(subscription::cancel);
+
+        // Commit the open transaction.
+        assertDoesNotThrow(tx::commit);
+    }
+
+    private static void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
         node.setRequestConverter(request ->  {
             if (request instanceof WriteIntentSwitchReplicaRequest) {
                 return request.groupId().asReplicationGroupId();
