@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.toBytes;
@@ -46,8 +45,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -75,11 +72,9 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -233,140 +228,48 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     private static Stream<Arguments> assignmentsProvider() {
         return Stream.of(
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=null, pending=null, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=null, pending=assignments1, planned=null.
-                 */
                 arguments(nodes1, assignments2, null, null, null, null, assignments1, null),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments1.
-                 * Current assignments in the metastorage: stable=null, pending=null, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=null, pending=null, planned=null.
-                 */
                 arguments(nodes1, assignments1, null, null, null, null, null, null),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=null, pending=assignments3, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=null, pending=assignments3, planned=assignments1.
-                 */
                 arguments(nodes1, assignments2, null, assignments3, null, null, assignments3, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments1.
-                 * Current assignments in the metastorage: stable=null, pending=assignments3, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=null, pending=assignments3, planned=assignments1.
-                 */
                 arguments(nodes1, assignments1, null, assignments3, null, null, assignments3, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=assignments3, pending=null, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments3, pending=assignments1, planned=null.
-                 */
                 arguments(nodes1, assignments2, assignments3, null, null, assignments3, assignments1, null),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments1.
-                 * Current assignments in the metastorage: stable=assignments3, pending=null, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments3, pending=assignments1, planned=null.
-                 */
                 arguments(nodes1, assignments1, assignments3, null, null, assignments3, assignments1, null),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=assignments1, pending=null, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments1, pending=null, planned=null.
-                 */
                 arguments(nodes1, assignments2, assignments1, null, null, assignments1, null, null),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments1.
-                 * Current assignments in the metastorage: stable=assignments1, pending=null, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments1, pending=null, planned=null.
-                 */
                 arguments(nodes1, assignments1, assignments1, null, null, assignments1, null, null),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=assignments2, pending=null, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments2, pending=assignments1, planned=null.
-                 */
                 arguments(nodes1, assignments2, assignments2, null, null, assignments2, assignments1, null),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=assignments4, pending=assignments3, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments4, pending=assignments3, planned=assignments1.
-                 */
                 arguments(nodes1, assignments2, assignments4, assignments3, null, assignments4, assignments3, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments1.
-                 * Current assignments in the metastorage: stable=assignments3, pending=assignments2, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments3, pending=assignments2, planned=assignments1.
-                 */
                 arguments(nodes1, assignments1, assignments3, assignments2, null, assignments3, assignments2, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=assignments1, pending=assignments3, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments3, planned=assignments1.
-                 */
                 arguments(nodes1, assignments2, assignments1, assignments3, null, assignments1, assignments3, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=assignments2, pending=assignments3, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments2, pending=assignments3, planned=assignments1.
-                 */
                 arguments(nodes1, assignments2, assignments2, assignments3, null, assignments2, assignments3, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments1.
-                 * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=null.
-                 * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=assignments1.
-                 */
                 arguments(nodes1, assignments1, assignments1, assignments2, null, assignments1, assignments2, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments1.
-                 * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=assignments3.
-                 * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=assignments1.
-                 */
                 arguments(nodes1, assignments1, assignments1, assignments2, assignments3, assignments1, assignments2, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes1.
-                 * The table configuration assignments: assignments4.
-                 * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=assignments1.
-                 * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=assignments1.
-                 */
                 arguments(nodes1, assignments4, assignments1, assignments2, assignments1, assignments1, assignments2, assignments1),
-                /**
-                 * Nodes for new assignments calculating: nodes2.
-                 * The table configuration assignments: assignments2.
-                 * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=assignments1.
-                 * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=null.
-                 */
                 arguments(nodes2, assignments2, assignments1, assignments2, assignments1, assignments1, assignments2, null),
-                /**
-                 * Nodes for new assignments calculating: nodes2.
-                 * The table configuration assignments: assignments4.
-                 * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=assignments1.
-                 * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=null.
-                 */
                 arguments(nodes2, assignments4, assignments1, assignments2, assignments1, assignments1, assignments2, null)
         );
     }
 
+    /**
+     * Verifies that the metastorage has correct assignments after invoking {@link ZoneRebalanceUtil#updatePendingAssignmentsKeys}.
+     * Uses {@link #assignmentsProvider()} as the parameter source.
+     *
+     * @param nodesForNewAssignments Nodes list to calculate new assignments against.
+     * @param zoneCfgAssignments Zone's assignment set from the stable configuration.
+     * @param currentStableAssignments Stable assignments already existing in the metastorage.
+     * @param currentPendingAssignments Pending assignments already existing in the metastorage.
+     * @param currentPlannedAssignments Planned assignments already existing in the metastorage.
+     * @param expectedStableAssignments Stable assignments expected in the metastorage
+     *        after invoking {@link ZoneRebalanceUtil#updatePendingAssignmentsKeys}.
+     * @param expectedPendingAssignments Pending assignments expected in the metastorage
+     *        after invoking {@link ZoneRebalanceUtil#updatePendingAssignmentsKeys}.
+     * @param expectedPlannedAssignments Planned assignments expected in the metastorage
+     *        after invoking {@link ZoneRebalanceUtil#updatePendingAssignmentsKeys}.
+     */
     @MethodSource("assignmentsProvider")
     @ParameterizedTest
     void testAssignmentsUpdate(
             Collection<String> nodesForNewAssignments,
-            Set<Assignment> tableCfgAssignments,
+            Set<Assignment> zoneCfgAssignments,
             Set<Assignment> currentStableAssignments,
             Set<Assignment> currentPendingAssignments,
             Set<Assignment> currentPlannedAssignments,
@@ -415,7 +318,7 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 expectedPendingChangeTriggerKey,
                 metaStorageManager,
                 partNum,
-                tableCfgAssignments,
+                zoneCfgAssignments,
                 assignmentsTimestamp,
                 Set.of(),
                 ConsistencyMode.STRONG_CONSISTENCY
