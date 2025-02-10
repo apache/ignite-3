@@ -22,9 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleLong;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -107,7 +105,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     public String explain() {
         IgniteRel clonedRoot = Cloner.clone(modifyNode, Commons.cluster());
 
-        return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+        return ExplainUtils.toString(clonedRoot);
     }
 
     public IgniteKeyValueModify modifyNode() {

@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.scanRowCount;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCount;
+import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -50,12 +51,12 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         try {
             insertAndUpdateRunQuery(500);
             assertQuery(getUniqueQuery())
-                    .matches(scanRowCount("PUBLIC", "T", 500))
+                    .matches(nodeRowCount("TableScan", is(500)))
                     .check();
 
             insertAndUpdateRunQuery(600);
             assertQuery(getUniqueQuery())
-                    .matches(scanRowCount("PUBLIC", "T", 1100))
+                    .matches(nodeRowCount("TableScan", is(1100)))
                     .check();
 
             sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
@@ -63,7 +64,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
             // Statistics shouldn't be updated despite we inserted new rows.
             assertQuery(getUniqueQuery())
-                    .matches(scanRowCount("PUBLIC", "T", 1100))
+                    .matches(nodeRowCount("TableScan", is(1100)))
                     .check();
         } finally {
             sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(prevValueOfThreshold);
@@ -85,6 +86,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     }
 
     private static String getUniqueQuery() {
-        return "SELECT * FROM t where val=" + counter.incrementAndGet();
+        return "SELECT " + counter.incrementAndGet() + " FROM t";
     }
 }
