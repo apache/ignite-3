@@ -797,7 +797,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         TableViewInternal tableViewInternal = node.tableManager.table(tableId);
         KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
 
-        // Write 3 rows to the table.
+        // Write 2 rows to the table.
         Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
         assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
 
