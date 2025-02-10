@@ -90,7 +90,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         if (!(request instanceof TableAware)) {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
             if (request instanceof TxFinishReplicaRequest) {
-                return txFinishReplicaRequestHandler.processTxFinishAction((TxFinishReplicaRequest) request)
+                return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                         .thenApply(res -> new ReplicaResult(res, null));
             } else {
                 LOG.debug("Non table request is not supported by the zone partition yet " + request);

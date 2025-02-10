@@ -857,7 +857,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return nullCompletedFuture();
         } else if (request instanceof TxFinishReplicaRequest) {
-            return txFinishReplicaRequestHandler.processTxFinishAction((TxFinishReplicaRequest) request);
+            return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request);
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
             return processWriteIntentSwitchAction((WriteIntentSwitchReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {

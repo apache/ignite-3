@@ -119,7 +119,7 @@ public class TxFinishReplicaRequestHandler {
      * @param request Transaction finish request.
      * @return future result of the operation.
      */
-    public CompletableFuture<TransactionResult> processTxFinishAction(TxFinishReplicaRequest request) {
+    public CompletableFuture<TransactionResult> handle(TxFinishReplicaRequest request) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
         Map<TablePartitionId, String> enlistedGroups = asTablePartitionIdStringMap(request.groups());
 
