@@ -310,7 +310,7 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage with set of LogicalNodes as input.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesHistoryKey(int)} in storage with set of LogicalNodes as input.
      *
      * @param zoneId Zone id.
      * @param clusterNodes Data nodes.
@@ -334,7 +334,7 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesHistoryKey(int)} in storage.
      *
      * @param zoneId Zone id.
      * @param nodes Data nodes.
@@ -350,7 +350,7 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesHistoryKey(int)} in storage.
      *
      * @param zoneId Zone id.
      * @param nodes Data nodes.

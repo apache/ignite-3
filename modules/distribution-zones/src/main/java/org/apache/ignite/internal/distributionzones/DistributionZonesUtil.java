@@ -21,15 +21,11 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
@@ -60,7 +56,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
@@ -80,12 +75,6 @@ public class DistributionZonesUtil {
     /** Key prefix for zone's data nodes history. */
     public static final String DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "history.";
 
-    /** Key prefix for zone's data nodes. */
-    public static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
-
-    public static final byte[] DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES =
-            DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.getBytes(StandardCharsets.UTF_8);
-
     /** Key prefix for zone's scale up timer. */
     public static final String DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpTimer.";
 
@@ -95,14 +84,6 @@ public class DistributionZonesUtil {
     /** Key prefix for zone's partition reset timer. */
     public static final String DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX
             + "partitionResetTimer.";
-
-    /** Key prefix for zone's scale up change trigger key. */
-    private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX =
-            DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpChangeTrigger.";
-
-    /** Key prefix for zone's scale down change trigger key. */
-    private static final String DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX =
-            DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownChangeTrigger.";
 
     /** Key prefix for zones' logical topology nodes and logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
@@ -147,10 +128,6 @@ public class DistributionZonesUtil {
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID);
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
-    private static final ByteArray DISTRIBUTION_ZONES_DATA_NODES_KEY =
-            new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
-
     /**
      * Internal property that determines partition group members reset timeout after the partition group majority loss.
      *
@@ -170,16 +147,6 @@ public class DistributionZonesUtil {
 
     /** Default value for the {@link #REBALANCE_RETRY_DELAY_MS}. */
     public static final int REBALANCE_RETRY_DELAY_DEFAULT = 200;
-
-    /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
-     *
-     * @param zoneId Zone id.
-     * @return ByteArray representation.
-     */
-    public static ByteArray zoneDataNodesKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX + zoneId);
-    }
 
     /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX}.
@@ -241,29 +208,11 @@ public class DistributionZonesUtil {
     /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX}.
      *
-     * @return ByteArray representation.
-     */
-    public static ByteArray zonePartitionResetTimerPrefix() {
-        return new ByteArray(DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX);
-    }
-
-    /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX}.
-     *
      * @param zoneId Zone id.
      * @return ByteArray representation.
      */
     public static ByteArray zonePartitionResetTimerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX + zoneId);
-    }
-
-    /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
-     *
-     * @return ByteArray representation.
-     */
-    public static ByteArray zoneDataNodesKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES);
     }
 
     /**
@@ -273,22 +222,6 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
-    }
-
-    /**
-     * The key needed for processing an event about zone's data node propagation on scale up.
-     * With this key we can be sure that event was triggered only once.
-     */
-    public static ByteArray zoneScaleUpChangeTriggerKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX + zoneId);
-    }
-
-    /**
-     * The key needed for processing an event about zone's data node propagation on scale down.
-     * With this key we can be sure that event was triggered only once.
-     */
-    public static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
     /**
@@ -318,13 +251,6 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key prefix needed for processing an event about zone's data nodes.
-     */
-    public static ByteArray zonesDataNodesPrefix() {
-        return DISTRIBUTION_ZONES_DATA_NODES_KEY;
-    }
-
-    /**
      * The key that represents nodes' attributes in Meta Storage.
      */
     public static ByteArray zonesNodesAttributes() {
@@ -347,20 +273,6 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Condition for creating all data nodes' related keys in Meta Storage. Condition passes only when
-     * {@link DistributionZonesUtil#zoneDataNodesHistoryKey(int)} not exists and not a tombstone in the Meta Storage.
-     *
-     * @param zoneId Distribution zone id.
-     * @return Update condition.
-     */
-    static CompoundCondition conditionForZoneCreation(int zoneId) {
-        return and(
-                notExists(zoneDataNodesHistoryKey(zoneId)),
-                notTombstone(zoneDataNodesHistoryKey(zoneId))
-        );
-    }
-
-    /**
      * Condition fot updating recoverable state of Distribution zone manager.
      * Update only if the revision of the event is newer than value in that trigger key.
      *
@@ -372,49 +284,6 @@ public class DistributionZonesUtil {
                 notExists(zonesRecoverableStateRevision()),
                 value(zonesRecoverableStateRevision()).lt(longToBytesKeepingOrder(revision))
         );
-    }
-
-    /**
-     * Condition for removing all data nodes' related keys in Meta Storage.
-     *
-     * @param zoneId Distribution zone id
-     * @return Update condition.
-     */
-    static SimpleCondition conditionForZoneRemoval(int zoneId) {
-        return exists(zoneDataNodesHistoryKey(zoneId));
-    }
-
-    /**
-     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} and
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
-     *
-     * @param zoneId Distribution zone id
-     * @param revision Revision of the event.
-     * @param nodes Data nodes.
-     * @return Update command for the meta storage.
-     */
-    static Update updateDataNodesAndTriggerKeys(int zoneId, long revision, byte[] nodes) {
-        return ops(
-                put(zoneDataNodesKey(zoneId), nodes),
-                put(zoneScaleUpChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision)),
-                put(zoneScaleDownChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
-        ).yield(true);
-    }
-
-    /**
-     * Deletes data nodes, {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} values for a zone.
-     *
-     * @param zoneId Distribution zone id
-     * @param revision Revision of the event.
-     * @return Update command for the meta storage.
-     */
-    static Update deleteDataNodesAndTriggerKeys(int zoneId, long revision) {
-        return ops(
-                remove(zoneDataNodesKey(zoneId)),
-                remove(zoneScaleUpChangeTriggerKey(zoneId)),
-                remove(zoneScaleDownChangeTriggerKey(zoneId))
-        ).yield(true);
     }
 
     /**
@@ -505,10 +374,6 @@ public class DistributionZonesUtil {
         DataNodesHistory dataNodesHistory = DataNodesHistorySerializer.deserialize(dataNodesBytes);
 
         return dataNodesHistory.dataNodesForTimestamp(timestamp).getSecond();
-    }
-
-    public static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
-        return DataNodesMapSerializer.deserialize(bytes);
     }
 
     public static Set<NodeWithAttributes> deserializeLatestDataNodesHistoryEntry(byte[] bytes) {
@@ -705,18 +570,6 @@ public class DistributionZonesUtil {
 
     public static Set<String> nodeNames(Set<NodeWithAttributes> nodes) {
         return nodes.stream().map(NodeWithAttributes::nodeName).collect(toSet());
-    }
-
-    /** Key prefix for zone's scale up change trigger key. */
-    @TestOnly
-    public static ByteArray zoneScaleUpChangeTriggerKeyPrefix() {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
-    }
-
-    /** Key prefix for zone's scale down change trigger key. */
-    @TestOnly
-    public static ByteArray zoneScaleDownChangeTriggerKeyPrefix() {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
     }
 
     /**

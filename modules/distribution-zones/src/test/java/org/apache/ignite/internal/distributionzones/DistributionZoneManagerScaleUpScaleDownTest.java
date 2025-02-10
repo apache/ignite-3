@@ -234,7 +234,8 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         dropZone(ZONE_NAME);
 
-        assertDataNodesFromLogicalNodesInStorage(zoneId, null, keyValueStorage);
+        // Data nodes history should not be dropped after zone drop. Deferred removal should happen on LWM move.
+        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
         context = dataNodeHistoryContext(metaStorageManager, zoneId);
         assertFalse(context.scaleUpTimerPresent());
         assertFalse(context.scaleDownTimerPresent());
@@ -266,7 +267,8 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         dropZone(ZONE_NAME);
 
-        assertDataNodesFromLogicalNodesInStorage(zoneId, null, keyValueStorage);
+        // Data nodes history should not be dropped after zone drop. Deferred removal should happen on LWM move.
+        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
         context = dataNodeHistoryContext(metaStorageManager, zoneId);
         assertFalse(context.scaleUpTimerPresent());
         assertFalse(context.scaleDownTimerPresent());
