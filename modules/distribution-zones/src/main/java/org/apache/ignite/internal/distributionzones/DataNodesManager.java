@@ -70,7 +70,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -138,17 +140,25 @@ public class DataNodesManager {
 
     private final Map<Integer, DataNodesHistory> dataNodesHistoryVolatile = new ConcurrentHashMap<>();
 
+    private final BiConsumer<Long, Integer> partitionResetClosure;
+
+    private final IntSupplier partitionDistributionResetTimeoutSupplier;
+
     public DataNodesManager(
             String nodeName,
             IgniteSpinBusyLock busyLock,
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
-            ClockService clockService
+            ClockService clockService,
+            BiConsumer<Long, Integer> partitionResetClosure,
+            IntSupplier partitionDistributionResetTimeoutSupplier
     ) {
         this.metaStorageManager = metaStorageManager;
         this.catalogManager = catalogManager;
         this.clockService = clockService;
         this.localNodeName = nodeName;
+        this.partitionResetClosure = partitionResetClosure;
+        this.partitionDistributionResetTimeoutSupplier = partitionDistributionResetTimeoutSupplier;
         this.busyLock = busyLock;
 
         executor = createZoneManagerExecutor(
@@ -162,7 +172,8 @@ public class DataNodesManager {
     }
 
     CompletableFuture<Void> startAsync(
-            Collection<CatalogZoneDescriptor> knownZones
+            Collection<CatalogZoneDescriptor> knownZones,
+            long recoveryRevision
     ) {
         metaStorageManager.registerPrefixWatch(zoneScaleUpTimerPrefix(), scaleUpTimerPrefixListener);
         metaStorageManager.registerPrefixWatch(zoneScaleDownTimerPrefix(), scaleDownTimerPrefixListener);
@@ -211,8 +222,12 @@ public class DataNodesManager {
                         DataNodesHistory history = DataNodesHistorySerializer.deserialize(historyEntry.value());
                         dataNodesHistoryVolatile.put(zone.id(), history);
 
-                        onScaleUpTimerChange(zone, DistributionZoneTimerSerializer.deserialize(scaleUpEntry.value()));
-                        onScaleDownTimerChange(zone, DistributionZoneTimerSerializer.deserialize(scaleDownEntry.value()));
+                        DistributionZoneTimer scaleUpTimer = DistributionZoneTimerSerializer.deserialize(scaleUpEntry.value());
+                        DistributionZoneTimer scaleDownTimer = DistributionZoneTimerSerializer.deserialize(scaleDownEntry.value());
+
+                        onScaleUpTimerChange(zone, scaleUpTimer);
+                        onScaleDownTimerChange(zone, scaleDownTimer);
+                        restorePartitionResetTimer(zone.id(), scaleDownTimer, recoveryRevision);
                     }
 
                     return null;
@@ -231,12 +246,10 @@ public class DataNodesManager {
 
     CompletableFuture<Void> onTopologyChange(
             CatalogZoneDescriptor zoneDescriptor,
+            long revision,
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> newLogicalTopology,
-            Set<NodeWithAttributes> oldLogicalTopology,
-            int partitionResetDelay,
-            Runnable taskOnPartitionReset,
-            boolean isRecovery
+            Set<NodeWithAttributes> oldLogicalTopology
     ) {
         return msInvokeWithRetry(msGetter -> {
             int zoneId = zoneDescriptor.id();
@@ -276,12 +289,12 @@ public class DataNodesManager {
                             throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
                         }
 
-                        boolean topologyReduced = !removedNodes.isEmpty() || (isRecovery && !scaleDownTimer.nodes().isEmpty());
+                        int partitionResetDelay = partitionDistributionResetTimeoutSupplier.getAsInt();
 
-                        if (topologyReduced
+                        if (!removedNodes.isEmpty()
                                 && zoneDescriptor.consistencyMode() == HIGH_AVAILABILITY
                                 && partitionResetDelay != INFINITE_TIMER_VALUE) {
-                            reschedulePartitionReset(partitionResetDelay, taskOnPartitionReset, zoneId);
+                            reschedulePartitionReset(partitionResetDelay, () -> partitionResetClosure.accept(revision, zoneId), zoneId);
                         }
 
                         DistributionZoneTimer mergedScaleUpTimer = newScaleUpTimerOnTopologyChange(zoneDescriptor, timestamp,
@@ -698,6 +711,16 @@ public class DataNodesManager {
         }
 
         rescheduleScaleDown(delayInSeconds(scaleDownTimer.timeToTrigger()), scaleDownClosure(zoneDescriptor), zoneId);
+    }
+
+    private void restorePartitionResetTimer(int zoneId, DistributionZoneTimer scaleDownTimer, long revision) {
+        if (!scaleDownTimer.equals(DEFAULT_TIMER)) {
+            reschedulePartitionReset(
+                    partitionDistributionResetTimeoutSupplier.getAsInt(),
+                    () -> partitionResetClosure.accept(revision, zoneId),
+                    zoneId
+            );
+        }
     }
 
     private static long delayInSeconds(HybridTimestamp timerTimestamp) {

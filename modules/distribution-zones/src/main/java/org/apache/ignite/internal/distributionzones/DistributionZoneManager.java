@@ -225,7 +225,9 @@ public class DistributionZoneManager extends
                 busyLock,
                 metaStorageManager,
                 catalogManager,
-                clockService
+                clockService,
+                this::fireTopologyReduceLocalEvent,
+                partitionDistributionResetTimeoutConfiguration::currentValue
         );
     }
 
@@ -259,7 +261,7 @@ public class DistributionZoneManager extends
 
             return allOf(
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision),
-                    dataNodesManager.startAsync(catalogManager.catalog(catalogVersion).zones())
+                    dataNodesManager.startAsync(catalogManager.catalog(catalogVersion).zones(), recoveryRevision)
             ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
         });
     }
@@ -624,12 +626,10 @@ public class DistributionZoneManager extends
         for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
             CompletableFuture<Void> f = dataNodesManager.onTopologyChange(
                     zone,
+                    revision,
                     timestamp,
                     newLogicalTopology,
-                    oldLogicalTopology,
-                    partitionDistributionResetTimeoutConfiguration.currentValue(),
-                    () -> fireTopologyReduceLocalEvent(revision, zone.id()),
-                    isRecovery
+                    oldLogicalTopology
             );
 
             futures.add(f);
@@ -688,7 +688,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Returns metastore long view of {@link org.apache.ignite.internal.hlc.HybridTimestamp} by revision.
+     * Returns metastore long view of {@link HybridTimestamp} by revision.
      *
      * @param revision Metastore revision.
      * @return Appropriate metastore timestamp or -1 if revision is already compacted.
