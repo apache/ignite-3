@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
-import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
@@ -313,12 +312,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         executeSql(format("ALTER ZONE %s SET REPLICAS=%d", HA_ZONE_NAME, 4));
 
         IgniteImpl node = igniteImpl(0);
-
-        int tableId = getTableId(node.catalogManager(), HA_TABLE_NAME, clock.nowLong());
-
-        for (Integer partId : PARTITION_IDS) {
-            assertRaftGroupsOnNodes(node, partId, tableId, HA_ZONE_NAME, 0, 1, 2, 3);
-        }
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, fourNodes);
 

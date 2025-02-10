@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Map.of;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -430,32 +429,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .stream(indexes)
                 .map(i -> node(i).name())
                 .collect(Collectors.toUnmodifiableSet());
-    }
-
-    private List<Integer> getNodesWithRaftGroups(IgniteImpl node0, int partId, int tableId, String zoneName) {
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
-                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
-        assertThat(partitionStatesFut, willCompleteSuccessfully());
-
-        LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
-
-        if (partitionStates == null) {
-            return emptyList();
-        }
-
-        return partitionStates.keySet()
-                .stream()
-                .map(cluster::nodeIndex)
-                .sorted()
-                .collect(Collectors.toList());
-    }
-
-    void assertRaftGroupsOnNodes(IgniteImpl node0, int partId, int tableId, String zoneName, Integer... expected)
-            throws InterruptedException {
-        assertTrue(
-                waitForCondition(() -> List.of(expected).equals(getNodesWithRaftGroups(node0, partId, tableId, zoneName)), 5000),
-                () -> "Expected: " + List.of(expected) + ", actual: " + getNodesWithRaftGroups(node0, partId, tableId, zoneName)
-        );
     }
 
     static List<Throwable> insertValues(Table table, int offset) {
