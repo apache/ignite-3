@@ -66,7 +66,7 @@ public class FinishTxCommandHandler {
      * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    public IgniteBiTuple<Serializable, Boolean> handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
+    public IgniteBiTuple<Serializable, Boolean> handle(FinishTxCommand cmd, long commandIndex, long commandTerm)
             throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {

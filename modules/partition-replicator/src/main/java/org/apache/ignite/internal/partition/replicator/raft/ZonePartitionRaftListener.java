@@ -141,7 +141,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         IgniteBiTuple<Serializable, Boolean> result = null;
 
         if (command instanceof FinishTxCommand) {
-            result = finishTxCommandHandler.handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
+            result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
             // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
