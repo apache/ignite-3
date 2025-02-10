@@ -21,11 +21,13 @@ import static java.util.Collections.emptyList;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -34,11 +36,18 @@ import java.util.Base64;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class LeaseBatchSerializerTest {
     private static final UUID NODE1_ID = new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
@@ -62,19 +71,16 @@ class LeaseBatchSerializerTest {
         byte[] bytes = VersionedSerialization.toBytes(originalBatch, serializer);
         LeaseBatch restoredBatch = VersionedSerialization.fromBytes(bytes, serializer);
 
-        assertThat(restoredBatch.leases(), equalTo(originalBatch.leases()));
+        assertThat(restoredBatch.leases(), containsInAnyOrder(originalBatch.leases().toArray()));
         assertEquals(
                 originalBatch.leases().stream().map(Lease::proposedCandidate).collect(toList()),
                 restoredBatch.leases().stream().map(Lease::proposedCandidate).collect(toList())
         );
     }
 
-    @Test
-    void batchWithTablePartitionsOnly() {
-        HybridTimestamp baseTs = baseTs();
-
-        List<Lease> originalLeases = List.of(
-                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", new TablePartitionId(1, 0)),
+    private static List<Lease> createLeases(HybridTimestamp baseTs, BiFunction<Integer, Integer, PartitionGroupId> groupIdFactory) {
+        return List.of(
+                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", groupIdFactory.apply(1, 0)),
                 new Lease(
                         "node2",
                         NODE2_ID,
@@ -83,9 +89,9 @@ class LeaseBatchSerializerTest {
                         false,
                         false,
                         null,
-                        new TablePartitionId(1, 1)
+                        groupIdFactory.apply(1, 1)
                 ),
-                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", new TablePartitionId(2, 0)),
+                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", groupIdFactory.apply(2, 0)),
                 new Lease(
                         "node2",
                         NODE2_ID,
@@ -94,10 +100,33 @@ class LeaseBatchSerializerTest {
                         false,
                         false,
                         null,
-                        new TablePartitionId(2, 1)
+                        groupIdFactory.apply(2, 1)
                 )
         );
+    }
 
+    private static Stream<Arguments> leasesSource() {
+        return Stream.of(
+            arguments(createLeases(baseTs(), TablePartitionId::new)),
+            arguments(createLeases(baseTs(), ZonePartitionId::new)),
+            arguments(
+                    Stream.concat(
+                            createLeases(baseTs(), TablePartitionId::new).stream(),
+                            createLeases(baseTs(), ZonePartitionId::new).stream()
+                    ).collect(toList())
+            ),
+            arguments(
+                    Stream.concat(
+                            createLeases(baseTs(), ZonePartitionId::new).stream(),
+                            createLeases(baseTs(), TablePartitionId::new).stream()
+                    ).collect(toList())
+            )
+        );
+    }
+
+    @MethodSource("leasesSource")
+    @ParameterizedTest
+    void batchWithTablePartitionsOnly(List<Lease> originalLeases) {
         LeaseBatch originalBatch = new LeaseBatch(originalLeases);
 
         verifySerializationAndDeserializationGivesSameResult(originalBatch);
