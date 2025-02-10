@@ -47,7 +47,7 @@ public class FinishTxCommandHandler {
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final TablePartitionId replicationGroupId;
 
-    private final RaftTxFinisher txFinisher;
+    private final RaftTxFinishMarker txFinishMarker;
 
     /** Constructor. */
     public FinishTxCommandHandler(
@@ -58,7 +58,7 @@ public class FinishTxCommandHandler {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.replicationGroupId = replicationGroupId;
 
-        txFinisher = new RaftTxFinisher(txManager);
+        txFinishMarker = new RaftTxFinishMarker(txManager);
     }
 
     /**
@@ -98,7 +98,7 @@ public class FinishTxCommandHandler {
         );
 
         // Assume that we handle the finish command only on the commit partition.
-        txFinisher.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), this.replicationGroupId);
+        txFinishMarker.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), this.replicationGroupId);
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 

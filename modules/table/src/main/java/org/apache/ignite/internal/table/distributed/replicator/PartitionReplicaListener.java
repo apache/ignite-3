@@ -107,7 +107,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
-import org.apache.ignite.internal.partition.replicator.ReplicaTxFinisher;
+import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.ResultWrapper;
 import org.apache.ignite.internal.partition.replicator.TxFinishReplicaRequestHandler;
@@ -358,7 +358,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
-    private final ReplicaTxFinisher replicaTxFinisher;
+    private final ReplicaTxFinishMarker replicaTxFinishMarker;
 
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
 
@@ -442,7 +442,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
-        replicaTxFinisher = new ReplicaTxFinisher(txManager);
+        replicaTxFinishMarker = new ReplicaTxFinishMarker(txManager);
 
         txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
                 txStatePartitionStorage,
@@ -1682,7 +1682,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return CompletableFuture of ReplicaResult.
      */
     private CompletableFuture<ReplicaResult> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
-        replicaTxFinisher.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
+        replicaTxFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenCompose(res -> {

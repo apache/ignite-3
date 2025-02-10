@@ -82,7 +82,7 @@ public class TxFinishReplicaRequestHandler {
     private final SchemaCompatibilityValidator schemaCompatValidator;
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
-    private final ReplicaTxFinisher replicaTxFinisher;
+    private final ReplicaTxFinishMarker replicaTxFinishMarker;
 
 
     /** Constructor. */
@@ -104,7 +104,7 @@ public class TxFinishReplicaRequestHandler {
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
-        replicaTxFinisher = new ReplicaTxFinisher(txManager);
+        replicaTxFinishMarker = new ReplicaTxFinishMarker(txManager);
     }
 
     /**
@@ -273,7 +273,7 @@ public class TxFinishReplicaRequestHandler {
                             UnexpectedTransactionStateException utse = (UnexpectedTransactionStateException) ex;
                             TransactionResult result = utse.transactionResult();
 
-                            replicaTxFinisher.markFinished(txId, result.transactionState(), result.commitTimestamp());
+                            replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
 
                             throw new MismatchingTransactionOutcomeInternalException(utse.getMessage(), utse.transactionResult());
                         }
@@ -283,7 +283,7 @@ public class TxFinishReplicaRequestHandler {
 
                     TransactionResult result = (TransactionResult) txOutcome;
 
-                    replicaTxFinisher.markFinished(txId, result.transactionState(), result.commitTimestamp());
+                    replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
 
                     return result;
                 });
