@@ -81,6 +81,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -414,14 +415,11 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     /**
      * Tests the recovery phase, when a node is restarted and we expect the data to be restored by the Raft mechanisms.
      */
-    @ParameterizedTest(name = "truncateRaftLog={0}")
-    @ValueSource(booleans = {false, true})
-    void testLocalRaftLogReapplication(boolean truncateRaftLog) throws Exception {
-        assumeFalse(truncateRaftLog, "https://issues.apache.org/jira/browse/IGNITE-22416");
-
+    @Test
+    void testLocalRaftLogReapplication() throws Exception {
         startCluster(1);
 
-        // Create a zone with the test profile. The storage in it is augmented to lose all data upon restart, by its Raft configuration
+        // Create a zone with the test profile. The storage in it is augmented to lose all data upon restart, but its Raft configuration
         // is persistent, so the data can be restored.
         int zoneId = createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
 
@@ -443,10 +441,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
 
         kvView.put(null, 42, 42);
-
-        if (truncateRaftLog) {
-            truncateLogOnEveryNode(zonePartitionId);
-        }
 
         // Restart the node.
         node.stop();
