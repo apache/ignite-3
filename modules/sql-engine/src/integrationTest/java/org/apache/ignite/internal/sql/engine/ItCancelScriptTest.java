@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelledInternalException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -78,7 +79,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    void cancelMustRollbackScriptTransaction() {
+    void cancelMustRollbackScriptTransaction() throws InterruptedException {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
@@ -98,7 +99,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
 
         cancelHandle.cancel();
 
-        assertThat(queryProcessor().openedCursors(), is(0));
+        assertTrue(waitForCondition(() -> queryProcessor().openedCursors() == 0, 5_000));
         waitUntilRunningQueriesCount(is(0));
         assertEquals(0, txManager().pending());
 
