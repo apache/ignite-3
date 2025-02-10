@@ -29,11 +29,6 @@ public enum LocalPartitionReplicaEvent implements Event {
     BEFORE_REPLICA_STARTED,
 
     /**
-     * Fired when partition replica has started.
-     */
-    AFTER_REPLICA_STARTED,
-
-    /**
      * Fired when partition replica has been destroyed.
      */
     AFTER_REPLICA_DESTROYED

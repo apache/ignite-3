@@ -398,6 +398,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         // Wait for the data to appear. At the moment of writing, we don't have any partition safe time to wait for and
         // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
         // Not using "assertTrue" on purpose, the next line will produce a nicer error message.
+        // TODO: remove this line after https://issues.apache.org/jira/browse/IGNITE-22620
         waitForCondition(() -> kvView1.getAll(null, data1.keySet()).equals(data1), 10_000L);
 
         assertThat(kvView1.getAll(null, data1.keySet()), is(data1));

@@ -562,17 +562,16 @@ public class PartitionReplicaLifecycleManager extends
                             return failedFuture(e);
                         }
                     })
-                    .thenCompose(replica -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
+                    .thenCompose(v -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
                         replicationGroupIds.add(zonePartitionId);
 
-                        return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED, eventParams);
+                        return falseCompletedFuture();
                     }))
                     .whenComplete((v, e) -> {
                         if (e != null) {
                             listenersByZonePartitionId.remove(zonePartitionId);
                         }
-                    })
-                    .thenApply(unused -> false);
+                    });
         };
 
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
@@ -1378,6 +1377,10 @@ public class PartitionReplicaLifecycleManager extends
     ) {
         Listeners listeners = listenersByZonePartitionId.get(zonePartitionId);
 
+        // Register an intent to register a table-wide replica listener. On recovery this method is called before the replica is started,
+        // so the listeners will be registered by the thread completing the "replicaListenerFuture". On normal operation (where there is
+        // a HB relationship between zone and table creation) zone-wide replica must already be started, this future will always be
+        // completed and the listeners will be registered immediately.
         listeners.replicaListenerFuture.thenAccept(zoneReplicaListener -> zoneReplicaListener.addTableReplicaListener(
                 tablePartitionId,
                 tablePartitionReplicaListenerFactory
