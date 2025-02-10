@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.tx.views;
 
-import static org.apache.ignite.internal.tx.TxState.PENDING;
-import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
@@ -30,14 +27,12 @@ import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
-import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,12 +48,10 @@ public class TransactionsViewProvider {
     /** Initializes provider with data sources. */
     public void init(
             UUID localNodeId,
-            Collection<UUID> roTxIds,
             Map<UUID, TxStateMeta> rwTxStates
     ) {
         this.dataSource = new TxInfoDataSource(
                 localNodeId,
-                roTxIds,
                 rwTxStates
         );
     }
@@ -93,27 +86,20 @@ public class TransactionsViewProvider {
     static class TxInfoDataSource implements Iterable<TxInfo> {
         private final UUID localNodeId;
 
-        private final Iterable<UUID> roTxIds;
-
         private final Map<UUID, TxStateMeta> rwTxStates;
 
-        TxInfoDataSource(UUID localNodeId, Iterable<UUID> roTxIds, Map<UUID, TxStateMeta> rwTxStates) {
+        TxInfoDataSource(UUID localNodeId, Map<UUID, TxStateMeta> rwTxStates) {
             this.localNodeId = localNodeId;
-            this.roTxIds = roTxIds;
             this.rwTxStates = rwTxStates;
         }
 
         @Override
         public Iterator<TxInfo> iterator() {
-            return CollectionUtils.concat(
-                    new TransformingIterator<>(roTxIds.iterator(), TxInfo::readOnly),
-                    rwTxStates.entrySet().stream()
+            return rwTxStates.entrySet().stream()
                             .filter(e -> localNodeId.equals(e.getValue().txCoordinatorId())
-                                    && e.getValue().tx() != null && !e.getValue().tx().isReadOnly()
-                                    && !isFinalState(e.getValue().txState()))
-                            .map(e -> TxInfo.readWrite(e.getKey(), e.getValue().txState()))
-                            .iterator()
-            );
+                                    && e.getValue().tx() != null && !e.getValue().tx().isFinishingOrFinished())
+                            .map(e -> new TxInfo(e.getKey(), e.getValue()))
+                            .iterator();
         }
     }
 
@@ -124,19 +110,15 @@ public class TransactionsViewProvider {
         private final String type;
         private final String priority;
 
-        static TxInfo readOnly(UUID id) {
-            return new TxInfo(id, PENDING, true);
-        }
+        TxInfo(UUID id, TxStateMeta txStateMeta) {
+            InternalTransaction tx = txStateMeta.tx();
 
-        static TxInfo readWrite(UUID id, TxState txState) {
-            return new TxInfo(id, txState, false);
-        }
+            assert tx != null;
 
-        private TxInfo(UUID id, @Nullable TxState state, boolean readOnly) {
             this.id = id.toString();
-            this.state = state == null ? null : state.name();
+            this.state = txStateMeta.txState().name();
             this.startTime = Instant.ofEpochMilli(TransactionIds.beginTimestamp(id).getPhysical());
-            this.type = readOnly ? READ_ONLY : READ_WRITE;
+            this.type = tx.isReadOnly() ? READ_ONLY : READ_WRITE;
             this.priority = TransactionIds.priority(id).name();
         }
     }
