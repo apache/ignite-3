@@ -90,14 +90,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             TxManager txManager,
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            ZonePartitionId partitionId
+            ZonePartitionId zonePartitionId
     ) {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
 
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
-                new TablePartitionId(partitionId.zoneId(), partitionId.partitionId()),
+                new TablePartitionId(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 txManager
         );
     }
