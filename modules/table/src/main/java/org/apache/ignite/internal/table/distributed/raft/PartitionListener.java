@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
@@ -53,6 +55,8 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateAll
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.MinimumActiveTxTimeCommandHandler;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -97,6 +101,10 @@ public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
+
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -126,7 +134,8 @@ public class PartitionListener implements RaftGroupListener {
     // This variable is volatile, because it may be updated outside the Raft thread under the colocation feature.
     private volatile Set<String> currentGroupTopology;
 
-    private final MinimumRequiredTimeCollectorService minTimeCollectorService;
+    // Raft command handlers.
+    private final MinimumActiveTxTimeCommandHandler minimumActiveTxTimeCommandHandler;
 
     /** Constructor. */
     public PartitionListener(
@@ -152,7 +161,9 @@ public class PartitionListener implements RaftGroupListener {
         this.schemaRegistry = schemaRegistry;
         this.indexMetaStorage = indexMetaStorage;
         this.localNodeId = localNodeId;
-        this.minTimeCollectorService = minTimeCollectorService;
+
+        // RAFT command handlers initialization.
+        minimumActiveTxTimeCommandHandler = new MinimumActiveTxTimeCommandHandler(minTimeCollectorService); // remove.
     }
 
     @Override
@@ -214,14 +225,23 @@ public class PartitionListener implements RaftGroupListener {
                 } else if (command instanceof VacuumTxStatesCommand) {
                     result = handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-                    result = handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex,
-                            commandTerm);
+                    if (!enabledColocationFeature) {
+                        result = minimumActiveTxTimeCommandHandler.handle(
+                                (UpdateMinimumActiveTxBeginTimeCommand) command,
+                                commandIndex,
+                                this,
+                                new TablePartitionId(storage.tableId(), storage.partitionId()));
+                    }
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
 
+                if (result == null) {
+                    assert false : "Command should not be passed to PartitionListener "
+                            + "[cmd=" + command + ", colocationEnabled=" + enabledColocationFeature + ']';
+                }
+
                 if (Boolean.TRUE.equals(result.get2())) {
-                    // Adjust safe time before completing update to reduce waiting.
                     if (safeTimestamp != null) {
                         updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
                     }
@@ -686,26 +706,14 @@ public class PartitionListener implements RaftGroupListener {
         return new IgniteBiTuple<>(null, true);
     }
 
-    private IgniteBiTuple<Serializable, Boolean> handleUpdateMinimalActiveTxTimeCommand(
-            UpdateMinimumActiveTxBeginTimeCommand cmd,
-            long commandIndex,
-            long commandTerm
-    ) {
-        // Skips the write command because the storage has already executed it.
-        if (commandIndex <= storage.lastAppliedIndex()) {
-            return new IgniteBiTuple<>(null, false);
-        }
+    @Override
+    public CompletableFuture<?> flushStorage(long commandIndex) {
+        return storage.flush(false);
+    }
 
-        long timestamp = cmd.timestamp();
-
-        storage.flush(false).whenComplete((r, t) -> {
-            if (t == null) {
-                TablePartitionId partitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
-                minTimeCollectorService.recordMinActiveTxTimestamp(partitionId, timestamp);
-            }
-        });
-
-        return new IgniteBiTuple<>(null, true);
+    @Override
+    public long lastAppliedIndex() {
+        return storage.lastAppliedIndex();
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

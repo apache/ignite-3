@@ -31,6 +31,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.MinimumActiveTxTimeCommandHandler;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.tx.TransactionResult;
 public class ZonePartitionRaftListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionRaftListener.class);
 
+    /** Mapping table partition identifier to table request processor. */
     private final Map<TablePartitionId, RaftGroupListener> tablePartitionRaftListeners = new ConcurrentHashMap<>();
 
     /**
@@ -57,6 +60,17 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private CommittedConfiguration currentCommitedConfiguration;
 
     private final Object commitedConfigurationLock = new Object();
+
+    // Raft command handlers.
+    private final MinimumActiveTxTimeCommandHandler minimumActiveTxTimeCommandHandler;
+
+    /**
+     * Constructor.
+     */
+    public ZonePartitionRaftListener(MinimumRequiredTimeCollectorService minTimeCollectorService) {
+        // RAFT command handlers initialization.
+        minimumActiveTxTimeCommandHandler = new MinimumActiveTxTimeCommandHandler(minTimeCollectorService);
+    }
 
     private static class CommittedConfiguration {
         final RaftGroupConfiguration configuration;
@@ -103,6 +117,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private void processWriteCommand(CommandClosure<WriteCommand> clo) {
         Command command = clo.command();
 
+        long commandIndex = clo.index();
+
         if (command instanceof FinishTxCommand) {
             FinishTxCommand cmd = (FinishTxCommand) command;
 
@@ -119,6 +135,17 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
 
             processTableAwareCommand(tablePartitionId, clo);
+        } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+            // TODO Adjust safe time before completing update to reduce waiting.
+            tablePartitionRaftListeners.entrySet().forEach(entry -> {
+                minimumActiveTxTimeCommandHandler.handle(
+                        (UpdateMinimumActiveTxBeginTimeCommand) command,
+                        commandIndex,
+                        entry.getValue(),
+                        entry.getKey());
+            });
+
+            clo.result(null);
         } else {
             LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
 

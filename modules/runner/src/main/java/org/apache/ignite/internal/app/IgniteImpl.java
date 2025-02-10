@@ -189,6 +189,7 @@ import org.apache.ignite.internal.network.serialization.SerializationRegistrySer
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -254,7 +255,6 @@ import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTabl
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -951,6 +951,8 @@ public class IgniteImpl implements Ignite {
                 partitionsLogStorageFactory
         );
 
+        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaMgr,
@@ -965,7 +967,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 schemaSyncService,
                 systemDistributedConfiguration,
-                sharedTxStateStorage
+                sharedTxStateStorage,
+                minTimeCollectorService
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -973,8 +976,6 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService(),
                 clock
         );
-
-        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
         CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
                 name,

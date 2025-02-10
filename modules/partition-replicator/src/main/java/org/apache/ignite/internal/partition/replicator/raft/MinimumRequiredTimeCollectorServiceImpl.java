@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft;
+package org.apache.ignite.internal.partition.replicator.raft;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

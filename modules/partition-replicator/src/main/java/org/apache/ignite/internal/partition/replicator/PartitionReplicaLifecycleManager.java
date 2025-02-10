@@ -112,6 +112,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -219,6 +220,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ZoneResourcesManager zoneResourcesManager;
 
+    private final MinimumRequiredTimeCollectorService minTimeCollectorService;
+
     /**
      * The constructor.
      *
@@ -250,7 +253,8 @@ public class PartitionReplicaLifecycleManager extends
             PlacementDriver placementDriver,
             SchemaSyncService schemaSyncService,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            TxStateRocksDbSharedStorage sharedTxStateStorage
+            TxStateRocksDbSharedStorage sharedTxStateStorage,
+            MinimumRequiredTimeCollectorService minTimeCollectorService
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
@@ -263,6 +267,7 @@ public class PartitionReplicaLifecycleManager extends
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
+        this.minTimeCollectorService = minTimeCollectorService;
 
         this.placementDriver = placementDriver;
 
@@ -491,7 +496,7 @@ public class PartitionReplicaLifecycleManager extends
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
-        var raftGroupListener = new ZonePartitionRaftListener();
+        var raftGroupListener = new ZonePartitionRaftListener(minTimeCollectorService);
 
         zonePartitionRaftListeners.put(zonePartitionId, raftGroupListener);
 
