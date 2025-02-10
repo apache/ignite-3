@@ -694,7 +694,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         ) {
             @Override
             public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {

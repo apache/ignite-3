@@ -586,7 +586,8 @@ public class Node {
                 metaStorageManager,
                 logicalTopologyService,
                 catalogManager,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

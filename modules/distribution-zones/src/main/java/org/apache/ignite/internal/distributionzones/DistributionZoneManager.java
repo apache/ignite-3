@@ -72,7 +72,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -93,6 +92,7 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNo
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -180,6 +180,7 @@ public class DistributionZoneManager extends
      * @param logicalTopologyService Logical topology service.
      * @param catalogManager Catalog manager.
      * @param systemDistributedConfiguration System distributed configuration.
+     * @param clockService Clock service.
      */
     public DistributionZoneManager(
             String nodeName,
@@ -187,7 +188,8 @@ public class DistributionZoneManager extends
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             CatalogManager catalogManager,
-            SystemDistributedConfiguration systemDistributedConfiguration
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            ClockService clockService
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
@@ -222,7 +224,8 @@ public class DistributionZoneManager extends
                 nodeName,
                 busyLock,
                 metaStorageManager,
-                catalogManager
+                catalogManager,
+                clockService
         );
     }
 
@@ -301,9 +304,21 @@ public class DistributionZoneManager extends
      * @return The future with data nodes for the zoneId.
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
+        if (causalityToken < 1) {
+            throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
+        }
+
+        if (catalogVersion < 0) {
+            throw new IllegalArgumentException("catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
+        }
+
+        if (zoneId < 0) {
+            throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
+        }
+
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        return dataNodesManager.dataNodes(zoneId, timestamp);
+        return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
@@ -402,7 +417,8 @@ public class DistributionZoneManager extends
             Condition condition = exists(zoneDataNodesHistoryKey(zoneId));
 
             Update removeKeysUpd = ops(
-                    remove(zoneDataNodesHistoryKey(zoneId)),
+                    // TODO
+                    //remove(zoneDataNodesHistoryKey(zoneId)),
                     remove(zoneScaleUpTimerKey(zoneId)),
                     remove(zoneScaleDownTimerKey(zoneId)),
                     remove(zonePartitionResetTimerKey(zoneId))
@@ -582,7 +598,7 @@ public class DistributionZoneManager extends
 
     /**
      * Reaction on an update of logical topology. In this method {@link DistributionZoneManager#logicalTopology},
-     * {@link DistributionZoneManager#nodesAttributes}, {@link ZoneState#topologyAugmentationMap} are updated.
+     * {@link DistributionZoneManager#nodesAttributes} are updated.
      * This fields are saved to Meta Storage, also timers are scheduled.
      * Note that all futures of Meta Storage updates that happen in this method are returned from this method.
      *
@@ -704,75 +720,6 @@ public class DistributionZoneManager extends
         return dataNodesManager;
     }
 
-    public static class ZoneState {
-        ZoneState(StripedScheduledThreadPoolExecutor executor) {
-        }
-
-        public ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap() {
-            return null;
-        }
-
-        public synchronized void rescheduleScaleUp(long delay, Runnable runnable, int zoneId) {
-        }
-
-        public synchronized void rescheduleScaleDown(long delay, Runnable runnable, int zoneId) {
-        }
-
-        public synchronized void reschedulePartitionDistributionReset(long delay, Runnable runnable, int zoneId) {
-        }
-
-        synchronized void stopTimers() {
-        }
-
-        synchronized void stopScaleUp() {
-        }
-
-        synchronized void stopScaleDown() {
-        }
-
-        synchronized void stopPartitionDistributionReset() {
-        }
-
-        List<Node> nodesToBeAddedToDataNodes(long scaleUpRevision, long revision) {
-            return null;
-        }
-
-        List<Node> nodesToBeRemovedFromDataNodes(long scaleDownRevision, long revision) {
-            return accumulateNodes(scaleDownRevision, revision, false);
-        }
-
-        void nodesToAddToDataNodes(Set<Node> nodes, long revision) {
-        }
-
-        void nodesToRemoveFromDataNodes(Set<Node> nodes, long revision) {
-        }
-
-        private List<Node> accumulateNodes(long fromKey, long toKey, boolean addition) {
-            return null;
-        }
-
-        public synchronized ScheduledFuture<?> scaleUpTask() {
-            return null;
-        }
-
-        public synchronized ScheduledFuture<?> scaleDownTask() {
-            return null;
-        }
-
-        public synchronized ScheduledFuture<?> partitionDistributionResetTask() {
-            return null;
-        }
-    }
-
-    public static class Augmentation {
-        public Augmentation(Set<Node> nodes, boolean addition) {
-        }
-
-        public Set<Node> nodes() {
-            return null;
-        }
-    }
-
     /**
      * Returns local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
      * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
@@ -781,12 +728,6 @@ public class DistributionZoneManager extends
      */
     public Map<UUID, NodeWithAttributes> nodesAttributes() {
         return nodesAttributes;
-    }
-
-    @TestOnly
-    public Map<Integer, ZoneState> zonesState() {
-        // TODO remove this
-        return null;
     }
 
     public Set<NodeWithAttributes> logicalTopology() {

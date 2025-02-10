@@ -104,6 +104,7 @@ import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimers;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -291,7 +292,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var clockWaiter = new ClockWaiter(name, clock, commonScheduledExecutorService);
 
-        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter));
+        ClockService clockService = new TestClockService(clock, clockWaiter);
+
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
@@ -299,7 +302,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 metastore,
                 logicalTopologyService,
                 catalogManager,
-                clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system(),
+                clockService
         );
 
         // Preparing the result map.

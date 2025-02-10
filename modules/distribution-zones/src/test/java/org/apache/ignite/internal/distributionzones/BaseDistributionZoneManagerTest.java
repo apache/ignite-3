@@ -34,6 +34,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -47,9 +49,11 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -58,6 +62,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -118,13 +123,18 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
         components.add(catalogManager);
 
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(nodeName, "distribution-zone-manager-test-scheduled-executor", log)
+        );
+
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
                 revisionUpdater,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                new TestClockService(clock, new ClockWaiter(nodeName, clock, scheduledExecutorService))
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.

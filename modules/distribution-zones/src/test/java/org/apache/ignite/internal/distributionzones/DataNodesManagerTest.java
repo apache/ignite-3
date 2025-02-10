@@ -44,6 +44,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -51,9 +53,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -62,6 +67,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,15 +101,13 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private static final String NODE_NAME = "node";
 
-    private KeyValueStorage storage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
-    private HybridClock clock = new HybridClockImpl();
-    private MetaStorageManager metaStorageManager = StandaloneMetaStorageManager
-            .create(storage, clock, new ReadOperationForCompactionTracker());
-    private CatalogManager catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
-    private DataNodesManager dataNodesManager =
-            new DataNodesManager(NODE_NAME, new IgniteSpinBusyLock(), metaStorageManager, catalogManager);
+    private KeyValueStorage storage;
+    private HybridClock clock;
+    private MetaStorageManager metaStorageManager;
+    private CatalogManager catalogManager;
+    private DataNodesManager dataNodesManager;
 
-    private Set<NodeWithAttributes> currentTopology = new HashSet<>(Set.of(A));
+    private Set<NodeWithAttributes> currentTopology;
 
     @BeforeEach
     public void setUp() {
@@ -119,7 +123,13 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        dataNodesManager = new DataNodesManager(NODE_NAME, new IgniteSpinBusyLock(), metaStorageManager, catalogManager);
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(NODE_NAME, "data-nodes-manager-test-scheduled-executor", log)
+        );
+
+        ClockService clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));
+
+        dataNodesManager = new DataNodesManager(NODE_NAME, new IgniteSpinBusyLock(), metaStorageManager, catalogManager, clockService);
 
         currentTopology = new HashSet<>(Set.of(A, B));
 

@@ -940,7 +940,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

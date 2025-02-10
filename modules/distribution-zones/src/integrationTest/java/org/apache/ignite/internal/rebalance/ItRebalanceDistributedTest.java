@@ -146,6 +146,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -1464,7 +1465,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     logicalTopologyService,
                     catalogManager,
-                    systemDistributedConfiguration
+                    systemDistributedConfiguration,
+                    clockService
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
