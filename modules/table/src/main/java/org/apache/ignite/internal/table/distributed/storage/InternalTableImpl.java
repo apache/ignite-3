@@ -1827,7 +1827,7 @@ public class InternalTableImpl implements InternalTable {
             // method's signature right now because the id object is created outside of the method and is used in several places more than
             // just the method's call.
             ReplicationGroupId colocationAwareReplicationGroupId = enabledColocationFeature
-                    ? new ZonePartitionId(zoneId, replicaGrpId.tableId())
+                    ? new ZonePartitionId(zoneId, replicaGrpId.partitionId())
                     : replicaGrpId;
 
             ScanCloseReplicaRequest scanCloseReplicaRequest = TABLE_MESSAGES_FACTORY.scanCloseReplicaRequest()

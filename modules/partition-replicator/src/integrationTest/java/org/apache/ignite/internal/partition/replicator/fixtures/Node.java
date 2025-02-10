@@ -230,6 +230,8 @@ public class Node {
 
     private final LowWatermarkImpl lowWatermark;
 
+    public final RemotelyTriggeredResourceRegistry resourcesRegistry;
+
     /** The future have to be complete after the node start and all Meta storage watches are deployd. */
     private CompletableFuture<Void> deployWatchesFut;
 
@@ -452,7 +454,7 @@ public class Node {
                 threadPoolsManager.commonScheduler()
         );
 
-        var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+        resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
 

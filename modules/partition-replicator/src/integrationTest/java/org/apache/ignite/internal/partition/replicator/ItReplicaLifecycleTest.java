@@ -53,7 +53,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -91,6 +90,8 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds;
+import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -98,6 +99,8 @@ import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry.RemotelyTriggeredResource;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
@@ -782,18 +785,20 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         // Prepare a zone.
-        createZone(node, "test_zone", 1, 1);
-        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+        String zoneName = "test_zone";
+        createZone(node, zoneName, 1, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
         prepareTableIdToZoneIdConverter(node, zoneId);
 
         // Create a table to work with.
-        createTable(node, "test_zone", "test_table_1");
-        int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table_1", node.hybridClock.nowLong());
+        String tableName = "test_table";
+        createTable(node, zoneName, tableName);
+        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
         TableViewInternal tableViewInternal = node.tableManager.table(tableId);
         KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
 
         // Write 3 rows to the table.
-        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1, 2L, 2);
+        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
         assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
 
         InternalTable table = tableViewInternal.internalTable();
@@ -807,27 +812,38 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
 
         // Prepare a subscription on table scan in explicit transaction.
         List<BinaryRow> scannedRows = new ArrayList<>();
-        Publisher<BinaryRow> publisher = table.scan(partId, tx);
+        PartitionScanPublisher<BinaryRow> publisher = (PartitionScanPublisher<BinaryRow>) table.scan(partId, tx);
         CompletableFuture<Void> scanned = new CompletableFuture<>();
         Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 
-        // Let's request N+1 rows to be ensure later that rows count is exactly N and scan is done.
-        subscription.request(valuesToPut.size() + 1);
+        // Let's request a row to be ensure later that rows could be read.
+        subscription.request(1);
 
-        // Waiting while scan will be done.
+        // Waiting while request will be done.
         assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), AWAIT_TIMEOUT_MILLIS));
 
-        // And double check it with the non-exceptionally completed future on subscriber's complete event.
-        assertTrue(scanned.isDone() && !scanned.isCompletedExceptionally());
+        // By the cursor ID we can track if the cursor will be closed after subscription cancel.
+        FullyQualifiedResourceId cursorId = RemoteResourceIds.cursorId(tx.id(), publisher.scanId(subscription));
 
-        // Check there that scanned rows count is equals to written ones.
-        assertEquals(valuesToPut.size(), scannedRows.size());
+        // Check that cursor is opened.
+        assertNotNull(getVersionedStorageCursor(node, cursorId));
+
+        // Check there that scanned rows count is equals to read ones.
+        assertEquals(1, scannedRows.size());
 
         // Triggers scan close with the corresponding request.
         assertDoesNotThrow(subscription::cancel);
 
+        // Wait while ScanCloseReplicaRequest will pass through all handlers and PartitionReplicaListener#processScanCloseAction will
+        // close the cursor and remove it from the registry.
+        assertTrue(waitForCondition(() -> getVersionedStorageCursor(node, cursorId) == null, AWAIT_TIMEOUT_MILLIS));
+
         // Commit the open transaction.
         assertDoesNotThrow(tx::commit);
+    }
+
+    private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
+        return node.resourcesRegistry.resources().get(cursorId);
     }
 
     private static void prepareTableIdToZoneIdConverter(Node node, int zoneId) {

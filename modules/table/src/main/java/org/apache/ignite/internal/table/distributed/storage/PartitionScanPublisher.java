@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition Scan Publisher.
@@ -84,6 +85,11 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
      * @return A future which will be completed when the cursor is closed.
      */
     protected abstract CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th);
+
+    @TestOnly
+    public long scanId(Subscription subscription) {
+        return ((PartitionScanSubscription) subscription).scanId;
+    }
 
     /**
      * Partition Scan Subscription.
