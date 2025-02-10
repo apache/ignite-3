@@ -43,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.CancellationToken;
 import org.hamcrest.BaseMatcher;
@@ -56,14 +55,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests to check row count estimation for join relation.
+ * Tests to check row count estimation for select relation.
  */
-@SuppressWarnings("ConcatenationWithEmptyString")
 @ExtendWith(QueryCheckerExtension.class)
-public class JoinRowCountEstimationTest extends BaseIgniteAbstractTest {
-    private static final int CATALOG_SALES_SIZE = 1_441_548;
-    private static final int CATALOG_RETURNS_SIZE = 144_067;
-    private static final int DATE_DIM_SIZE = 73_049;
+public class SelectRowCountEstimationTest {
+    private static final int TABLE_REAL_SIZE = 73_049;
 
     @InjectQueryCheckerFactory
     private static QueryCheckerFactory queryCheckerFactory;
@@ -87,9 +83,7 @@ public class JoinRowCountEstimationTest extends BaseIgniteAbstractTest {
             NODE.initSchema(table.ddlScript());
         }
 
-        CLUSTER.setTableSize("CATALOG_SALES", CATALOG_SALES_SIZE);
-        CLUSTER.setTableSize("CATALOG_RETURNS", CATALOG_RETURNS_SIZE);
-        CLUSTER.setTableSize("DATE_DIM", DATE_DIM_SIZE);
+        CLUSTER.setTableSize("CATALOG_SALES", TABLE_REAL_SIZE);
     }
 
     @AfterAll
@@ -98,53 +92,69 @@ public class JoinRowCountEstimationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void joinByPrimaryKeys() {
-        assertQuery(""
-                + "SELECT *"
-                + "  FROM catalog_sales"
-                + "      ,catalog_returns"
-                + "  WHERE cs_item_sk = cr_item_sk"
-                + "    AND cs_order_number = cr_order_number"
-        )
-                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE)))
+    void testPredicatesSelectivity() {
+        double selectivityFactor = 0.5;
+        assertQuery("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
 
-        // Defined by IgniteMdSelectivity.guessSelectivity(RexNode, boolean).
-        double isNotNullPredicateFactor = 0.9;
-        assertQuery(""
-                + "SELECT *"
-                + "  FROM catalog_sales"
-                + "      ,catalog_returns"
-                + "  WHERE cs_item_sk = cr_item_sk"
-                + "    AND cs_order_number = cr_order_number"
-                + "    AND cs_promo_sk IS NOT NULL"
-        )
-                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE * isNotNullPredicateFactor)))
+        assertQuery("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK < 5")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE)))
+                .check();
+
+        String query = appendEqConditions(2);
+        selectivityFactor = 0.56;
+        assertQuery(query)
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
+
+        query = appendEqConditions(3);
+        selectivityFactor = 0.76;
+        assertQuery(query)
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
+
+        query = appendEqConditions(20);
+        selectivityFactor = 1.0;
+        assertQuery(query)
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
+
+        selectivityFactor = 0.25;
+        assertQuery("SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
+                + "(CS_SOLD_DATE_SK > 0 and CS_SOLD_DATE_SK < 5)")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
+
+        selectivityFactor = 0.33;
+        assertQuery("SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
+                + "(CS_SOLD_DATE_SK = 0)")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
+
+        selectivityFactor = 0.5;
+        assertQuery("SELECT * FROM CATALOG_SALES WHERE SQRT(CS_SOLD_DATE_SK) > 10")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
+
+        selectivityFactor = 0.9;
+        assertQuery("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK IS NOT NULL")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
     }
 
-    @Test
-    void joinByForeignKey() {
-        assertQuery(""
-                + "SELECT *"
-                + "  FROM catalog_returns"
-                + "      ,date_dim"
-                + "  WHERE cr_returned_date_sk = d_date_sk"
-        )
-                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE)))
-                .check();
+    private static String appendEqConditions(int count) {
+        String query = "SELECT * FROM CATALOG_SALES WHERE";
 
-        // Defined by IgniteMdSelectivity.guessSelectivity(RexNode, boolean).
-        double greaterPredicateFactor = 0.5;
-        assertQuery(""
-                + "SELECT *"
-                + "  FROM date_dim"
-                + "      ,catalog_returns"
-                + "  WHERE cr_returned_date_sk = d_date_sk"
-                + "    AND d_moy > 6"
-        )
-                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE * greaterPredicateFactor)))
-                .check();
+        for (int i = 0; i < count; ++i) {
+            if (i != 0) {
+                query += " OR ";
+            }
+
+            query += " CS_SOLD_DATE_SK = " + (2 * i);
+        }
+
+        return query;
     }
 
     private static QueryChecker assertQuery(String query) {
@@ -195,7 +205,7 @@ public class JoinRowCountEstimationTest extends BaseIgniteAbstractTest {
                 }
 
                 double value = (double) o;
-                return expected * 0.05 < value && value < expected * 1.05;
+                return Math.abs(1 - (value / expected)) < 0.05;
             }
 
             @Override
