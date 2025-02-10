@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.index;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -58,7 +58,10 @@ public class RenameIndexCommand extends AbstractIndexCommand {
     @Override
     public List<UpdateEntry> get(UpdateContext updateContext) {
         Catalog catalog = updateContext.catalog();
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifIndexExists);
+        if (schema == null) {
+            return List.of();
+        }
 
         CatalogIndexDescriptor index = index(schema, indexName, !ifIndexExists);
         if (index == null) {

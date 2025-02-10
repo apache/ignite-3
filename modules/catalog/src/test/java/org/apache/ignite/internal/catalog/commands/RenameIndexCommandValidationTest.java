@@ -80,17 +80,18 @@ public class RenameIndexCommandValidationTest extends AbstractCommandValidationT
     void exceptionIsThrownIfSchemaDoesNotExist() {
         Catalog catalog = catalogWithDefaultZone();
 
-        CatalogCommand command = RenameIndexCommand.builder()
+        RenameIndexCommandBuilder builder = RenameIndexCommand.builder()
                 .schemaName("TEST")
                 .indexName("TEST")
-                .newIndexName("TEST2")
-                .build();
+                .newIndexName("TEST2");
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(new UpdateContext(catalog)),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Schema with name 'TEST' not found"
         );
+
+        builder.ifIndexExists(true).build().get(new UpdateContext(catalog)); // No exception
     }
 
     @Test

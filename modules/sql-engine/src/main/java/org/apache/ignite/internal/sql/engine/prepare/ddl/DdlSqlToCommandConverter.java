@@ -141,7 +141,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -434,7 +433,19 @@ public class DdlSqlToCommandConverter {
         assert col.name.isSimple();
 
         String name = col.name.getSimple();
-        RelDataType relType = planner.convert(col.dataType, nullable);
+
+        RelDataType relType;
+        try {
+            relType = planner.convert(col.dataType, nullable);
+        } catch (CalciteContextException e) {
+            String errorMessage = e.getMessage();
+            if (errorMessage == null) {
+                errorMessage = "Unable to resolve data type";
+            }
+
+            String message = format("{} [column={}]", errorMessage, name);
+            throw new SqlException(STMT_VALIDATION_ERR, message, e);
+        }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
         //  Remove this after interval type support is added.
@@ -764,10 +775,6 @@ public class DdlSqlToCommandConverter {
             }
 
             schemaName = schemaId.getSimple();
-        }
-
-        if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
-            throw new SchemaNotFoundException(schemaName);
         }
 
         return schemaName;

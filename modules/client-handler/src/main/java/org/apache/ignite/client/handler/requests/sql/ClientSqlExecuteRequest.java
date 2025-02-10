@@ -83,10 +83,12 @@ public class ClientSqlExecuteRequest {
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
-        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, out::meta);
+        HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
 
         return executeAsync(tx, sql, tsUpdater, statement, props.pageSize(), props.toSqlProps(), arguments)
                 .thenCompose(asyncResultSet -> {
+                    out.meta(tsUpdater.get());
+
                     return writeResultSetAsync(out, resources, asyncResultSet, metrics);
                 });
     }

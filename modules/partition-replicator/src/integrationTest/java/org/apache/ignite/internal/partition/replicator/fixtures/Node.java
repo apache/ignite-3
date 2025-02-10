@@ -110,6 +110,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
@@ -145,7 +146,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
@@ -549,7 +549,7 @@ public class Node {
                 raftManager,
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
-                ForkJoinPool.commonPool(),
+                threadPoolsManager.tableIoExecutor(),
                 t -> converter.apply(t),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
@@ -590,6 +590,13 @@ public class Node {
                 systemDistributedConfiguration
         );
 
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve("tx-state"),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaManager,
@@ -603,20 +610,14 @@ public class Node {
                 clockService,
                 placementDriver,
                 schemaSyncService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                sharedTxStateStorage
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                 .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
-
-        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolve("tx-state"),
-                threadPoolsManager.commonScheduler(),
-                threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
-        );
 
         tableManager = new TableManager(
                 name,
@@ -729,8 +730,8 @@ public class Node {
                 txManager,
                 dataStorageMgr,
                 schemaManager,
-                partitionReplicaLifecycleManager,
                 sharedTxStateStorage,
+                partitionReplicaLifecycleManager,
                 tableManager,
                 indexManager
         )).thenComposeAsync(componentFuts -> {

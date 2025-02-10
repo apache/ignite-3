@@ -228,6 +228,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
      * @return Relational type representation of given SQL type.
      */
     public RelDataType convert(SqlDataTypeSpec typeSpec, boolean nullable) {
+        // Validate data type first.
+        validator().validateDataType(typeSpec);
         return typeSpec.deriveType(validator(), nullable);
     }
 

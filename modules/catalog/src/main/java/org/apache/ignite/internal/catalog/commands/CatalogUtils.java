@@ -34,9 +34,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
-import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -88,6 +86,11 @@ public class CatalogUtils {
     public static final int DEFAULT_SCALE = 0;
 
     /**
+     * Minimum precision for TIME and TIMESTAMP types.
+     */
+    public static final int MIN_TIME_PRECISION = 0;
+
+    /**
      * Maximum TIME and TIMESTAMP precision is implementation-defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 38
@@ -95,11 +98,31 @@ public class CatalogUtils {
     public static final int MAX_TIME_PRECISION = NativeTypes.MAX_TIME_PRECISION;
 
     /**
+     * Unspecified precision.
+     */
+    public static final int UNSPECIFIED_PRECISION = -1;
+
+    /**
+     * Minimum DECIMAL precision.
+     */
+    public static final int MIN_DECIMAL_PRECISION = 1;
+
+    /**
      * Max DECIMAL precision is implementation-defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 25
      */
     public static final int MAX_DECIMAL_PRECISION = Short.MAX_VALUE;
+
+    /**
+     * Minimum DECIMAL scale.
+     */
+    public static final int MIN_DECIMAL_SCALE = 0;
+
+    /**
+     * Unspecified scale.
+     */
+    public static final int UNSPECIFIED_SCALE = -1;
 
     /**
      * Max DECIMAL scale is implementation-defined.
@@ -116,11 +139,36 @@ public class CatalogUtils {
     public static final int DEFAULT_LENGTH = 1;
 
     /**
-     * Max length for VARCHAR and VARBINARY is implementation defined.
+     * Default length for VARCHAR and VARBINARY is implementation defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 8
      */
     public static final int DEFAULT_VARLEN_LENGTH = 2 << 15;
+
+    /**
+     * Maximum length for VARCHAR and VARBINARY types.
+     */
+    public static final int MAX_VARLEN_LENGTH = 2 << 15;
+
+    /**
+     * Minimum length for VARCHAR and VARBINARY types.
+     */
+    public static final int MIN_VARLEN_PRECISION = 1;
+
+    /**
+     * Unspecified length.
+     */
+    public static final int UNSPECIFIED_LENGTH = -1;
+
+    /**
+     * Minimum precision for interval types.
+     */
+    public static final int MIN_INTERVAL_TYPE_PRECISION = 1;
+
+    /**
+     * Maximum precision for interval types.
+     */
+    public static final int MAX_INTERVAL_TYPE_PRECISION = 10;
 
     public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = ConsistencyMode.STRONG_CONSISTENCY;
 
@@ -221,17 +269,17 @@ public class CatalogUtils {
         if (newType != null) {
             if (isSupportedColumnTypeChange(origin.type(), newType)) {
                 if (origin.type().precisionAllowed() && newPrecision != null && newPrecision < origin.precision()) {
-                    listener.onFailure("Decreasing the precision for column of type '{}' is not allowed", origin.type(), newType);
+                    listener.onFailure("Decreasing the precision for column of type '{}' is not allowed.", origin.type(), newType);
                     return false;
                 }
 
                 if (origin.type().scaleAllowed() && newScale != null && newScale != origin.scale()) {
-                    listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
+                    listener.onFailure("Changing the scale for column of type '{}' is not allowed.", origin.type(), newType);
                     return false;
                 }
 
                 if (origin.type().lengthAllowed() && newLength != null && newLength < origin.length()) {
-                    listener.onFailure("Decreasing the length for column of type '{}' is not allowed", origin.type(), newType);
+                    listener.onFailure("Decreasing the length for column of type '{}' is not allowed.", origin.type(), newType);
                     return false;
                 }
 
@@ -239,23 +287,23 @@ public class CatalogUtils {
             }
 
             if (newType != origin.type()) {
-                listener.onFailure("Changing the type from {} to {} is not allowed", origin.type(), newType);
+                listener.onFailure("Changing the type from {} to {} is not allowed.", origin.type(), newType);
                 return false;
             }
         }
 
         if (newPrecision != null && newPrecision != origin.precision()) {
-            listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
+            listener.onFailure("Changing the precision for column of type '{}' is not allowed.", origin.type(), newType);
             return false;
         }
 
         if (newScale != null && newScale != origin.scale()) {
-            listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
+            listener.onFailure("Changing the scale for column of type '{}' is not allowed.", origin.type(), newType);
             return false;
         }
 
         if (newLength != null && newLength != origin.length()) {
-            listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
+            listener.onFailure("Changing the length for column of type '{}' is not allowed.", origin.type(), newType);
             return false;
         }
 
@@ -325,9 +373,8 @@ public class CatalogUtils {
             }
         }
 
-        throw new CatalogValidationException(String.format(
-                "Table with ID %d has not been found in schema with ID %d", newTableDescriptor.id(), newTableDescriptor.schemaId()
-        ));
+        throw new CatalogValidationException("Table with ID {} has not been found in schema with ID {}.",
+                newTableDescriptor.id(), newTableDescriptor.schemaId());
     }
 
     /**
@@ -356,9 +403,8 @@ public class CatalogUtils {
             }
         }
 
-        throw new CatalogValidationException(String.format(
-                "Index with ID %d has not been found in schema with ID %d", newIndexDescriptor.id(), schema.id()
-        ));
+        throw new CatalogValidationException("Index with ID {} has not been found in schema with ID {}.",
+                newIndexDescriptor.id(), schema.id());
     }
 
     /**
@@ -387,15 +433,11 @@ public class CatalogUtils {
      * @throws CatalogValidationException If schema with given name is not exists.
      */
     public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
-        name = Objects.requireNonNull(name, "schemaName");
+        CatalogSchemaDescriptor schemaDescriptor = schema(catalog, name, true);
 
-        CatalogSchemaDescriptor schema = catalog.schema(name);
+        assert schemaDescriptor != null;
 
-        if (schema == null) {
-            throw new CatalogValidationException(format("Schema with name '{}' not found", name));
-        }
-
-        return schema;
+        return schemaDescriptor;
     }
 
     /**
@@ -403,13 +445,36 @@ public class CatalogUtils {
      *
      * @param catalog Catalog to look up the schema in.
      * @param schemaId Schema ID.
-     * @throws CatalogValidationException If schema does not exist.
+     * @throws CatalogValidationException If schema with given name is not exists.
      */
     public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, int schemaId) throws CatalogValidationException {
         CatalogSchemaDescriptor schema = catalog.schema(schemaId);
 
         if (schema == null) {
-            throw new CatalogValidationException(format("Schema with ID '{}' not found", schemaId));
+            throw new CatalogValidationException("Schema with ID '{}' not found.", schemaId);
+        }
+
+        return schema;
+    }
+
+    /**
+     * Returns schema with given name, or throws {@link CatalogValidationException} if schema with given name not exists.
+     *
+     * @param catalog Catalog to look up schema in.
+     * @param name Name of the schema of interest.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code CatalogValidationException} for absent schema or just
+     *         return {@code null}.
+     * @return Schema with given name. Never null.
+     * @throws CatalogValidationException If schema with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
+     */
+    public static @Nullable CatalogSchemaDescriptor schema(Catalog catalog, String name, boolean shouldThrowIfNotExists)
+            throws CatalogValidationException {
+        name = Objects.requireNonNull(name, "schemaName");
+
+        CatalogSchemaDescriptor schema = catalog.schema(name);
+
+        if (schema == null && shouldThrowIfNotExists) {
+            throw new CatalogValidationException(format("Schema with name '{}' not found.", name));
         }
 
         return schema;
@@ -420,19 +485,19 @@ public class CatalogUtils {
      *
      * @param schema Schema to look up table in.
      * @param name Name of the table of interest.
-     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code TableNotFoundValidationException} for absent table or just
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code CatalogValidationException} for absent table or just
      *         return {@code null}.
      * @return Table descriptor for given name or @{code null} in case table is absent and flag shouldThrowIfNotExists set to {@code false}.
-     * @throws TableNotFoundValidationException If table with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
+     * @throws CatalogValidationException If table with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
     public static @Nullable CatalogTableDescriptor table(CatalogSchemaDescriptor schema, String name, boolean shouldThrowIfNotExists)
-            throws TableNotFoundValidationException {
+            throws CatalogValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
 
         if (table == null && shouldThrowIfNotExists) {
-            throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
+            throw new CatalogValidationException("Table with name '{}.{}' not found.", schema.name(), name);
         }
 
         return table;
@@ -443,13 +508,13 @@ public class CatalogUtils {
      *
      * @param catalog Catalog to look up the table in.
      * @param tableId Table ID.
-     * @throws TableNotFoundValidationException If table does not exist.
+     * @throws CatalogValidationException If table does not exist.
      */
-    public static CatalogTableDescriptor tableOrThrow(Catalog catalog, int tableId) throws TableNotFoundValidationException {
+    public static CatalogTableDescriptor tableOrThrow(Catalog catalog, int tableId) throws CatalogValidationException {
         CatalogTableDescriptor table = catalog.table(tableId);
 
         if (table == null) {
-            throw new TableNotFoundValidationException(format("Table with ID '{}' not found", tableId));
+            throw new CatalogValidationException("Table with ID '{}' not found.", tableId);
         }
 
         return table;
@@ -460,20 +525,20 @@ public class CatalogUtils {
      *
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
-     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code DistributionZoneNotFoundValidationException} for
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code CatalogValidationException} for
      *         absent zone or just return {@code null}.
      * @return Zone descriptor for given name or @{code null} in case zone is absent and flag shouldThrowIfNotExists set to {@code false}.
-     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
+     * @throws CatalogValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
      *         set to {@code true}.
      */
     public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
-            throws DistributionZoneNotFoundValidationException {
+            throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
 
         if (zone == null && shouldThrowIfNotExists) {
-            throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
+            throw new CatalogValidationException("Distribution zone with name '{}' not found.", name);
         }
 
         return zone;
@@ -503,7 +568,7 @@ public class CatalogUtils {
         CatalogIndexDescriptor index = schema.aliveIndex(name);
 
         if (index == null && shouldThrowIfNotExists) {
-            throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
+            throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found.", schema.name(), name));
         }
 
         return index;
@@ -520,7 +585,7 @@ public class CatalogUtils {
         CatalogIndexDescriptor index = catalog.index(indexId);
 
         if (index == null) {
-            throw new IndexNotFoundValidationException(format("Index with ID '{}' not found", indexId));
+            throw new IndexNotFoundValidationException(format("Index with ID '{}' not found.", indexId));
         }
 
         return index;
@@ -547,6 +612,133 @@ public class CatalogUtils {
         return defaultZone != null ? defaultZone.id() : null;
     }
 
+
+    /**
+     * Returns the maximum supported precision for given type or {@link #UNSPECIFIED_PRECISION}  if the type does not support precision.
+     *
+     * @param columnType Column type.
+     * @return Maximum precision.
+     */
+    public static int getMaxPrecision(ColumnType columnType) {
+        if (!columnType.precisionAllowed()) {
+            return UNSPECIFIED_PRECISION;
+        } else {
+            switch (columnType) {
+                case DECIMAL:
+                    return MAX_DECIMAL_PRECISION;
+                case TIME:
+                case DATETIME:
+                case TIMESTAMP:
+                    return MAX_TIME_PRECISION;
+                case DURATION:
+                case PERIOD:
+                    return MAX_INTERVAL_TYPE_PRECISION;
+                default:
+                    throw new IllegalArgumentException("Unexpected column type: " + columnType);
+            }
+        }
+    }
+
+    /**
+     * Returns the minimum supported precision for given type or {@link #UNSPECIFIED_PRECISION} if the type does not support precision.
+     *
+     * @param columnType Column type.
+     * @return Minimum precision.
+     */
+    public static int getMinPrecision(ColumnType columnType) {
+        if (!columnType.precisionAllowed()) {
+            return UNSPECIFIED_PRECISION;
+        } else {
+            switch (columnType) {
+                case DECIMAL:
+                    return MIN_DECIMAL_PRECISION;
+                case TIME:
+                case DATETIME:
+                case TIMESTAMP:
+                    return MIN_TIME_PRECISION;
+                case DURATION:
+                case PERIOD:
+                    return MIN_INTERVAL_TYPE_PRECISION;
+                default:
+                    throw new IllegalArgumentException("Unexpected column type: " + columnType);
+            }
+        }
+    }
+
+    /**
+     * Returns the maximum supported length for given type or {@link #UNSPECIFIED_LENGTH} if the type does not support length.
+     *
+     * @param columnType Column type.
+     * @return Maximum length.
+     */
+    public static int getMaxLength(ColumnType columnType) {
+        if (!columnType.lengthAllowed()) {
+            return UNSPECIFIED_LENGTH;
+        } else {
+            switch (columnType) {
+                case STRING:
+                case BYTE_ARRAY:
+                    return MAX_VARLEN_LENGTH;
+                default:
+                    throw new IllegalArgumentException("Unexpected column type: " + columnType);
+            }
+        }
+    }
+
+    /**
+     * Returns the minimum supported length for given type or {@link #UNSPECIFIED_LENGTH} if the type does not support length.
+     *
+     * @param columnType Column type.
+     * @return Minimum length.
+     */
+    public static int getMinLength(ColumnType columnType) {
+        if (!columnType.lengthAllowed()) {
+            return UNSPECIFIED_LENGTH;
+        } else {
+            switch (columnType) {
+                case STRING:
+                case BYTE_ARRAY:
+                    return MIN_VARLEN_PRECISION;
+                default:
+                    throw new IllegalArgumentException("Unexpected column type: " + columnType);
+            }
+        }
+    }
+
+    /**
+     * Returns the maximum supported scale for given type or {@link #UNSPECIFIED_SCALE} if the type does not support scale.
+     *
+     * @param columnType Column type.
+     * @return Maximum scale.
+     */
+    public static int getMaxScale(ColumnType columnType) {
+        if (!columnType.scaleAllowed()) {
+            return UNSPECIFIED_SCALE;
+        } else {
+            if (columnType == ColumnType.DECIMAL) {
+                return MAX_DECIMAL_SCALE;
+            }
+            throw new IllegalArgumentException("Unexpected column type: " + columnType);
+        }
+    }
+
+    /**
+     * Returns the minimum supported scale for given type or {@link #UNSPECIFIED_SCALE} if the type does not support scale.
+     *
+     * @param columnType Column type.
+     * @return Minimum scale.
+     */
+    public static int getMinScale(ColumnType columnType) {
+        if (!columnType.scaleAllowed()) {
+            return UNSPECIFIED_SCALE;
+        } else {
+            if (columnType == ColumnType.DECIMAL) {
+                return MIN_DECIMAL_SCALE;
+            }
+            throw new IllegalArgumentException("Unexpected column type: " + columnType);
+        }
+    }
+
     /**
      * Check if provided default value is a constant or a functional default of supported function, or fail otherwise.
      */
@@ -565,17 +757,16 @@ public class CatalogUtils {
 
             if (returnType != null) {
                 throw new CatalogValidationException(
-                        format("Functional default type mismatch: [col={}, functionName={}, expectedType={}, actualType={}]",
-                                columnName, functionName, returnType, columnType));
+                        "Functional default type mismatch: [col={}, functionName={}, expectedType={}, actualType={}].",
+                        columnName, functionName, returnType, columnType);
             }
 
             throw new CatalogValidationException(
-                    format("Functional default contains unsupported function: [col={}, functionName={}]",
-                            columnName, functionName));
+                    "Functional default contains unsupported function: [col={}, functionName={}].",
+                    columnName, functionName);
         }
 
-        throw new CatalogValidationException(
-                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
+        throw new CatalogValidationException("Default of unsupported kind: [col={}, defaultType={}].", columnName, defaultValue.type);
     }
 
     /**
@@ -587,12 +778,10 @@ public class CatalogUtils {
         }
 
         if (defaultValue.type == FUNCTION_CALL) {
-            throw new CatalogValidationException(
-                    format("Functional defaults are not supported for non-primary key columns [col={}].", columnName));
+            throw new CatalogValidationException("Functional defaults are not supported for non-primary key columns [col={}].", columnName);
         }
 
-        throw new CatalogValidationException(
-                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
+        throw new CatalogValidationException("Default of unsupported kind: [col={}, defaultType={}].", columnName, defaultValue.type);
     }
 
     /**
@@ -602,8 +791,7 @@ public class CatalogUtils {
     //  Remove this after interval type support is added.
     static void ensureTypeCanBeStored(String columnName, ColumnType columnType) {
         if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
-            throw new CatalogValidationException(
-                    format("Column of type '{}' cannot be persisted [col={}].", columnType, columnName));
+            throw new CatalogValidationException("Column of type '{}' cannot be persisted [col={}].", columnType, columnName);
         }
     }
 }

@@ -31,8 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -44,10 +43,8 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.hamcrest.core.Is;
-import org.hamcrest.core.IsNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -84,7 +81,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @Test
     public void testZoneAlreadyExistsOnCreate1() {
-        assertThat(handleCreateZoneCommand(false), willThrow(DistributionZoneExistsValidationException.class));
+        assertThat(handleCreateZoneCommand(false),
+                willThrow(CatalogValidationException.class, "Distribution zone with name 'zone1' already exists."));
     }
 
     @Test
@@ -98,17 +96,17 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 .zoneName(ZONE_NAME)
                 .build();
 
-        assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundValidationException.class));
+        assertThat(commandHandler.handle(cmd),
+                willThrow(CatalogValidationException.class, "Distribution zone with name 'zone1' not found."));
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24426")
     public void testZoneNotFoundOnDrop2() {
         CatalogCommand cmd = DropZoneCommand.builder()
                 .zoneName(ZONE_NAME)
                 .ifExists(true)
                 .build();
-        assertThat(commandHandler.handle(cmd), willBe(IsNull.nullValue()));
+        assertThat(commandHandler.handle(cmd), willCompleteSuccessfully());
     }
 
     private CompletableFuture<Boolean> handleCreateZoneCommand(boolean ifNotExists) {

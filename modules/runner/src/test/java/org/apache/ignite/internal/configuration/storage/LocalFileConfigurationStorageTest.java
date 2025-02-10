@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -44,6 +45,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
@@ -534,6 +536,35 @@ public class LocalFileConfigurationStorageTest {
 
         // And storage reads the file successfully
         assertDoesNotThrow(storage::readDataOnRecovery);
+    }
+
+    @Test
+    void testValidateDuplicates() throws IOException {
+        // Given config in JSON format
+        String fileContent
+                = "top {\n"
+                + "    inner {\n"
+                + "        boolVal=false,\n"
+                + "        boolVal=true\n"
+                + "        someConfigurationValue {\n"
+                + "            intVal=1\n"
+                + "            strVal=foo\n"
+                + "        }\n"
+                + "        strVal=foo\n"
+                + "    }\n"
+                + "    shortVal=3\n"
+                + "}\n";
+
+        Path configFile = getConfigFile();
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // And storage detects duplicates
+        assertThrows(
+                ConfigurationValidationException.class,
+                changer::start,
+                "Validation did not pass for keys: [top.inner.boolVal, Duplicated key]"
+        );
     }
 
     private String configFileContent() throws IOException {

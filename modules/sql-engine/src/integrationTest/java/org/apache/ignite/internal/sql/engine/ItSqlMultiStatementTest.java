@@ -239,7 +239,6 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void indexesAvailableAfterScriptExecutionAndBuiltProperly() {
         long tableSize = 1_000;
 
@@ -263,5 +262,41 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                 .matches(containsIndexScan("PUBLIC", "INTEGERS", "INTEGERS_VAL_2_IND"))
                 .returns(tableSize)
                 .check();
+    }
+
+    @Test
+    void batchedAlterTableProcessedCorrectly() {
+        long tableSize = 1_000;
+
+        {
+            AsyncSqlCursor<InternalSqlRow> cursor = runScript(
+                    "CREATE TABLE test1 (id INT PRIMARY KEY, val INT);"
+                            + "ALTER TABLE test1 DROP COLUMN val;"
+                            + "ALTER TABLE test1 ADD COLUMN val INT;"
+                            + "INSERT INTO test1 SELECT x, x FROM system_range(1, " + tableSize + ");"
+            );
+
+            iterateThroughResultsAndCloseThem(cursor);
+
+            assertQuery("SELECT COUNT(*) FROM test1")
+                    .returns(tableSize)
+                    .check();
+        }
+
+        {
+            sql("CREATE TABLE test2 (id INT PRIMARY KEY, val INT);");
+
+            AsyncSqlCursor<InternalSqlRow> cursor = runScript(
+                    "ALTER TABLE test2 DROP COLUMN val;"
+                            + "ALTER TABLE test2 ADD COLUMN val INT;"
+                            + "INSERT INTO test2 SELECT x, x FROM system_range(1, " + tableSize + ");"
+            );
+
+            iterateThroughResultsAndCloseThem(cursor);
+
+            assertQuery("SELECT COUNT(*) FROM test2")
+                    .returns(tableSize)
+                    .check();
+        }
     }
 }
