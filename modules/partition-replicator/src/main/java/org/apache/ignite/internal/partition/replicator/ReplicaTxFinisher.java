@@ -15,25 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft;
+package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Contains transaction finishing logic for partitions Raft listener implementations.
+ * Contains transaction finishing logic for partitions' {@link ReplicaListener} implementations.
  */
-public class RaftTxFinishHelper {
+public class ReplicaTxFinisher {
     private final TxManager txManager;
 
-    public RaftTxFinishHelper(TxManager txManager) {
+    public ReplicaTxFinisher(TxManager txManager) {
         this.txManager = txManager;
     }
 
@@ -41,21 +42,17 @@ public class RaftTxFinishHelper {
      * Marks the transaction as finished in local tx state map.
      *
      * @param txId Transaction id.
-     * @param commit Whether this is a commit.
+     * @param txState Transaction state, must be either {@link TxState#COMMITTED} or {@link TxState#ABORTED}.
      * @param commitTimestamp Commit timestamp ({@code null} when aborting).
-     * @param commitPartitionId Commit partition ID.
      */
-    public void markFinished(
-            UUID txId,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            @Nullable TablePartitionId commitPartitionId
-    ) {
+    public void markFinished(UUID txId, TxState txState, @Nullable HybridTimestamp commitTimestamp) {
+        assert isFinalState(txState) : "Unexpected state [txId=" + txId + ", txState=" + txState + ']';
+
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                commit ? COMMITTED : ABORTED,
+                txState,
                 old == null ? null : old.txCoordinatorId(),
-                old == null ? commitPartitionId : old.commitPartitionId(),
-                commit ? commitTimestamp : null,
+                old == null ? null : old.commitPartitionId(),
+                txState == COMMITTED ? commitTimestamp : null,
                 old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp()

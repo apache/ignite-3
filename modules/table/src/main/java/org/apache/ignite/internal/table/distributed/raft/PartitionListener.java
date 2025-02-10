@@ -51,7 +51,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandHandler;
-import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishHelper;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinisher;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -124,7 +124,7 @@ public class PartitionListener implements RaftGroupListener {
 
     private final MinimumRequiredTimeCollectorService minTimeCollectorService;
 
-    private final RaftTxFinishHelper txFinishHelper;
+    private final RaftTxFinisher txFinisher;
 
     private final FinishTxCommandHandler finishTxCommandHandler;
 
@@ -154,7 +154,7 @@ public class PartitionListener implements RaftGroupListener {
         this.localNodeId = localNodeId;
         this.minTimeCollectorService = minTimeCollectorService;
 
-        txFinishHelper = new RaftTxFinishHelper(txManager);
+        txFinisher = new RaftTxFinisher(txManager);
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
                 new TablePartitionId(storage.tableId(), storage.partitionId()),
@@ -398,7 +398,7 @@ public class PartitionListener implements RaftGroupListener {
 
         UUID txId = cmd.txId();
 
-        txFinishHelper.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
+        txFinisher.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
 
         storageUpdateHandler.switchWriteIntents(
                 txId,

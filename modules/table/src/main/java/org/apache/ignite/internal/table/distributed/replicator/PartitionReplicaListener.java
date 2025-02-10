@@ -106,8 +106,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
-import org.apache.ignite.internal.partition.replicator.ReplicaListenerHelper;
-import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishHelper;
+import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
+import org.apache.ignite.internal.partition.replicator.ReplicaTxFinisher;
+import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.ResultWrapper;
 import org.apache.ignite.internal.partition.replicator.TxFinishReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -356,8 +357,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     // TODO IGNITE-22115 remove it
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
-    private final ReplicaListenerHelper replicaListenerHelper;
-    private final ReplicaTxFinishHelper txFinishHelper;
+    private final ReliableCatalogVersions reliableCatalogVersions;
+    private final ReplicationRaftCommandApplicator raftCommandApplicator;
+    private final ReplicaTxFinisher replicaTxFinisher;
 
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
 
@@ -439,8 +441,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
-        replicaListenerHelper = new ReplicaListenerHelper(schemaSyncService, catalogService, raftCommandRunner, replicationGroupId);
-        txFinishHelper = new ReplicaTxFinishHelper(txManager);
+        reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
+        raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
+        replicaTxFinisher = new ReplicaTxFinisher(txManager);
 
         txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
                 txStatePartitionStorage,
@@ -1692,7 +1695,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return CompletableFuture of ReplicaResult.
      */
     private CompletableFuture<ReplicaResult> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
-        txFinishHelper.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
+        replicaTxFinisher.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenCompose(res -> {
@@ -2500,7 +2503,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
-        return replicaListenerHelper.applyCmdWithExceptionHandling(cmd);
+        return raftCommandApplicator.applyCmdWithExceptionHandling(cmd);
     }
 
     /**
@@ -3677,7 +3680,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
-        return replicaListenerHelper.reliableCatalogVersionFor(ts);
+        return reliableCatalogVersions.reliableCatalogVersionFor(ts);
     }
 
     /**

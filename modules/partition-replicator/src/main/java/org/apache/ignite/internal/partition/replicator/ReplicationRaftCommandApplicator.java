@@ -19,48 +19,23 @@ package org.apache.ignite.internal.partition.replicator;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
-import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
- * Contains code common for {@link ReplicaListener} implementations.
- *
- * <p>To be removed after PartitionReplicaListener is removed.
+ * Applies Raft commands adding error handling specific to replication protocol.
  */
-public class ReplicaListenerHelper {
-    private final SchemaSyncService schemaSyncService;
-    private final CatalogService catalogService;
+public class ReplicationRaftCommandApplicator {
     private final RaftCommandRunner raftCommandRunner;
     private final ReplicationGroupId replicationGroupId;
 
     /** Constructor. */
-    public ReplicaListenerHelper(
-            SchemaSyncService schemaSyncService,
-            CatalogService catalogService,
-            RaftCommandRunner raftCommandRunner,
-            ReplicationGroupId replicationGroupId
-    ) {
-        this.schemaSyncService = schemaSyncService;
-        this.catalogService = catalogService;
+    public ReplicationRaftCommandApplicator(RaftCommandRunner raftCommandRunner, ReplicationGroupId replicationGroupId) {
         this.raftCommandRunner = raftCommandRunner;
         this.replicationGroupId = replicationGroupId;
-    }
-
-    /**
-     * Returns Catalog version corresponding to the given timestamp.
-     *
-     * @param ts Timestamp for which a Catalog version is to be obtained.
-     */
-    public CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
-        return schemaSyncService.waitForMetadataCompleteness(ts)
-                .thenApply(unused -> catalogService.activeCatalogVersion(ts.longValue()));
     }
 
     /**

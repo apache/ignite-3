@@ -78,8 +78,9 @@ public class TxFinishReplicaRequestHandler {
     private final ClockService clockService;
 
     private final SchemaCompatibilityValidator schemaCompatValidator;
-    private final ReplicaListenerHelper replicaListenerHelper;
-    private final ReplicaTxFinishHelper txFinishHelper;
+    private final ReliableCatalogVersions reliableCatalogVersions;
+    private final ReplicationRaftCommandApplicator raftCommandApplicator;
+    private final ReplicaTxFinisher replicaTxFinisher;
 
     /** Constructor. */
     public TxFinishReplicaRequestHandler(
@@ -96,8 +97,9 @@ public class TxFinishReplicaRequestHandler {
         this.clockService = clockService;
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
-        replicaListenerHelper = new ReplicaListenerHelper(schemaSyncService, catalogService, raftCommandRunner, replicationGroupId);
-        txFinishHelper = new ReplicaTxFinishHelper(txManager);
+        reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
+        raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
+        replicaTxFinisher = new ReplicaTxFinisher(txManager);
     }
 
     /**
@@ -276,7 +278,7 @@ public class TxFinishReplicaRequestHandler {
                             UnexpectedTransactionStateException utse = (UnexpectedTransactionStateException) ex;
                             TransactionResult result = utse.transactionResult();
 
-                            txFinishHelper.markFinished(txId, result.transactionState(), result.commitTimestamp());
+                            replicaTxFinisher.markFinished(txId, result.transactionState(), result.commitTimestamp());
 
                             throw new MismatchingTransactionOutcomeInternalException(utse.getMessage(), utse.transactionResult());
                         }
@@ -286,14 +288,14 @@ public class TxFinishReplicaRequestHandler {
 
                     TransactionResult result = (TransactionResult) txOutcome;
 
-                    txFinishHelper.markFinished(txId, result.transactionState(), result.commitTimestamp());
+                    replicaTxFinisher.markFinished(txId, result.transactionState(), result.commitTimestamp());
 
                     return result;
                 });
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
-        return replicaListenerHelper.reliableCatalogVersionFor(ts);
+        return reliableCatalogVersions.reliableCatalogVersionFor(ts);
     }
 
     private CompletableFuture<Object> applyFinishCommand(
@@ -315,7 +317,7 @@ public class TxFinishReplicaRequestHandler {
             finishTxCmdBldr.commitTimestamp(commitTimestamp);
         }
 
-        return replicaListenerHelper.applyCmdWithExceptionHandling(finishTxCmdBldr.build()).thenApply(ResultWrapper::getResult);
+        return raftCommandApplicator.applyCmdWithExceptionHandling(finishTxCmdBldr.build()).thenApply(ResultWrapper::getResult);
     }
 
     private static List<TablePartitionIdMessage> toPartitionIdMessage(Collection<TablePartitionId> partitionIds) {
