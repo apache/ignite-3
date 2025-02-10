@@ -97,6 +97,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
+                // TODO: IGNITE-24343 - use ZonePartitionId here.
                 new TablePartitionId(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 txManager
         );
