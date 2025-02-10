@@ -417,8 +417,7 @@ public class DistributionZoneManager extends
             Condition condition = exists(zoneDataNodesHistoryKey(zoneId));
 
             Update removeKeysUpd = ops(
-                    // TODO
-                    //remove(zoneDataNodesHistoryKey(zoneId)),
+                    remove(zoneDataNodesHistoryKey(zoneId)),
                     remove(zoneScaleUpTimerKey(zoneId)),
                     remove(zoneScaleDownTimerKey(zoneId)),
                     remove(zonePartitionResetTimerKey(zoneId))

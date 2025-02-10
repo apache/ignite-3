@@ -44,7 +44,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -83,7 +82,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -198,17 +196,16 @@ public class DataNodesManager {
                         Entry partitionResetEntry = entriesMap.get(zonePartitionResetTimerKey(zone.id()));
 
                         if (missingEntry(historyEntry)) {
-                            throw new AssertionError(format(
-                                    "Couldn't recovery data nodes history for zone [id={}, historyEntry={}].", zone.id(), historyEntry
-                            ));
+                            LOG.warn("Couldn't recovery data nodes history for zone [id={}, historyEntry={}].", zone.id(), historyEntry);
+
+                            continue;
                         }
 
                         if (missingEntry(scaleUpEntry) || missingEntry(scaleDownEntry) || missingEntry(partitionResetEntry)) {
-                            throw new AssertionError(format(
-                                    "Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, scaleDownEntry={}"
-                                    + ", partitionResetEntry={}", zone.id(), zone.name(), scaleUpEntry, scaleDownEntry,
-                                    partitionResetEntry
-                            ));
+                            LOG.warn("Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, scaleDownEntry={}, "
+                                    + "partitionResetEntry={}", zone.id(), zone.name(), scaleUpEntry, scaleDownEntry, partitionResetEntry);
+
+                            continue;
                         }
 
                         DataNodesHistory history = DataNodesHistorySerializer.deserialize(historyEntry.value());
