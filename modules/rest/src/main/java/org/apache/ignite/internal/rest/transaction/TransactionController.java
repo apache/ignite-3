@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.rest.transaction;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -66,10 +67,11 @@ public class TransactionController implements TransactionApi, ResourceHolder {
     @Override
     public CompletableFuture<TransactionInfo> transaction(UUID transactionId) {
         return transactionInfos(transactionId).thenApply(transactionInfos -> {
-            if (transactionInfos.isEmpty()) {
-                throw new TransactionNotFoundException(transactionId.toString());
+            Iterator<TransactionInfo> iterator = transactionInfos.iterator();
+            if (iterator.hasNext()) {
+                return iterator.next();
             } else {
-                return transactionInfos.iterator().next();
+                throw new TransactionNotFoundException(transactionId.toString());
             }
         });
     }
@@ -111,20 +113,17 @@ public class TransactionController implements TransactionApi, ResourceHolder {
     private CompletableFuture<Collection<TransactionInfo>> transactionInfos(String query) {
         Statement transactionStmt = igniteSql.createStatement(query);
         return igniteSql.executeAsync(null, transactionStmt)
-                .thenCompose(resultSet -> {
-                    List<TransactionInfo> transactionInfos = new ArrayList<>();
-                    return iterate(resultSet, transactionInfos).thenApply(unused -> transactionInfos);
-                });
+                .thenCompose(resultSet -> iterate(resultSet, new ArrayList<>()));
     }
 
-    private static CompletableFuture<Void> iterate(AsyncResultSet<SqlRow> resultSet, List<TransactionInfo> result) {
+    private static CompletableFuture<Collection<TransactionInfo>> iterate(AsyncResultSet<SqlRow> resultSet, List<TransactionInfo> result) {
         for (SqlRow row : resultSet.currentPage()) {
             result.add(convert(row));
         }
         if (resultSet.hasMorePages()) {
             return resultSet.fetchNextPage().thenCompose(nextPage -> iterate(nextPage, result));
         } else {
-            return nullCompletedFuture();
+            return completedFuture(result);
         }
     }
 
