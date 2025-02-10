@@ -76,11 +76,14 @@ public class TxFinishReplicaRequestHandler {
 
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final ClockService clockService;
+    private final TxManager txManager;
+    private final ReplicationGroupId replicationGroupId;
 
     private final SchemaCompatibilityValidator schemaCompatValidator;
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinisher replicaTxFinisher;
+
 
     /** Constructor. */
     public TxFinishReplicaRequestHandler(
@@ -95,6 +98,8 @@ public class TxFinishReplicaRequestHandler {
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.clockService = clockService;
+        this.txManager = txManager;
+        this.replicationGroupId = replicationGroupId;
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
@@ -204,19 +209,9 @@ public class TxFinishReplicaRequestHandler {
 
         return finishTransaction(enlistedPartitions.keySet(), txId, commit, commitTimestamp)
                 .thenCompose(txResult ->
-                        doCleanup(enlistedPartitions, commit, commitTimestamp, txId, txResult)
+                    txManager.cleanup(replicationGroupId, enlistedPartitions, commit, commitTimestamp, txId)
+                            .thenApply(v -> txResult)
                 );
-    }
-
-    protected CompletableFuture<TransactionResult> doCleanup(
-            Map<TablePartitionId, String> enlistedPartitions,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId,
-            TransactionResult txResult
-    ) {
-        // TODO: IGNITE-24384 - implement real cleanup for transactions over zone partitions.
-        return completedFuture(txResult);
     }
 
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {

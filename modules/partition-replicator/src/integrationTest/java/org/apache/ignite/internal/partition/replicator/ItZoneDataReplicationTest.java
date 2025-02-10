@@ -273,8 +273,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
      * Tests that inserted data is replicated to all replica nodes.
      */
     @ParameterizedTest(name = "useExplicitTx={0}")
-    // TODO: IGNITE-24384 - enable for useExplicitTx=true, too.
-    @ValueSource(booleans = {false})
+    @ValueSource(booleans = {false, true})
     void testReplicationOnAllNodes(boolean useExplicitTx) throws Exception {
         startCluster(3);
 

@@ -198,7 +198,6 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TransactionMeta;
-import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -454,19 +453,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 catalogService,
                 raftCommandRunner,
                 replicationGroupId
-        ) {
-            @Override
-            protected CompletableFuture<TransactionResult> doCleanup(
-                    Map<TablePartitionId, String> enlistedPartitions,
-                    boolean commit,
-                    @Nullable HybridTimestamp commitTimestamp,
-                    UUID txId,
-                    TransactionResult txResult
-            ) {
-                return txManager.cleanup(replicationGroupId, enlistedPartitions, commit, commitTimestamp, txId)
-                        .thenApply(v -> txResult);
-            }
-        };
+        );
 
         prepareIndexBuilderTxRwOperationTracker();
     }
