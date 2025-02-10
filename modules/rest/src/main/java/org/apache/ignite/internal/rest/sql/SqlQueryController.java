@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.rest.sql;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -66,10 +67,11 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     @Override
     public CompletableFuture<SqlQueryInfo> query(UUID queryId) {
         return sqlQueryInfos(queryId).thenApply(queryInfo -> {
-            if (queryInfo.isEmpty()) {
-                throw new SqlQueryNotFoundException(queryId.toString());
+            Iterator<SqlQueryInfo> iterator = queryInfo.iterator();
+            if (iterator.hasNext()) {
+                return iterator.next();
             } else {
-                return queryInfo.iterator().next();
+                throw new SqlQueryNotFoundException(queryId.toString());
             }
         });
     }
@@ -110,20 +112,17 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     private CompletableFuture<Collection<SqlQueryInfo>> sqlQueryInfos(String query) {
         Statement sqlQueryStmt = igniteSql.createStatement(query);
         return igniteSql.executeAsync(null, sqlQueryStmt)
-                .thenCompose(resultSet -> {
-                    List<SqlQueryInfo> sqlQueryInfos = new ArrayList<>();
-                    return iterate(resultSet, sqlQueryInfos).thenApply(unused -> sqlQueryInfos);
-                });
+                .thenCompose(resultSet -> iterate(resultSet, new ArrayList<>()));
     }
 
-    private static CompletableFuture<Void> iterate(AsyncResultSet<SqlRow> resultSet, List<SqlQueryInfo> result) {
+    private static CompletableFuture<Collection<SqlQueryInfo>> iterate(AsyncResultSet<SqlRow> resultSet, List<SqlQueryInfo> result) {
         for (SqlRow row : resultSet.currentPage()) {
             result.add(convert(row));
         }
         if (resultSet.hasMorePages()) {
             return resultSet.fetchNextPage().thenCompose(nextPage -> iterate(nextPage, result));
         } else {
-            return nullCompletedFuture();
+            return completedFuture(result);
         }
     }
 
