@@ -92,7 +92,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(SystemPropertiesExtension.class)
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 20_000;
@@ -221,6 +220,10 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     }
 
     private int createZone(String zoneName, int partitions, int replicas) {
+        return createZoneWithProfile(zoneName, partitions, replicas, DEFAULT_STORAGE_PROFILE);
+    }
+
+    private int createZoneWithProfile(String zoneName, int partitions, int replicas, String profile) {
         Node node = cluster.get(0);
 
         createZoneWithStorageProfile(
@@ -228,7 +231,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
                 zoneName,
                 partitions,
                 replicas,
-                DEFAULT_STORAGE_PROFILE
+                profile
         );
 
         return getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
@@ -406,6 +409,59 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         assertThat(kvView2.getAll(null, data1.keySet()), is(anEmptyMap()));
         assertThat(kvView2.getAll(null, data2.keySet()), is(data2));
+    }
+
+    /**
+     * Tests the recovery phase, when a node is restarted and we expect the data to be restored by the Raft mechanisms.
+     */
+    @ParameterizedTest(name = "truncateRaftLog={0}")
+    @ValueSource(booleans = {false, true})
+    void testLocalRaftLogReapplication(boolean truncateRaftLog) throws Exception {
+        assumeFalse(truncateRaftLog, "https://issues.apache.org/jira/browse/IGNITE-22416");
+
+        startCluster(1);
+
+        // Create a zone with the test profile. The storage in it is augmented to lose all data upon restart, by its Raft configuration
+        // is persistent, so the data can be restored.
+        int zoneId = createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
+
+        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        Function<ReplicaRequest, ReplicationGroupId> requestConverter = requestConverter(zonePartitionId, new TablePartitionId(tableId, 0));
+
+        cluster.forEach(node -> {
+            node.setRequestConverter(requestConverter);
+            node.waitForMetadataCompletenessAtNow();
+        });
+
+        Node node = cluster.get(0);
+
+        setPrimaryReplica(node, zonePartitionId);
+
+        KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+
+        kvView.put(null, 42, 42);
+
+        if (truncateRaftLog) {
+            truncateLogOnEveryNode(zonePartitionId);
+        }
+
+        // Restart the node.
+        node.stop();
+
+        cluster.remove(0);
+
+        node = addNodeToCluster(requestConverter);
+
+        node.waitForMetadataCompletenessAtNow();
+
+        setPrimaryReplica(node, zonePartitionId);
+
+        kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+
+        assertThat(kvView.get(null, 42), is(42));
     }
 
     private void setupTableIdToZoneIdConverter(ZonePartitionId zonePartitionId, TablePartitionId... tablePartitionIds) {
