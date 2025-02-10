@@ -162,7 +162,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
         // result == null means that the command either was not handled by anyone (and clo.result() is called) or
         // that it was delegated to a table processor (which called clo.result()).
-
         if (result != null) {
             if (Boolean.TRUE.equals(result.get2())) {
                 // Adjust safe time before completing update to reduce waiting.
