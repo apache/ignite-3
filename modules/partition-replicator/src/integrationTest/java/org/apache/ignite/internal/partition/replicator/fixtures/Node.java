@@ -614,7 +614,6 @@ public class Node {
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
                 txManager,
-                catalogManager,
                 schemaManager
         );
 

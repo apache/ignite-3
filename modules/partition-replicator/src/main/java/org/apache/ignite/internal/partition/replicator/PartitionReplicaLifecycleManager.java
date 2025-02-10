@@ -80,7 +80,6 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
@@ -163,7 +162,7 @@ public class PartitionReplicaLifecycleManager extends
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
-    private final CatalogManager catalogMgr;
+    private final CatalogService catalogService;
 
     private final ReplicaManager replicaMgr;
 
@@ -219,8 +218,6 @@ public class PartitionReplicaLifecycleManager extends
 
     private final TxManager txManager;
 
-    private final CatalogService catalogService;
-
     private final SchemaManager schemaManager;
 
     /** A predicate that checks that the given assignment is corresponded to the local node. */
@@ -236,7 +233,7 @@ public class PartitionReplicaLifecycleManager extends
     /**
      * The constructor.
      *
-     * @param catalogMgr Catalog manager.
+     * @param catalogService Catalog service.
      * @param replicaMgr Replica manager.
      * @param distributionZoneMgr Distribution zone manager.
      * @param metaStorageMgr Metastorage manager.
@@ -250,11 +247,10 @@ public class PartitionReplicaLifecycleManager extends
      * @param systemDistributedConfiguration System distributed configuration.
      * @param sharedTxStateStorage Shared tx state storage.
      * @param txManager Transaction manager.
-     * @param catalogService Catalog service.
      * @param schemaManager Schema manager.
      */
     public PartitionReplicaLifecycleManager(
-            CatalogManager catalogMgr,
+            CatalogService catalogService,
             ReplicaManager replicaMgr,
             DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr,
@@ -269,10 +265,9 @@ public class PartitionReplicaLifecycleManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxStateRocksDbSharedStorage sharedTxStateStorage,
             TxManager txManager,
-            CatalogService catalogService,
             SchemaManager schemaManager
     ) {
-        this.catalogMgr = catalogMgr;
+        this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
         this.distributionZoneMgr = distributionZoneMgr;
         this.metaStorageMgr = metaStorageMgr;
@@ -285,7 +280,6 @@ public class PartitionReplicaLifecycleManager extends
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.placementDriver = placementDriver;
         this.txManager = txManager;
-        this.catalogService = catalogService;
         this.schemaManager = schemaManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -324,7 +318,7 @@ public class PartitionReplicaLifecycleManager extends
         metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES), assignmentsSwitchRebalanceListener);
 
-        catalogMgr.listen(ZONE_CREATE,
+        catalogService.listen(ZONE_CREATE,
                 (CreateZoneEventParameters parameters) ->
                         inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((ignored) -> false))
         );
@@ -342,16 +336,16 @@ public class PartitionReplicaLifecycleManager extends
         // Once the metastorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
         // fires CatalogManager's ZONE_CREATE event, and the state of PartitionReplicaLifecycleManager becomes consistent
         // (calculateZoneAssignmentsAndCreateReplicationNodes() will be called).
-        int earliestCatalogVersion = lwm == null ? catalogMgr.earliestCatalogVersion() : catalogMgr.activeCatalogVersion(lwm.longValue());
+        int earliestCatalogVersion = lwm == null ? catalogService.earliestCatalogVersion() : catalogService.activeCatalogVersion(lwm.longValue());
 
-        int latestCatalogVersion = catalogMgr.latestCatalogVersion();
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         var startedZones = new IntOpenHashSet();
         var startZoneFutures = new ArrayList<CompletableFuture<?>>();
 
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
             int ver0 = ver;
-            catalogMgr.catalog(ver).zones().stream()
+            catalogService.catalog(ver).zones().stream()
                     .filter(zone -> startedZones.add(zone.id()))
                     .forEach(zoneDescriptor -> startZoneFutures.add(
                             calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor)));
@@ -590,7 +584,7 @@ public class PartitionReplicaLifecycleManager extends
             Long assignmentsTimestamp
     ) {
         return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
-            Catalog catalog = catalogMgr.activeCatalog(assignmentsTimestamp);
+            Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
 
             CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
@@ -732,7 +726,7 @@ public class PartitionReplicaLifecycleManager extends
         } else {
             // Safe to get catalog by version here as the version either comes from iteration from the latest to earliest,
             // or from the handler of catalog version creation.
-            Catalog catalog = catalogMgr.catalog(catalogVersion);
+            Catalog catalog = catalogService.catalog(catalogVersion);
             long assignmentsTimestamp = catalog.time();
 
             return distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
@@ -822,7 +816,7 @@ public class PartitionReplicaLifecycleManager extends
             long assignmentsTimestamp = assignments.timestamp();
 
             return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                Catalog catalog = catalogMgr.activeCatalog(assignmentsTimestamp);
+                Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
 
                 CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
 
@@ -1114,7 +1108,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {
-        Catalog catalog = catalogMgr.activeCatalog(timestamp);
+        Catalog catalog = catalogService.activeCatalog(timestamp);
         assert catalog != null : "Catalog is not available at " + nullableHybridTimestamp(timestamp);
 
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
@@ -1333,7 +1327,7 @@ public class PartitionReplicaLifecycleManager extends
      */
     private void cleanUpPartitionsResources(Set<ZonePartitionId> partitionIds) {
         // TODO: Due to IGNITE-23741 we shouldn't destroy partitions on node stop thus the revision will be removed.
-        long revision = catalogMgr.latestCatalogVersion();
+        long revision = catalogService.latestCatalogVersion();
 
         CompletableFuture<?>[] stopPartitionsFuture = partitionIds.stream()
                 .map(partId -> stopPartition(partId, revision))

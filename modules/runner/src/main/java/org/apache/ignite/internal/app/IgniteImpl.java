@@ -1025,7 +1025,6 @@ public class IgniteImpl implements Ignite {
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
                 txManager,
-                catalogManager,
                 schemaManager
         );
 

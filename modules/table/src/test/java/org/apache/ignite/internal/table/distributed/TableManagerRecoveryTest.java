@@ -397,7 +397,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         systemDistributedConfiguration,
                         sharedTxStateStorage,
                         txManager,
-                        catalogManager,
                         sm
                 ),
                 minTimeCollectorService,
