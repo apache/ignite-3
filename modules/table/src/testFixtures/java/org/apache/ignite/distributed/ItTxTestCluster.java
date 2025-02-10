@@ -95,6 +95,7 @@ import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -145,7 +146,6 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
@@ -611,6 +611,7 @@ public class ItTxTestCluster {
      * @return Started instance.
      */
     public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
+        int predefinedZoneId = 2;
         int tableId = globalCatalogId.getAndIncrement();
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
@@ -644,8 +645,9 @@ public class ItTxTestCluster {
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName),
+                predefinedZoneId,
                 tableId,
-                1,
+                1, // number of partitions.
                 nodeResolver,
                 clientTxManager,
                 mock(MvTableStorage.class),

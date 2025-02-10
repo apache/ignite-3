@@ -79,6 +79,14 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
                 () -> command.get(new UpdateContext(catalog)),
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand dropCommand = DropTableCommand.builder()
+                .schemaName(SCHEMA_NAME + "_UNK")
+                .tableName("TEST")
+                .ifTableExists(true)
+                .build();
+
+        dropCommand.get(new UpdateContext(catalog)); // No exception
     }
 
     @Test

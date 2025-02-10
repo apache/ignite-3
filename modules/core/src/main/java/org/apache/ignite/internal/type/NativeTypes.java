@@ -78,12 +78,12 @@ public class NativeTypes {
     /**
      * STRING type.
      */
-    public static final NativeType STRING = new VarlenNativeType(NativeTypeSpec.STRING, Integer.MAX_VALUE);
+    public static final NativeType STRING = new VarlenNativeType(NativeTypeSpec.STRING, 65536);
 
     /**
      * BYTES type.
      */
-    public static final NativeType BYTES = new VarlenNativeType(NativeTypeSpec.BYTES, Integer.MAX_VALUE);
+    public static final NativeType BYTES = new VarlenNativeType(NativeTypeSpec.BYTES, 65536);
 
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);

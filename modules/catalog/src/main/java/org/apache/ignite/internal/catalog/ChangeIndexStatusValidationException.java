@@ -39,7 +39,7 @@ public class ChangeIndexStatusValidationException extends CatalogValidationExcep
             CatalogIndexStatus expectedCurrent
     ) {
         super(
-                "It is impossible to change the index status: [indexId={}, from={}, to={}, expectedCurrent={}]",
+                "It is impossible to change the index status: [indexId={}, from={}, to={}, expectedCurrent={}].",
                 indexId, current, target, expectedCurrent
         );
     }

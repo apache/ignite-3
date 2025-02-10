@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.TableExistsValidationException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -86,6 +86,37 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         );
 
         cluster.stop();
+    }
+
+    @Test
+    void schemaAndTableCreatedInTheSameBatch() {
+        AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
+                "CREATE SCHEMA my_schema;" 
+                        + "CREATE TABLE my_schema.t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "CREATE INDEX t1_ind_1 ON my_schema.t1 (val_1);"
+        );
+
+        // CREATE SCHEMA my_schema
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE TABLE my_schema.t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE INDEX t1_ind_1 ON my_schema.t1 (val_1)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(false));
+
+        assertEquals(1, executeCallCounter.get());
+
+        assertSchemaExists("my_schema");
+        assertTableExists(QualifiedName.of("my_schema", "t1"));
+        assertIndexExists(QualifiedName.of("my_schema", "t1_ind_1"));
     }
 
     @Test
@@ -254,7 +285,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertDdlResult(cursor, true);
         assertThat(cursor.hasNextResult(), is(true));
         assertThat(cursor.nextResult(), willThrowFast(
-                TableExistsValidationException.class,
+                CatalogValidationException.class,
                 "Table with name 'PUBLIC.T1' already exists"
         ));
 
@@ -355,7 +386,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertDdlResult(cursor, true);
         assertThat(cursor.hasNextResult(), is(true));
         assertThat(cursor.nextResult(), willThrowFast(
-                TableExistsValidationException.class,
+                CatalogValidationException.class,
                 "Table with name 'PUBLIC.T1' already exists"
         ));
 
@@ -383,16 +414,28 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertThat(batch.items().get(0).get(0), is(expectedApplied));
     }
 
-    private void assertTableExists(String name) {
+    private void assertSchemaExists(String name) {
         CatalogService catalogService = cluster.catalogManager();
 
         int latestVersion = catalogService.latestCatalogVersion();
         Catalog catalog = catalogService.catalog(latestVersion);
 
-        QualifiedName qualifiedName = QualifiedName.fromSimple(name);
+        assertThat(catalog, notNullValue());
+        assertThat(catalog.schema(QualifiedName.fromSimple(name).objectName()), notNullValue());
+    }
+
+    private void assertTableExists(QualifiedName name) {
+        CatalogService catalogService = cluster.catalogManager();
+
+        int latestVersion = catalogService.latestCatalogVersion();
+        Catalog catalog = catalogService.catalog(latestVersion);
 
         assertThat(catalog, notNullValue());
-        assertThat(catalog.table(qualifiedName.schemaName(), qualifiedName.objectName()), notNullValue());
+        assertThat(catalog.table(name.schemaName(), name.objectName()), notNullValue());
+    }
+
+    private void assertTableExists(String name) {
+        assertTableExists(QualifiedName.fromSimple(name));
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -409,15 +452,17 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     }
 
     private void assertIndexExists(String name) {
+        assertIndexExists(QualifiedName.fromSimple(name));
+    }
+
+    private void assertIndexExists(QualifiedName name) {
         CatalogService catalogService = cluster.catalogManager();
 
         int latestVersion = catalogService.latestCatalogVersion();
         Catalog catalog = catalogService.catalog(latestVersion);
 
-        QualifiedName qualifiedName = QualifiedName.fromSimple(name);
-
         assertThat(catalog, notNullValue());
-        assertThat(catalog.aliveIndex(qualifiedName.schemaName(), qualifiedName.objectName()), notNullValue());
+        assertThat(catalog.aliveIndex(name.schemaName(), name.objectName()), notNullValue());
     }
 
     @SuppressWarnings("SameParameterValue")

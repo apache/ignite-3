@@ -52,6 +52,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateMin
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishHelper;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;

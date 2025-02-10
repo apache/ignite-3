@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneWithStorageProfile;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
-import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -110,7 +110,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(SystemPropertiesExtension.class)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-@WithSystemProperty(key = FEATURE_FLAG_NAME, value = "true")
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 20_000;
 

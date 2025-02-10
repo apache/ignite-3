@@ -126,6 +126,10 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand alterCommand = builder.ifTableExists(true).build();
+
+        alterCommand.get(new UpdateContext(catalog)); // No exception
     }
 
     @Test

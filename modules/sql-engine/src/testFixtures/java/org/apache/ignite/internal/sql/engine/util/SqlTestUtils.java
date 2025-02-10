@@ -328,7 +328,7 @@ public class SqlTestUtils {
 
     /**
      * Generate random value for given {@link ColumnType}. For precision and scale will be used maximums precisions and scale in SQL type
-     * system, except for byte arrays and decimals, to decrease generated values.
+     * system, except for strings, byte arrays and decimals, to decrease generated values.
      *
      * @param type SQL type to generate value related to the type.
      * @return Generated value for given SQL type.
@@ -339,7 +339,7 @@ public class SqlTestUtils {
         int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
 
         // To prevent generate too big values.
-        if (type == ColumnType.BYTE_ARRAY || type == ColumnType.DECIMAL) {
+        if (type == ColumnType.STRING || type == ColumnType.BYTE_ARRAY || type == ColumnType.DECIMAL) {
             precision = 7_000;
             scale = precision / 2;
         }

@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -38,6 +39,7 @@ public class ClientSqlExecuteScriptRequest {
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
+            ClientMessagePacker out,
             QueryProcessor sql
     ) {
         ClientSqlProperties props = new ClientSqlProperties(in);
@@ -49,13 +51,15 @@ public class ClientSqlExecuteScriptRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24275 Script must return updated time to client.
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, ts -> {});
+        HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Pass cancellation token to the query processor.
         return IgniteSqlImpl.executeScriptCore(
                 sql, tsUpdater, () -> true, () -> {}, script, null, arguments, props.toSqlProps()
-        );
+        ).whenComplete((none, error) -> {
+            // Unconditionally update observable time because script may be applied partially.
+            out.meta(tsUpdater.get());
+        });
     }
 }
