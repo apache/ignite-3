@@ -214,12 +214,9 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
         QualifiedName nameWithMissedSchema = QualifiedName.of(missedSchemaName, POJO_KV_TABLE_NAME);
 
-        // Then table is dropped
-        assertThrows(
-                SqlException.class,
-                () -> catalog().dropTable(nameWithMissedSchema),
-                "Schema with name '" + missedSchemaName + "' not found"
-        );
+        // When drop table by qualified name with unknown schema then still completed successfully, because
+        // CatalogDsl generates `DROP TABLE IF EXISTS` command
+        assertThat(catalog().dropTableAsync(nameWithMissedSchema), willCompleteSuccessfully());
     }
 
     private static void createTable() {
