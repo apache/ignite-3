@@ -64,6 +64,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -425,6 +426,9 @@ public class ZoneRebalanceUtil {
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
 
+    /** Key prefix for assignments chain. */
+    public static final String ASSIGNMENTS_CHAIN_PREFIX = "zone.assignments.chain.";
+
     /**
      * Key that is needed for skipping stale events of pending key change.
      *
@@ -467,6 +471,17 @@ public class ZoneRebalanceUtil {
      */
     public static ByteArray stablePartAssignmentsKey(ZonePartitionId zonePartitionId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + zonePartitionId);
+    }
+
+    /**
+     * Key for the graceful restart in HA mode.
+     *
+     * @param zonePartitionId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-131%3A+Partition+Majority+Unavailability+Handling">HA mode</a>
+     */
+    public static ByteArray assignmentsChainKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(ASSIGNMENTS_CHAIN_PREFIX + zonePartitionId);
     }
 
     /**
@@ -658,5 +673,74 @@ public class ZoneRebalanceUtil {
 
                     return numberOfMsPartitions == 0 ? Map.of() : result;
                 });
+    }
+
+    /**
+     * Returns zone pending assignments for all zone partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with zone assignments as a value.
+     */
+    public static List<Assignments> zonePendingAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(partitionId -> getLocalAssignments(metaStorageManager, zoneId, partitionId, revision))
+                .collect(toList());
+    }
+
+    private static @Nullable Assignments getLocalAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(pendingPartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)), revision);
+
+        return entry != null ? Assignments.fromBytes(entry.value()) : null;
+    }
+
+    /**
+     * Returns assignments chains for all zone partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with zone assignments as a value.
+     */
+    public static List<AssignmentsChain> zoneAssignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(partitionId -> assignmentsChainGetLocally(metaStorageManager, new ZonePartitionId(zoneId, partitionId), revision))
+                .collect(toList());
+    }
+
+    /**
+     * Returns assignments chain from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zonePartitionId Zone partition id.
+     * @param revision Revision.
+     * @return Returns assignments chain from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable AssignmentsChain assignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            ZonePartitionId zonePartitionId,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(assignmentsChainKey(zonePartitionId), revision);
+
+        return entry != null ? AssignmentsChain.fromBytes(entry.value()) : null;
     }
 }
