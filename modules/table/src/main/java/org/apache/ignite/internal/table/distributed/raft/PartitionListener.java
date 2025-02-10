@@ -53,6 +53,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateAll
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -762,7 +763,8 @@ public class PartitionListener implements RaftGroupListener {
                 full ? COMMITTED : PENDING,
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
-                full ? commitTimestamp : null
+                full ? commitTimestamp : null,
+                old == null ? null : old.tx()
         ));
     }
 
@@ -772,6 +774,7 @@ public class PartitionListener implements RaftGroupListener {
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? partId : old.commitPartitionId(),
                 commit ? commitTimestamp : null,
+                old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp()
         ));

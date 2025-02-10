@@ -23,7 +23,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
@@ -258,7 +258,9 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
             int catalogVersion = parameters.catalogVersion();
 
             lowWatermark.getLowWatermarkSafe(lwm -> {
-                int lwmCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
+                int lwmCatalogVersion = lwm == null
+                        ? catalogService.earliestCatalogVersion()
+                        : catalogService.activeCatalogVersion(lwm.longValue());
 
                 if (catalogVersion <= lwmCatalogVersion) {
                     // There is no need to add a read-only indexes, since the index should be destroyed under the updated low watermark.

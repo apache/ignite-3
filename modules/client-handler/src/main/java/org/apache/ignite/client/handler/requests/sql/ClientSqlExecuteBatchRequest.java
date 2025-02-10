@@ -61,7 +61,7 @@ public class ClientSqlExecuteBatchRequest {
         }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, out::meta);
+        HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
 
         return IgniteSqlImpl.executeBatchCore(
                 sql,
@@ -75,6 +75,8 @@ public class ClientSqlExecuteBatchRequest {
                         cursor -> 0,
                         cursorId -> {})
                 .thenApply((affectedRows) -> {
+                    out.meta(tsUpdater.get());
+
                     out.packNil(); // resourceId
 
                     out.packBoolean(false); // has row set

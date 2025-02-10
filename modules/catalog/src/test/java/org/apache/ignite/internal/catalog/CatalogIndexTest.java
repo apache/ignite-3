@@ -440,7 +440,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
-                willThrowFast(IndexNotFoundValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Index with name 'PUBLIC.myIndex' not found.")
         );
     }
 
@@ -505,7 +505,8 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.INDEX_REMOVED, eventListener);
 
         // Try to create index without table.
-        assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundValidationException.class));
+        assertThat(manager.execute(createIndexCmd),
+                willThrow(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found"));
         verifyNoInteractions(eventListener);
 
         // Create table with PK index.
@@ -545,7 +546,8 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         tryApplyAndExpectApplied(dropTableCommand(TABLE_NAME));
 
         // Try drop index once again.
-        assertThat(manager.execute(dropIndexCmd), willThrow(IndexNotFoundValidationException.class));
+        assertThat(manager.execute(dropIndexCmd),
+                willThrowFast(CatalogValidationException.class, "Index with name 'PUBLIC.myIndex' not found."));
 
         verify(eventListener).notify(any(RemoveIndexEventParameters.class));
         verifyNoMoreInteractions(eventListener);
@@ -633,12 +635,12 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))),
-                willThrowFast(IndexExistsValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Index with name 'PUBLIC.myIndex' already exists.")
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(IndexExistsValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Index with name 'PUBLIC.myIndex' already exists.")
         );
     }
 
@@ -648,12 +650,12 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(createHashIndexCommand(TABLE_NAME, List.of("VAL"))),
-                willThrowFast(TableExistsValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' already exists.")
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(TableExistsValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' already exists.")
         );
     }
 
@@ -661,12 +663,12 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     public void testCreateIndexWithNotExistingTable() {
         assertThat(
                 manager.execute(createHashIndexCommand(TABLE_NAME, List.of("VAL"))),
-                willThrowFast(TableNotFoundValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found.")
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(TableNotFoundValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found.")
         );
     }
 
@@ -676,12 +678,12 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(createHashIndexCommand(INDEX_NAME, List.of("fake"))),
-                willThrowFast(CatalogValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Column with name 'fake' not found in table 'PUBLIC.test_table'.")
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("fake"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(CatalogValidationException.class)
+                willThrowFast(CatalogValidationException.class, "Column with name 'fake' not found in table 'PUBLIC.test_table'.")
         );
     }
 
@@ -833,7 +835,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(RenameIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).newIndexName("TEST").build()),
-                willThrowFast(IndexNotFoundValidationException.class)
+                willThrowFast(CatalogValidationException.class)
         );
     }
 

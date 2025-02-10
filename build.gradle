@@ -23,18 +23,13 @@ plugins {
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.aggregateJavadoc)
     alias(libs.plugins.spotbugs) apply false
+    alias(libs.plugins.jmh) apply false
+    alias(libs.plugins.jmhReport) apply false
 }
 
 apply from: "$rootDir/buildscripts/javadoc.gradle"
 
 repositories {
-    maven {
-        url = uri('https://repository.apache.org/snapshots')
-        mavenContent {
-            snapshotsOnly()
-        }
-    }
-
     maven {
         url = uri('https://repo.maven.apache.org/maven2/')
     }
@@ -129,13 +124,6 @@ subprojects {
     apply plugin: 'base'
 
     repositories {
-        maven {
-            url = uri('https://repository.apache.org/snapshots')
-            mavenContent {
-                snapshotsOnly()
-            }
-        }
-
         maven {
             url = uri('https://repo.maven.apache.org/maven2/')
             mavenContent {

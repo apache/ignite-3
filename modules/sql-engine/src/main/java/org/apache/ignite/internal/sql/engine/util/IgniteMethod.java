@@ -110,7 +110,7 @@ public enum IgniteMethod {
 
     LN(IgniteSqlFunctions.class, "log", true),
     LOG(IgniteSqlFunctions.class, "log", true),
-    LOG10(IgniteSqlFunctions.class, "log", true),
+    LOG10(IgniteSqlFunctions.class, "log10", true),
 
     /**
      * Decimal division as well as division operator used by REDUCE phase of AVG aggregate.

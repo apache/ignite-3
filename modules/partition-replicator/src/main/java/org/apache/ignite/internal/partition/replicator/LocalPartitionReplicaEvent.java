@@ -34,7 +34,7 @@ public enum LocalPartitionReplicaEvent implements Event {
     AFTER_REPLICA_STARTED,
 
     /**
-     * Fired when partition replica has stopped.
+     * Fired when partition replica has been destroyed.
      */
-    AFTER_REPLICA_STOPPED
+    AFTER_REPLICA_DESTROYED
 }

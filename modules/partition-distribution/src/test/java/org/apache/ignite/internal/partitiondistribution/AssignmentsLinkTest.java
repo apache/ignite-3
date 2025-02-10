@@ -73,7 +73,7 @@ class AssignmentsLinkTest {
 
     @Test
     void testLastLink() {
-        AssignmentsChain chain = AssignmentsChain.of(ASSIGNMENTS0_4);
+        AssignmentsChain chain = AssignmentsChain.of(-1L, -1L, ASSIGNMENTS0_4);
         AssignmentsLink link1 = chain.firstLink();
 
         AssignmentsLink link2 = chain.addLast(ASSIGNMENTS0_2, 1, 1);
@@ -92,7 +92,7 @@ class AssignmentsLinkTest {
 
     @Test
     void testNextLink() {
-        AssignmentsChain chain = AssignmentsChain.of(ASSIGNMENTS0_4);
+        AssignmentsChain chain = AssignmentsChain.of(-1L, -1L, ASSIGNMENTS0_4);
 
         AssignmentsLink link2 = chain.addLast(ASSIGNMENTS0_2, 1, 1);
 
@@ -120,7 +120,7 @@ class AssignmentsLinkTest {
 
     @Test
     void testSameAssignmentsInLinks() {
-        AssignmentsChain chain = AssignmentsChain.of(ASSIGNMENTS0_4);
+        AssignmentsChain chain = AssignmentsChain.of(-1L, -1L, ASSIGNMENTS0_4);
 
         AssignmentsLink link2 = chain.addLast(ASSIGNMENTS0_2, 1, 1);
 

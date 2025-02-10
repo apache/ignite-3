@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
@@ -58,6 +59,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** The future is initialized when this transaction starts committing or rolling back and is finished together with the transaction. */
     private volatile CompletableFuture<Void> finishFuture;
+
+    private boolean killed;
 
     /**
      * Constructs an explicit read-write transaction.
@@ -159,18 +162,63 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             return finishFuture;
         }
 
+        return finishInternal(commit, executionTimestamp, full, true);
+    }
+
+    /**
+     * Finishes the read-write transaction.
+     *
+     * @param commit Commit flag.
+     * @param executionTimestamp The timestamp is the time when the transaction is applied to the remote node.
+     * @param full Full state transaction marker.
+     * @param isComplete The flag is true if the transaction is completed through the public API, false for {@link this#kill()} invocation.
+     * @return The future.
+     */
+    private CompletableFuture<Void> finishInternal(
+            boolean commit,
+            @Nullable HybridTimestamp executionTimestamp,
+            boolean full,
+            boolean isComplete
+    ) {
         enlistPartitionLock.writeLock().lock();
 
         try {
             if (finishFuture == null) {
+                if (killed) {
+                    if (isComplete) {
+                        finishFuture = nullCompletedFuture();
+
+                        return failedFuture(new TransactionException(
+                                TX_ALREADY_FINISHED_ERR,
+                                format("Transaction is killed [id={}, state={}].", id(), state())
+                        ));
+                    } else {
+                        return nullCompletedFuture();
+                    }
+                }
+
                 if (full) {
                     txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit);
 
-                    finishFuture = nullCompletedFuture();
+                    if (isComplete) {
+                        finishFuture = nullCompletedFuture();
+                    } else {
+                        killed = true;
+                    }
                 } else {
-                    CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
+                    CompletableFuture<Void> finishFutureInternal = txManager.finish(
+                            observableTsTracker,
+                            commitPart,
+                            commit,
+                            enlisted,
+                            id()
+                    );
 
-                    finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+                    if (isComplete) {
+                        finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+                    } else {
+                        killed = true;
+                    }
 
                     // Return the real future first time.
                     return finishFutureInternal;
@@ -188,16 +236,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         return finishFuture != null;
     }
 
-    /**
-     * Internal method for finishing this transaction.
-     *
-     * @param commit {@code true} to commit, false to rollback.
-     * @return The future of transaction completion.
-     */
-    private CompletableFuture<Void> finishInternal(boolean commit) {
-        return txManager.finish(observableTsTracker, commitPart, commit, enlisted, id());
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean isReadOnly() {
@@ -213,5 +251,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public HybridTimestamp startTimestamp() {
         return TransactionIds.beginTimestamp(id());
+    }
+
+    @Override
+    public CompletableFuture<Void> kill() {
+        return finishInternal(false, null, false, false);
     }
 }

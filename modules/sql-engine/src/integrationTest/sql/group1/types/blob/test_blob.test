@@ -76,16 +76,16 @@ SELECT NULL::VARBINARY
 ----
 NULL
 
-statement error: Length for column 'C1' of type 'BYTE_ARRAY' must be at least 1
+statement error: BINARY length 0 must be between 1 and 65536. [column=C1]
 CREATE TABLE t_invalid_length(c1 BINARY(0));
 
-statement error: Length for column 'C1' of type 'BYTE_ARRAY' must be at least 1
+statement error: VARBINARY length 0 must be between 1 and 65536. [column=C1]
 CREATE TABLE t_invalid_length(c1 VARBINARY(0));
 
-statement error: Length for type BINARY must be at least 1
+statement error: BINARY length 0 must be between 1 and 65536
 SELECT CAST(x'0101' AS BINARY(0))
 
-statement error: Length for type VARBINARY must be at least 1
+statement error: VARBINARY length 0 must be between 1 and 65536
 SELECT CAST(x'0101' AS VARBINARY(0))
 
 statement ok
@@ -125,3 +125,57 @@ select CAST(x'Aa' AS BINARY VARYING(1000));
 ----
 aa
 
+
+for type in [BINARY, VARBINARY]
+
+statement ok
+CREATE TABLE t(id INT PRIMARY KEY, val ${type}(2))
+
+statement ok
+INSERT INTO t VALUES(201, x'000000')
+
+query T
+SELECT val FROM t WHERE id = 201
+----
+0000
+
+statement ok
+INSERT INTO t SELECT * FROM (VALUES(202, x'000000')) as tk(k, v)
+
+query T
+SELECT val FROM t WHERE id = 202
+----
+0000
+
+statement ok
+CREATE TABLE t1(id INT PRIMARY KEY, val ${type}(3))
+
+statement ok
+INSERT INTO t1 VALUES(2, x'000000')
+
+statement ok
+INSERT INTO t SELECT id, val FROM t1
+
+query T
+SELECT val FROM t WHERE id = 2
+----
+0000
+
+statement ok
+INSERT INTO t VALUES(1, x'01')
+
+statement ok
+UPDATE t SET val=x'000000' WHERE id=1
+
+query T
+SELECT val FROM t WHERE id = 1
+----
+0000
+
+statement ok
+DROP TABLE t
+
+statement ok
+DROP TABLE t1
+
+endfor

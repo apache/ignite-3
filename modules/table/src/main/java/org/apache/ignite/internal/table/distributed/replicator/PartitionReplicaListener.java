@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
@@ -355,8 +356,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
-    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * The constructor.
@@ -516,7 +516,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         PENDING,
                         req.coordinatorId(),
                         req.commitPartitionId().asTablePartitionId(),
-                        null
+                        null,
+                        old == null ? null : old.tx()
                 ));
             }
         }
@@ -811,7 +812,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     PENDING,
                     req.coordinatorId(),
                     req.commitPartitionId().asTablePartitionId(),
-                    null
+                    null,
+                    old == null ? null : old.tx()
             ));
 
             var opId = new OperationId(senderId, req.timestamp().longValue());
@@ -3945,6 +3947,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
                 txState == COMMITTED ? commitTimestamp : null,
+                old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp()
         ));

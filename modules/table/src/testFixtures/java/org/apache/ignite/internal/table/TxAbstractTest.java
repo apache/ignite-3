@@ -2171,7 +2171,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                     old.txState(),
                     new UUID(1, 2),
                     old.commitPartitionId(),
-                    old.commitTimestamp()
+                    old.commitTimestamp(),
+                    old == null ? null : old.tx()
             ));
         }
 

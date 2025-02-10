@@ -30,14 +30,12 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -125,7 +123,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 return List.of();
             }
 
-            throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", zoneName));
+            throw new CatalogValidationException("Distribution zone with name '{}' already exists.", zoneName);
         }
 
         CatalogZoneDescriptor zoneDesc = descriptor(catalog.objectIdGenState());
@@ -137,7 +135,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     }
 
     private CatalogZoneDescriptor descriptor(int objectId) {
-        CatalogZoneDescriptor zone = new CatalogZoneDescriptor(
+        return new CatalogZoneDescriptor(
                 objectId,
                 zoneName,
                 Objects.requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT),
@@ -152,8 +150,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 fromParams(storageProfileParams),
                 Objects.requireNonNullElse(consistencyMode, STRONG_CONSISTENCY)
         );
-
-        return zone;
     }
 
     private void validate() {

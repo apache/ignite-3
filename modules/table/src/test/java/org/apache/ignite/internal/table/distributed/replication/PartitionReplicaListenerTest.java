@@ -152,6 +152,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
@@ -202,7 +203,6 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
-import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -730,7 +730,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         doAnswer(invocation -> {
             UUID txId = invocation.getArgument(4);
 
-            txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, localNode.id(), commitPartitionId, null));
+            txManager.updateTxMeta(txId, old -> new TxStateMeta(
+                    ABORTED,
+                    localNode.id(),
+                    commitPartitionId,
+                    null,
+                    null
+            ));
 
             return nullCompletedFuture();
         }).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
@@ -776,7 +782,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID txId = newTxId();
 
         txStateStorage.putForRebalance(txId, new TxMeta(txState, singletonList(grpId), null));
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(txState, null, null, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(txState, null, null, null, null));
 
         BinaryRow testRow = binaryRow(0);
 
@@ -911,7 +917,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, localNode.id(), commitPartitionId, clock.now()));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, localNode.id(), commitPartitionId, clock.now(), null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -929,7 +935,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), commitPartitionId, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), commitPartitionId, null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -948,7 +954,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, localNode.id(), commitPartitionId, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, localNode.id(), commitPartitionId, null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -1618,7 +1624,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             // Imitation of tx commit.
             txStateStorage.putForRebalance(txId, new TxMeta(COMMITTED, new ArrayList<>(), now));
-            txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID(), commitPartitionId, now));
+            txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID(), commitPartitionId, now, null));
 
             CompletableFuture<?> replicaCleanupFut = partitionReplicaListener.invoke(
                     TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
@@ -2876,7 +2882,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void cleanup(UUID txId) {
         HybridTimestamp commitTs = clock.now();
 
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID(), commitPartitionId, commitTs));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID(), commitPartitionId, commitTs, null));
 
         WriteIntentSwitchReplicaRequest message = TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
                 .groupId(tablePartitionIdMessage(grpId))
