@@ -412,8 +412,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return schemaSyncService.waitForMetadataCompleteness(nowTs)
                 .thenComposeAsync(ignore -> {
-                    Int2IntMap idsWithPartitions = catalogManagerFacade
-                            .collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue(), enabledColocationFeature);
+                    Int2IntMap idsWithPartitions = enabledColocationFeature
+                            ? catalogManagerFacade.collectZonesWithPartitionsBetween(txBeginTime, nowTs.longValue())
+                            : catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
 
                     ObjectIterator<Entry> itr = idsWithPartitions.int2IntEntrySet().iterator();
 
