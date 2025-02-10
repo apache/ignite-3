@@ -24,11 +24,9 @@ import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -120,7 +118,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
     public String explain() {
         IgniteRel clonedRoot = Cloner.clone(selectCountNode, Commons.cluster());
 
-        return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+        return ExplainUtils.toString(clonedRoot);
     }
 
     @Override
