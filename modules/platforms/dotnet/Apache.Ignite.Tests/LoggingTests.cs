@@ -22,6 +22,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading.Tasks;
 using Internal;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using NUnit.Framework;
@@ -82,8 +83,17 @@ public class LoggingTests
             var cfg = new IgniteClientConfiguration
             {
                 LoggerFactory = LoggerFactory.Create(builder =>
-                    builder.AddSimpleConsole(opt => opt.ColorBehavior = LoggerColorBehavior.Disabled)
-                        .SetMinimumLevel(LogLevel.Trace))
+                {
+                    builder.AddConsole(opt =>
+                        {
+                            opt.MaxQueueLength = 1;
+                            opt.QueueFullMode = ConsoleLoggerQueueFullMode.Wait;
+                            opt.FormatterName = ConsoleFormatterNames.Simple;
+                        })
+                        .SetMinimumLevel(LogLevel.Trace);
+
+                    builder.Services.Configure((SimpleConsoleFormatterOptions opts) => opts.ColorBehavior = LoggerColorBehavior.Disabled);
+                })
             };
 
             using var server = new FakeServer();
