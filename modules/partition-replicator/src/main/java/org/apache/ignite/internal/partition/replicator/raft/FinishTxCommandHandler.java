@@ -50,7 +50,11 @@ public class FinishTxCommandHandler {
     private final RaftTxFinisher txFinisher;
 
     /** Constructor. */
-    public FinishTxCommandHandler(TxStatePartitionStorage txStatePartitionStorage, TablePartitionId replicationGroupId, TxManager txManager) {
+    public FinishTxCommandHandler(
+            TxStatePartitionStorage txStatePartitionStorage,
+            TablePartitionId replicationGroupId,
+            TxManager txManager
+    ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.replicationGroupId = replicationGroupId;
 

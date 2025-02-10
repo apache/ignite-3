@@ -336,7 +336,8 @@ public class PartitionReplicaLifecycleManager extends
         // Once the metastorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
         // fires CatalogManager's ZONE_CREATE event, and the state of PartitionReplicaLifecycleManager becomes consistent
         // (calculateZoneAssignmentsAndCreateReplicationNodes() will be called).
-        int earliestCatalogVersion = lwm == null ? catalogService.earliestCatalogVersion() : catalogService.activeCatalogVersion(lwm.longValue());
+        int earliestCatalogVersion = lwm == null ? catalogService.earliestCatalogVersion()
+                : catalogService.activeCatalogVersion(lwm.longValue());
 
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
