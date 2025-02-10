@@ -258,7 +258,7 @@ public class DistributionZoneManager extends
             int catalogVersion = catalogManager.latestCatalogVersion();
 
             return allOf(
-                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion),
+                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision),
                     dataNodesManager.startAsync(catalogManager.catalog(catalogVersion).zones())
             ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
         });
@@ -417,7 +417,7 @@ public class DistributionZoneManager extends
             Condition condition = exists(zoneDataNodesHistoryKey(zoneId));
 
             Update removeKeysUpd = ops(
-                    // TODO remove(zoneDataNodesHistoryKey(zoneId)),
+                    // TODO remove(zoneDataNodesHistoryKey(zoneId)), https://issues.apache.org/jira/browse/IGNITE-24345
                     remove(zoneScaleUpTimerKey(zoneId)),
                     remove(zoneScaleDownTimerKey(zoneId)),
                     remove(zonePartitionResetTimerKey(zoneId))
@@ -584,7 +584,7 @@ public class DistributionZoneManager extends
                     oldLogicalTopology = newLogicalTopology;
                 }
 
-                return onLogicalTopologyUpdate(newLogicalTopology, oldLogicalTopology, evt.revision(), timestamp);
+                return onLogicalTopologyUpdate(newLogicalTopology, oldLogicalTopology, evt.revision(), timestamp, false);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -605,13 +605,15 @@ public class DistributionZoneManager extends
      * @param oldLogicalTopology Old logical topology.
      * @param revision Revision of the event.
      * @param timestamp Event timestamp.
+     * @param isRecovery {@code true} if this method is called during the node recovery.
      * @return Future reflecting the completion of the actions needed when logical topology was updated.
      */
     private CompletableFuture<Void> onLogicalTopologyUpdate(
             Set<NodeWithAttributes> newLogicalTopology,
             Set<NodeWithAttributes> oldLogicalTopology,
             long revision,
-            HybridTimestamp timestamp
+            HybridTimestamp timestamp,
+            boolean isRecovery
     ) {
         logicalTopologyByRevision.put(revision, newLogicalTopology);
 
@@ -626,7 +628,8 @@ public class DistributionZoneManager extends
                     newLogicalTopology,
                     oldLogicalTopology,
                     partitionDistributionResetTimeoutConfiguration.currentValue(),
-                    () -> fireTopologyReduceLocalEvent(revision, zone.id())
+                    () -> fireTopologyReduceLocalEvent(revision, zone.id()),
+                    isRecovery
             );
 
             futures.add(f);
@@ -703,6 +706,7 @@ public class DistributionZoneManager extends
     }
 
     private void fireTopologyReduceLocalEvent(long revision, int zoneId) {
+        LOG.info("qqq fireTopologyReduceLocalEvent");
         fireEvent(
                 HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
                 new HaZoneTopologyUpdateEventParams(zoneId, revision)
@@ -767,7 +771,7 @@ public class DistributionZoneManager extends
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
      * @return Future that represents the pending completion of the operations.
      */
-    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision, int catalogVersion) {
+    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision) {
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
 
         if (topologyEntry.value() != null) {
@@ -780,7 +784,7 @@ public class DistributionZoneManager extends
             if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLongKeepingOrder(lastUpdateRevisionEntry.value())) {
                 HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(recoveryRevision);
 
-                return onLogicalTopologyUpdate(logicalTopology, logicalTopology, recoveryRevision, timestamp);
+                return onLogicalTopologyUpdate(logicalTopology, logicalTopology, recoveryRevision, timestamp, true);
             }
         }
 

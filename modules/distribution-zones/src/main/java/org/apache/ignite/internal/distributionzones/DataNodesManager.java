@@ -235,7 +235,8 @@ public class DataNodesManager {
             Set<NodeWithAttributes> newLogicalTopology,
             Set<NodeWithAttributes> oldLogicalTopology,
             int partitionResetDelay,
-            Runnable taskOnPartitionReset
+            Runnable taskOnPartitionReset,
+            boolean isRecovery
     ) {
         return msInvokeWithRetry(msGetter -> {
             int zoneId = zoneDescriptor.id();
@@ -275,10 +276,12 @@ public class DataNodesManager {
                             throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
                         }
 
-                        if (!removedNodes.isEmpty() && zoneDescriptor.consistencyMode() == HIGH_AVAILABILITY) {
-                            if (partitionResetDelay != INFINITE_TIMER_VALUE) {
-                                reschedulePartitionReset(partitionResetDelay, taskOnPartitionReset, zoneId);
-                            }
+                        boolean topologyReduced = !removedNodes.isEmpty() || (isRecovery && !scaleDownTimer.nodes().isEmpty());
+
+                        if (topologyReduced
+                                && zoneDescriptor.consistencyMode() == HIGH_AVAILABILITY
+                                && partitionResetDelay != INFINITE_TIMER_VALUE) {
+                            reschedulePartitionReset(partitionResetDelay, taskOnPartitionReset, zoneId);
                         }
 
                         DistributionZoneTimer mergedScaleUpTimer = newScaleUpTimerOnTopologyChange(zoneDescriptor, timestamp,

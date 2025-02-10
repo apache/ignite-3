@@ -82,7 +82,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
         dropZone(ZONE_NAME);
 
-        assertZonesKeysInMetaStorage(zoneId, null);
+        // Data nodes should be removed from meta storage
+        assertZonesKeysInMetaStorage(zoneId, null, false);
     }
 
     @ParameterizedTest
@@ -100,7 +101,14 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
     }
 
     private void assertZonesKeysInMetaStorage(int zoneId, @Nullable Set<LogicalNode> clusterNodes) throws InterruptedException {
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes, keyValueStorage);
+        assertZonesKeysInMetaStorage(zoneId, clusterNodes, true);
+    }
+
+    private void assertZonesKeysInMetaStorage(int zoneId, @Nullable Set<LogicalNode> clusterNodes, boolean checkNodes)
+            throws InterruptedException {
+        if (checkNodes) {
+            assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes, keyValueStorage);
+        }
 
         if (clusterNodes != null) {
             assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleUpTimerKey(zoneId).bytes()).value() != null, 5000));

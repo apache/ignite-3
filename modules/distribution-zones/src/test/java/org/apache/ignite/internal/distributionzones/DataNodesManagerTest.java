@@ -47,7 +47,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -355,7 +354,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         Runnable partitionResetClosure = () -> partitionResetTriggered.set(true);
 
-        dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 1, partitionResetClosure);
+        dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 1, partitionResetClosure, false);
 
         // Partition reset is not triggered if no nodes were removed.
         assertFalse(partitionResetTriggered.get());
@@ -363,7 +362,14 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         Set<NodeWithAttributes> newTopology = new HashSet<>(currentTopology);
         newTopology.remove(A);
 
-        dataNodesManager.onTopologyChange(zone, clock.now(), newTopology, currentTopology, 1, partitionResetClosure);
+        dataNodesManager.onTopologyChange(zone, clock.now(), newTopology, currentTopology, 1, partitionResetClosure, false);
+
+        assertTrue(waitForCondition(partitionResetTriggered::get, 2000));
+
+        partitionResetTriggered.set(false);
+
+        // Check that it's triggered again on node recovery.
+        dataNodesManager.onTopologyChange(zone, clock.now(), currentTopology, newTopology, 1, partitionResetClosure, true);
 
         assertTrue(waitForCondition(partitionResetTriggered::get, 2000));
     }
@@ -452,7 +458,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
                         catalogManager.activeCatalog(clock.now().longValue()).zones()
                                 .stream()
                                 .map(zone -> dataNodesManager
-                                        .onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 0, () -> {}))
+                                        .onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 0, () -> {}, false))
                                 .collect(toList())
                 ),
                 willCompleteSuccessfully()
@@ -467,7 +473,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
                         catalogManager.activeCatalog(clock.now().longValue()).zones()
                                 .stream()
                                 .map(zone -> dataNodesManager
-                                        .onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 0, () -> {}))
+                                        .onTopologyChange(zone, clock.now(), currentTopology, currentTopology, 0, () -> {}, false))
                                 .collect(toList())
                 ),
                 willCompleteSuccessfully()
@@ -550,9 +556,5 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private static Set<String> nodeNames(NodeWithAttributes... nodes) {
         return asList(nodes).stream().map(NodeWithAttributes::nodeName).collect(toSet());
-    }
-
-    private static void assertTrueWithSmallWait(BooleanSupplier conditionSupplier) throws InterruptedException {
-        assertTrue(waitForCondition(conditionSupplier, 2000));
     }
 }
