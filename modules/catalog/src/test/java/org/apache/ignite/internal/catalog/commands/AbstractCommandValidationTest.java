@@ -60,6 +60,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static final String SCHEMA_NAME = "PUBLIC";
     static final String TABLE_NAME = "TEST";
     static final String ZONE_NAME = "Default";
+    static final String INDEX_NAME = "IDX";
     static final TablePrimaryKey ID_PK = TableHashPrimaryKey.builder()
             .columns(List.of("ID"))
             .build();

@@ -139,10 +139,16 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     public void testCastToDifferentLengthsWithDynamicParameters() {
         byte[] param = {1, 2, 3};
         byte[] result = {1, 2};
+        byte[] unaryResult = {1};
 
         checkQuery("SELECT CAST(? AS VARBINARY(2))")
                 .withParam(param)
                 .returns(result)
+                .check();
+
+        checkQuery("SELECT CAST(CAST(? AS VARBINARY(2)) AS BINARY(1))")
+                .withParam(param)
+                .returns(unaryResult)
                 .check();
 
         checkQuery("SELECT CAST(? AS VARBINARY(100))")

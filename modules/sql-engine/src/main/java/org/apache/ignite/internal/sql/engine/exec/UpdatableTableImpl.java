@@ -210,7 +210,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
-        RowT validatedRow = TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), row, schemaSupplier);
+        RowT validatedRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), row, schemaSupplier);
 
         BinaryRowEx tableRow = rowConverter.toFullRow(ectx, validatedRow);
 
@@ -394,7 +394,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         List<RowT> out = new ArrayList<>(rows.size());
 
         for (RowT row : rows) {
-            out.add(TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType, rowHandler, row, schemaSupplier));
+            out.add(TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, rowHandler, row, schemaSupplier));
         }
 
         return out;

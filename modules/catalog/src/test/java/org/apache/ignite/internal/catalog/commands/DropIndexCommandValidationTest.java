@@ -36,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class DropIndexCommandValidationTest extends AbstractCommandValidationTest {
+
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
@@ -80,6 +81,14 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand dropCommand = DropIndexCommand.builder()
+                .schemaName(SCHEMA_NAME + "_UNK")
+                .indexName("TEST")
+                .ifExists(true)
+                .build();
+
+        dropCommand.get(new UpdateContext(catalog)); // No exception is thrown
     }
 
     @Test
