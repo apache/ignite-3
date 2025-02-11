@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.CatalogParamsValidationUtils;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -27,9 +25,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
-    public static final String ERR_COL_PARAM_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'";
-    public static final String ERR_COL_PARAM_DEFINITION = "{} definition is necessary for column '{}' of type '{}'";
-    public static final String ERR_COL_INVALID_TYPE_PARAM = "{} for column `{}` of type {} {} must be between {} and {}";
+    public static final String ERR_COL_PARAM_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'.";
+    public static final String ERR_COL_PARAM_DEFINITION = "{} definition is necessary for column '{}' of type '{}'.";
+    public static final String ERR_COL_INVALID_TYPE_PARAM = "{} for column `{}` of type {} {} must be between {} and {}.";
 
     /** Creates parameters builder. */
     public static Builder builder() {
@@ -225,11 +223,11 @@ public class ColumnParams {
             CatalogParamsValidationUtils.validateIdentifier(params.name(), "Column name");
 
             if (params.type == null) {
-                throw new CatalogValidationException(format("Type is not specified for column '{}'", params.name()));
+                throw new CatalogValidationException("Type is not specified for column '{}'", params.name());
             }
 
             if (params.type == ColumnType.NULL) {
-                throw new CatalogValidationException(format("Type NULL is not applicable for column '{}'", params.name()));
+                throw new CatalogValidationException("Type NULL is not applicable for column '{}'", params.name());
             }
 
             boolean validatePrecision = params.type.precisionAllowed();
@@ -240,7 +238,7 @@ public class ColumnParams {
                 validateLength(params);
             } else {
                 if (params.length() != null) {
-                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Length", params.name(), params.type()));
+                    throw new CatalogValidationException(ERR_COL_PARAM_NOT_APPLICABLE, "Length", params.name(), params.type());
                 }
             }
 
@@ -248,7 +246,7 @@ public class ColumnParams {
                 validatePrecision(params);
 
                 if (params.scale() != null && !validateScale) {
-                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", params.name(), params.type()));
+                    throw new CatalogValidationException(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", params.name(), params.type());
                 }
             }
 
@@ -258,11 +256,11 @@ public class ColumnParams {
 
             if (!validatePrecision && !validateScale) {
                 if (params.precision() != null) {
-                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Precision", params.name(), params.type()));
+                    throw new CatalogValidationException(ERR_COL_PARAM_NOT_APPLICABLE, "Precision", params.name(), params.type());
                 }
 
                 if (params.scale() != null) {
-                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", params.name(), params.type()));
+                    throw new CatalogValidationException(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", params.name(), params.type());
                 }
             }
         }
@@ -310,19 +308,18 @@ public class ColumnParams {
             int max
     ) {
         if (value == null) {
-            throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, paramName, colName, type));
+            throw new CatalogValidationException(ERR_COL_PARAM_DEFINITION, paramName, colName, type);
         }
 
         if (value < min || value > max) {
-            String errorMessage = format(ERR_COL_INVALID_TYPE_PARAM,
+            throw new CatalogValidationException(
+                    ERR_COL_INVALID_TYPE_PARAM,
                     paramName,
                     colName,
                     type,
                     value,
                     min,
-                    max
-            );
-            throw new CatalogValidationException(errorMessage);
+                    max);
         }
     }
 }

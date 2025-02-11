@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.calcite.sql.SqlExplainLevel.ALL_ATTRIBUTES;
+import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
@@ -174,7 +174,7 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
     public RelWriter explainTerms(RelWriter pw) {
         // for correct rel obtaining from ExecutionServiceImpl#physNodesCache.
         return super.explainTerms(pw)
-                .itemIf("tableId", Integer.toString(getTable().unwrap(IgniteTable.class).id()), pw.getDetailLevel() == ALL_ATTRIBUTES)
+                .itemIf("tableId", Integer.toString(getTable().unwrap(IgniteTable.class).id()), !forExplain(pw))
                 .itemIf("sourceId", sourceId, sourceId != -1);
 
     }

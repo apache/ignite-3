@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 
 import java.util.List;
@@ -59,7 +59,10 @@ public class RenameTableCommand extends AbstractTableCommand {
     @Override
     public List<UpdateEntry> get(UpdateContext updateContext) {
         Catalog catalog = updateContext.catalog();
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifTableExists);
+        if (schema == null) {
+            return List.of();
+        }
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, newTableName);
 

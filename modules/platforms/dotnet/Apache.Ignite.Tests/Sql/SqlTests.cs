@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Sql
     using System;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
+    using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -535,7 +536,7 @@ namespace Apache.Ignite.Tests.Sql
 
             Assert.AreEqual(32757, bigDecimal.Scale);
             Assert.AreEqual(13603, bigDecimal.UnscaledValue.GetByteCount());
-            StringAssert.StartsWith("3.3333333333", bigDecimal.ToString());
+            StringAssert.StartsWith("3.3333333333", bigDecimal.ToString(CultureInfo.InvariantCulture));
         }
 
         [Test]

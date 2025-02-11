@@ -57,6 +57,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateMin
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.MinimumActiveTxTimeCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;

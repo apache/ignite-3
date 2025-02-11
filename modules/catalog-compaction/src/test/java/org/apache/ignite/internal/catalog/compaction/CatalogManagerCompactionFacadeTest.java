@@ -53,7 +53,7 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22115 Remove this test.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test.
     @Test
     void testCollectTablesWithPartitionsBetween() {
         CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()

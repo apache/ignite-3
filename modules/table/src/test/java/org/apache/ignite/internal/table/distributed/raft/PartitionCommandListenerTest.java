@@ -82,6 +82,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;

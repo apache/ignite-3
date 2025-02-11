@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rel.agg;
 
+import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
+
 import java.util.List;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
@@ -104,7 +106,7 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
                 .itemIf("rowType", rowType, pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES)
                 .item("group", groupSet)
                 .itemIf("groups", groupSets, Group.induce(groupSet, groupSets) != Group.SIMPLE)
-                .itemIf("aggs", aggCalls, pw.nest());
+                .itemIf("aggs", aggCalls, pw.nest() && (!forExplain(pw) || !aggCalls.isEmpty()));
 
         if (!pw.nest()) {
             for (Ord<AggregateCall> ord : Ord.zip(aggCalls)) {

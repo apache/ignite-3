@@ -186,15 +186,15 @@ public class JoinRowCountEstimationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static Matcher<Double> approximatelyEqual(double expected) {
+    private static Matcher<Integer> approximatelyEqual(double expected) {
         return new BaseMatcher<>() {
             @Override
             public boolean matches(Object o) {
-                if (!(o instanceof Double)) {
+                if (!(o instanceof Integer)) {
                     return false;
                 }
 
-                double value = (double) o;
+                double value = ((Integer) o).doubleValue();
                 return expected * 0.05 < value && value < expected * 1.05;
             }
 

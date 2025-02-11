@@ -270,8 +270,11 @@ namespace Apache.Ignite.Tests.Compute
                 var strExec = await Client.Compute.SubmitAsync(nodes, ToStringJob, val);
                 var str = await strExec.GetResultAsync();
 
-                var expectedStr0 = expectedStr ?? val.ToString()!.Replace("E+", "E");
-                Assert.AreEqual(expectedStr0, str);
+                expectedStr ??= val is IFormattable formattable
+                    ? formattable.ToString(null, CultureInfo.InvariantCulture).Replace("E+", "E")
+                    : val.ToString();
+
+                Assert.AreEqual(expectedStr, str);
             }
         }
 
@@ -710,7 +713,7 @@ namespace Apache.Ignite.Tests.Compute
             var res = await Client.Compute.SubmitAsync(await GetNodeAsync(1), DecimalJob, $"{number},{scale}");
             var resVal = await res.GetResultAsync();
 
-            var expected = decimal.Parse(number, NumberStyles.Float);
+            var expected = decimal.Parse(number, NumberStyles.Float, CultureInfo.InvariantCulture);
 
             if (scale > 0)
             {
@@ -935,7 +938,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             public void Marshal(Nested obj, IBufferWriter<byte> writer)
             {
-                var str = obj.Id + ":" + obj.Price;
+                var str = obj.Id + ":" + obj.Price.ToString(CultureInfo.InvariantCulture);
                 Encoding.ASCII.GetBytes(str, writer);
             }
 
@@ -943,7 +946,7 @@ namespace Apache.Ignite.Tests.Compute
             {
                 var str = Encoding.ASCII.GetString(bytes);
                 var parts = str.Split(':');
-                return new(Guid.Parse(parts[0]), decimal.Parse(parts[1]));
+                return new(Guid.Parse(parts[0]), decimal.Parse(parts[1], CultureInfo.InvariantCulture));
             }
         }
     }

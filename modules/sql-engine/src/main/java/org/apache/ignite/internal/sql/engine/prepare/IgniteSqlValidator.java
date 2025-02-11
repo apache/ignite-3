@@ -214,7 +214,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             assert enclosingNode != null;
 
             // Calcite's implementation lacks notion of system/hidden columns,
-            // which is required to properly derive table type for column 
+            // which is required to properly derive table type for column
             // renaming in FROM clause.
             ns = new IgniteAliasNamespace(
                     (SqlValidatorImpl) ns.getValidator(),
@@ -315,7 +315,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // This method is copy-paste from parent SqlValidatorImpl with to key difference
         // (both in "Fall back to default behavior" part of the method):
         // 1) Current implementation doesn't ignore DynamicParams
-        // 2) If SqlTypeUtil.canAssignFrom returns `true`, we do double check to account for 
+        // 2) If SqlTypeUtil.canAssignFrom returns `true`, we do double check to account for
         // custom types
         boolean isUpdateModifiableViewTable = false;
         if (query instanceof SqlUpdate) {
@@ -355,9 +355,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             boolean canAssign = SqlTypeUtil.canAssignFrom(targetType, sourceType);
 
             if (canAssign && ((targetType instanceof IgniteCustomType) || (sourceType instanceof IgniteCustomType))) {
-                // SqlTypeUtil.canAssignFrom doesn't account for custom types, therefore need to check 
-                // this explicitly. Since at the moment there are no custom types which can be assigned from 
-                // each other, let's just check for equality. 
+                // SqlTypeUtil.canAssignFrom doesn't account for custom types, therefore need to check
+                // this explicitly. Since at the moment there are no custom types which can be assigned from
+                // each other, let's just check for equality.
                 canAssign = SqlTypeUtil.equalSansNullability(typeFactory, targetType, sourceType);
             }
 
@@ -853,7 +853,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         // An operand checker of IN operator uses more relaxed rules (see
-        // org.apache.calcite.sql.fun.SqlInOperator.deriveType, there 
+        // org.apache.calcite.sql.fun.SqlInOperator.deriveType, there
         // OperandTypes.COMPARABLE_UNORDERED_COMPARABLE_UNORDERED is used),
         // allowing comparison of types of different families. Here we add
         // post-validation to make sure comparison is possible only between
@@ -886,7 +886,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         // An operand checker of CAST operator uses SqlTypeUtil.canCastFrom method to ensure
-        // cast is allowed from given operand to a target type. This utility methods allows 
+        // cast is allowed from given operand to a target type. This utility methods allows
         // every type to be casted to type ANY. Unfortunately, custom types, like UUID, uses the
         // same type name (ANY), which makes possible to cast any operand to UUID. This is not desired
         // behaviour, so we introduced explicit operand type checking for CAST operator to properly
@@ -915,11 +915,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         setValidatedNodeType(expr, returnType);
 
-        if (castOperand instanceof SqlDynamicParam 
+        if (castOperand instanceof SqlDynamicParam
                 && operandType.getSqlTypeName() == SqlTypeName.DECIMAL
                 && returnType.getSqlTypeName() == SqlTypeName.DECIMAL
         ) {
-            // By default type of dyn param of type DECIMAL is DECIMAL(28, 6) (see DECIMAL_DYNAMIC_PARAM_PRECISION and 
+            // By default type of dyn param of type DECIMAL is DECIMAL(28, 6) (see DECIMAL_DYNAMIC_PARAM_PRECISION and
             // DECIMAL_DYNAMIC_PARAM_SCALE at the beginning of the class declaration). Although this default seems
             // reasonable, it may not satisfy all of users. For those who need better control over type of dyn params
             // there is an ability to specify more precise type by CAST operation. Therefore if type of the dyn param

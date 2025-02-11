@@ -38,7 +38,7 @@ class CatalogManagerCompactionFacade {
         this.catalogManager = catalogManager;
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22115 Remove this method.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this method.
     /**
      * Scans catalog versions in a given time interval (including interval boundaries).
      * Extracts all tables contained in these catalog versions and creates a mapping

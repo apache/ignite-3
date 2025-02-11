@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -96,20 +95,29 @@ public class SchemaManager implements IgniteComponent {
                     continue;
                 }
 
-                SchemaDescriptor prevSchema = null;
-                CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
-                for (int tableVer = schemaVersions.earliestVersion(); tableVer <= schemaVersions.latestVersion(); tableVer++) {
-                    SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
-
-                    if (prevSchema != null) {
-                        newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
-                    }
-
-                    prevSchema = newSchema;
-
-                    registerSchema(tableId, newSchema);
-                }
+                registerVersions(tableDescriptor, null);
             }
+        }
+    }
+
+    private void registerVersions(
+            CatalogTableDescriptor tableDescriptor, @Nullable SchemaDescriptor lastKnownSchema
+    ) {
+        SchemaDescriptor prevSchema = lastKnownSchema;
+        CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
+        int versionToStart = lastKnownSchema != null 
+                ? lastKnownSchema.version() + 1 
+                : schemaVersions.earliestVersion();
+        for (int tableVer = versionToStart; tableVer <= schemaVersions.latestVersion(); tableVer++) {
+            SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
+
+            if (prevSchema != null) {
+                newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
+            }
+
+            prevSchema = newSchema;
+
+            registerSchema(tableDescriptor.id(), newSchema);
         }
     }
 
@@ -144,17 +152,7 @@ public class SchemaManager implements IgniteComponent {
                 return falseCompletedFuture();
             }
 
-            SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(tableDescriptor);
-
-            try {
-                setColumnMapping(newSchema, tableId);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-
-                return failedFuture(e);
-            } catch (ExecutionException e) {
-                return failedFuture(e);
-            }
+            registerVersions(tableDescriptor, lastKnownSchemaVersion(tableId));
 
             return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
@@ -163,56 +161,11 @@ public class SchemaManager implements IgniteComponent {
                     );
                 }
 
-                registerSchema(tableId, newSchema);
-
                 return nullCompletedFuture();
             })).thenApply(ignored -> false);
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private void setColumnMapping(SchemaDescriptor schema, int tableId) throws ExecutionException, InterruptedException {
-        if (schema.version() == CatalogTableDescriptor.INITIAL_TABLE_VERSION) {
-            return;
-        }
-
-        int prevVersion = schema.version() - 1;
-
-        SchemaDescriptor prevSchema = searchSchemaByVersion(tableId, prevVersion);
-
-        if (prevSchema == null) {
-            prevSchema = loadRequiredSchemaDescriptor(tableId, prevVersion);
-        }
-
-        schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
-    }
-
-    /**
-     * Loads the table schema descriptor by version from local Catalog.
-     * If called with a schema version for which the schema is not yet saved to the Catalog, an exception
-     * will be thrown.
-     *
-     * @param tblId Table id.
-     * @param ver Schema version (must not be higher than the latest version saved to the Catalog).
-     * @return Schema representation.
-     */
-    private SchemaDescriptor loadRequiredSchemaDescriptor(int tblId, int ver) {
-        int catalogVersion = catalogService.latestCatalogVersion();
-
-        while (catalogVersion >= catalogService.earliestCatalogVersion()) {
-            CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(tblId);
-
-            if (tableDescriptor == null) {
-                catalogVersion--;
-
-                continue;
-            }
-
-            return CatalogToSchemaDescriptorConverter.convert(tableDescriptor, ver);
-        }
-
-        throw new AssertionError(format("Schema descriptor is not found [tableId={}, schemaId={}]", tblId, ver));
     }
 
     /**
@@ -288,6 +241,17 @@ public class SchemaManager implements IgniteComponent {
 
         if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
             return registry.schema(schemaVer);
+        } else {
+            return null;
+        }
+    }
+
+    /** Returns the last cached version of schema for a given table, or {@code null} if registry for the table has not been registered. */
+    private @Nullable SchemaDescriptor lastKnownSchemaVersion(int tblId) {
+        SchemaRegistry registry = registriesById.get(tblId);
+
+        if (registry != null) {
+            return registry.lastKnownSchema();
         } else {
             return null;
         }

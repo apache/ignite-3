@@ -130,6 +130,11 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 () -> command.get(updateContext),
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand alterCommand = builder.ifTableExists(true)
+                .build();
+
+        alterCommand.get(updateContext); // No exception
     }
 
     @Test
