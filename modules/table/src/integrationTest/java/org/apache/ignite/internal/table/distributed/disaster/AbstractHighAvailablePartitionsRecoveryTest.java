@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptySet;
 import static java.util.Map.of;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -82,7 +81,9 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
@@ -451,9 +452,10 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
 
             try {
-                insertFuture.get(10, SECONDS);
+                assertThat(insertFuture, willCompleteSuccessfully());
 
                 Tuple value = keyValueView.get(null, key);
+
                 assertNotNull(value);
             } catch (Throwable e) {
                 Throwable cause = unwrapCause(e);
@@ -472,17 +474,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return errors;
     }
 
-    static void assertValuesPresent(Table table) {
-        IntStream.range(0, ENTRIES).forEach(i -> {
-            CompletableFuture<Tuple> fut = table.keyValueView().getAsync(null, Tuple.create(of("id", i)));
-            assertThat(fut, willCompleteSuccessfully());
-
-            assertNotNull(fut.join());
-        });
-    }
-
-    void assertValuesPresentOnNodes(IgniteImpl node, Table table, Integer... indexes) {
-        HybridTimestamp ts = node.clock().now();
+    void assertValuesPresentOnNodes(HybridTimestamp ts, Table table, Integer... indexes) {
         for (Integer index : indexes) {
             assertValuesPresentOnNode(table, ts, index);
         }
@@ -512,6 +504,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
-        return cause.getMessage() != null && cause.getMessage().contains("The primary replica has changed");
+        return ExceptionUtils.extractCodeFrom(cause) == Replicator.REPLICA_MISS_ERR;
     }
 }

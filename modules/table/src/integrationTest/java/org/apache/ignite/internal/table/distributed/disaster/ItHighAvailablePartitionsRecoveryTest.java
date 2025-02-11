@@ -319,7 +319,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, fourNodes);
 
-        assertValuesPresentOnNodes(node, table, 0, 1, 2, 3);
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2, 3);
 
         stopNode(3);
 
@@ -329,7 +329,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
 
-        assertValuesPresentOnNodes(node, table, 0, 1, 2);
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
     }
 
     @Test
@@ -356,7 +356,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
 
-        assertValuesPresentOnNodes(node, node.tables().table(HA_TABLE_NAME), 0, 1, 2, 3, 4);
+        assertValuesPresentOnNodes(node.clock().now(), node.tables().table(HA_TABLE_NAME), 0, 1, 2, 3, 4);
     }
 
     @Test
