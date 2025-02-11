@@ -56,6 +56,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -820,38 +821,32 @@ public class DataNodesManager {
         }
 
         return getValueFromMetaStorage(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize)
-                .thenCompose(history -> {
+                .thenApply(history -> inBusyLock(busyLock, () -> {
                     if (history == null) {
                         // It means that the zone was created but the data nodes value had not been updated yet.
                         // So the data nodes value will be equals to the logical topology.
-                        return defaultNodesFromTopology().thenApply(topology -> filterDataNodes(topology, zone));
+                        return filterDataNodes(topologyNodes(), zone);
                     }
 
                     Pair<HybridTimestamp, Set<NodeWithAttributes>> entry = history.dataNodesForTimestamp(timestamp);
 
-                    return completedFuture(entry.getSecond());
-                })
+                    return entry.getSecond();
+                }))
                 .thenApply(nodes -> nodes.stream().map(NodeWithAttributes::nodeName).collect(toSet()));
     }
 
-    private CompletableFuture<Set<NodeWithAttributes>> defaultNodesFromTopology() {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+    private Set<NodeWithAttributes> topologyNodes() {
+        // It means that the zone was created but the data nodes value had not been updated yet.
+        // So the data nodes value will be equals to the logical topology on the descLastUpdateRevision.
+        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey());
+
+        if (topologyEntry.empty()) {
+            // A special case for a very first start of a node, when a creation of a zone was before the first topology event,
+            // meaning that zonesLogicalTopologyKey() has not been updated yet, safe to return empty set here.
+            return emptySet();
         }
 
-        try {
-            CompletableFuture<Entry> topologyFut = metaStorageManager.get(zonesLogicalTopologyKey());
-
-            return topologyFut.thenApply(topologyEntry -> {
-                if (topologyEntry != null && topologyEntry.value() != null) {
-                    return deserializeLogicalTopologySet(topologyEntry.value());
-                } else {
-                    return emptySet();
-                }
-            });
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return deserializeLogicalTopologySet(topologyEntry.value());
     }
 
     private static Condition dataNodesHistoryEqualToOrNotExists(int zoneId, DataNodesHistory history) {
@@ -906,7 +901,6 @@ public class DataNodesManager {
         return put(timerKey, DistributionZoneTimerSerializer.serialize(DEFAULT_TIMER));
     }
 
-    @Nullable
     private <T> CompletableFuture<T> getValueFromMetaStorage(ByteArray key, Function<byte[], T> deserializer) {
         return metaStorageManager.get(key).thenApply(e -> deserializeEntry(e, deserializer));
     }

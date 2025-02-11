@@ -235,7 +235,9 @@ public class DistributionZoneRebalanceEngine {
 
             Map<UUID, NodeWithAttributes> nodesAttributes = distributionZoneManager.nodesAttributes();
 
-            Set<String> filteredDataNodes = filterDataNodes(dataNodes, zoneDescriptor, nodesAttributes);
+            Set<String> filteredDataNodes = filterDataNodes(dataNodesWithAttributes, zoneDescriptor).stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(toSet());
 
             if (LOG.isInfoEnabled()) {
                 var matchedNodes = new ArrayList<NodeWithAttributes>();

@@ -36,7 +36,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -350,22 +349,6 @@ public class DistributionZonesUtil {
         return dataNodes.stream().map(NodeWithAttributes::node).collect(toSet());
     }
 
-    /**
-     * Returns a map from a set of data nodes. This map has the following structure: node is mapped to integer,
-     * integer represents how often node joined or leaved topology. In this case, set of nodes is interpreted as nodes
-     * that joined topology, so all mappings will be node -> 1.
-     *
-     * @param dataNodes Set of data nodes.
-     * @return Returns a map from a set of data nodes.
-     */
-    public static Map<Node, Integer> toDataNodesMap(Set<Node> dataNodes) {
-        Map<Node, Integer> dataNodesMap = new HashMap<>();
-
-        dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
-
-        return dataNodesMap;
-    }
-
     @Nullable
     public static Set<NodeWithAttributes> parseDataNodes(byte[] dataNodesBytes, HybridTimestamp timestamp) {
         if (dataNodesBytes == null) {
@@ -499,27 +482,6 @@ public class DistributionZonesUtil {
         return dataNodes.stream()
                 .filter(n -> filterNodeAttributes(n.userAttributes(), zoneDescriptor.filter()))
                 .filter(n -> filterStorageProfiles(n, zoneDescriptor.storageProfiles().profiles()))
-                .collect(toSet());
-    }
-
-    /**
-     * Filters {@code dataNodes} according to the provided filter and storage profiles from {@code zoneDescriptor}.
-     * Nodes' attributes and storage profiles are taken from {@code nodesAttributes} map.
-     *
-     * @param dataNodes Data nodes.
-     * @param zoneDescriptor Zone descriptor.
-     * @param nodesAttributes Nodes' attributes which used for filtering.
-     * @return Filtered data nodes.
-     */
-    public static Set<String> filterDataNodes(
-            Set<Node> dataNodes,
-            CatalogZoneDescriptor zoneDescriptor,
-            Map<UUID, NodeWithAttributes> nodesAttributes
-    ) {
-        return dataNodes.stream()
-                .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).userAttributes(), zoneDescriptor.filter()))
-                .filter(n -> filterStorageProfiles(nodesAttributes.get(n.nodeId()), zoneDescriptor.storageProfiles().profiles()))
-                .map(Node::nodeName)
                 .collect(toSet());
     }
 

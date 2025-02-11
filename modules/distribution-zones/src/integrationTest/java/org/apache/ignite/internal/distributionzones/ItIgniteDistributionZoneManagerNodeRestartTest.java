@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptySet;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
@@ -35,7 +34,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLatestDataNodesHistoryEntry;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
@@ -101,6 +99,7 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimers;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -573,7 +572,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         var dataNodeKey = new AtomicReference<ByteArray>();
 
         PartialNode node = startPartialNode(0, metaStorageManager -> {
-            // In this mock we catch invocation of DistributionZoneManager.initDataNodesAndTriggerKeysInMetaStorage, where condition is
+            // In this mock we catch invocation of DataNodesManager.onZoneCreate, where condition is
             // based on presence of data node key in ms. After that we make this data node as a tombstone, so when logic of creation of a
             // zone is run, there won't be any initialisation of data nodes keys. We try to imitate concurrent removal of a zone.
             doAnswer(invocation -> {
@@ -581,7 +580,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
                 // Here we remove data nodes value for newly created zone, so it is tombstone
                 assertThat(
-                        metaStorageManager.put(dataNodeKeyForZone, DataNodesMapSerializer.serialize(toDataNodesMap(emptySet()))),
+                        metaStorageManager.put(dataNodeKeyForZone, DataNodesHistorySerializer.serialize(new DataNodesHistory())),
                         willCompleteSuccessfully()
                 );
 
