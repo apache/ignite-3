@@ -946,13 +946,13 @@ public class IgniteImpl implements Ignite {
                 systemDistributedConfiguration
         );
 
-        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
-
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
                 clusterSvc.messagingService(),
                 clock
         );
+
+        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
         CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
                 name,

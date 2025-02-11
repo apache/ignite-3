@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raft.service;
 
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -110,24 +109,5 @@ public interface RaftGroupListener {
      */
     default void onLeaderStop() {
         // No-op.
-    }
-
-    /**
-     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
-     * This feature allows implementing a batch flush for several partitions at once.
-     *
-     * @see MvPartitionStorage#flush(boolean)
-     */
-    default CompletableFuture<?> flushStorage(long commandIndex) {
-        return CompletableFuture.completedFuture(null);
-    }
-
-    /**
-     * Index of the write command with the highest index applied to the storage. {@code 0} if index is unknown.
-     *
-     * @see MvPartitionStorage#lastAppliedIndex()
-     */
-    default long lastAppliedIndex() {
-        return 0;
     }
 }

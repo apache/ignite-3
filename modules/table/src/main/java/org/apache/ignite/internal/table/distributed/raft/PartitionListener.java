@@ -176,7 +176,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         minimumActiveTxTimeCommandHandler = new MinimumActiveTxTimeCommandHandler(
                 storage,
                 tablePartitionId,
-                minTimeCollectorService); // remove.
+                minTimeCollectorService);
     }
 
     @Override
@@ -658,16 +658,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         txStatePartitionStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
 
         return new IgniteBiTuple<>(null, true);
-    }
-
-    @Override
-    public CompletableFuture<?> flushStorage(long commandIndex) {
-        return storage.flush(false);
-    }
-
-    @Override
-    public long lastAppliedIndex() {
-        return storage.lastAppliedIndex();
     }
 
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
