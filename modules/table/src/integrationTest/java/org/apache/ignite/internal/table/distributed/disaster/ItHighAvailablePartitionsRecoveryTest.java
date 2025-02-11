@@ -307,13 +307,19 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         startNode(3);
 
+        IgniteImpl node = igniteImpl(0);
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+
         Set<String> fourNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
         executeSql(format("ALTER ZONE %s SET REPLICAS=%d", HA_ZONE_NAME, 4));
 
-        IgniteImpl node = igniteImpl(0);
-
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, fourNodes);
+
+        assertValuesPresentOnNodes(node, table, 0, 1, 2, 3);
 
         stopNode(3);
 
@@ -322,6 +328,8 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", HA_ZONE_NAME, 1));
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+
+        assertValuesPresentOnNodes(node, table, 0, 1, 2);
     }
 
     @Test
@@ -348,7 +356,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
 
-        assertValuesPresent(node.tables().table(HA_TABLE_NAME));
+        assertValuesPresentOnNodes(node, node.tables().table(HA_TABLE_NAME), 0, 1, 2, 3, 4);
     }
 
     @Test

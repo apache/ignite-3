@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static java.util.Map.of;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfig
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -72,7 +74,14 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -470,6 +479,36 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             assertNotNull(fut.join());
         });
+    }
+
+    void assertValuesPresentOnNodes(IgniteImpl node, Table table, Integer... indexes) {
+        HybridTimestamp ts = node.clock().now();
+        for (Integer index : indexes) {
+            assertValuesPresentOnNode(table, ts, index);
+        }
+    }
+
+    private void assertValuesPresentOnNode(Table table, HybridTimestamp ts, int targetNodeIndex) {
+        IgniteImpl targetNode = unwrapIgniteImpl(node(targetNodeIndex));
+
+        TableImpl tableImpl = unwrapTableImpl(table);
+        InternalTable internalTable = tableImpl.internalTable();
+
+        for (int i = 0; i < ENTRIES; i++) {
+            CompletableFuture<BinaryRow> fut =
+                    internalTable.get(marshalKey(tableImpl, Tuple.create(of("id", i))), ts, targetNode.node());
+            assertThat(fut, willCompleteSuccessfully());
+
+            assertNotNull(fut.join());
+        }
+    }
+
+    private static Row marshalKey(TableViewInternal table, Tuple key) {
+        SchemaRegistry schemaReg = table.schemaView();
+
+        var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
+
+        return marshaller.marshal(key, null);
     }
 
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
