@@ -579,7 +579,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commitIntent,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Set<Integer> enlistedTableIds,
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}].", commitIntent, txId, enlistedGroups);
@@ -641,6 +642,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         commitPartition,
                         commit,
                         enlistedGroups,
+                        enlistedTableIds,
                         txId,
                         finishingStateMeta.txFinishFuture()
                 )
@@ -666,7 +668,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Set<Integer> enlistedTableIds,
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
@@ -681,7 +684,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         (unused, throwable) -> {
                             boolean verifiedCommit = throwable == null && commit;
 
-                            Map<TablePartitionId, String> replicationGroupIds = enlistedGroups.entrySet().stream()
+                            Map<ReplicationGroupId, String> replicationGroupIds = enlistedGroups.entrySet().stream()
                                     .collect(Collectors.toMap(
                                             Entry::getKey,
                                             entry -> entry.getValue().get1().name()
@@ -692,6 +695,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     commitPartition,
                                     verifiedCommit,
                                     replicationGroupIds,
+                                    enlistedTableIds,
                                     txId,
                                     commitTimestamp,
                                     txFinishFuture);
@@ -708,7 +712,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, String> replicationGroupIds,
+            Map<ReplicationGroupId, String> replicationGroupIds,
+            Set<Integer> enlistedTableIds,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
@@ -722,6 +727,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                 meta.getStartTime().longValue(),
                                 commit,
                                 replicationGroupIds,
+                                enlistedTableIds,
                                 txId,
                                 commitTimestamp,
                                 txFinishFuture
@@ -761,6 +767,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     commitPartition,
                                     commit,
                                     replicationGroupIds,
+                                    enlistedTableIds,
                                     txId,
                                     commitTimestamp,
                                     txFinishFuture
@@ -783,18 +790,20 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             String primaryConsistentId,
             Long enlistmentConsistencyToken,
             boolean commit,
-            Map<TablePartitionId, String> replicationGroupIds,
+            Map<ReplicationGroupId, String> replicationGroupIds,
+            Set<Integer> enlistedTableIds,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        LOG.debug("Finish [partition={}, node={}, enlistmentConsistencyToken={} commit={}, txId={}, groups={}",
-                commitPartition, primaryConsistentId, enlistmentConsistencyToken, commit, txId, replicationGroupIds);
+        LOG.debug("Finish [partition={}, node={}, enlistmentConsistencyToken={} commit={}, txId={}, groups={}, tableIds={}",
+                commitPartition, primaryConsistentId, enlistmentConsistencyToken, commit, txId, replicationGroupIds, enlistedTableIds);
 
         return txMessageSender.finish(
                         primaryConsistentId,
                         commitPartition,
                         replicationGroupIds,
+                        enlistedTableIds,
                         txId,
                         enlistmentConsistencyToken,
                         commit,
@@ -941,7 +950,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> cleanup(
             ReplicationGroupId commitPartitionId,
-            Map<TablePartitionId, String> enlistedPartitions,
+            Map<ReplicationGroupId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -952,7 +961,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> cleanup(
             TablePartitionId commitPartitionId,
-            Collection<TablePartitionId> enlistedPartitions,
+            Collection<ReplicationGroupId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -1040,14 +1049,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @return Verification future.
      */
     private CompletableFuture<Void> verifyCommitTimestamp(
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             HybridTimestamp commitTimestamp
     ) {
         var verificationFutures = new CompletableFuture[enlistedGroups.size()];
         int cnt = -1;
 
-        for (Map.Entry<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroup : enlistedGroups.entrySet()) {
-            TablePartitionId groupId = enlistedGroup.getKey();
+        for (Map.Entry<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroup : enlistedGroups.entrySet()) {
+            ReplicationGroupId groupId = enlistedGroup.getKey();
             Long expectedEnlistmentConsistencyToken = enlistedGroup.getValue().get2();
 
             verificationFutures[++cnt] = placementDriver.getPrimaryReplica(groupId, commitTimestamp)

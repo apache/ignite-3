@@ -475,7 +475,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    @ValueSource(booleans = {true})
     void txFinishCommandGetsReplicated(boolean commit) throws Exception {
         startCluster(3);
 

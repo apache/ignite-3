@@ -1153,6 +1153,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
                         tx.enlist(tablePartId,
+                                tableId,
                                 new IgniteBiTuple<>(
                                         topSrvc.getByConsistentId(assignment.name()),
                                         assignment.enlistmentConsistencyToken())

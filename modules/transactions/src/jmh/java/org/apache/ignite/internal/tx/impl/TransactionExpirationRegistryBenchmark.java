@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -94,7 +95,7 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
+        public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId) {
             return null;
         }
 
@@ -114,8 +115,11 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
-                IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
+        public IgniteBiTuple<ClusterNode, Long> enlist(
+                ReplicationGroupId replicationGroupId,
+                int tableId,
+                IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+        ) {
             return null;
         }
 

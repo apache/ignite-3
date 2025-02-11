@@ -477,49 +477,65 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, sender.id());
 
             resFut.whenComplete((res, ex) -> {
-                NetworkMessage msg;
-
-                if (ex == null) {
-                    msg = prepareReplicaResponse(sendTimestamp, res);
-                } else {
-                    if (indicatesUnexpectedProblem(ex)) {
-                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
-                    } else {
-                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
-                    }
-
-                    msg = prepareReplicaErrorResponse(sendTimestamp, ex);
-                }
-
-                clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
-
-                if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
-                    LOG.info("The replica does not meet the requirements for the leaseholder [groupId={}].", groupId);
-
-                    stopLeaseProlongation(groupId, null);
-                }
-
-                if (ex == null && res.applyResult().replicationFuture() != null) {
-                    res.applyResult().replicationFuture().whenComplete((res0, ex0) -> {
-                        NetworkMessage msg0;
-
-                        LOG.debug("Sending delayed response for replica request [request={}]", request);
-
-                        if (ex0 == null) {
-                            msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
-                        } else {
-                            LOG.warn("Failed to process delayed response [request={}]", ex0, request);
-
-                            msg0 = prepareReplicaErrorResponse(sendTimestamp, ex0);
-                        }
-
-                        // Using strong send here is important to avoid a reordering with a normal response.
-                        clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
-                    });
+                try {
+                    respond(request, correlationId, res, ex, sendTimestamp, senderConsistentId, groupId);
+                } catch (RuntimeException e1) {
+                    LOG.error("Error while trying to respond", e1);
                 }
             });
         } finally {
             leaveBusy();
+        }
+    }
+
+    private void respond(
+            ReplicaRequest request,
+            @Nullable Long correlationId,
+            ReplicaResult res,
+            Throwable ex,
+            boolean sendTimestamp,
+            String senderConsistentId,
+            ReplicationGroupId groupId
+    ) {
+        NetworkMessage msg;
+
+        if (ex == null) {
+            msg = prepareReplicaResponse(sendTimestamp, res);
+        } else {
+            if (indicatesUnexpectedProblem(ex)) {
+                throttledLog.warn("Failed to process replica request [request={}].", ex, request);
+            } else {
+                throttledLog.debug("Failed to process replica request [request={}].", ex, request);
+            }
+
+            msg = prepareReplicaErrorResponse(sendTimestamp, ex);
+        }
+
+        clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+
+        if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+            LOG.info("The replica does not meet the requirements for the leaseholder [groupId={}].", groupId);
+
+            stopLeaseProlongation(groupId, null);
+        }
+
+        if (ex == null && res.applyResult().replicationFuture() != null) {
+            res.applyResult().replicationFuture().whenComplete((res0, ex0) -> {
+                NetworkMessage msg0;
+
+                LOG.debug("Sending delayed response for replica request [request={}]", request);
+
+                if (ex0 == null) {
+                    msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
+                } else {
+                    LOG.warn("Failed to process delayed response [request={}]", ex0, request);
+
+                    msg0 = prepareReplicaErrorResponse(sendTimestamp, ex0);
+                }
+
+                // Using strong send here is important to avoid a reordering with a normal response.
+                clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+            });
         }
     }
 

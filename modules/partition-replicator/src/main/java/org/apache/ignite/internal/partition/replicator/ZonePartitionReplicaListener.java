@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Map;
 import java.util.UUID;
@@ -93,10 +93,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                         .thenApply(res -> new ReplicaResult(res, null));
             } else {
-                LOG.debug("Non table request is not supported by the zone partition yet " + request);
+                LOG.warn("Non table request is not supported by the zone partition yet " + request);
             }
 
-            return nullCompletedFuture();
+            return completedFuture(new ReplicaResult(null, null));
         } else {
             int partitionId;
 
