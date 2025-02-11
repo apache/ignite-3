@@ -24,44 +24,34 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
-import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
-import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.jetbrains.annotations.Nullable;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -82,9 +72,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     /** Clock service. */
     private final ClockService clockService;
 
+    private final ReplicationRaftCommandApplicator raftCommandApplicator;
+
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
-
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
 
     /**
@@ -108,6 +99,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         this.clockService = clockService;
         this.raftClient = raftClient;
 
+        this.raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
+
         // Request handlers initialization.
         txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
                 txStatePartitionStorage,
@@ -121,8 +114,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,
-                this::applyCmdWithExceptionHandling
-        );
+                raftCommandApplicator);
     }
 
     @Override
@@ -351,60 +343,5 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     private static UUID newFakeTxId() {
         return UUID.randomUUID();
-    }
-
-    /**
-     * Executes a command and handles exceptions. A result future can be finished with exception by following rules:
-     * <ul>
-     *     <li>If RAFT command cannot finish due to timeout, the future finished with {@link ReplicationTimeoutException}.</li>
-     *     <li>If RAFT command finish with a runtime exception, the exception is moved to the result future.</li>
-     *     <li>If RAFT command finish with any other exception, the future finished with {@link ReplicationException}.
-     *     The original exception is set as cause.</li>
-     * </ul>
-     *
-     * @param cmd Raft command.
-     * @return Raft future or raft decorated future with command that was processed.
-     */
-    private CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
-        CompletableFuture<ResultWrapper<Object>> resultFuture = new CompletableFuture<>();
-
-        raftClient.run(cmd).whenComplete((res, ex) -> {
-            if (ex != null) {
-                resultFuture.completeExceptionally(ex);
-            } else {
-                resultFuture.complete(new ResultWrapper<>(cmd, res));
-            }
-        });
-
-        return resultFuture.exceptionally(throwable -> {
-            if (throwable instanceof TimeoutException) {
-                throw new ReplicationTimeoutException(replicationGroupId);
-            } else if (throwable instanceof RuntimeException) {
-                throw (RuntimeException) throwable;
-            } else {
-                throw new ReplicationException(replicationGroupId, throwable);
-            }
-        });
-    }
-
-    /**
-     * Wrapper for the update(All)Command processing result that besides result itself stores actual command that was processed.
-     */
-    private static class ResultWrapper<T> {
-        private final Command command;
-        private final T result;
-
-        ResultWrapper(Command command, T result) {
-            this.command = command;
-            this.result = result;
-        }
-
-        Command getCommand() {
-            return command;
-        }
-
-        T getResult() {
-            return result;
-        }
     }
 }

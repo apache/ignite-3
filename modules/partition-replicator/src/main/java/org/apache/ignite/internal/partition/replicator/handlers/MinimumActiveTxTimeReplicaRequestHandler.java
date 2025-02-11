@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.partition.replicator.handlers;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.raft.Command;
@@ -32,8 +32,8 @@ public class MinimumActiveTxTimeReplicaRequestHandler {
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
-    /** Closure that applies RAFT command message that is created by this handler. */
-    private final Function<Command, CompletableFuture<?>> commandProcessor;
+    /** Applicator that applies RAFT command that is created by this handler. */
+    private final ReplicationRaftCommandApplicator commandApplicator;
 
     /** Clock service. */
     private final ClockService clockService;
@@ -42,14 +42,14 @@ public class MinimumActiveTxTimeReplicaRequestHandler {
      * Creates a new instance of MinimumActiveTxTimeReplicaRequestHandler.
      *
      * @param clockService Clock service.
-     * @param commandProcessor Closure that applies RAFT command message.
+     * @param commandApplicator Applicator that applies RAFT command that is created by this handler.
      */
     public MinimumActiveTxTimeReplicaRequestHandler(
             ClockService clockService,
-            Function<Command, CompletableFuture<?>> commandProcessor
+            ReplicationRaftCommandApplicator commandApplicator
     ) {
         this.clockService = clockService;
-        this.commandProcessor = commandProcessor;
+        this.commandApplicator = commandApplicator;
     }
 
     /**
@@ -66,6 +66,6 @@ public class MinimumActiveTxTimeReplicaRequestHandler {
 
         // The timestamp must increase monotonically, otherwise it will have to be
         // stored on disk so that reordering does not occur after the node is restarted.
-        return commandProcessor.apply(cmd);
+        return commandApplicator.applyCmdWithExceptionHandling(cmd);
     }
 }

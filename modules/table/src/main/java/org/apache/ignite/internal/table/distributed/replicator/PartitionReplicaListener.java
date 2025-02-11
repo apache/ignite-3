@@ -110,6 +110,7 @@ import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TxFinishReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -359,7 +360,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinishMarker replicaTxFinishMarker;
 
+    // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
+    private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
 
     /**
      * The constructor.
@@ -453,6 +456,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                 raftCommandRunner,
                 replicationGroupId
         );
+
+        minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
+                clockService,
+                raftCommandApplicator);
 
         prepareIndexBuilderTxRwOperationTracker();
     }
@@ -3967,14 +3974,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processMinimumActiveTxTimeReplicaRequest(UpdateMinimumActiveTxBeginTimeReplicaRequest request) {
-        Command cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateMinimumActiveTxBeginTimeCommand()
-                .timestamp(request.timestamp())
-                .initiatorTime(clockService.now())
-                .build();
-
-        // The timestamp must increase monotonically, otherwise it will have to be
-        // stored on disk so that reordering does not occur after the node is restarted.
-        return applyCmdWithExceptionHandling(cmd);
+        return minimumActiveTxTimeReplicaRequestHandler.handle(request);
     }
 
     /**
