@@ -25,6 +25,7 @@ import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -44,6 +45,7 @@ import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -83,10 +85,12 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -103,6 +107,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     protected IgniteCompute compute() {
         return node(0).compute();
+    }
+
+    @BeforeEach
+    public void initCleanState() {
+        dropAllSchemas();
+        dropAllTables();
+
+        sql("CREATE SCHEMA IF NOT EXISTS PUBLIC");
     }
 
     /**
@@ -448,6 +460,43 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=PUBLIC.BAD_TABLE]"));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = "WRONG_SCHEMA")
+    void submitColocatedThrowsTableNotFoundExceptionWhenSchemaDoesNotExist(String schemaName) {
+        sql("DROP SCHEMA IF EXISTS " + schemaName);
+
+        var ex = assertThrows(CompletionException.class,
+                () -> compute().submitAsync(
+                        JobTarget.colocated("Wrong_Schema.test", Tuple.create(Map.of("k", 1))),
+                        JobDescriptor.builder(getNodeNameJobClass()).units(units()).build(),
+                        null
+                ).join()
+        );
+
+        assertInstanceOf(TableNotFoundException.class, ex.getCause());
+
+        String errorMessage = format("The table does not exist [name={}]", QualifiedName.of(schemaName, "TEST").toCanonicalForm());
+        assertThat(ex.getCause().getMessage(), containsString(errorMessage));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = "WRONG_SCHEMA")
+    void submitBroadcastThrowsTableNotFoundExceptionWhenSchemaDoesNotExist(String schemaName) {
+        sql("DROP SCHEMA IF EXISTS " + schemaName);
+
+        var ex = assertThrows(CompletionException.class,
+                () -> {
+                    JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
+                    compute().submitAsync(BroadcastJobTarget.table(schemaName + ".test"), job, null).join();
+                }
+        );
+
+        assertInstanceOf(TableNotFoundException.class, ex.getCause());
+
+        String errorMessage = format("The table does not exist [name={}]", QualifiedName.of(schemaName, "TEST").toCanonicalForm());
+        assertThat(ex.getCause().getMessage(), containsString(errorMessage));
+    }
+
     @ParameterizedTest(name = "local: {0}")
     @ValueSource(booleans = {true, false})
     void cancelComputeExecuteAsyncWithCancelHandle(boolean local) {
@@ -783,6 +832,74 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             Integer partitionId = execution.resultAsync().join(); // safe to join since resultsAsync is already complete
             assertThat(execution.node().name(), is(partitionIdToNode.get(partitionId).name()));
         });
+    }
+
+    @Test
+    public void colocatedJobTargetDifferentSchemas() {
+        // s1.test
+        sql("CREATE SCHEMA s1");
+        sql("CREATE TABLE s1.test (k int, v varchar, CONSTRAINT PK PRIMARY KEY (k))");
+        sql("INSERT INTO s1.test(k, v) VALUES (1, 'a')");
+
+        // s2.test
+        sql("CREATE SCHEMA s2");
+        sql("CREATE TABLE s2.test (k int, v varchar, CONSTRAINT PK PRIMARY KEY (k))");
+        sql("INSERT INTO s2.test(k, v) VALUES (1, 'b')");
+
+        {
+            String actualNodeName = compute().execute(
+                    JobTarget.colocated("s1.test", Tuple.create(Map.of("k", 1))),
+                    JobDescriptor.builder(getNodeNameJobClass()).units(units()).build(), null);
+            assertThat(actualNodeName, in(allNodeNames()));
+        }
+
+        {
+            String actualNodeName = compute().execute(
+                    JobTarget.colocated("s2.test", Tuple.create(Map.of("k", 1))),
+                    JobDescriptor.builder(getNodeNameJobClass()).units(units()).build(), null);
+            assertThat(actualNodeName, in(allNodeNames()));
+        }
+    }
+
+    @Test
+    public void broadcastJobTargetDifferentSchemas() {
+        // Both S1 and S2 has tables named test
+
+        // S1 schema
+        sql("CREATE ZONE zone1 WITH PARTITIONS=5, STORAGE_PROFILES='default'");
+        sql("CREATE SCHEMA s1");
+        sql("CREATE TABLE s1.test (k int, v varchar, CONSTRAINT PK PRIMARY KEY (k)) ZONE zone1");
+        sql("INSERT INTO s1.test(k, v) VALUES (1, 'a')");
+
+        // S2 schema
+        sql("CREATE ZONE zone2 WITH PARTITIONS=7, STORAGE_PROFILES='default'");
+        sql("CREATE SCHEMA s2");
+        sql("CREATE TABLE s2.test (k int, v varchar, CONSTRAINT PK PRIMARY KEY (k)) ZONE zone2");
+        sql("INSERT INTO s2.test(k, v) VALUES (1, 'b')");
+
+        // S1 schema
+        {
+            JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
+            CompletableFuture<BroadcastExecution<Integer>> future = compute()
+                    .submitAsync(BroadcastJobTarget.table("s1.test"), job, null);
+            assertThat(future, willCompleteSuccessfully());
+
+            CompletableFuture<Collection<Integer>> resultFuture = future.join().resultsAsync();
+            assertThat(resultFuture, willCompleteSuccessfully());
+            assertEquals(5, future.join().resultsAsync().join().size());
+        }
+
+        // S2 schema
+        {
+            JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
+            CompletableFuture<BroadcastExecution<Integer>> future = compute()
+                    .submitAsync(BroadcastJobTarget.table("s2.test"), job, null);
+            assertThat(future, willCompleteSuccessfully());
+
+            CompletableFuture<Collection<Integer>> resultFuture = future.join().resultsAsync();
+            assertThat(resultFuture, willCompleteSuccessfully());
+            assertEquals(7, future.join().resultsAsync().join().size());
+        }
     }
 
     static Class<ToStringJob> toStringJobClass() {

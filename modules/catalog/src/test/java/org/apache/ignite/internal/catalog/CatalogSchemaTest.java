@@ -26,12 +26,18 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
 
@@ -170,6 +176,138 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         }
     }
 
+    @Test
+    public void testSameTableNameInDifferentSchemas() {
+        // Create table1 in schema1
+        {
+            CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name("S1").build();
+            CatalogCommand newTableCmd = newTableCommand("S1", "T1");
+
+            tryApplyAndCheckExpect(List.of(newSchemaCmd, newTableCmd), true, true);
+        }
+
+        // Create table1 in schema2
+        {
+            CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name("S2").build();
+            CatalogCommand newTableCmd = newTableCommand("S2", "T1");
+
+            tryApplyAndCheckExpect(List.of(newSchemaCmd, newTableCmd), true, true);
+        }
+
+        {
+            CatalogSchemaDescriptor schema1 = latestCatalog().schema("S1");
+            assertNotNull(schema1);
+
+            CatalogSchemaDescriptor schema2 = latestCatalog().schema("S2");
+            assertNotNull(schema2);
+
+            CatalogTableDescriptor schema1table1 = schema1.table("T1");
+            assertNotNull(schema1table1);
+
+            CatalogTableDescriptor schema2table1 = schema2.table("T1");
+            assertNotNull(schema2table1);
+            assertNotEquals(schema1table1.id(), schema2table1.id(), "Table ids should differ");
+        }
+    }
+
+    @Test
+    public void testSameIndexNameInDifferentSchemas() {
+        // Create table1 in schema1
+        {
+            CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name("S1").build();
+            CatalogCommand newTableCmd = newTableCommand("S1", "T1");
+            CatalogCommand newIndexCmd = CreateHashIndexCommand.builder()
+                    .schemaName("S1")
+                    .tableName("T1")
+                    .indexName("MY_INDEX")
+                    .columns(List.of("key2"))
+                    .build();
+
+            tryApplyAndCheckExpect(List.of(newSchemaCmd, newTableCmd, newIndexCmd), true, true, true);
+        }
+
+        // Create table1 in schema2
+        {
+            CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name("S2").build();
+            CatalogCommand newTableCmd = newTableCommand("S2", "T2");
+            CatalogCommand newIndexCmd = CreateHashIndexCommand.builder()
+                    .schemaName("S2")
+                    .tableName("T2")
+                    .indexName("MY_INDEX")
+                    .columns(List.of("key2"))
+                    .build();
+
+            tryApplyAndCheckExpect(List.of(newSchemaCmd, newTableCmd, newIndexCmd), true, true, true);
+        }
+
+        {
+            CatalogSchemaDescriptor schema1 = latestCatalog().schema("S1");
+            assertNotNull(schema1);
+
+            CatalogSchemaDescriptor schema2 = latestCatalog().schema("S2");
+            assertNotNull(schema2);
+
+            CatalogIndexDescriptor schema1index = Arrays.stream(schema1.indexes())
+                    .filter(i -> "MY_INDEX".equals(i.name()))
+                    .findAny()
+                    .orElseThrow();
+
+            CatalogIndexDescriptor schema2index = Arrays.stream(schema2.indexes())
+                    .filter(i -> "MY_INDEX".equals(i.name()))
+                    .findAny()
+                    .orElseThrow();
+
+            assertNotEquals(schema1index.id(), schema2index.id(), "Index ids should differ");
+        }
+    }
+
+    @Test
+    public void testEmptyPublicSchema() {
+        CatalogSchemaDescriptor publicSchema1 = latestCatalog().schema("PUBLIC");
+        assertNotNull(publicSchema1);
+
+        // Drop public schema
+        CatalogCommand dropSchemaCmd = DropSchemaCommand.builder().name("PUBLIC").build();
+        tryApplyAndExpectApplied(dropSchemaCmd);
+        assertNull(latestCatalog().schema("PUBLIC"));
+
+        // Create public schema
+        CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name("PUBLIC").build();
+        tryApplyAndExpectApplied(newSchemaCmd);
+
+        CatalogSchemaDescriptor publicSchema2 = latestCatalog().schema("PUBLIC");
+        assertNotNull(publicSchema2);
+        assertNotEquals(publicSchema1.id(), publicSchema2.id());
+    }
+
+    @Test
+    public void testNonEmptyPublicSchema() {
+        CatalogSchemaDescriptor publicSchema1 = latestCatalog().schema("PUBLIC");
+        assertNotNull(publicSchema1);
+
+        CatalogCommand newTableCmd = newTableCommand("PUBLIC", "T1");
+        tryApplyAndExpectApplied(newTableCmd);
+
+        // Should fail because the schema is not empty.
+        assertThat(
+                manager.execute(DropSchemaCommand.builder().name("PUBLIC").build()),
+                willThrowFast(CatalogValidationException.class, "Schema 'PUBLIC' is not empty. Use CASCADE to drop it anyway.")
+        );
+
+        // Drop public schema cascade
+        CatalogCommand dropSchemaCmd = DropSchemaCommand.builder().name("PUBLIC").cascade(true).build();
+        tryApplyAndExpectApplied(dropSchemaCmd);
+        assertNull(latestCatalog().schema("PUBLIC"));
+
+        // Create public schema
+        CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name("PUBLIC").build();
+        tryApplyAndExpectApplied(newSchemaCmd);
+
+        CatalogSchemaDescriptor publicSchema2 = latestCatalog().schema("PUBLIC");
+        assertNotNull(publicSchema2);
+        assertNotEquals(publicSchema1.id(), publicSchema2.id());
+    }
+
     private Catalog latestCatalog() {
         Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
@@ -178,10 +316,13 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         return latestCatalog;
     }
 
-    @SuppressWarnings("SameParameterValue")
     private static CatalogCommand newTableCommand(String tableName) {
+        return newTableCommand(TEST_SCHEMA, tableName);
+    }
+
+    private static CatalogCommand newTableCommand(String schemaName, String tableName) {
         return createTableCommand(
-                TEST_SCHEMA,
+                schemaName,
                 tableName,
                 List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
                 List.of("key1", "key2"),
@@ -189,10 +330,13 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         );
     }
 
-    @SuppressWarnings("SameParameterValue")
     private static CatalogCommand newIndexCommand(String tableName, String indexName) {
+        return newIndexCommand(TEST_SCHEMA, tableName, indexName);
+    }
+
+    private static CatalogCommand newIndexCommand(String schemaName, String tableName, String indexName) {
         return createSortedIndexCommand(
-                TEST_SCHEMA,
+                schemaName,
                 tableName,
                 indexName,
                 false,

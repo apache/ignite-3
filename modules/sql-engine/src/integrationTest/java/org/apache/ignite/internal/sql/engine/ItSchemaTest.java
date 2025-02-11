@@ -181,4 +181,39 @@ public class ItSchemaTest extends BaseSqlIntegrationTest {
             );
         }
     }
+
+    @Test
+    public void operationsInSpecificSchema() {
+        sql("CREATE SCHEMA s1");
+
+        assertQuery("CREATE TABLE t1 (id INT PRIMARY KEY, val INT)")
+                .withDefaultSchema("S1")
+                .check();
+
+        // T1 belongs to S1
+        assertQuery("SELECT COUNT(*) FROM system.tables WHERE \"SCHEMA\"=? AND NAME=?")
+                .withParams("S1", "T1")
+                .returns(1L)
+                .check();
+
+        // Add column
+        assertQuery("ALTER TABLE t1 ADD COLUMN chars VARCHAR")
+                .withDefaultSchema("S1")
+                .check();
+
+        assertQuery("SELECT COUNT(*) FROM system.table_columns WHERE \"SCHEMA\"=? and TABLE_NAME=? and column_name=?")
+                .withParams("S1", "T1", "CHARS")
+                .returns(1L)
+                .check();
+
+        // Drop t1
+        assertQuery("DROP TABLE t1")
+                .withDefaultSchema("S1")
+                .check();
+
+        // There is no T1 in S1
+        assertQuery("SELECT COUNT(*) FROM system.tables")
+                .returns(0L)
+                .check();
+    }
 }
