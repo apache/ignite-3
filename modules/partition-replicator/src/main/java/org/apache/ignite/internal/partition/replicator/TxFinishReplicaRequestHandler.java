@@ -297,7 +297,7 @@ public class TxFinishReplicaRequestHandler {
     private CompletableFuture<Object> applyFinishCommand(
             UUID transactionId,
             boolean commit,
-            HybridTimestamp commitTimestamp,
+            @Nullable HybridTimestamp commitTimestamp,
             int catalogVersion,
             List<TablePartitionIdMessage> partitionIds
     ) {
