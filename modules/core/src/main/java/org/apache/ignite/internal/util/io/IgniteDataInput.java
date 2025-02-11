@@ -32,7 +32,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -453,10 +452,10 @@ public interface IgniteDataInput extends DataInput {
      * @param valueReader Function to read a value.
      * @return Map.
      */
-    default <K, V, VV extends V, M extends Map<K, VV>> M readMap(
+    default <K, C, V extends C, M extends Map<K, V>> M readMap(
             Supplier<M> mapSupplier,
             ObjectReader<K> keyReader,
-            ObjectReader<VV> valueReader
+            ObjectReader<V> valueReader
     ) throws IOException {
         int size = readVarIntAsInt();
 
@@ -464,7 +463,7 @@ public interface IgniteDataInput extends DataInput {
 
         for (int i = 0; i < size; i++) {
             K key = keyReader.read(this);
-            VV value = valueReader.read(this);
+            V value = valueReader.read(this);
 
             map.put(key, value);
         }
@@ -472,6 +471,9 @@ public interface IgniteDataInput extends DataInput {
         return map;
     }
 
+    /**
+     * Object reader interface.
+     */
     @FunctionalInterface
     interface ObjectReader<T> {
         T read(IgniteDataInput in) throws IOException;

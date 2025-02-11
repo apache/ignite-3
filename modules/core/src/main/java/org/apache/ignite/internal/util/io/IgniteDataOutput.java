@@ -32,7 +32,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.BiConsumer;
 
 /**
  * Extended data output.
@@ -269,6 +268,9 @@ public interface IgniteDataOutput extends DataOutput {
         }
     }
 
+    /**'
+     * Object writer interface.
+     */
     @FunctionalInterface
     interface ObjectWriter<T> {
         void write(T obj, IgniteDataOutput out) throws IOException;

@@ -215,7 +215,7 @@ public class DistributionZoneRebalanceEngineV2 {
             Set<String> aliveNodes = distributionZoneManager.logicalTopology(revision)
                     .stream()
                     .map(NodeWithAttributes::nodeName)
-                    .collect(Collectors.toSet());
+                    .collect(toSet());
 
             return triggerZonePartitionsRebalance(
                     zoneDescriptor,
@@ -262,7 +262,7 @@ public class DistributionZoneRebalanceEngineV2 {
                     Set<String> aliveNodes = distributionZoneManager.logicalTopology(causalityToken)
                             .stream()
                             .map(NodeWithAttributes::nodeName)
-                            .collect(Collectors.toSet());
+                            .collect(toSet());
 
                     return triggerZonePartitionsRebalance(
                             zoneDescriptor,

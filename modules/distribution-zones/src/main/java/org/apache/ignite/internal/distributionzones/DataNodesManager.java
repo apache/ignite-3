@@ -145,6 +145,17 @@ public class DataNodesManager {
 
     private final IntSupplier partitionDistributionResetTimeoutSupplier;
 
+    /**
+     * Constructor.
+     *
+     * @param nodeName Local node name.
+     * @param busyLock External busy lock.
+     * @param metaStorageManager Meta storage manager.
+     * @param catalogManager Catalog manager.
+     * @param clockService Clock service.
+     * @param partitionResetClosure Closure to reset partitions.
+     * @param partitionDistributionResetTimeoutSupplier Supplier for partition distribution reset timeout.
+     */
     public DataNodesManager(
             String nodeName,
             IgniteSpinBusyLock busyLock,
@@ -208,13 +219,14 @@ public class DataNodesManager {
                         Entry partitionResetEntry = entriesMap.get(zonePartitionResetTimerKey(zone.id()));
 
                         if (missingEntry(historyEntry)) {
-                            LOG.warn("Couldn't recovery data nodes history for zone [id={}, historyEntry={}].", zone.id(), historyEntry);
+                            // Not critical because if we have no history in this map, we look into meta storage.
+                            LOG.warn("Couldn't recover data nodes history for zone [id={}, historyEntry={}].", zone.id(), historyEntry);
 
                             continue;
                         }
 
                         if (missingEntry(scaleUpEntry) || missingEntry(scaleDownEntry) || missingEntry(partitionResetEntry)) {
-                            LOG.warn("Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, scaleDownEntry={}, "
+                            LOG.error("Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, scaleDownEntry={}, "
                                     + "partitionResetEntry={}", zone.id(), zone.name(), scaleUpEntry, scaleDownEntry, partitionResetEntry);
 
                             continue;
@@ -338,7 +350,7 @@ public class DataNodesManager {
                         "Failed to update data nodes history and timers on topology change [timestamp=" + timestamp + "]."
                         );
                     });
-        });
+        }, zoneDescriptor);
     }
 
     private static DistributionZoneTimer newScaleUpTimerOnTopologyChange(
@@ -449,7 +461,7 @@ public class DataNodesManager {
                                     + timestamp + "]."
                             );
                     });
-        });
+        }, zoneDescriptor);
     }
 
     CompletableFuture<Void> onAutoAdjustAlteration(
@@ -510,7 +522,7 @@ public class DataNodesManager {
                                 + timestamp + "]."
                         );
                     });
-        });
+        }, zoneDescriptor);
     }
 
     private static String updateHistoryLogRecord(
@@ -625,7 +637,7 @@ public class DataNodesManager {
                                 ));
 
                     });
-        });
+        }, zoneDescriptor);
     }
 
     private void onScaleUpTimerChange(CatalogZoneDescriptor zoneDescriptor, DistributionZoneTimer scaleUpTimer) {
@@ -699,7 +711,7 @@ public class DataNodesManager {
                                                 + scaleDownTimer.timeToTrigger() + "]."
                                 ));
                     });
-        });
+        }, zoneDescriptor);
     }
 
     private void onScaleDownTimerChange(CatalogZoneDescriptor zoneDescriptor, DistributionZoneTimer scaleDownTimer) {
@@ -795,10 +807,26 @@ public class DataNodesManager {
         return pair(newTimestamp, dataNodes);
     }
 
+    /**
+     * Returns data nodes for the given zone and timestamp. See {@link #dataNodes(int, HybridTimestamp)}.
+     * Catalog version is calculated by the given timestamp.
+     *
+     * @param zoneId Zone ID.
+     * @param timestamp Timestamp.
+     * @return Data nodes.
+     */
     public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp) {
         return dataNodes(zoneId, timestamp, null);
     }
 
+    /**
+     * Returns data nodes for the given zone and timestamp.
+     *
+     * @param zoneId Zone ID.
+     * @param timestamp Timestamp.
+     * @param catalogVersion Catalog version.
+     * @return Data nodes.
+     */
     public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp, @Nullable Integer catalogVersion) {
         DataNodesHistory volatileHistory = dataNodesHistoryVolatile.get(zoneId);
         if (volatileHistory != null && volatileHistory.entryIsPresentAtExactTimestamp(timestamp)) {
@@ -926,20 +954,19 @@ public class DataNodesManager {
     }
 
     private CompletableFuture<Void> msInvokeWithRetry(
-            Function<DataNodeHistoryContextMetaStorageGetter, CompletableFuture<LoggedIif>> iifSupplier
+            Function<DataNodeHistoryContextMetaStorageGetter, CompletableFuture<LoggedIif>> iifSupplier,
+            CatalogZoneDescriptor zone
     ) {
-        return msInvokeWithRetry(iifSupplier, MAX_ATTEMPTS_ON_RETRY);
+        return msInvokeWithRetry(iifSupplier, MAX_ATTEMPTS_ON_RETRY, zone);
     }
 
     private CompletableFuture<Void> msInvokeWithRetry(
             Function<DataNodeHistoryContextMetaStorageGetter, CompletableFuture<LoggedIif>> iifSupplier,
-            int attemptsLeft
+            int attemptsLeft,
+            CatalogZoneDescriptor zone
     ) {
         if (attemptsLeft <= 0) {
-            LOG.error("Failed to perform meta storage invoke, maximum number of attempts reached.",
-                    new RuntimeException("Failed to perform meta storage invoke, maximum number of attempts reached."));
-
-            return nullCompletedFuture();
+            throw new AssertionError("Failed to perform meta storage invoke, maximum number of attempts reached [zone=" + zone + "].");
         }
 
         CompletableFuture<LoggedIif> iifFuture = iifSupplier.apply(attemptsLeft == MAX_ATTEMPTS_ON_RETRY
@@ -964,7 +991,7 @@ public class DataNodesManager {
 
                             return null;
                         } else {
-                            return msInvokeWithRetry(iifSupplier, attemptsLeft - 1);
+                            return msInvokeWithRetry(iifSupplier, attemptsLeft - 1, zone);
                         }
                     } else {
                         LOG.warn(iifFuture.join().messageOnFailure, e);
@@ -1138,6 +1165,9 @@ public class DataNodesManager {
         return zoneTimers.computeIfAbsent(zoneId, k -> new ZoneTimers(zoneId, executor));
     }
 
+    /**
+     * Representation of zone timer schedule, visible for testing purposes.
+     */
     @VisibleForTesting
     public static class ZoneTimerSchedule {
         final StripedScheduledThreadPoolExecutor executor;
@@ -1192,8 +1222,11 @@ public class DataNodesManager {
         }
     }
 
+    /**
+     * Zone timers class, visible for testing purposes.
+     */
     @VisibleForTesting
-    public class ZoneTimers {
+    public static class ZoneTimers {
         public final ZoneTimerSchedule scaleUp;
         public final ZoneTimerSchedule scaleDown;
         public final ZoneTimerSchedule partitionReset;
@@ -1207,7 +1240,7 @@ public class DataNodesManager {
         void stopAllTimers() {
             scaleUp.stopTimer();
             scaleDown.stopTimer();
-            partitionReset.stopTimer() ;
+            partitionReset.stopTimer();
         }
     }
 

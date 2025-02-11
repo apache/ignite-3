@@ -234,17 +234,6 @@ public interface MetaStorageManager extends IgniteComponent {
     Entry getLocally(ByteArray key, long revUpperBound);
 
     /**
-     * Returns a future of getting entries corresponding to the given keys from the metastorage locally.
-     *
-     * <p>Never completes with a {@link CompactedException}.</p>
-     *
-     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
-     *
-     * @param keys List of keys (must not be empty).
-     */
-    List<Entry> getAllLocally(List<ByteArray> keys);
-
-    /**
      * Returns cursor by entries which correspond to the given keys range and bounded by revision number locally.
      *
      * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked.</p>
@@ -261,6 +250,17 @@ public interface MetaStorageManager extends IgniteComponent {
      * @throws CompactedException If the {@code revUpperBound} is less than or equal to the last compacted one.
      */
     Cursor<Entry> getLocally(ByteArray startKey, @Nullable ByteArray endKey, long revUpperBound);
+
+    /**
+     * Returns a future of getting entries corresponding to the given keys from the metastorage locally.
+     *
+     * <p>Never completes with a {@link CompactedException}.</p>
+     *
+     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
+     *
+     * @param keys List of keys (must not be empty).
+     */
+    List<Entry> getAllLocally(List<ByteArray> keys);
 
     /**
      * Returns cursor by entries which correspond to the given key prefix and bounded by revision number locally.

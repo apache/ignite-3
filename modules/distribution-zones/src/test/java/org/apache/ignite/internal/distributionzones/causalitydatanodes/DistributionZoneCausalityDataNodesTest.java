@@ -1238,24 +1238,24 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             assertTrue(topologyUpdateRevision.get() > 0);
 
             return CompletableFuture.runAsync(() -> {
-                        try {
-                            // Check that data nodes values are changed according to scale up and down timers.
-                            // Data nodes from the data nodes manager are used to calculate current data nodes.
-                            checkDataNodes(topologyUpdateRevision.get(), expectedDataNodes);
+                try {
+                    // Check that data nodes values are changed according to scale up and down timers.
+                    // Data nodes from the data nodes manager are used to calculate current data nodes.
+                    checkDataNodes(topologyUpdateRevision.get(), expectedDataNodes);
 
-                            // Check that data nodes values are not changed in the meta storage.
-                            checkThatDataNodesIsNotChangedInMetastorage(expectedDataNodes.keySet());
+                    // Check that data nodes values are not changed in the meta storage.
+                    checkThatDataNodesIsNotChangedInMetastorage(expectedDataNodes.keySet());
 
-                            reached.set(true);
-                        } catch (Exception e) {
-                            fail();
-                        }
-                    })
-                    .thenRun(latch::countDown)
-                    .thenApply(ignored -> {
-                        log.info("Test: latch counted down.");
-                        return null;
-                    });
+                    reached.set(true);
+                } catch (Exception e) {
+                    fail();
+                }
+            })
+            .thenRun(latch::countDown)
+            .thenApply(ignored -> {
+                log.info("Test: latch counted down.");
+                return null;
+            });
         };
     }
 

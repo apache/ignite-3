@@ -349,27 +349,35 @@ public class DistributionZonesUtil {
         return dataNodes.stream().map(NodeWithAttributes::node).collect(toSet());
     }
 
+    /**
+     * Parse the data nodes from bytes.
+     *
+     * @param dataNodesBytes Data nodes bytes.
+     * @param timestamp Timestamp.
+     * @return Set of nodes.
+     */
     @Nullable
     public static Set<NodeWithAttributes> parseDataNodes(byte[] dataNodesBytes, HybridTimestamp timestamp) {
         if (dataNodesBytes == null) {
             return null;
         }
+
         DataNodesHistory dataNodesHistory = DataNodesHistorySerializer.deserialize(dataNodesBytes);
 
         return dataNodesHistory.dataNodesForTimestamp(timestamp).getSecond();
     }
 
-    public static Set<NodeWithAttributes> deserializeLatestDataNodesHistoryEntry(byte[] bytes) {
-        DataNodesHistory history = DataNodesHistorySerializer.deserialize(bytes);
-
-        return history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).getSecond();
-    }
-
+    /**
+     * Deserialize the set of nodes with attributes from the given serialized bytes.
+     *
+     * @param bytes Serialized set of nodes with attributes.
+     * @return Set of nodes with attributes.
+     */
     public static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
         return LogicalTopologySetSerializer.deserialize(bytes);
     }
 
-    public static Map<UUID, NodeWithAttributes> deserializeNodesAttributes(byte[] bytes) {
+    static Map<UUID, NodeWithAttributes> deserializeNodesAttributes(byte[] bytes) {
         return NodesAttributesSerializer.deserialize(bytes);
     }
 
@@ -385,7 +393,7 @@ public class DistributionZonesUtil {
         DistributionZoneTimer scaleDownTimer = null;
 
         for (Entry e : entries) {
-            assert e != null && e.key() != null && !e.empty(): "Unexpected entry: " + e;
+            assert e != null && e.key() != null && !e.empty() : "Unexpected entry: " + e;
 
             byte[] v = e.tombstone() ? null : e.value();
 
@@ -475,6 +483,13 @@ public class DistributionZonesUtil {
         return new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfilesNames);
     }
 
+    /**
+     * Filters {@code dataNodes} according to the provided filter and storage profiles from {@code zoneDescriptor}.
+     *
+     * @param dataNodes Data nodes with attributes.
+     * @param zoneDescriptor Zone descriptor.
+     * @return Filtered data nodes.
+     */
     public static Set<NodeWithAttributes> filterDataNodes(
             Set<NodeWithAttributes> dataNodes,
             CatalogZoneDescriptor zoneDescriptor
@@ -547,7 +562,7 @@ public class DistributionZonesUtil {
         @Nullable
         private final DistributionZoneTimer scaleDownTimer;
 
-        public DataNodeHistoryContext(
+        DataNodeHistoryContext(
                 @Nullable DataNodesHistory dataNodesHistory,
                 @Nullable DistributionZoneTimer scaleUpTimer,
                 @Nullable DistributionZoneTimer scaleDownTimer

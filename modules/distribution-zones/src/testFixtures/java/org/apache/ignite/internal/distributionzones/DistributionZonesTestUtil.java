@@ -19,9 +19,11 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
@@ -401,6 +403,12 @@ public class DistributionZonesTestUtil {
         }
     }
 
+    /**
+     * Creates a mock {@link LogicalNode} from a {@link Node}.
+     *
+     * @param node Node.
+     * @return Logical node.
+     */
     public static LogicalNode logicalNodeFromNode(Node node) {
         return new LogicalNode(
                 new ClusterNodeImpl(node.nodeId(), node.nodeName(), new NetworkAddress("localhost", 123)),
@@ -599,6 +607,16 @@ public class DistributionZonesTestUtil {
     }
 
     /**
+     * Deserialize the latest data nodes history entry from the given history in serialized format.
+     *
+     * @param bytes Serialized {@link DataNodesHistory}.
+     * @return Latest entry.
+     */
+    public static Set<NodeWithAttributes> deserializeLatestDataNodesHistoryEntry(byte[] bytes) {
+        return requireNonNull(parseDataNodes(bytes, HybridTimestamp.MAX_VALUE));
+    }
+
+    /**
      * Get {@link DataNodeHistoryContext} from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
@@ -708,9 +726,9 @@ public class DistributionZonesTestUtil {
     public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
         Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
 
-        Objects.requireNonNull(catalog);
+        requireNonNull(catalog);
 
-        return Objects.requireNonNull(catalog.defaultZone());
+        return requireNonNull(catalog.defaultZone());
     }
 
     /**
