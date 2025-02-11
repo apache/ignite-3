@@ -86,6 +86,7 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
      */
     protected abstract CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th);
 
+    // TODO Temporal getter, remove after https://issues.apache.org/jira/browse/IGNITE-22522
     @TestOnly
     public long scanId(Subscription subscription) {
         return ((PartitionScanSubscription) subscription).scanId;
