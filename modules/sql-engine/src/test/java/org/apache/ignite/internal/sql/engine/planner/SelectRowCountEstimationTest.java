@@ -17,38 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.framework.DataProvider.fromCollection;
 import static org.apache.ignite.internal.sql.engine.framework.TestBuilders.tableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCount;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
-import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
-import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.CancellationToken;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -58,11 +39,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests to check row count estimation for select relation.
  */
 @ExtendWith(QueryCheckerExtension.class)
-public class SelectRowCountEstimationTest {
+public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTest {
     private static final int TABLE_REAL_SIZE = 73_049;
-
-    @InjectQueryCheckerFactory
-    private static QueryCheckerFactory queryCheckerFactory;
 
     private static final TestCluster CLUSTER = TestBuilders.cluster()
             .nodes("N1")
@@ -94,51 +72,51 @@ public class SelectRowCountEstimationTest {
     @Test
     void testPredicatesSelectivity() {
         double selectivityFactor = 0.5;
-        assertQuery("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10")
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10")
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
 
-        assertQuery("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK < 5")
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK < 5")
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE)))
                 .check();
 
         String query = appendEqConditions(2);
         selectivityFactor = 0.56;
-        assertQuery(query)
+        assertQuery(NODE, query)
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
 
         query = appendEqConditions(3);
         selectivityFactor = 0.76;
-        assertQuery(query)
+        assertQuery(NODE, query)
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
 
         query = appendEqConditions(20);
         selectivityFactor = 1.0;
-        assertQuery(query)
+        assertQuery(NODE, query)
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
 
         selectivityFactor = 0.25;
-        assertQuery("SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
                 + "(CS_SOLD_DATE_SK > 0 and CS_SOLD_DATE_SK < 5)")
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
 
         selectivityFactor = 0.33;
-        assertQuery("SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
                 + "(CS_SOLD_DATE_SK = 0)")
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
 
         selectivityFactor = 0.5;
-        assertQuery("SELECT * FROM CATALOG_SALES WHERE SQRT(CS_SOLD_DATE_SK) > 10")
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE SQRT(CS_SOLD_DATE_SK) > 10")
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
 
         selectivityFactor = 0.9;
-        assertQuery("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK IS NOT NULL")
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK IS NOT NULL")
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
     }
@@ -157,61 +135,5 @@ public class SelectRowCountEstimationTest {
         return query;
     }
 
-    private static QueryChecker assertQuery(String query) {
-        //noinspection DataFlowIssue
-        return queryCheckerFactory.create(
-                NODE.name(),
-                new QueryProcessor() {
-                    @Override
-                    public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
-                            @Nullable InternalTransaction transaction, String qry, Object... params) {
-                        throw new AssertionError("Should not be called");
-                    }
 
-                    @Override
-                    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
-                            SqlProperties properties,
-                            HybridTimestampTracker observableTime,
-                            @Nullable InternalTransaction transaction,
-                            @Nullable CancellationToken token,
-                            String qry,
-                            Object... params
-                    ) {
-                        return completedFuture(NODE.executeQuery(qry));
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-                        return nullCompletedFuture();
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                        return nullCompletedFuture();
-                    }
-                },
-                null,
-                null,
-                query
-        );
-    }
-
-    private static Matcher<Double> approximatelyEqual(double expected) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object o) {
-                if (!(o instanceof Double)) {
-                    return false;
-                }
-
-                double value = (double) o;
-                return Math.abs(1 - (value / expected)) < 0.05;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("equals to ").appendValue(expected).appendText("±5%");
-            }
-        };
-    }
 }

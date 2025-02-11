@@ -182,9 +182,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         }
     }
 
-    private static double guessSelectivity(
-            @Nullable RexNode predicate,
-            boolean artificialOnly) {
+    private static double guessSelectivity(@Nullable RexNode predicate) {
         double sel = 1.0;
         if ((predicate == null) || predicate.isAlwaysTrue()) {
             return sel;
@@ -220,11 +218,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             }
         }
 
-        if (artificialOnly) {
-            return artificialSel;
-        } else {
-            return sel * artificialSel;
-        }
+        return sel * artificialSel;
     }
 
     /**
@@ -233,7 +227,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      */
     public Double getSelectivity(ProjectableFilterableTableScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate == null) {
-            return guessSelectivity(rel.condition(), false);
+            return guessSelectivity(rel.condition());
         }
 
         RexNode condition = rel.pushUpPredicate();
