@@ -528,6 +528,15 @@ public class PartitionReplicaLifecycleManager extends
                     zonePartitionId.partitionId()
             );
 
+            var raftGroupListener = new ZonePartitionRaftListener(
+                    txStatePartitionStorage,
+                    txManager,
+                    safeTimeTracker,
+                    storageIndexTracker,
+                    zonePartitionId
+            );
+            zonePartitionRaftListeners.put(zonePartitionId, raftGroupListener);
+
             try {
                 return replicaMgr.startReplica(
                                 zonePartitionId,
@@ -543,17 +552,7 @@ public class PartitionReplicaLifecycleManager extends
                                 ),
                                 new FailFastSnapshotStorageFactory(),
                                 stablePeersAndLearners,
-                                () -> {
-                                    var raftGroupListener = new ZonePartitionRaftListener(
-                                            txStatePartitionStorage,
-                                            txManager,
-                                            safeTimeTracker,
-                                            storageIndexTracker,
-                                            zonePartitionId
-                                    );
-                                    zonePartitionRaftListeners.put(zonePartitionId, raftGroupListener);
-                                    return raftGroupListener;
-                                },
+                                raftGroupListener,
                                 raftGroupEventsListener,
                                 // TODO: IGNITE-24371 - pass real isVolatile flag
                                 false,

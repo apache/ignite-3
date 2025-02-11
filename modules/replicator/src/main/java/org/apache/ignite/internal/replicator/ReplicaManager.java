@@ -735,7 +735,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Function<RaftGroupService, ReplicaListener> listenerFactory,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
-            Supplier<RaftGroupListener> raftGroupListenerFactory,
+            RaftGroupListener raftGroupListener,
             RaftGroupEventsListener raftGroupEventsListener,
             boolean isVolatileStorage,
             ManuallyCloseable partitionResources,
@@ -750,7 +750,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     replicaGrpId,
                     snapshotStorageFactory,
                     newConfiguration,
-                    raftGroupListenerFactory.get(),
+                    raftGroupListener,
                     raftGroupEventsListener,
                     isVolatileStorage,
                     (raftClient) -> new ZonePartitionReplicaImpl(
