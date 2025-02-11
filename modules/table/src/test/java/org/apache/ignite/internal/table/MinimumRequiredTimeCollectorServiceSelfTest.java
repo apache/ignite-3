@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.partition.replicator.raft.MinimumRequir
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
-import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 

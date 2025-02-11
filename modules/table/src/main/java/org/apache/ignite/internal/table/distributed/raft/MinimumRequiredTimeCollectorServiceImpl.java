@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft;
+package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /** Collects minimum required timestamp for each partition. */
