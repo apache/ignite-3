@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.lowwatermark;
 
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.event.EventProducer;
@@ -68,11 +67,4 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
      * @param lockId ID of the transaction that locks the low watermark.
      */
     void unlock(UUID lockId);
-
-    /**
-     * Returns a set of all transaction IDs that lock the low watermark.
-     *
-     * @return Set of all transaction IDs that lock the low watermark.
-     */
-    Set<UUID> lockIds();
 }

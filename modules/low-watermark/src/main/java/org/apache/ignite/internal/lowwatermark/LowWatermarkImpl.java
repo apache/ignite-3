@@ -25,9 +25,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
-import java.util.Collections;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -333,11 +331,6 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         }
 
         lock.future().complete(null);
-    }
-
-    @Override
-    public Set<UUID> lockIds() {
-        return Collections.unmodifiableSet(locks.keySet());
     }
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
