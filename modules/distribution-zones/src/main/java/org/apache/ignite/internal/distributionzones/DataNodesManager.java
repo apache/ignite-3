@@ -367,21 +367,34 @@ public class DataNodesManager {
             Set<NodeWithAttributes> logicalTopology,
             boolean scaleUp
     ) {
-        DistributionZoneTimer timer;
-
-        int autoAdjustWaitInSeconds = scaleUp ? zoneDescriptor.dataNodesAutoAdjustScaleUp() : zoneDescriptor.dataNodesAutoAdjustScaleDown();
-
         if (nodes.isEmpty()) {
-            timer = currentTimer;
+            return currentTimer;
         } else {
-            timer = new DistributionZoneTimer(
+            int autoAdjustWaitInSeconds = scaleUp ? zoneDescriptor.dataNodesAutoAdjustScaleUp() : zoneDescriptor.dataNodesAutoAdjustScaleDown();
+
+            // Filter the current timer's nodes according to the current topology, if it is newer than the timer's timestamp.
+            Set<NodeWithAttributes> currentTimerFilteredNodes = currentTimer.nodes().stream()
+                    .filter(n -> {
+                        if (currentTimer.createTimestamp().longValue() >= timestamp.longValue()) {
+                            return true;
+                        } else {
+                            return scaleUp == nodeNames(logicalTopology).contains(n.nodeName());
+                        }
+                    })
+                    .collect(toSet());
+
+            DistributionZoneTimer timer = new DistributionZoneTimer(
                     timestamp,
                     autoAdjustWaitInSeconds,
-                    union(nodes, currentTimer.nodes())
+                    union(nodes, currentTimerFilteredNodes)
             );
-        }
 
-        return filterTimerNodesWithTopology(timer, logicalTopology, scaleUp);
+            LOG.info("Merging scale " + (scaleUp ? "up" : "down") + " timer on topology change [zoneId={}, timestamp={}, nodes={}, topology={},"
+                            + " currentTimer={}, newTimer={}].",
+                    zoneDescriptor.id(), timestamp, nodeNames(nodes), nodeNames(logicalTopology), currentTimer, timer);
+
+            return timer;
+        }
     }
 
     /**
@@ -634,7 +647,8 @@ public class DataNodesManager {
                                                 ops().yield(false)
                                         ),
                                         updateHistoryLogRecord(zoneId, scheduledTimer.name() + " trigger", dataNodesHistory,
-                                                timeToTrigger, timeToTrigger, currentDataNodes.getSecond(), DEFAULT_TIMER, null),
+                                                timeToTrigger, timeToTrigger, currentDataNodes.getSecond(),
+                                                scheduledTimer.scaleUpTimerAfterApply(), scheduledTimer.scaleDownTimerAfterApply()),
                                         "Failed to update data nodes history and timers on " + scheduledTimer.name() + " [timestamp="
                                                 + timer.timeToTrigger() + "]."
                                 ));
@@ -1202,6 +1216,12 @@ public class DataNodesManager {
         void reschedule(long delayInSeconds, Runnable runnable);
 
         Pair<HybridTimestamp, Set<NodeWithAttributes>> recalculateDataNodes(DataNodesHistory dataNodesHistory, DistributionZoneTimer timer);
+
+        @Nullable
+        DistributionZoneTimer scaleUpTimerAfterApply();
+
+        @Nullable
+        DistributionZoneTimer scaleDownTimerAfterApply();
     }
 
     private class ScaleUpScheduledTimer implements ScheduledTimer {
@@ -1255,6 +1275,16 @@ public class DataNodesManager {
         ) {
             return currentDataNodes(timer.timeToTrigger(), dataNodesHistory, timer, DEFAULT_TIMER, zone);
         }
+
+        @Override
+        public @Nullable DistributionZoneTimer scaleUpTimerAfterApply() {
+            return DEFAULT_TIMER;
+        }
+
+        @Override
+        public @Nullable DistributionZoneTimer scaleDownTimerAfterApply() {
+            return null;
+        }
     }
 
     private class ScaleDownScheduledTimer implements ScheduledTimer {
@@ -1307,6 +1337,16 @@ public class DataNodesManager {
                 DistributionZoneTimer timer
         ) {
             return currentDataNodes(timer.timeToTrigger(), dataNodesHistory, DEFAULT_TIMER, timer, zone);
+        }
+
+        @Override
+        public @Nullable DistributionZoneTimer scaleUpTimerAfterApply() {
+            return null;
+        }
+
+        @Override
+        public @Nullable DistributionZoneTimer scaleDownTimerAfterApply() {
+            return DEFAULT_TIMER;
         }
     }
 }

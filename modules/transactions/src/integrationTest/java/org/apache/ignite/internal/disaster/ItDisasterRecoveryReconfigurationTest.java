@@ -125,6 +125,7 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -642,7 +643,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         });
     }
 
-    @Test
+    @RepeatedTest(20)
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     public void testNewResetOverwritesFlags() throws Exception {
         int partId = 0;
@@ -655,6 +656,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         awaitPrimaryReplica(node0, partId);
 
         assertRealAssignments(node0, partId, 0, 1, 4);
+
+        log.info("Test: stopping nodes.");
 
         stopNodesInParallel(1, 4);
         waitForScale(node0, 3);

@@ -586,7 +586,7 @@ public class DistributionZoneManager extends
                     oldLogicalTopology = newLogicalTopology;
                 }
 
-                return onLogicalTopologyUpdate(newLogicalTopology, oldLogicalTopology, evt.revision(), timestamp, false);
+                return onLogicalTopologyUpdate(newLogicalTopology, oldLogicalTopology, evt.revision(), timestamp);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -607,15 +607,13 @@ public class DistributionZoneManager extends
      * @param oldLogicalTopology Old logical topology.
      * @param revision Revision of the event.
      * @param timestamp Event timestamp.
-     * @param isRecovery {@code true} if this method is called during the node recovery.
      * @return Future reflecting the completion of the actions needed when logical topology was updated.
      */
     private CompletableFuture<Void> onLogicalTopologyUpdate(
             Set<NodeWithAttributes> newLogicalTopology,
             Set<NodeWithAttributes> oldLogicalTopology,
             long revision,
-            HybridTimestamp timestamp,
-            boolean isRecovery
+            HybridTimestamp timestamp
     ) {
         logicalTopologyByRevision.put(revision, newLogicalTopology);
 
@@ -784,7 +782,7 @@ public class DistributionZoneManager extends
             if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLongKeepingOrder(lastUpdateRevisionEntry.value())) {
                 HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(recoveryRevision);
 
-                return onLogicalTopologyUpdate(logicalTopology, logicalTopology, recoveryRevision, timestamp, true);
+                return onLogicalTopologyUpdate(logicalTopology, logicalTopology, recoveryRevision, timestamp);
             }
         }
 
