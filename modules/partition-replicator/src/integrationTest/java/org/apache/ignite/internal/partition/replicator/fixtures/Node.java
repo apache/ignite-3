@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.internal.util.MockUtil.isMock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -255,10 +256,6 @@ public class Node {
     private final IndexMetaStorage indexMetaStorage;
 
     private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
-
-    private volatile MvTableStorage mvTableStorage;
-
-    private volatile TxStateStorage txStateStorage;
 
     @Nullable
     private volatile InvokeInterceptor invokeInterceptor;
@@ -492,7 +489,8 @@ public class Node {
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                new PersistentPageMemoryDataStorageModule()
+                new PersistentPageMemoryDataStorageModule(),
+                new NonVolatileTestDataStorageModule()
         ));
 
         Path storagePath = dir.resolve("storage");
@@ -662,9 +660,9 @@ public class Node {
 
             @Override
             protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
+                MvTableStorage storage = super.createTableStorage(tableDescriptor, zoneDescriptor);
 
-                return mvTableStorage;
+                return isMock(storage) ? storage : spy(storage);
             }
 
             @Override
@@ -672,9 +670,9 @@ public class Node {
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                txStateStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+                TxStateStorage storage = super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
 
-                return txStateStorage;
+                return isMock(storage) ? storage : spy(storage);
             }
         };
 

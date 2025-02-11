@@ -34,14 +34,10 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
-import org.apache.ignite.internal.sql.engine.util.Cloner;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TpcScaleFactor;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
@@ -102,7 +98,7 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
 
         MultiStepPlan plan = (MultiStepPlan) node.prepare(queryLoader.apply(queryId));
 
-        String actualPlan = RelOptUtil.toString(Cloner.clone(plan.root(), Commons.cluster()), SqlExplainLevel.DIGEST_ATTRIBUTES);
+        String actualPlan = plan.explain();
         String expectedPlan = planLoader.apply(queryId);
 
         assertEquals(expectedPlan, actualPlan);

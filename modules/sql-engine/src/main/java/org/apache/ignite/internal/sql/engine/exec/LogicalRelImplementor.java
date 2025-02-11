@@ -121,7 +121,6 @@ import org.apache.ignite.internal.sql.engine.rel.set.IgniteIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapSetOp;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
-import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -415,15 +414,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator).get(ctx);
         }
 
-        RelCollation outputCollation = rel.collation();
-
-        if (projects != null || requiredColumns != null) {
-            outputCollation = outputCollation.apply(LogicalScanConverterRule.createMapping(
-                    projects,
-                    requiredColumns,
-                    tbl.getRowType(typeFactory).getFieldCount()
-            ));
-        }
+        RelCollation collation = rel.collation();
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
@@ -431,8 +422,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
 
         Comparator<RowT> comp = null;
-        if (idx.type() == Type.SORTED && outputCollation != null && !nullOrEmpty(outputCollation.getFieldCollations())) {
-            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(outputCollation);
+        if (idx.type() == Type.SORTED && collation != null && !nullOrEmpty(collation.getFieldCollations())) {
+            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(collation);
 
             comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2); 
 
