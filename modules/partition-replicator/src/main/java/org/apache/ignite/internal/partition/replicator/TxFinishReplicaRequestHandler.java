@@ -164,7 +164,7 @@ public class TxFinishReplicaRequestHandler {
     ) {
         // Read TX state from the storage, we will need this state to check if the locks are released.
         // Since this state is written only on the transaction finish (see PartitionListener.handleFinishTxCommand),
-        // the value of txMeta can be either null or COMMITTED/ABORTED. No other values is expected.
+        // the value of txMeta can be either null or COMMITTED/ABORTED. No other values are expected.
         TxMeta txMeta = txStatePartitionStorage.get(txId);
 
         // Check whether a transaction has already been finished.
