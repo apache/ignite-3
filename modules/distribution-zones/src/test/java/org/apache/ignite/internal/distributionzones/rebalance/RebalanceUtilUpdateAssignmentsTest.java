@@ -79,6 +79,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -259,6 +260,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
      * @param expectedPlannedAssignments Planned assignments expected in the metastorage
      *        after invoking {@link RebalanceUtil#updatePendingAssignmentsKeys}.
      */
+    @DisplayName("Verify that assignments can be updated in metastorage")
     @MethodSource("assignmentsProvider")
     @ParameterizedTest(name = "[{index}] new nodes: {0}; stable configuration: {1}; assignments in metastorage: [{2}, {3}, {4}];"
             + " expected assignments after update: [{5}, {6}, {7}]")
