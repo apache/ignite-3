@@ -25,13 +25,14 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests distribution zone manager interactions with data nodes filtering.
+ * Tests distribution zone manager interactions with data nodes filtering in a SC zone.
  */
 public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode A = new LogicalNode(
@@ -116,9 +117,14 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         topology.putNode(B);
         topology.putNode(C);
 
-        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, null, DEFAULT_STORAGE_PROFILE);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, consistencyMode(), DEFAULT_STORAGE_PROFILE);
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 getZoneId(ZONE_NAME), Set.of(A, C), ZONE_MODIFICATION_AWAIT_TIMEOUT);
+    }
+
+
+    protected ConsistencyMode consistencyMode() {
+        return ConsistencyMode.STRONG_CONSISTENCY;
     }
 }

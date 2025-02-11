@@ -506,4 +506,28 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
         return ExceptionUtils.extractCodeFrom(cause) == Replicator.REPLICA_MISS_ERR;
     }
+
+    void setDistributionResetTimeout(IgniteImpl node, long timeout) {
+        CompletableFuture<Void> changeFuture = node
+                .clusterConfiguration()
+                .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
+                .system().change(c0 -> c0.changeProperties()
+                        .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
+                                c1 -> c1.changePropertyValue(String.valueOf(timeout)))
+                );
+
+        assertThat(changeFuture, willCompleteSuccessfully());
+    }
+
+    void triggerManualReset(IgniteImpl node) {
+        CompletableFuture<?> updateFuture = node.disasterRecoveryManager().resetAllPartitions(
+                HA_ZONE_NAME,
+                SCHEMA_NAME,
+                HA_TABLE_NAME,
+                true,
+                0
+        );
+
+        assertThat(updateFuture, willCompleteSuccessfully());
+    }
 }

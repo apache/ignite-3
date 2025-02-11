@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
@@ -357,6 +358,44 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), node.tables().table(HA_TABLE_NAME), 0, 1, 2, 3, 4);
+    }
+
+    @Test
+    void testManualRecovery() throws InterruptedException {
+        startNode(3);
+        startNode(4);
+        startNode(5);
+        startNode(6);
+
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+
+        setDistributionResetTimeout(node, TimeUnit.MINUTES.toMillis(5));
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2, 3, 4, 5, 6);
+
+        stopNodes(3, 4, 5, 6);
+
+        triggerManualReset(node);
+
+        Set<String> threeNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+
+        setDistributionResetTimeout(node, TimeUnit.SECONDS.toMillis(0));
+
+        waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 10_000);
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
     }
 
     @Test
