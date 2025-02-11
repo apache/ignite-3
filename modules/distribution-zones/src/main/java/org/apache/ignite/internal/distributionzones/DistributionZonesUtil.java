@@ -387,13 +387,18 @@ public class DistributionZonesUtil {
      * @param entries Entries.
      * @return DataNodeHistoryContext.
      */
+    @Nullable
     public static DataNodeHistoryContext dataNodeHistoryContextFromValues(Collection<Entry> entries) {
         DataNodesHistory dataNodesHistory = null;
         DistributionZoneTimer scaleUpTimer = null;
         DistributionZoneTimer scaleDownTimer = null;
 
         for (Entry e : entries) {
-            assert e != null && e.key() != null && !e.empty() : "Unexpected entry: " + e;
+            if (e.empty()) {
+                return null;
+            }
+
+            assert e != null && e.key() != null : "Unexpected entry: " + e;
 
             byte[] v = e.tombstone() ? null : e.value();
 
