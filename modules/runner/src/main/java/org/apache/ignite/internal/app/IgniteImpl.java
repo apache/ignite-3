@@ -243,6 +243,8 @@ import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtens
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -1030,6 +1032,7 @@ public class IgniteImpl implements Ignite {
         );
 
         systemViewManager.register(txManager);
+        killCommandHandler.register(transactionKillHandler(txManager));
 
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
@@ -1180,7 +1183,7 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
-        killCommandHandler.register(((IgniteComputeImpl) compute).killHandler());
+        killCommandHandler.register(computeKillHandler(compute));
 
         authenticationManager = createAuthenticationManager();
 
@@ -1857,6 +1860,51 @@ public class IgniteImpl implements Ignite {
                 nodeConfiguration().notifyCurrentConfigurationListeners(),
                 clusterConfiguration().notifyCurrentConfigurationListeners()
         );
+    }
+
+    /** Returns a {@link OperationKillHandler kill handler} for the compute job. */
+    private static OperationKillHandler computeKillHandler(IgniteComputeInternal compute) {
+        return new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                UUID jobId = UUID.fromString(operationId);
+
+                return compute.cancelAsync(jobId)
+                        .thenApply(res -> res != null ? res : Boolean.FALSE);
+            }
+
+            @Override
+            public boolean local() {
+                return false;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.COMPUTE;
+            }
+        };
+    }
+
+    /** Returns a {@link OperationKillHandler kill handler} for the transaction. */
+    private static OperationKillHandler transactionKillHandler(TxManager txManager) {
+        return new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                UUID transactionId = UUID.fromString(operationId);
+
+                return txManager.kill(transactionId);
+            }
+
+            @Override
+            public boolean local() {
+                return true;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.TRANSACTION;
+            }
+        };
     }
 
     @TestOnly

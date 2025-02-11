@@ -113,6 +113,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
@@ -124,7 +125,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
@@ -1407,13 +1407,13 @@ public class PartitionReplicaLifecycleManager extends
      * @param zonePartitionId Zone partition id.
      * @param tablePartitionId Table partition id.
      * @param tablePartitionReplicaListenerFactory Factory for creating table-specific partition replicas.
-     * @param tablePartitionRaftListener Raft group listener for the table-specific partition.
+     * @param raftTableProcessor Raft table processor for the table-specific partition.
      */
     public void loadTableListenerToZoneReplica(
             ZonePartitionId zonePartitionId,
             TablePartitionId tablePartitionId,
             Function<RaftCommandRunner, ReplicaListener> tablePartitionReplicaListenerFactory,
-            RaftGroupListener tablePartitionRaftListener
+            RaftTableProcessor raftTableProcessor
     ) {
         Listeners listeners = listenersByZonePartitionId.get(zonePartitionId);
 
@@ -1426,7 +1426,7 @@ public class PartitionReplicaLifecycleManager extends
                 tablePartitionReplicaListenerFactory
         ));
 
-        listeners.raftListener.addTablePartitionRaftListener(tablePartitionId, tablePartitionRaftListener);
+        listeners.raftListener.addTableProcessor(tablePartitionId, raftTableProcessor);
     }
 
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {

@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 /**
  * The class is used to identify a zone replication group id for a given partition.
  */
-public class ZonePartitionId implements ReplicationGroupId {
+public class ZonePartitionId implements PartitionGroupId {
     private static final Pattern DELIMITER_PATTERN = Pattern.compile("_part_");
 
     private final int zoneId;
@@ -49,11 +49,17 @@ public class ZonePartitionId implements ReplicationGroupId {
         return zoneId;
     }
 
+    @Override
+    public int objectId() {
+        return zoneId;
+    }
+
     /**
      * Get the partition id.
      *
      * @return Partition id.
      */
+    @Override
     public int partitionId() {
         return partId;
     }
