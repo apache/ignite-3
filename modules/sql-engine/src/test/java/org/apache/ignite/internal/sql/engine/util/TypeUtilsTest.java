@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.lang.reflect.Type;
 import java.time.LocalDate;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -201,6 +203,38 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("binaryTypes")
+    public void testValidateBinaryTypesOverflow(SqlTypeName type, int precision, Object[] input, boolean exceptionally) {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        RelDataType rowType = typeFactory.builder()
+                .add("c1", typeFactory.createSqlType(type, precision))
+                .build();
+
+        if (exceptionally) {
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR,
+                    "Value too long for type: " + type,
+                    () -> buildTrimmedRow(rowType, input));
+        } else {
+            buildTrimmedRow(rowType, input);
+        }
+    }
+
+    private static Stream<Arguments> binaryTypes() {
+        Object[] input = {ByteString.of("AABBCC", 16)};
+        Object[] inputWithZeros = {ByteString.of("AABBCC0000", 16)};
+
+        return Stream.of(
+                arguments(SqlTypeName.BINARY, 2, input, true),
+                arguments(SqlTypeName.VARBINARY, 2, input, true),
+
+                arguments(SqlTypeName.BINARY, 3, inputWithZeros, false),
+                arguments(SqlTypeName.VARBINARY, 3, inputWithZeros, false)
+        );
+    }
+
     private static void expectOutputRow(RelDataType rowType, Object[] input, Object[] expected) {
         Object[] newRow = buildTrimmedRow(rowType, input);
 
@@ -211,7 +245,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         List<RelDataType> columnTypes = rowType.getFieldList().stream().map(RelDataTypeField::getType).collect(Collectors.toList());
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(columnTypes);
 
-        Object[] newRow = TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType,
+        Object[] newRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType,
                 ArrayRowHandler.INSTANCE,
                 input,
                 () -> rowSchema

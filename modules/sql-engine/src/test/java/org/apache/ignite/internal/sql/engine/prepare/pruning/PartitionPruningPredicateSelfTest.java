@@ -127,7 +127,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         }
 
         // To prevent generate too big values.
-        if (columnType == ColumnType.BYTE_ARRAY || columnType == ColumnType.DECIMAL) {
+        if (columnType == ColumnType.STRING || columnType == ColumnType.BYTE_ARRAY || columnType == ColumnType.DECIMAL) {
             precision = 7_000;
             scale = precision / 2;
         }

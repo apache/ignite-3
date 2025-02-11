@@ -464,7 +464,7 @@ public class ClientTableCommon {
             InternalTxOptions options
     ) {
         return txManager.beginExplicit(
-                HybridTimestampTracker.clientTracker(currentTs, ts -> {}),
+                HybridTimestampTracker.atomicTracker(currentTs),
                 readOnly,
                 options
         );

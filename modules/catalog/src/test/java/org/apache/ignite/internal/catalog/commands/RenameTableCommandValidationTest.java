@@ -82,17 +82,18 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
     void exceptionIsThrownIfSchemaDoesNotExist() {
         Catalog catalog = catalogWithDefaultZone();
 
-        CatalogCommand command = RenameTableCommand.builder()
+        RenameTableCommandBuilder builder = RenameTableCommand.builder()
                 .schemaName("TEST")
                 .tableName("TEST")
-                .newTableName("TEST2")
-                .build();
+                .newTableName("TEST2");
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(new UpdateContext(catalog)),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Schema with name 'TEST' not found"
         );
+
+        builder.ifTableExists(true).build().get(new UpdateContext(catalog)); // No exception
     }
 
     @Test

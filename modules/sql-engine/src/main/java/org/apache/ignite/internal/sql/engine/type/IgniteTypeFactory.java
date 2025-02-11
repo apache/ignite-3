@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.type;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.typeFamiliesAreCompatible;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
@@ -53,6 +54,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -118,6 +120,55 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         uuidType.addCoercionRules(SqlTypeName.CHAR_TYPES);
 
         customDataTypes = new CustomDataTypes(Set.of(uuidType));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType createSqlType(SqlTypeName typeName, int precision) {
+        // Default implementation converts precision > maxPrecision to maxPrecision
+        assertBasicType(typeName);
+
+        if (typeName.allowsScale()) {
+            return createSqlType(typeName, precision, typeSystem.getDefaultScale(typeName));
+        }
+
+        assert (precision >= 0) || (precision == PRECISION_NOT_SPECIFIED);
+
+        // Does not check precision when typeName is SqlTypeName#NULL.
+        RelDataType newType = precision == PRECISION_NOT_SPECIFIED
+                ? new BasicSqlType(typeSystem, typeName)
+                : new BasicSqlType(typeSystem, typeName, precision);
+        newType = SqlTypeUtil.addCharsetAndCollation(newType, this);
+        return canonize(newType);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType createSqlType(SqlTypeName typeName, int precision, int scale) {
+        // Default implementation converts precision > maxPrecision to maxPrecision
+
+        assertBasicType(typeName);
+
+        assert (precision >= 0) || (precision == PRECISION_NOT_SPECIFIED);
+        assert (scale >= 0) || (scale == SCALE_NOT_SPECIFIED);
+
+        RelDataType newType = new BasicSqlType(typeSystem, typeName, precision, scale);
+        newType = SqlTypeUtil.addCharsetAndCollation(newType, this);
+        return canonize(newType);
+    }
+
+    private static void assertBasicType(SqlTypeName typeName) {
+        assert typeName != null;
+        assert typeName != SqlTypeName.MULTISET
+                : "use createMultisetType() instead";
+        assert typeName != SqlTypeName.ARRAY
+                : "use createArrayType() instead";
+        assert typeName != SqlTypeName.MAP
+                : "use createMapType() instead";
+        assert typeName != SqlTypeName.ROW
+                : "use createStructType() instead";
+        assert !SqlTypeName.INTERVAL_TYPES.contains(typeName)
+                : "use createSqlIntervalType() instead";
     }
 
     /** {@inheritDoc} */

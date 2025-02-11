@@ -198,6 +198,9 @@ public final class Types {
     public static final NativeType VARCHAR_128 = NativeTypes.stringOf(128);
     public static final NativeType VARCHAR_DEFAULT = NativeTypes.stringOf(-1);
 
+    public static final NativeType VARBINARY_1 = NativeTypes.blobOf(1);
+    public static final NativeType VARBINARY_2 = NativeTypes.blobOf(2);
+
     public static final NativeType VARBINARY_128 = NativeTypes.blobOf(128);
 
     private Types() {

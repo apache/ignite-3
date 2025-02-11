@@ -3,6 +3,7 @@
 * [Building Ignite](#building-ignite)
 * [Running sanity checks](#running-sanity-checks)
 * [Running tests](#running-tests)
+* [Running benchmarks](#running-benchmarks)
 * [Checking and generating Javadoc](#checking-and-generating-javadoc)
 * [Setting up IntelliJ Idea project](#setting-up-intellij-idea-project)
 * [Use prepared IntelliJ Idea run configurations](#use-prepared-idea-run-configurations)
@@ -116,6 +117,78 @@ Run integration tests only:
 ```shell
 ./gradlew clean integrationTest
 ```
+***
+
+## Running benchmarks
+
+Say, you want to run a benchmark for the `ignite-transactions` module. You can do it with the following command:
+
+```shell
+./gradlew clean :ignite-transactions:jmh
+```
+
+To open the JMH report, you can use the following command:
+
+```shell
+open modules/transactions/build/reports/jmh/index.html
+```
+
+If you want to run single benchmark, you can do it with the following command:
+
+```shell
+./gradlew clean :ignite-transactions:jmh -PjmhBench=TransactionExpirationRegistryBenchmark.registerUnregister
+```
+
+### How to add your own benchmark
+
+1. Go to `build.gradle` file in the module you want to add a benchmark to.
+2. Add the following line to the top of the file: `apply from: "$rootDir/buildscripts/jmh.gradle"`
+3. Create `src/jmh` and write your benchmark in `org.apache.ignite.*` package.
+4. If you want to override any property of the benchmark, you can do it in the `jmh` block in the `build.gradle` file. 
+
+For more details see the [JMH Gradle Plugin documentation](https://github.com/melix/jmh-gradle-plugin)
+
+### How to configure your own benchmark
+
+The default configuration are located in the `buildscripts/jmh.gradle` file. You can override them in the `build.gradle` file of the module.
+If you want to configure your benchmark on the class level, use annotations see 
+[example](modules/transactions/src/jmh/java/org/apache/ignite/internal/tx/impl/TransactionExpirationRegistryBenchmark.java).
+
+NOTE: now you can not pass custom jmh arguments through the command line. 
+You can only override them in the `jmh` block in the `build.gradle`/`jmh.gradle` file or use annotations in the benchmark class. 
+The only exception is the `-PjmhBench`.
+
+For more details see the [issue](https://github.com/melix/jmh-gradle-plugin/issues/239).
+
+Here is how configurations override each other:
+1. Annotations
+2. `jmh` block in the `build.gradle` file
+3. `jmh` block in the `buildscripts/jmh.gradle` file
+
+Meaning 1 is overridden by 2, 2 is overridden by 3.
+
+### How to profile your benchmark
+
+By default, there is no profiling enabled. If you want to profile your benchmark, you can set one of the following properties in CLI:
+- `-PjmhProfileJfr`
+- `-PjmhProfileAsync`
+
+The example of running the benchmark with JFR profiling:
+```shell
+./gradlew :ignite-transactions:jmh -PjmhProfileJfr
+```
+
+Output directory for the profiler results is `build/profiler`.
+
+If you want to use another profiler, you can add it to `jmh` configuration in the `build.gradle` file:
+
+```groovy
+jmh {
+    profilers = ['stack:dir=build/profiler']
+}
+```
+IMPORTANT: Async profiler works only on Linux and MacOS.
+
 ***
 
 ## Checking and generating Javadoc

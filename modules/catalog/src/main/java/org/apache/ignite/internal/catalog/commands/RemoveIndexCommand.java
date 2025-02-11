@@ -63,7 +63,7 @@ public class RemoveIndexCommand implements CatalogCommand {
         CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
 
         if (index.status() != STOPPING) {
-            throw new CatalogValidationException("Cannot remove index {} because its status is {}", indexId, index.status());
+            throw new CatalogValidationException("Cannot remove index {} because its status is {}.", indexId, index.status());
         }
 
         return List.of(new RemoveIndexEntry(indexId));

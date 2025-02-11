@@ -21,12 +21,13 @@ import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
  * Scan cursor close request.
  */
 @Transferable(PartitionReplicationMessageGroup.SCAN_CLOSE_REPLICA_REQUEST)
-public interface ScanCloseReplicaRequest extends ReplicaRequest {
+public interface ScanCloseReplicaRequest extends ReplicaRequest, TableAware {
     UUID transactionId();
 
     /** The id uniquely determines a cursor for the transaction. */

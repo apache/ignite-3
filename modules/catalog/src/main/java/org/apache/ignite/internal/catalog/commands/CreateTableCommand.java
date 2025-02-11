@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexNa
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -169,7 +168,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         Set<String> columnNames = new HashSet<>();
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", column.name()));
+                throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
         }
 
@@ -198,11 +197,11 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         for (String name : colocationColumns) {
             if (!primaryKey.columns().contains(name)) {
-                throw new CatalogValidationException(format("Colocation column '{}' is not part of PK.", name));
+                throw new CatalogValidationException("Colocation column '{}' is not part of PK.", name);
             }
 
             if (!colocationColumnsSet.add(name)) {
-                throw new CatalogValidationException(format("Colocation column '{}' specified more that once", name));
+                throw new CatalogValidationException("Colocation column '{}' specified more that once", name);
             }
         }
     }
