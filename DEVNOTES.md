@@ -133,9 +133,6 @@ To open the JMH report, you can use the following command:
 open modules/transactions/build/reports/jmh/index.html
 ```
 
-If you want to open the flamegraph of this benchmark, you can find them in the module build directory 
-`modules/transactions/build/profiler`.
-
 If you want to run single benchmark, you can do it with the following command:
 
 ```shell
@@ -169,6 +166,28 @@ Here is how configurations override each other:
 3. `jmh` block in the `buildscripts/jmh.gradle` file
 
 Meaning 1 is overridden by 2, 2 is overridden by 3.
+
+### How to profile your benchmark
+
+By default, there is no profiling enabled. If you want to profile your benchmark, you can set one of the following properties in CLI:
+- `-PjmhProfileJfr`
+- `-PjmhProfileAsync`
+
+The example of running the benchmark with JFR profiling:
+```shell
+./gradlew :ignite-transactions:jmh -PjmhProfileJfr
+```
+
+Output directory for the profiler results is `build/profiler`.
+
+If you want to use another profiler, you can add it to `jmh` configuration in the `build.gradle` file:
+
+```groovy
+jmh {
+    profilers = ['stack:dir=build/profiler']
+}
+```
+IMPORTANT: Async profiler works only on Linux and MacOS.
 
 ***
 
