@@ -32,6 +32,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
@@ -92,7 +93,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             RaftCommandRunner raftClient,
             ZonePartitionId replicationGroupId
     ) {
-        this.replicationGroupId = replicationGroupId;
         this.clockService = clockService;
         this.raftClient = raftClient;
 

@@ -52,9 +52,9 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateAll
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
-import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.MinimumActiveTxTimeCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
