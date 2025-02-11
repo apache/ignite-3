@@ -556,6 +556,7 @@ public class PartitionReplicaLifecycleManager extends
                     storageIndexTracker,
                     zonePartitionId
             );
+
             var listeners = new Listeners(raftGroupListener);
 
             listenersByZonePartitionId.put(zonePartitionId, listeners);
