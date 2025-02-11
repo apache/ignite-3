@@ -37,6 +37,11 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadO
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -53,6 +58,10 @@ import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -61,11 +70,8 @@ import org.jetbrains.annotations.VisibleForTesting;
 public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
-    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
-
-    /** Factory to create RAFT command messages. */
-    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
-            new PartitionReplicationMessagesFactory();
+    /** Zone replication group id. */
+    private final ZonePartitionId replicationGroupId;
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
     private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
@@ -76,12 +82,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     /** Clock service. */
     private final ClockService clockService;
 
-    // TODO Probably the list of handlers should be moved to a map or something appropriate.
-    // Handler for minimum active tx time request.
-    private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
+    // Replica request handlers.
+    private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
 
-    /** Zone replication group id. */
-    ZonePartitionId replicationGroupId;
+    private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
 
     /**
      * The constructor.
@@ -91,16 +95,31 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param raftClient Raft client.
      */
     public ZonePartitionReplicaListener(
-            ZonePartitionId replicationGroupId,
+            TxStatePartitionStorage txStatePartitionStorage,
             ClockService clockService,
-            RaftCommandRunner raftClient) {
+            TxManager txManager,
+            ValidationSchemasSource validationSchemasSource,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService,
+            RaftCommandRunner raftClient,
+            ZonePartitionId replicationGroupId
+    ) {
         this.replicationGroupId = replicationGroupId;
         this.clockService = clockService;
         this.raftClient = raftClient;
 
         // Request handlers initialization.
+        txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
+                txStatePartitionStorage,
+                clockService,
+                txManager,
+                validationSchemasSource,
+                schemaSyncService,
+                catalogService,
+                raftClient,
+                replicationGroupId);
+
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
-                PARTITION_REPLICATION_MESSAGES_FACTORY,
                 clockService,
                 this::applyCmdWithExceptionHandling
         );
@@ -114,25 +133,9 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22621 implement zone-based transaction storage
-        //  and txn messages processing
         if (request instanceof TxFinishReplicaRequest) {
-            TxFinishReplicaRequest txFinishReplicaRequest = (TxFinishReplicaRequest) request;
-
-            TxFinishReplicaRequest requestForTableListener = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
-                    .txId(txFinishReplicaRequest.txId())
-                    .commitPartitionId(txFinishReplicaRequest.commitPartitionId())
-                    .timestamp(txFinishReplicaRequest.timestamp())
-                    .groupId(txFinishReplicaRequest.commitPartitionId())
-                    .groups(txFinishReplicaRequest.groups())
-                    .commit(txFinishReplicaRequest.commit())
-                    .commitTimestamp(txFinishReplicaRequest.commitTimestamp())
-                    .enlistmentConsistencyToken(txFinishReplicaRequest.enlistmentConsistencyToken())
-                    .build();
-
-            return replicas
-                    .get(txFinishReplicaRequest.commitPartitionId().asTablePartitionId())
-                    .invoke(requestForTableListener, senderId);
+            return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
+                    .thenApply(res -> new ReplicaResult(res, null));
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-24380

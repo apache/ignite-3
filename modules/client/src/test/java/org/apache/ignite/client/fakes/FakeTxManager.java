@@ -29,6 +29,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
@@ -210,7 +211,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Map<TablePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,

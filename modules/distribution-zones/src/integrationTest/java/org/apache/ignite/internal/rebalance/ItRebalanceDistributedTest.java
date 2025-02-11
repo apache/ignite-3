@@ -1529,6 +1529,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             schemaSyncService,
                             systemDistributedConfiguration,
                             sharedTxStateStorage,
+                            // minTimeCollectorService
+                            txManager,
+                            schemaManager,
                             minTimeCollectorService
                     ),
                     minTimeCollectorService,

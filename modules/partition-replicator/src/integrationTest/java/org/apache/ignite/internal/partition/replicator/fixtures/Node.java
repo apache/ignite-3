@@ -164,6 +164,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -612,6 +613,9 @@ public class Node {
                 schemaSyncService,
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
+                // minTimeCollectorService
+                txManager,
+                schemaManager,
                 minTimeCollectorService
         );
 
@@ -808,5 +812,9 @@ public class Node {
         } catch (IOException e) {
             throw new IgniteInternalException(e);
         }
+    }
+
+    public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+        return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
     }
 }

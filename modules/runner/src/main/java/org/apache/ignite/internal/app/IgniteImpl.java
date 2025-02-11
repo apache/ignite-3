@@ -944,32 +944,7 @@ public class IgniteImpl implements Ignite {
                 systemDistributedConfiguration
         );
 
-        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolve(TX_STATE_DIR),
-                threadPoolsManager.commonScheduler(),
-                threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
-        );
-
         MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
-
-        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
-                catalogManager,
-                replicaMgr,
-                distributionZoneManager,
-                metaStorageMgr,
-                clusterSvc.topologyService(),
-                lowWatermark,
-                threadPoolsManager.tableIoExecutor(),
-                rebalanceScheduler,
-                threadPoolsManager.partitionOperationsExecutor(),
-                clockService,
-                placementDriverMgr.placementDriver(),
-                schemaSyncService,
-                systemDistributedConfiguration,
-                sharedTxStateStorage,
-                minTimeCollectorService
-        );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
@@ -1025,6 +1000,33 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 lowWatermark,
                 threadPoolsManager.commonScheduler()
+        );
+
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve(TX_STATE_DIR),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
+        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
+                catalogManager,
+                replicaMgr,
+                distributionZoneManager,
+                metaStorageMgr,
+                clusterSvc.topologyService(),
+                lowWatermark,
+                threadPoolsManager.tableIoExecutor(),
+                rebalanceScheduler,
+                threadPoolsManager.partitionOperationsExecutor(),
+                clockService,
+                placementDriverMgr.placementDriver(),
+                schemaSyncService,
+                systemDistributedConfiguration,
+                sharedTxStateStorage,
+                txManager,
+                schemaManager,
+                minTimeCollectorService
         );
 
         systemViewManager.register(txManager);

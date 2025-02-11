@@ -29,7 +29,8 @@ import org.apache.ignite.internal.raft.Command;
  */
 public class MinimumActiveTxTimeReplicaRequestHandler {
     /** Factory to create RAFT command messages. */
-    private final PartitionReplicationMessagesFactory partitionReplicationMessageFactory;
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
 
     /** Closure that applies RAFT command message that is created by this handler. */
     private final Function<Command, CompletableFuture<?>> commandProcessor;
@@ -40,16 +41,13 @@ public class MinimumActiveTxTimeReplicaRequestHandler {
     /**
      * Creates a new instance of MinimumActiveTxTimeReplicaRequestHandler.
      *
-     * @param messageFactory Factory to create RAFT command messages.
      * @param clockService Clock service.
      * @param commandProcessor Closure that applies RAFT command message.
      */
     public MinimumActiveTxTimeReplicaRequestHandler(
-            PartitionReplicationMessagesFactory messageFactory,
             ClockService clockService,
             Function<Command, CompletableFuture<?>> commandProcessor
     ) {
-        this.partitionReplicationMessageFactory = messageFactory;
         this.clockService = clockService;
         this.commandProcessor = commandProcessor;
     }
@@ -61,7 +59,7 @@ public class MinimumActiveTxTimeReplicaRequestHandler {
      * @return Future that will be completed when the request is handled.
      */
     public CompletableFuture<?> handle(UpdateMinimumActiveTxBeginTimeReplicaRequest request) {
-        Command cmd = partitionReplicationMessageFactory.updateMinimumActiveTxBeginTimeCommand()
+        Command cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateMinimumActiveTxBeginTimeCommand()
                 .timestamp(request.timestamp())
                 .initiatorTime(clockService.now())
                 .build();
