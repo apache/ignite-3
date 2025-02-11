@@ -386,7 +386,9 @@ public class DataNodesManager {
                     currentTimerFilteredNodes
             );
         } else {
-            int autoAdjustWaitInSeconds = scaleUp ? zoneDescriptor.dataNodesAutoAdjustScaleUp() : zoneDescriptor.dataNodesAutoAdjustScaleDown();
+            int autoAdjustWaitInSeconds = scaleUp
+                    ? zoneDescriptor.dataNodesAutoAdjustScaleUp()
+                    : zoneDescriptor.dataNodesAutoAdjustScaleDown();
 
             timer = new DistributionZoneTimer(
                     timestamp,
