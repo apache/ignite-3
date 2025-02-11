@@ -181,4 +181,56 @@ public class ItSchemaTest extends BaseSqlIntegrationTest {
             );
         }
     }
+
+    @Test
+    public void accessTheSameObject() {
+        sql("CREATE SCHEMA s1");
+        sql("CREATE TABLE s1.t1 (id INT PRIMARY KEY, val INT)");
+
+        // Works fine
+        assertQuery("SELECT count(*) FROM s1.t1")
+                .returns(0L)
+                .check();
+
+        // Works fine
+        assertQuery("SELECT count(*) FROM t1")
+                .withDefaultSchema("S1")
+                .returns(0L)
+                .check();
+
+        // Should work as wee, because we do not access the MISSING schema,
+        // but we get  Schema not found instead.
+        assertQuery("SELECT count(*) FROM s1.t1")
+                .withDefaultSchema("MISSING")
+                .returns(0L)
+                .check();
+    }
+
+    @Test
+    public void accessNotExistingObjects() {
+        sql("CREATE SCHEMA s1");
+        sql("CREATE TABLE s1.t1 (id INT PRIMARY KEY, val INT)");
+
+        // Drop schema
+        sql("DROP SCHEMA s1 CASCADE");
+
+        // Object name refers a table
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Object 'T1' not found",
+                () -> assertQuery("SELECT count(*) FROM t1").withDefaultSchema("S1").check()
+        );
+
+        // Object name refers a schema
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Object 'S1' not found",
+                () -> assertQuery("SELECT count(*) FROM S1.t1").check()
+        );
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Object 'S1' not found",
+                () -> assertQuery("SELECT count(*) FROM S1.t1").withDefaultSchema("S1").check()
+        );
+    }
 }
