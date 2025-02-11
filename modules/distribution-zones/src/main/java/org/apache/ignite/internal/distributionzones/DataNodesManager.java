@@ -74,7 +74,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
@@ -281,7 +280,7 @@ public class DataNodesManager {
                             return null;
                         }
 
-                        LOG.info("Topology change detected [zoneId={}, timestamp={}, newTopology={}, oldTopology={}].", zoneId, timestamp,
+                        LOG.debug("Topology change detected [zoneId={}, timestamp={}, newTopology={}, oldTopology={}].", zoneId, timestamp,
                                 nodeNames(newLogicalTopology), nodeNames(oldLogicalTopology));
 
                         DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
@@ -367,60 +366,40 @@ public class DataNodesManager {
             Set<NodeWithAttributes> logicalTopology,
             boolean scaleUp
     ) {
+        DistributionZoneTimer timer;
+
+        // Filter the current timer's nodes according to the current topology, if it is newer than the timer's timestamp.
+        Set<NodeWithAttributes> currentTimerFilteredNodes = currentTimer.nodes().stream()
+                .filter(n -> {
+                    if (currentTimer.createTimestamp().longValue() >= timestamp.longValue()) {
+                        return true;
+                    } else {
+                        return scaleUp == nodeNames(logicalTopology).contains(n.nodeName());
+                    }
+                })
+                .collect(toSet());
+
         if (nodes.isEmpty()) {
-            return currentTimer;
+            timer = new DistributionZoneTimer(
+                    currentTimer.createTimestamp(),
+                    currentTimer.timeToWaitInSeconds(),
+                    currentTimerFilteredNodes
+            );
         } else {
             int autoAdjustWaitInSeconds = scaleUp ? zoneDescriptor.dataNodesAutoAdjustScaleUp() : zoneDescriptor.dataNodesAutoAdjustScaleDown();
 
-            // Filter the current timer's nodes according to the current topology, if it is newer than the timer's timestamp.
-            Set<NodeWithAttributes> currentTimerFilteredNodes = currentTimer.nodes().stream()
-                    .filter(n -> {
-                        if (currentTimer.createTimestamp().longValue() >= timestamp.longValue()) {
-                            return true;
-                        } else {
-                            return scaleUp == nodeNames(logicalTopology).contains(n.nodeName());
-                        }
-                    })
-                    .collect(toSet());
-
-            DistributionZoneTimer timer = new DistributionZoneTimer(
+            timer = new DistributionZoneTimer(
                     timestamp,
                     autoAdjustWaitInSeconds,
                     union(nodes, currentTimerFilteredNodes)
             );
-
-            LOG.info("Merging scale " + (scaleUp ? "up" : "down") + " timer on topology change [zoneId={}, timestamp={}, nodes={}, topology={},"
-                            + " currentTimer={}, newTimer={}].",
-                    zoneDescriptor.id(), timestamp, nodeNames(nodes), nodeNames(logicalTopology), currentTimer, timer);
-
-            return timer;
         }
-    }
 
-    /**
-     * Filters timer's nodes according to the given topology. For scale up timer there should be no nodes that are not already
-     * in the current topology. For scale down there should be no nodes that are returned to current topology. This will prevent
-     * stale nodes data from being applied.
-     *
-     * @param timer Timer.
-     * @param topology Topology.
-     * @param scaleUp Scale up flag. Should be {@code false} for scale down timer.
-     * @return Timer with filtered nodes.
-     */
-    private static DistributionZoneTimer filterTimerNodesWithTopology(
-            DistributionZoneTimer timer,
-            Set<NodeWithAttributes> topology,
-            boolean scaleUp
-    ) {
-        Predicate<NodeWithAttributes> filterPredicate = scaleUp
-                ? n -> nodeNames(topology).contains(n.nodeName())
-                : n -> !nodeNames(topology).contains(n.nodeName());
+        LOG.info("Merging scale " + (scaleUp ? "up" : "down") + " timer on topology change [zoneId={}, timestamp={}, nodes={}, topology={},"
+                        + " currentTimer={}, newTimer={}].",
+                zoneDescriptor.id(), timestamp, nodeNames(nodes), nodeNames(logicalTopology), currentTimer, timer);
 
-        return new DistributionZoneTimer(
-                timer.createTimestamp(),
-                timer.timeToWaitInSeconds(),
-                timer.nodes().stream().filter(filterPredicate).collect(toSet())
-        );
+        return timer;
     }
 
     /**
