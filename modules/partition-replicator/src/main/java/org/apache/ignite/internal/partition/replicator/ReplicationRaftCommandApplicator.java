@@ -50,14 +50,14 @@ public class ReplicationRaftCommandApplicator {
      * @param cmd Raft command.
      * @return Raft future or raft decorated future with command that was processed.
      */
-    public CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
-        CompletableFuture<ResultWrapper<Object>> resultFuture = new CompletableFuture<>();
+    public CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd) {
+        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
         raftCommandRunner.run(cmd).whenComplete((res, ex) -> {
             if (ex != null) {
                 resultFuture.completeExceptionally(ex);
             } else {
-                resultFuture.complete(new ResultWrapper<>(cmd, res));
+                resultFuture.complete(res);
             }
         });
 

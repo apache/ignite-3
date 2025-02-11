@@ -312,7 +312,7 @@ public class TxFinishReplicaRequestHandler {
             finishTxCmdBldr.commitTimestamp(commitTimestamp);
         }
 
-        return raftCommandApplicator.applyCmdWithExceptionHandling(finishTxCmdBldr.build()).thenApply(ResultWrapper::getResult);
+        return raftCommandApplicator.applyCmdWithExceptionHandling(finishTxCmdBldr.build());
     }
 
     private static List<TablePartitionIdMessage> toPartitionIdMessage(Collection<TablePartitionId> partitionIds) {

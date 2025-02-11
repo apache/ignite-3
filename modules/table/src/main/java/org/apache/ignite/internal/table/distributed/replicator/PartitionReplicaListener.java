@@ -109,7 +109,6 @@ import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
-import org.apache.ignite.internal.partition.replicator.ResultWrapper;
 import org.apache.ignite.internal.partition.replicator.TxFinishReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
@@ -2489,7 +2488,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return true;
     }
 
-    private CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
+    private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd) {
         return raftCommandApplicator.applyCmdWithExceptionHandling(cmd);
     }
 
@@ -2553,7 +2552,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(new CommandApplicationResult(null, repFut));
         } else {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
-                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
+                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                 if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
@@ -2686,7 +2685,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(new CommandApplicationResult(null, repFut));
         } else {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
-                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
+                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                 if (!updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(
