@@ -21,24 +21,28 @@ import static java.util.Collections.emptyList;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Base64;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class LeaseBatchSerializerTest {
     private static final UUID NODE1_ID = new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
@@ -48,6 +52,12 @@ class LeaseBatchSerializerTest {
 
     private static final String SERIALIZED_WITH_V1 = "Ae++Q4mPyJLMMQEBAwZub2RlMQZub2RlMgPvzauQeFY0EiFDZYcJutz+ASFDZYcJutz+782rkHhWNBICA"
             + "gIDBwmJJwEIAmWJJwE=";
+
+    private static final String ZONE_SERIALIZED_WITH_V1 = "Ae++Q4mPyJLMMQEBAwZub2RlMQZub2RlMgPvzauQeFY0EiFDZYcJutz+ASFDZYcJutz"
+            + "+782rkHhWNBICAQICAwcJiScBCAJliScB";
+
+    private static final String TABLE_AND_ZONE_SERIALIZED_WITH_V1 = "Ae++Q4mPyJLMMQEBAwZub2RlMQZub2RlMgPvzauQeFY0EiFDZYcJutz+ASFDZYcJutz"
+            + "+782rkHhWNBICAgIDBwmJJwEIAmWJJwECAgMHCYknAQgCZYknAQ==";
 
     private final LeaseBatchSerializer serializer = new LeaseBatchSerializer();
 
@@ -62,19 +72,16 @@ class LeaseBatchSerializerTest {
         byte[] bytes = VersionedSerialization.toBytes(originalBatch, serializer);
         LeaseBatch restoredBatch = VersionedSerialization.fromBytes(bytes, serializer);
 
-        assertThat(restoredBatch.leases(), equalTo(originalBatch.leases()));
+        assertThat(restoredBatch.leases(), containsInAnyOrder(originalBatch.leases().toArray()));
         assertEquals(
                 originalBatch.leases().stream().map(Lease::proposedCandidate).collect(toList()),
                 restoredBatch.leases().stream().map(Lease::proposedCandidate).collect(toList())
         );
     }
 
-    @Test
-    void batchWithTablePartitionsOnly() {
-        HybridTimestamp baseTs = baseTs();
-
-        List<Lease> originalLeases = List.of(
-                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", new TablePartitionId(1, 0)),
+    private static List<Lease> createLeases(HybridTimestamp baseTs, BiFunction<Integer, Integer, PartitionGroupId> groupIdFactory) {
+        return List.of(
+                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", groupIdFactory.apply(1, 0)),
                 new Lease(
                         "node2",
                         NODE2_ID,
@@ -83,9 +90,9 @@ class LeaseBatchSerializerTest {
                         false,
                         false,
                         null,
-                        new TablePartitionId(1, 1)
+                        groupIdFactory.apply(1, 1)
                 ),
-                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", new TablePartitionId(2, 0)),
+                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", groupIdFactory.apply(2, 0)),
                 new Lease(
                         "node2",
                         NODE2_ID,
@@ -94,10 +101,33 @@ class LeaseBatchSerializerTest {
                         false,
                         false,
                         null,
-                        new TablePartitionId(2, 1)
+                        groupIdFactory.apply(2, 1)
                 )
         );
+    }
 
+    private static Stream<Arguments> leasesSource() {
+        return Stream.of(
+            arguments(createLeases(baseTs(), TablePartitionId::new)),
+            arguments(createLeases(baseTs(), ZonePartitionId::new)),
+            arguments(
+                    Stream.concat(
+                            createLeases(baseTs(), TablePartitionId::new).stream(),
+                            createLeases(baseTs(), ZonePartitionId::new).stream()
+                    ).collect(toList())
+            ),
+            arguments(
+                    Stream.concat(
+                            createLeases(baseTs(), ZonePartitionId::new).stream(),
+                            createLeases(baseTs(), TablePartitionId::new).stream()
+                    ).collect(toList())
+            )
+        );
+    }
+
+    @MethodSource("leasesSource")
+    @ParameterizedTest
+    void batchWithTableOrZonePartitions(List<Lease> originalLeases) {
         LeaseBatch originalBatch = new LeaseBatch(originalLeases);
 
         verifySerializationAndDeserializationGivesSameResult(originalBatch);
@@ -200,40 +230,78 @@ class LeaseBatchSerializerTest {
         verifySerializationAndDeserializationGivesSameResult(originalBatch);
     }
 
-    @Test
-    void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode(SERIALIZED_WITH_V1);
-        LeaseBatch restoredBatch = VersionedSerialization.fromBytes(bytes, serializer);
-
-        assertThat(restoredBatch.leases(), hasSize(2));
-        Iterator<Lease> iterator = restoredBatch.leases().iterator();
-
-        Lease lease1 = iterator.next();
-        assertThat(
-                lease1,
-                equalTo(new Lease("node1", NODE1_ID, baseTs(), expiration(baseTs()), true, true, "node2", new TablePartitionId(1, 0)))
-        );
-        assertThat(lease1.proposedCandidate(), is("node2"));
-
-        Lease lease2 = iterator.next();
-        assertThat(
-                lease2,
-                equalTo(new Lease(
-                        "node2",
-                        NODE2_ID,
-                        baseTs().addPhysicalTime(100),
-                        expiration(baseTs().addPhysicalTime(100)),
-                        false,
-                        false,
-                        null,
-                        new TablePartitionId(1, 1)
+    private static Stream<Arguments> v1LeaseBatchAsBase64Source() {
+        return Stream.of(
+                arguments(SERIALIZED_WITH_V1, List.of(
+                        new Lease("node1", NODE1_ID, baseTs(), expiration(baseTs()), true, true, "node2", new TablePartitionId(1, 0)),
+                        new Lease(
+                                "node2",
+                                NODE2_ID,
+                                baseTs().addPhysicalTime(100),
+                                expiration(baseTs().addPhysicalTime(100)),
+                                false,
+                                false,
+                                null,
+                                new TablePartitionId(1, 1)
+                        )
+                )),
+                arguments(ZONE_SERIALIZED_WITH_V1, List.of(
+                        new Lease("node1", NODE1_ID, baseTs(), expiration(baseTs()), true, true, "node2", new ZonePartitionId(1, 0)),
+                        new Lease(
+                                "node2",
+                                NODE2_ID,
+                                baseTs().addPhysicalTime(100),
+                                expiration(baseTs().addPhysicalTime(100)),
+                                false,
+                                false,
+                                null,
+                                new ZonePartitionId(1, 1)
+                        )
+                )),
+                arguments(TABLE_AND_ZONE_SERIALIZED_WITH_V1, List.of(
+                        new Lease("node1", NODE1_ID, baseTs(), expiration(baseTs()), true, true, "node2", new TablePartitionId(1, 0)),
+                        new Lease(
+                                "node2",
+                                NODE2_ID,
+                                baseTs().addPhysicalTime(100),
+                                expiration(baseTs().addPhysicalTime(100)),
+                                false,
+                                false,
+                                null,
+                                new TablePartitionId(1, 1)
+                        ),
+                        new Lease("node1", NODE1_ID, baseTs(), expiration(baseTs()), true, true, "node2", new ZonePartitionId(1, 0)),
+                        new Lease(
+                                "node2",
+                                NODE2_ID,
+                                baseTs().addPhysicalTime(100),
+                                expiration(baseTs().addPhysicalTime(100)),
+                                false,
+                                false,
+                                null,
+                                new ZonePartitionId(1, 1)
+                        )
                 ))
         );
-        assertThat(lease2.proposedCandidate(), is(nullValue()));
+    }
+
+    @MethodSource("v1LeaseBatchAsBase64Source")
+    @ParameterizedTest
+    void v1CanBeDeserialized(String serializedString, List<Lease> expectedLeases) {
+        LeaseBatch originalBatch = new LeaseBatch(expectedLeases);
+
+        byte[] bytes = Base64.getDecoder().decode(serializedString);
+        LeaseBatch restoredBatch = VersionedSerialization.fromBytes(bytes, serializer);
+
+        assertThat(restoredBatch.leases(), containsInAnyOrder(originalBatch.leases().toArray()));
+        assertEquals(
+                originalBatch.leases().stream().map(Lease::proposedCandidate).collect(toList()),
+                restoredBatch.leases().stream().map(Lease::proposedCandidate).collect(toList())
+        );
     }
 
     @SuppressWarnings("unused")
-    private String v1LeaseBatchAsBase64() {
+    private String v1LeaseBatchAsBase64WithTablePartitions() {
         HybridTimestamp baseTs = baseTs();
 
         List<Lease> originalLeases = List.of(
@@ -250,6 +318,64 @@ class LeaseBatchSerializerTest {
                 )
         );
 
+        return v1LeaseBatchAsBase64(originalLeases);
+    }
+
+    @SuppressWarnings("unused")
+        private String v1LeaseBatchAsBase64WithZonePartitions() {
+        HybridTimestamp baseTs = baseTs();
+
+        List<Lease> originalLeases = List.of(
+                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", new ZonePartitionId(1, 0)),
+                new Lease(
+                        "node2",
+                        NODE2_ID,
+                        baseTs.addPhysicalTime(100),
+                        expiration(baseTs.addPhysicalTime(100)),
+                        false,
+                        false,
+                        null,
+                        new ZonePartitionId(1, 1)
+                )
+        );
+
+        return v1LeaseBatchAsBase64(originalLeases);
+    }
+
+    @SuppressWarnings("unused")
+    private String v1LeaseBatchAsBase64WithTableAndZonePartitions() {
+        HybridTimestamp baseTs = baseTs();
+
+        List<Lease> originalLeases = List.of(
+                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", new TablePartitionId(1, 0)),
+                new Lease(
+                        "node2",
+                        NODE2_ID,
+                        baseTs.addPhysicalTime(100),
+                        expiration(baseTs.addPhysicalTime(100)),
+                        false,
+                        false,
+                        null,
+                        new TablePartitionId(1, 1)
+                ),
+                new Lease("node1", NODE1_ID, baseTs, expiration(baseTs), true, true, "node2", new ZonePartitionId(1, 0)),
+                new Lease(
+                        "node2",
+                        NODE2_ID,
+                        baseTs.addPhysicalTime(100),
+                        expiration(baseTs.addPhysicalTime(100)),
+                        false,
+                        false,
+                        null,
+                        new ZonePartitionId(1, 1)
+                )
+        );
+
+        return v1LeaseBatchAsBase64(originalLeases);
+    }
+
+    @SuppressWarnings("unused")
+    private String v1LeaseBatchAsBase64(List<Lease> originalLeases) {
         LeaseBatch originalBatch = new LeaseBatch(originalLeases);
 
         byte[] originalBytes = VersionedSerialization.toBytes(originalBatch, serializer);
