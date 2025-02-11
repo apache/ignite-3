@@ -31,7 +31,6 @@ import org.apache.ignite.internal.partition.replicator.network.command.FinishTxC
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
-import org.apache.ignite.internal.partition.replicator.raft.handlers.MinimumActiveTxTimeCommandHandler;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -74,8 +73,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     // Raft command handlers.
     private final FinishTxCommandHandler finishTxCommandHandler;
 
-    private final MinimumActiveTxTimeCommandHandler minimumActiveTxTimeCommandHandler;
-
     /** Constructor. */
     public ZonePartitionRaftListener(
             ZonePartitionId zonePartitionId,
@@ -95,8 +92,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 new TablePartitionId(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 txManager
         );
-
-        minimumActiveTxTimeCommandHandler = new MinimumActiveTxTimeCommandHandler(minTimeCollectorService);
     }
 
     @Override
@@ -151,20 +146,15 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
             result = processTableAwareCommand(tablePartitionId, command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-            // TODO
             result = new IgniteBiTuple<>(null, false);
 
-            // TODO Adjust safe time before completing update to reduce waiting.
-            tableProcessors.entrySet().forEach(entry -> {
-                minimumActiveTxTimeCommandHandler.handle(
-                        (UpdateMinimumActiveTxBeginTimeCommand) command,
-                        commandIndex,
-                        (RaftGroupListener) entry.getValue(),
-                        entry.getKey());
+            tableProcessors.values().forEach(processor -> {
+                IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
+                // Need to adjust the safe time if any of the table processors successfully handled the command.
+                if (Boolean.TRUE.equals(r.get2())) {
+                    result.set2(Boolean.TRUE);
+                }
             });
-
-            // TODO adjust safetime
-            clo.result(null);
         } else {
             LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
 

@@ -167,13 +167,16 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.minTimeCollectorService = minTimeCollectorService;
 
         // RAFT command handlers initialization.
+        TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
         txFinisher = new RaftTxFinishMarker(txManager);
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
-                new TablePartitionId(storage.tableId(), storage.partitionId()),
-                txManager
-        );
-        minimumActiveTxTimeCommandHandler = new MinimumActiveTxTimeCommandHandler(this.minTimeCollectorService); // remove.
+                tablePartitionId,
+                txManager);
+        minimumActiveTxTimeCommandHandler = new MinimumActiveTxTimeCommandHandler(
+                storage,
+                tablePartitionId,
+                minTimeCollectorService); // remove.
     }
 
     @Override
@@ -265,23 +268,15 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         } else if (command instanceof VacuumTxStatesCommand) {
             result = handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
         } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-            // TODO
-            result = new IgniteBiTuple<>(null, false);
             if (!enabledColocationFeature) {
-                result = minimumActiveTxTimeCommandHandler.handle(
-                        (UpdateMinimumActiveTxBeginTimeCommand) command,
-                        commandIndex,
-                        this,
-                        new TablePartitionId(storage.tableId(), storage.partitionId()));
+                result = minimumActiveTxTimeCommandHandler.handle((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex);
             }
         } else {
-            throw new AssertionError("Unknown command type: " + command.toStringForLightLogging());
+            throw new AssertionError("Unknown command type [command=" + command.toStringForLightLogging() + ']');
         }
 
-        if (result == null) {
-            assert false : "Command should not be passed to PartitionListener "
-                    + "[cmd=" + command + ", colocationEnabled=" + enabledColocationFeature + ']';
-        }
+        assert result != null : "Command should not be passed to PartitionListener "
+                + "[cmd=" + command.toStringForLightLogging() + ", colocationEnabled=" + enabledColocationFeature + ']';
 
         if (Boolean.TRUE.equals(result.get2())) {
             // Adjust safe time before completing update to reduce waiting.

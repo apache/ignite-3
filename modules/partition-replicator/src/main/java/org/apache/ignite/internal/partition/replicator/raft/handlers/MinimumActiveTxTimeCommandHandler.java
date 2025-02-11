@@ -21,16 +21,36 @@ import java.io.Serializable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /**
  * RAFT command handler that process {@link UpdateMinimumActiveTxBeginTimeCommand} commands.
  */
 public class MinimumActiveTxTimeCommandHandler {
+    /** Data storage to which the command will be applied. */
+    private final PartitionDataStorage storage;
+
+    /** Table partition identifier. */
+    private final TablePartitionId tablePartitionId;
+
+    /** Service that collects minimum required timestamp for each partition. */
     private final MinimumRequiredTimeCollectorService minTimeCollectorService;
 
-    public MinimumActiveTxTimeCommandHandler(MinimumRequiredTimeCollectorService minTimeCollectorService) {
+    /**
+     * Creates a new instance of the command handler.
+     *
+     * @param storage Partition data storage.
+     * @param tablePartitionId Table partition identifier.
+     * @param minTimeCollectorService Minimum required time collector service.
+     */
+    public MinimumActiveTxTimeCommandHandler(
+            PartitionDataStorage storage,
+            TablePartitionId tablePartitionId,
+            MinimumRequiredTimeCollectorService minTimeCollectorService
+    ) {
+        this.storage = storage;
+        this.tablePartitionId = tablePartitionId;
         this.minTimeCollectorService = minTimeCollectorService;
     }
 
@@ -39,29 +59,21 @@ public class MinimumActiveTxTimeCommandHandler {
      *
      * @param cmd Command to be processed.
      * @param commandIndex Command index.
-     * @param listener Table commands processor.
-     * @param partitionId Table partition identifier.
      * @return Pair that represents command processing.
      *     The first parameter is always {@code null}, and the second one is boolean that indicates.
      */
-    public IgniteBiTuple<Serializable, Boolean> handle(
-            UpdateMinimumActiveTxBeginTimeCommand cmd,
-            long commandIndex,
-            RaftGroupListener listener,
-            TablePartitionId partitionId
-    ) {
+    public IgniteBiTuple<Serializable, Boolean> handle(UpdateMinimumActiveTxBeginTimeCommand cmd, long commandIndex) {
         // Skips the write command because the storage has already executed it.
-        if (commandIndex <= listener.lastAppliedIndex()) {
+        if (commandIndex <= storage.lastAppliedIndex()) {
             return new IgniteBiTuple<>(null, false);
         }
 
         long timestamp = cmd.timestamp();
 
-        listener
-                .flushStorage(commandIndex)
+        storage.flush(false)
                 .whenComplete((r, t) -> {
                     if (t == null) {
-                        minTimeCollectorService.recordMinActiveTxTimestamp(partitionId, timestamp);
+                        minTimeCollectorService.recordMinActiveTxTimestamp(tablePartitionId, timestamp);
                     }
                 });
 
