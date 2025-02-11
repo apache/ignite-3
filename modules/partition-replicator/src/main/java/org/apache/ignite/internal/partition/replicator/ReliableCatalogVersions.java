@@ -38,6 +38,8 @@ public class ReliableCatalogVersions {
     /**
      * Returns Catalog version corresponding to the given timestamp.
      *
+     * <p>This should only be used when the startup procedure is complete.
+     *
      * @param ts Timestamp for which a Catalog version is to be obtained.
      */
     public CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
