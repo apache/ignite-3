@@ -1823,8 +1823,16 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<Void> closeFut = nullCompletedFuture();
 
         if (explicitCloseCursor) {
+            // I don't use the new colocation aware method for the ID because we pass TablePartitionId object there. I can't change the
+            // method's signature right now because the id object is created outside of the method and is used in several places more than
+            // just the method's call.
+            ReplicationGroupId colocationAwareReplicationGroupId = enabledColocationFeature
+                    ? new ZonePartitionId(zoneId, replicaGrpId.partitionId())
+                    : replicaGrpId;
+
             ScanCloseReplicaRequest scanCloseReplicaRequest = TABLE_MESSAGES_FACTORY.scanCloseReplicaRequest()
-                    .groupId(serializeTablePartitionId(replicaGrpId))
+                    .groupId(colocationAwareSerializeReplicationGroupId(colocationAwareReplicationGroupId))
+                    .tableId(replicaGrpId.tableId())
                     .transactionId(txId)
                     .scanId(scanId)
                     .build();
@@ -2162,16 +2170,8 @@ public class InternalTableImpl implements InternalTable {
         var invokeFutures = new CompletableFuture<?>[partitions];
 
         for (int partId = 0; partId < partitions; partId++) {
-            ReplicationGroupIdMessage partitionIdMessage;
-            ReplicationGroupId replicaGroupId;
-
-            if (enabledColocationFeature) {
-                replicaGroupId = new ZonePartitionId(zoneId, partId);
-                partitionIdMessage = serializeZonePartitionId((ZonePartitionId) replicaGroupId);
-            } else {
-                replicaGroupId = new TablePartitionId(tableId, partId);
-                partitionIdMessage = serializeTablePartitionId((TablePartitionId) replicaGroupId);
-            }
+            ReplicationGroupId replicaGroupId = colocationAwareReplicationGroupId(partId);
+            ReplicationGroupIdMessage partitionIdMessage = colocationAwareSerializeReplicationGroupId(replicaGroupId);
 
             Function<ReplicaMeta, ReplicaRequest> requestFactory = replicaMeta ->
                     TABLE_MESSAGES_FACTORY.getEstimatedSizeRequest()
@@ -2334,5 +2334,17 @@ public class InternalTableImpl implements InternalTable {
                     transaction.isReadOnly()
             ));
         }
+    }
+
+    private ReplicationGroupId colocationAwareReplicationGroupId(int partId) {
+        return enabledColocationFeature
+                ? new ZonePartitionId(zoneId, partId)
+                : new TablePartitionId(tableId, partId);
+    }
+
+    private ReplicationGroupIdMessage colocationAwareSerializeReplicationGroupId(ReplicationGroupId replicaGroupId) {
+        return enabledColocationFeature
+                ? serializeZonePartitionId((ZonePartitionId) replicaGroupId)
+                : serializeTablePartitionId((TablePartitionId) replicaGroupId);
     }
 }
