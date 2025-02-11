@@ -616,8 +616,7 @@ public class Node {
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
                 txManager,
-                schemaManager,
-                minTimeCollectorService
+                schemaManager
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry

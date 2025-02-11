@@ -770,8 +770,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         systemDistributedConfiguration,
                         sharedTxStateStorage,
                         txManager,
-                        schemaManager,
-                        minTimeCollectorService
+                        schemaManager
                 ),
                 minTimeCollectorService,
                 systemDistributedConfiguration

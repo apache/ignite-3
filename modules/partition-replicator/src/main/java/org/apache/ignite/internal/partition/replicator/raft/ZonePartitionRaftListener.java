@@ -79,8 +79,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             TxStatePartitionStorage txStatePartitionStorage,
             TxManager txManager,
             SafeTimeValuesTracker safeTimeTracker,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            MinimumRequiredTimeCollectorService minTimeCollectorService
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;

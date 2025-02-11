@@ -112,7 +112,6 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
-import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
@@ -250,8 +249,6 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ZoneResourcesManager zoneResourcesManager;
 
-    private final MinimumRequiredTimeCollectorService minTimeCollectorService;
-
     /**
      * The constructor.
      *
@@ -270,7 +267,6 @@ public class PartitionReplicaLifecycleManager extends
      * @param sharedTxStateStorage Shared tx state storage.
      * @param txManager Transaction manager.
      * @param schemaManager Schema manager.
-     * @param minTimeCollectorService Service that collects minimum required timestamp for each partition.
      */
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
@@ -288,8 +284,7 @@ public class PartitionReplicaLifecycleManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxStateRocksDbSharedStorage sharedTxStateStorage,
             TxManager txManager,
-            SchemaManager schemaManager,
-            MinimumRequiredTimeCollectorService minTimeCollectorService
+            SchemaManager schemaManager
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
@@ -305,7 +300,6 @@ public class PartitionReplicaLifecycleManager extends
         this.placementDriver = placementDriver;
         this.txManager = txManager;
         this.schemaManager = schemaManager;
-        this.minTimeCollectorService = minTimeCollectorService;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -560,8 +554,7 @@ public class PartitionReplicaLifecycleManager extends
                     txStatePartitionStorage,
                     txManager,
                     safeTimeTracker,
-                    storageIndexTracker,
-                    minTimeCollectorService
+                    storageIndexTracker
             );
 
             var listeners = new Listeners(raftGroupListener);
