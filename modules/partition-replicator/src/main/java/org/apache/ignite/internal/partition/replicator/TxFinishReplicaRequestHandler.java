@@ -113,7 +113,7 @@ public class TxFinishReplicaRequestHandler {
      * <ol>
      *     <li>Get commit timestamp from finish replica request.</li>
      *     <li>If attempting a commit, validate commit (and, if not valid, switch to abort)</li>
-     *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
+     *     <li>Run {@code FinishTxCommand} raft command, that will apply txn state to corresponding txStateStorage.</li>
      *     <li>Send cleanup requests to all enlisted primary replicas.</li>
      * </ol>
      *
