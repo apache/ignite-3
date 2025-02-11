@@ -19,11 +19,9 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
@@ -44,7 +42,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -53,6 +50,8 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateAll
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -64,7 +63,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -77,10 +75,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
-import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
@@ -129,6 +124,10 @@ public class PartitionListener implements RaftGroupListener {
 
     private final MinimumRequiredTimeCollectorService minTimeCollectorService;
 
+    private final RaftTxFinishMarker txFinisher;
+
+    private final FinishTxCommandHandler finishTxCommandHandler;
+
     /** Constructor. */
     public PartitionListener(
             TxManager txManager,
@@ -154,6 +153,13 @@ public class PartitionListener implements RaftGroupListener {
         this.indexMetaStorage = indexMetaStorage;
         this.localNodeId = localNodeId;
         this.minTimeCollectorService = minTimeCollectorService;
+
+        txFinisher = new RaftTxFinishMarker(txManager);
+        finishTxCommandHandler = new FinishTxCommandHandler(
+                txStatePartitionStorage,
+                new TablePartitionId(storage.tableId(), storage.partitionId()),
+                txManager
+        );
     }
 
     @Override
@@ -203,7 +209,7 @@ public class PartitionListener implements RaftGroupListener {
                 } else if (command instanceof UpdateAllCommand) {
                     result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
                 } else if (command instanceof FinishTxCommand) {
-                    result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
+                    result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof WriteIntentSwitchCommand) {
                     result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
@@ -374,66 +380,6 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     /**
-     * Handler for the {@link FinishTxCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @param commandTerm Term of the RAFT command.
-     * @return The actually stored transaction state {@link TransactionResult}.
-     * @throws IgniteInternalException if an exception occurred during a transaction state change.
-     */
-    private IgniteBiTuple<Serializable, Boolean> handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
-            throws IgniteInternalException {
-        // Skips the write command because the storage has already executed it.
-        if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {
-            return new IgniteBiTuple<>(null, false);
-        }
-
-        UUID txId = cmd.txId();
-
-        TxState stateToSet = cmd.commit() ? COMMITTED : ABORTED;
-
-        TxMeta txMetaToSet = new TxMeta(
-                stateToSet,
-                fromPartitionIdMessage(cmd.partitionIds()),
-                cmd.commitTimestamp()
-        );
-
-        TxMeta txMetaBeforeCas = txStatePartitionStorage.get(txId);
-
-        boolean txStateChangeRes = txStatePartitionStorage.compareAndSet(
-                txId,
-                null,
-                txMetaToSet,
-                commandIndex,
-                commandTerm
-        );
-
-        // Assume that we handle the finish command only on the commit partition.
-        TablePartitionId commitPartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
-
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), commitPartitionId);
-
-        LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
-
-        if (!txStateChangeRes) {
-            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
-        }
-
-        return new IgniteBiTuple<>(new TransactionResult(stateToSet, cmd.commitTimestamp()), true);
-    }
-
-    private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
-        List<TablePartitionId> list = new ArrayList<>(partitionIds.size());
-
-        for (TablePartitionIdMessage partitionIdMessage : partitionIds) {
-            list.add(partitionIdMessage.asTablePartitionId());
-        }
-
-        return list;
-    }
-
-    /**
      * Handler for the {@link WriteIntentSwitchCommand}.
      *
      * @param cmd Command.
@@ -452,7 +398,7 @@ public class PartitionListener implements RaftGroupListener {
 
         UUID txId = cmd.txId();
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
+        txFinisher.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
 
         storageUpdateHandler.switchWriteIntents(
                 txId,
@@ -709,26 +655,6 @@ public class PartitionListener implements RaftGroupListener {
         return new IgniteBiTuple<>(null, true);
     }
 
-    private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
-        String errorMsg = format("Failed to update tx state in the storage, transaction txId = {} because of inconsistent state,"
-                        + " expected state = {}, state to set = {}",
-                txId,
-                txMetaBeforeCas,
-                txMetaToSet
-        );
-
-        IgniteInternalException stateChangeException =
-                new UnexpectedTransactionStateException(
-                        errorMsg,
-                        new TransactionResult(txMetaBeforeCas.txState(), txMetaBeforeCas.commitTimestamp())
-                );
-
-        // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
-        LOG.error(errorMsg);
-
-        throw stateChangeException;
-    }
-
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
             PendingComparableValuesTracker<T, Void> tracker,
             T newValue
@@ -765,18 +691,6 @@ public class PartitionListener implements RaftGroupListener {
                 old == null ? null : old.commitPartitionId(),
                 full ? commitTimestamp : null,
                 old == null ? null : old.tx()
-        ));
-    }
-
-    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, @Nullable TablePartitionId partId) {
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                commit ? COMMITTED : ABORTED,
-                old == null ? null : old.txCoordinatorId(),
-                old == null ? partId : old.commitPartitionId(),
-                commit ? commitTimestamp : null,
-                old == null ? null : old.tx(),
-                old == null ? null : old.initialVacuumObservationTimestamp(),
-                old == null ? null : old.cleanupCompletionTimestamp()
         ));
     }
 

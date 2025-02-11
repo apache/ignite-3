@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -110,20 +111,23 @@ public class TxCleanupRequestSender {
         }
     }
 
-    private void markTxnCleanupReplicated(UUID txId, TxState state, TablePartitionId commitPartitionId) {
+    private void markTxnCleanupReplicated(UUID txId, TxState state, ReplicationGroupId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        txStateVolatileStorage.updateMeta(txId, oldMeta ->
-                new TxStateMeta(
-                        oldMeta == null ? state : oldMeta.txState(),
-                        oldMeta == null ? null : oldMeta.txCoordinatorId(),
-                        commitPartitionId,
-                        oldMeta == null ? null : oldMeta.commitTimestamp(),
-                        oldMeta == null ? null : oldMeta.tx(),
-                        oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
-                        cleanupCompletionTimestamp
-                )
-        );
+        // TODO: IGNITE-24343 - handle for ZonePartitionId as well.
+        if (commitPartitionId instanceof TablePartitionId) {
+            txStateVolatileStorage.updateMeta(txId, oldMeta ->
+                    new TxStateMeta(
+                            oldMeta == null ? state : oldMeta.txState(),
+                            oldMeta == null ? null : oldMeta.txCoordinatorId(),
+                            (TablePartitionId) commitPartitionId,
+                            oldMeta == null ? null : oldMeta.commitTimestamp(),
+                            oldMeta == null ? null : oldMeta.tx(),
+                            oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
+                            cleanupCompletionTimestamp
+                    )
+            );
+        }
     }
 
     /**
@@ -149,7 +153,7 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Map<TablePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -179,7 +183,7 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Collection<TablePartitionId> partitionIds,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -201,7 +205,7 @@ public class TxCleanupRequestSender {
     }
 
     private void cleanupPartitionsWithoutPrimary(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -214,7 +218,7 @@ public class TxCleanupRequestSender {
     }
 
     private CompletableFuture<Void> cleanupPartitions(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Map<String, Set<TablePartitionId>> partitionsByNode,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -233,7 +237,7 @@ public class TxCleanupRequestSender {
     }
 
     private CompletableFuture<Void> sendCleanupMessageWithRetries(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -271,7 +275,7 @@ public class TxCleanupRequestSender {
     }
 
     private static class CleanupContext {
-        private final TablePartitionId commitPartitionId;
+        private final ReplicationGroupId commitPartitionId;
 
         /**
          * The partitions the we have not received write intent replication confirmation for.
@@ -283,7 +287,7 @@ public class TxCleanupRequestSender {
          */
         private final TxState txState;
 
-        private CleanupContext(TablePartitionId commitPartitionId, Set<TablePartitionId> partitions, TxState txState) {
+        private CleanupContext(ReplicationGroupId commitPartitionId, Set<TablePartitionId> partitions, TxState txState) {
             this.commitPartitionId = commitPartitionId;
             this.partitions = partitions;
             this.txState = txState;

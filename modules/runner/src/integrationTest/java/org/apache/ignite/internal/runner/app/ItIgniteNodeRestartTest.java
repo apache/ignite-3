@@ -768,7 +768,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         placementDriverManager.placementDriver(),
                         schemaSyncService,
                         systemDistributedConfiguration,
-                        sharedTxStateStorage
+                        sharedTxStateStorage,
+                        txManager,
+                        schemaManager
                 ),
                 minTimeCollectorService,
                 systemDistributedConfiguration
