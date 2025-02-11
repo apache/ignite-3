@@ -43,6 +43,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
@@ -127,11 +128,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                     .thenApply(res -> new ReplicaResult(res, null));
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24380
-        // Move PartitionReplicaListener#ensureReplicaIsPrimary to ZonePartitionReplicaListener.
-        CompletableFuture<IgniteBiTuple<Boolean, Long>> replicaFuture = completedFuture(new IgniteBiTuple<>(null, null));
-
-        return replicaFuture
+        return ensureReplicaIsPrimary(request)
                 .thenCompose(res -> processZoneReplicaRequest(request, res.get1(), senderId, res.get2()))
                 .thenApply(res -> {
                     if (res instanceof ReplicaResult) {
@@ -140,6 +137,20 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                         return new ReplicaResult(res, null);
                     }
                 });
+    }
+
+    /**
+     * Ensure that the primary replica was not changed.
+     *
+     * @param request Replica request.
+     * @return Future with {@link IgniteBiTuple} containing {@code boolean} (whether the replica is primary) and the start time of current
+     *     lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
+     *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
+     */
+    private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24380
+        // Move PartitionReplicaListener#ensureReplicaIsPrimary to ZonePartitionReplicaListener.
+        return completedFuture(new IgniteBiTuple<>(null, null));
     }
 
     /**
@@ -332,13 +343,5 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     static HybridTimestamp beginRwTxTs(ReadWriteReplicaRequest request) {
         return TransactionIds.beginTimestamp(request.transactionId());
-    }
-
-    /**
-     * Generates a fake transaction ID that will only be used to identify one direct RO operation for purposes of locking and unlocking LWM.
-     * It should not be used as a replacement for a real transaction ID in other contexts.
-     */
-    private static UUID newFakeTxId() {
-        return UUID.randomUUID();
     }
 }
