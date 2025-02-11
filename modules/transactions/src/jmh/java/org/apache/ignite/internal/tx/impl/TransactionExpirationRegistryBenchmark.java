@@ -53,7 +53,7 @@ public class TransactionExpirationRegistryBenchmark {
     private static final List<InternalTransaction> transactions = new ArrayList<>(ITERATIONS_COUNT);
 
     @Setup
-    public void setup() {
+    static void setup() {
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             transactions.add(new FakeInternalTransaction(i));
         }
@@ -69,10 +69,10 @@ public class TransactionExpirationRegistryBenchmark {
     }
 
     @Benchmark
-    public static void register10() {
+    static void register10() {
         TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
         int iterCnt = ITERATIONS_COUNT / 10;
-        for (int i = 0; i < iterCnt ; i++) {
+        for (int i = 0; i < iterCnt; i++) {
             for (int j = 0; j < 10; j++) {
                 registry.register(transactions.get(i * 10 + j), i);
             }
@@ -80,30 +80,30 @@ public class TransactionExpirationRegistryBenchmark {
     }
 
     /** Register and unregister transactions in the cycle. */
-//    @Benchmark
-//    public static void registerUnregister() {
-//        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
-//        for (int i = 0; i < ITERATIONS_COUNT; i++) {
-//            registry.register(transactions.get(i), i);
-//        }
-//
-//        for (int i = 0; i < ITERATIONS_COUNT; i++) {
-//            registry.unregister(transactions.get(i));
-//        }
-//    }
+    @Benchmark
+    public static void registerUnregister() {
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        for (int i = 0; i < ITERATIONS_COUNT; i++) {
+            registry.register(transactions.get(i), i);
+        }
+
+        for (int i = 0; i < ITERATIONS_COUNT; i++) {
+            registry.unregister(transactions.get(i));
+        }
+    }
 
     /** Register and expire transactions in the cycle. */
-//    @Benchmark
-//    public static void registerExpire() {
-//        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
-//        for (int i = 0; i < ITERATIONS_COUNT; i++) {
-//            registry.register(transactions.get(i), i);
-//        }
-//
-//        for (int i = ITERATIONS_COUNT; i > 0; i--) {
-//            registry.expireUpTo(i);
-//        }
-//    }
+    @Benchmark
+    public static void registerExpire() {
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        for (int i = 0; i < ITERATIONS_COUNT; i++) {
+            registry.register(transactions.get(i), i);
+        }
+
+        for (int i = ITERATIONS_COUNT; i > 0; i--) {
+            registry.expireUpTo(i);
+        }
+    }
 
     private static class FakeInternalTransaction implements InternalTransaction {
         private final int id;

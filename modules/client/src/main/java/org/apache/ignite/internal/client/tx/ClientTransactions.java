@@ -62,11 +62,6 @@ public class ClientTransactions implements IgniteTransactions {
             @Nullable String preferredNodeName,
             @Nullable TransactionOptions options,
             long observableTimestamp) {
-        if (options != null && options.timeoutMillis() != 0 && !options.readOnly()) {
-            // TODO: IGNITE-16193
-            throw new UnsupportedOperationException("Timeouts are not supported yet for RW transactions");
-        }
-
         boolean readOnly = options != null && options.readOnly();
 
         return ch.serviceAsync(

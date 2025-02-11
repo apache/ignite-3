@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.readonly;
+package org.apache.ignite.internal.tx;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -24,15 +24,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.tx.impl.ReadOnlyTransactionImpl;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 
-abstract class ItReadOnlyTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
-    private static final String TABLE_NAME = "TEST";
+abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
+    private static final String TABLE1_NAME = "TEST1";
+    private static final String TABLE2_NAME = "TEST2";
+
 
     @Override
     protected int initialNodes() {
@@ -41,15 +42,15 @@ abstract class ItReadOnlyTxTimeoutOneNodeTest extends ClusterPerTestIntegrationT
 
     abstract Ignite ignite();
 
-    abstract ReadOnlyTransactionImpl transactionImpl(Transaction tx);
+    abstract InternalTransaction toInternalTransaction(Transaction tx);
 
     @Test
     void roTransactionTimesOut() throws Exception {
         Ignite ignite = ignite();
 
-        ignite.sql().executeScript("CREATE TABLE " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
+        ignite.sql().executeScript("CREATE TABLE " + TABLE1_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
 
-        Table table = ignite.tables().table(TABLE_NAME);
+        Table table = ignite.tables().table(TABLE1_NAME);
 
         Transaction roTx = ignite.transactions().begin(new TransactionOptions().readOnly(true).timeoutMillis(100));
 
@@ -57,7 +58,7 @@ abstract class ItReadOnlyTxTimeoutOneNodeTest extends ClusterPerTestIntegrationT
         doGetOn(table, roTx);
 
         assertTrue(
-                waitForCondition(() -> transactionImpl(roTx).isFinishingOrFinished(), SECONDS.toMillis(10)),
+                waitForCondition(() -> toInternalTransaction(roTx).isFinishingOrFinished(), SECONDS.toMillis(10)),
                 "Transaction should have been finished due to timeout"
         );
 
@@ -66,7 +67,35 @@ abstract class ItReadOnlyTxTimeoutOneNodeTest extends ClusterPerTestIntegrationT
         // assertThrows(TransactionException.class, roTx::commit);
     }
 
+    @Test
+    void readWriteTransactionTimesOut() throws InterruptedException {
+        Ignite ignite = ignite();
+
+        ignite.sql().executeScript("CREATE TABLE " + TABLE2_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
+
+        Table table = ignite.tables().table(TABLE2_NAME);
+
+        Transaction rwTx = ignite.transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(5_000));
+
+        // Make sure the tx actually begins on the server (as thin client transactions are lazy).
+        doPutOn(table, rwTx);
+
+        assertTrue(
+                waitForCondition(() -> toInternalTransaction(rwTx).isFinishingOrFinished(), SECONDS.toMillis(10)),
+                "Transaction should have been finished due to timeout"
+        );
+
+        assertThrows(TransactionException.class, () -> doGetOn(table, rwTx));
+        // TODO: uncomment the following assert after IGNITE-24233 is fixed.
+        // assertThrows(TransactionException.class, roTx::commit);
+
+    }
+
     private static void doGetOn(Table table, Transaction tx) {
         table.keyValueView(Integer.class, String.class).get(tx, 1);
+    }
+
+    private static void doPutOn(Table table, Transaction tx) {
+        table.keyValueView(Integer.class, String.class).put(tx, 1, "one");
     }
 }

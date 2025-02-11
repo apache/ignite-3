@@ -96,16 +96,16 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
 
         /**
          * Run the main workload.
-         * <p>
-         * Logic:
+         *
+         *<p>Logic:
          * <ul>
          *    <li>register all transactions from pool with expirationTime == i + offset, where i is the index of tx in pool</li>
          *    <li>unregister all tx with even i</li>
          *    <li>expire all tx with odd i</li>
          *    <li>count down latch</li>
          * </ul>
-         * <p>
-         * Invariant: each tx with odd i must be eventually rolled back.
+         *
+         *<p>Invariant: each tx with odd i must be eventually rolled back.
          */
         void run() {
             new Thread(() -> {
