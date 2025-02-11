@@ -61,6 +61,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -432,7 +433,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Nullable
     private StreamerReceiverRunner streamerReceiverRunner;
 
-    private final CompletableFuture<Void> readyToProcessTableStarts = new CompletableFuture<>();
+    private final CompletableFuture<Void> readyToProcessReplicaStarts = new CompletableFuture<>();
 
     private final Map<Integer, Set<TableImpl>> tablesPerZone = new ConcurrentHashMap<>();
 
@@ -601,8 +602,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
 
         partitionReplicaLifecycleManager.listen(
-                LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
-                this::onZoneReplicaCreated
+                LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED,
+                this::beforeZoneReplicaStarted
         );
 
         partitionReplicaLifecycleManager.listen(
@@ -637,10 +638,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
             cleanUpResourcesForDroppedTablesOnRecoveryBusy();
-
-            // This future unblocks the process of tables start.
-            // All needed storages, like the TxStateRocksDbSharedStorage must be started already.
-            readyToProcessTableStarts.complete(null);
 
             startTables(recoveryRevision, lowWatermark.getLowWatermark());
 
@@ -686,12 +683,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return executorInclinedSchemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
     }
 
-    private CompletableFuture<Boolean> onZoneReplicaCreated(LocalPartitionReplicaEventParameters parameters) {
+    private CompletableFuture<Boolean> beforeZoneReplicaStarted(LocalPartitionReplicaEventParameters parameters) {
         if (!enabledColocationFeature) {
             return falseCompletedFuture();
         }
 
-        return inBusyLockAsync(busyLock, () -> readyToProcessTableStarts
+        return inBusyLockAsync(busyLock, () -> readyToProcessReplicaStarts
                 .thenCompose(v -> {
                     ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
@@ -760,10 +757,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, parameters.catalogVersion());
         CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, parameters.catalogVersion());
 
-        return prepareTableResourcesAndLoadToZoneReplica(causalityToken, zoneDescriptor, tableDescriptor, schemaDescriptor, false);
+        return prepareTableResourcesAndLoadToZoneReplica(causalityToken, zoneDescriptor, tableDescriptor, schemaDescriptor, false)
+                .thenApply(v -> false);
     }
 
-    private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(
+    private CompletableFuture<Void> prepareTableResourcesAndLoadToZoneReplica(
             long causalityToken,
             CatalogZoneDescriptor zoneDescriptor,
             CatalogTableDescriptor tableDescriptor,
@@ -837,8 +835,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (th == null) {
                         addTableToZone(zoneDescriptor.id(), table);
                     }
-                })
-                .thenApply(unused -> false);
+                });
     }
 
     /**
@@ -2948,33 +2945,34 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         var startTableFutures = new ArrayList<CompletableFuture<?>>();
 
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
-            int ver0 = ver;
-            catalogService.catalog(ver).tables().stream()
-                    .filter(tbl -> startedTables.add(tbl.id()))
-                    .forEach(tableDescriptor -> {
-                        if (enabledColocationFeature) {
-                            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver0);
-                            CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver0);
+            for (CatalogTableDescriptor tableDescriptor : catalogService.catalog(ver).tables()) {
+                if (!startedTables.add(tableDescriptor.id())) {
+                    continue;
+                }
 
-                            startTableFutures.add(
-                                    prepareTableResourcesAndLoadToZoneReplica(
-                                            recoveryRevision,
-                                            zoneDescriptor,
-                                            tableDescriptor,
-                                            schemaDescriptor,
-                                            true
-                                    )
-                            );
-                        } else {
-                            startTableFutures.add(
-                                    createTableLocally(recoveryRevision, ver0, tableDescriptor, true)
-                            );
-                        }
-                    });
+                CompletableFuture<?> startTableFuture;
+
+                if (enabledColocationFeature) {
+                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver);
+                    CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver);
+
+                    startTableFuture = prepareTableResourcesAndLoadToZoneReplica(
+                            recoveryRevision,
+                            zoneDescriptor,
+                            tableDescriptor,
+                            schemaDescriptor,
+                            true
+                    );
+                } else {
+                    startTableFuture = createTableLocally(recoveryRevision, ver, tableDescriptor, true);
+                }
+
+                startTableFutures.add(startTableFuture);
+            }
         }
 
-        // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
-        startVv.update(recoveryRevision, (unused, throwable) -> allOf(startTableFutures.toArray(CompletableFuture[]::new)))
+        CompletableFuture<Void> allTablesStartedFuture = allOf(startTableFutures.toArray(CompletableFuture[]::new))
+                .whenComplete(copyStateTo(readyToProcessReplicaStarts))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
                         LOG.error("Error starting tables", throwable);
@@ -2982,6 +2980,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         LOG.debug("Tables started successfully");
                     }
                 });
+
+        // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
+        startVv.update(recoveryRevision, (unused, throwable) -> allTablesStartedFuture);
     }
 
     /**
