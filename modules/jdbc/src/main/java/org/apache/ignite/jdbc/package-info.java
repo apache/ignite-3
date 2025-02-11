@@ -15,21 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
-
-import org.apache.ignite.internal.event.Event;
-
 /**
- * Events produced by {@link PartitionReplicaLifecycleManager}.
+ * Contains JDBC driver implementation for Apache Ignite 3.x.
  */
-public enum LocalPartitionReplicaEvent implements Event {
-    /**
-     * Fired before a partition replica is started.
-     */
-    BEFORE_REPLICA_STARTED,
 
-    /**
-     * Fired when partition replica has been destroyed.
-     */
-    AFTER_REPLICA_DESTROYED
-}
+package org.apache.ignite.jdbc;

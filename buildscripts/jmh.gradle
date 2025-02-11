@@ -23,7 +23,8 @@ def isLinux = System.getProperty('os.name').toLowerCase().contains('linux')
 def isWin = System.getProperty('os.name').toLowerCase().contains('win')
 
 jmh {
-    includes = project.hasProperty('jmhBench') ? ["org.apache.ignite.*.${project.getProperty('jmhBench')}"] : ['.*'] // Match all benchmarks by default
+    includes = project.hasProperty('jmhBench') ? ["org.apache.ignite.*.${project.getProperty('jmhBench')}"] : ['.*']
+    // Match all benchmarks by default
 
     // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
     failOnError = true
@@ -45,18 +46,24 @@ jmh {
     // Strategy to apply when encountring duplicate classes during creation of the fat jar (i.e. while executing jmhJar task)
     duplicateClassesStrategy = DuplicatesStrategy.EXCLUDE
 
-    // Determine the profiler library path dynamically based on the OS
+
+    // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
+    profilers = project.hasProperty('jmhProfileJfr') ? ["jfr:dir=build/profiler"] : []
+
+    // Determine the async profiler library path dynamically based on the OS
     def asyncProfilerLibPath
     if (isMac) {
         asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.dylib"
     } else if (isLinux) {
         asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.so"
     }
+
     if (isWin) {
-       // do not use async profiler since it is not supported for win
+        // do not use async profiler since it is not supported for win
     } else {
-        // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
-        profilers = ["async:libPath=${asyncProfilerLibPath};output=flamegraph;dir=build/profiler"]
+        if (project.hasProperty('jmhProfileAsync')) {
+            profilers.add("async:libPath=${asyncProfilerLibPath};output=flamegraph;dir=build/profiler")
+        }
     }
 
     // Timeout for benchmark iteration.
@@ -100,11 +107,17 @@ jmh {
 
     // Number of warmup iterations to do.
     // warmupIterations = 1
+
+    // jvmArgsAppend = ['-XX:+FlightRecorder']
 }
 
 jmhReport {
     jmhResultPath = project.file("${project.buildDir}/reports/jmh/results.json")
     jmhReportOutput = project.file("${project.buildDir}/reports/jmh")
 }
+
+// Disable caching.
+// https://github.com/gradle/gradle/issues/9210
+tasks.jmh.outputs.upToDateWhen { false }
 
 tasks.jmh.finalizedBy tasks.jmhReport

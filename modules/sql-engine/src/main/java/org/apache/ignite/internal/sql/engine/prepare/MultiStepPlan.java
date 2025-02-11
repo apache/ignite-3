@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
@@ -92,7 +90,7 @@ public class MultiStepPlan implements ExplainablePlan {
     public String explain() {
         IgniteRel clonedRoot = Cloner.clone(root, Commons.cluster());
 
-        return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+        return ExplainUtils.toString(clonedRoot);
     }
 
     public int catalogVersion() {

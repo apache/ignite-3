@@ -23,7 +23,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
 import java.math.BigDecimal;
-import java.util.EnumSet;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -58,16 +59,22 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
      * Ensures that object mapping doesn't miss any type pair from {@link NumericPair}.
      */
     static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
-        EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
+        checkIncludesAllTypePairs(args, NumericPair.class);
+    }
 
-        List<NumericPair> usedPairs = args.map(Arguments::get)
-                .map(arg -> (NumericPair) arg[0])
+    static void checkIncludesAllTypePairs(Stream<Arguments> args, Class<? extends TypePair> clazz) {
+        TypePair[] enums = clazz.getEnumConstants();
+
+        List<TypePair> remainingPairs = new ArrayList<>(Arrays.asList(enums));
+
+        List<TypePair> usedPairs = args.map(Arguments::get)
+                .map(arg -> (clazz.cast(arg[0])))
                 .collect(Collectors.toList());
 
         usedPairs.forEach(remainingPairs::remove);
 
-        for (NumericPair numericPair : NumericPair.values()) {
-            usedPairs.remove(numericPair);
+        for (Object numericPair : enums) {
+            usedPairs.remove(clazz.cast(numericPair));
         }
 
         assertThat("There are missing pairs", remainingPairs, Matchers.empty());

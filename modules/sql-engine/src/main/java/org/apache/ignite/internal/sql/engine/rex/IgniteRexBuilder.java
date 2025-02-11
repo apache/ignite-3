@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rex;
 
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
@@ -77,6 +78,8 @@ public class IgniteRexBuilder extends RexBuilder {
                 }
 
                 return makeCharLiteral(string);
+            } else if (type.getSqlTypeName() == SqlTypeName.BINARY) {
+                return makeBinaryLiteral((ByteString) value);
             } else if (value instanceof String) {
                 if (type.getSqlTypeName() == SqlTypeName.DOUBLE) {
                     value = Double.parseDouble((String) value);

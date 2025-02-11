@@ -55,17 +55,19 @@ dependencies {
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
 
-    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
-    integrationTestImplementation testFixtures(project(':ignite-network'))
-    integrationTestImplementation testFixtures(project(':ignite-metrics'))
-    integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
-    integrationTestImplementation testFixtures(project(':ignite-metastorage'))
-    integrationTestImplementation testFixtures(project(':ignite-transactions'))
-    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-distribution-zones'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
+    integrationTestImplementation testFixtures(project(':ignite-metastorage'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics'))
+    integrationTestImplementation testFixtures(project(':ignite-network'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-storage-api'))
     integrationTestImplementation testFixtures(project(':ignite-table'))
+    integrationTestImplementation testFixtures(project(':ignite-transactions'))
+
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-replicator')
