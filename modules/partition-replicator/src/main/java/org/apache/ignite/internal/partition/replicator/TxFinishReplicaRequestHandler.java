@@ -58,6 +58,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -146,7 +147,7 @@ public class TxFinishReplicaRequestHandler {
     }
 
     private static Map<TablePartitionId, String> asTablePartitionIdStringMap(Map<TablePartitionIdMessage, String> messages) {
-        var result = new HashMap<TablePartitionId, String>(messages.size());
+        var result = new HashMap<TablePartitionId, String>(IgniteUtils.capacity(messages.size()));
 
         for (Entry<TablePartitionIdMessage, String> e : messages.entrySet()) {
             result.put(e.getKey().asTablePartitionId(), e.getValue());
