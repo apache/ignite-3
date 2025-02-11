@@ -393,6 +393,8 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, 1000));
 
+        assertFalse(distributionZoneManager.dataNodesManager().zoneTimers(scZoneId).partitionReset.taskIsScheduled());
+
         assertTrue(waitForCondition(() -> !eventList.isEmpty(), 2000));
         assertEquals(1, eventList.size());
         assertEquals(haZoneId, eventList.get(0).zoneId());
@@ -408,6 +410,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         assertLogicalTopology(Set.of(NODE_A), keyValueStorage);
 
         assertEquals(1, eventList.size());
+        assertFalse(distributionZoneManager.dataNodesManager().zoneTimers(scZoneId).partitionReset.taskIsScheduled());
     }
 
     @Test
