@@ -51,6 +51,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
@@ -89,7 +90,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-public class PartitionListener implements RaftGroupListener {
+public class PartitionListener implements RaftGroupListener, RaftTableProcessor {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
@@ -174,7 +175,7 @@ public class PartitionListener implements RaftGroupListener {
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
-            Command command = clo.command();
+            WriteCommand command = clo.command();
 
             long commandIndex = clo.index();
             long commandTerm = clo.term();
@@ -204,37 +205,7 @@ public class PartitionListener implements RaftGroupListener {
             storage.acquirePartitionSnapshotsReadLock();
 
             try {
-                if (command instanceof UpdateCommand) {
-                    result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm, safeTimestamp);
-                } else if (command instanceof UpdateAllCommand) {
-                    result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
-                } else if (command instanceof FinishTxCommand) {
-                    result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof WriteIntentSwitchCommand) {
-                    result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof SafeTimeSyncCommand) {
-                    result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof BuildIndexCommand) {
-                    result = handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof PrimaryReplicaChangeCommand) {
-                    result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof VacuumTxStatesCommand) {
-                    result = handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-                    result = handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex,
-                            commandTerm);
-                } else {
-                    assert false : "Command was not found [cmd=" + command + ']';
-                }
-
-                if (Boolean.TRUE.equals(result.get2())) {
-                    // Adjust safe time before completing update to reduce waiting.
-                    if (safeTimestamp != null) {
-                        updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
-                    }
-
-                    updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
-                }
+                result = processCommand(command, commandIndex, commandTerm, safeTimestamp);
             } catch (Throwable t) {
                 LOG.error(
                         "Got error while processing command [commandIndex={}, commandTerm={}, command={}]",
@@ -255,12 +226,48 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    private final void updateTrackers(@Nullable HybridTimestamp safeTs, long commandIndex) {
-        if (safeTs != null) {
-            updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTs);
+    @Override
+    public IgniteBiTuple<Serializable, Boolean> processCommand(
+            WriteCommand command,
+            long commandIndex,
+            long commandTerm,
+            @Nullable HybridTimestamp safeTimestamp
+    ) {
+        IgniteBiTuple<Serializable, Boolean> result;
+
+        if (command instanceof UpdateCommand) {
+            result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm, safeTimestamp);
+        } else if (command instanceof UpdateAllCommand) {
+            result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
+        } else if (command instanceof FinishTxCommand) {
+            result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
+        } else if (command instanceof WriteIntentSwitchCommand) {
+            result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
+        } else if (command instanceof SafeTimeSyncCommand) {
+            result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
+        } else if (command instanceof BuildIndexCommand) {
+            result = handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
+        } else if (command instanceof PrimaryReplicaChangeCommand) {
+            result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
+        } else if (command instanceof VacuumTxStatesCommand) {
+            result = handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
+        } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+            result = handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex,
+                    commandTerm);
+        } else {
+            throw new AssertionError("Unknown command type: " + command.toStringForLightLogging());
         }
 
-        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
+        if (Boolean.TRUE.equals(result.get2())) {
+            // Adjust safe time before completing update to reduce waiting.
+            if (safeTimestamp != null) {
+                updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+            }
+
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
+        }
+
+        return result;
     }
 
     /**
