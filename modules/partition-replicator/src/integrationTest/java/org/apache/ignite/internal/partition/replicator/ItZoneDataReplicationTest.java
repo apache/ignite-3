@@ -99,6 +99,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -459,37 +460,44 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
             ));
         }
 
-        List<CountExpectation> expectations = new ArrayList<>();
+        List<Executable> assertions = new ArrayList<>();
         for (int i = 0; i < cluster.size(); i++) {
-            Node currentNode = cluster.get(i);
-            expectations.add(new CountExpectation(
-                    "Node " + i + " zone",
+            int finalI = i;
+            Node currentNode = cluster.get(finalI);
+
+            assertions.add(() -> assertTxStateStorageAsExpected(
+                    "Node " + finalI + " zone",
                     currentNode.txStatePartitionStorage(zoneId, 0),
-                    1
+                    1,
+                    commit
             ));
-            expectations.add(new CountExpectation(
-                    "Node " + i + " table1",
+            assertions.add(() -> assertTxStateStorageAsExpected(
+                    "Node " + finalI + " table1",
                     tableTxStatePartitionStorage(currentNode, tableId1, 0),
-                    0
+                    0,
+                    commit
             ));
-            expectations.add(new CountExpectation(
-                    "Node " + i + " table2",
+            assertions.add(() -> assertTxStateStorageAsExpected(
+                    "Node " + finalI + " table2",
                     tableTxStatePartitionStorage(currentNode, tableId2, 0),
-                    0
+                    0,
+                    commit
             ));
         }
 
-        assertAll(
-                expectations.stream().map(expectation -> () -> {
-                    List<TxState> txStates = txStatesInPartitionStorage(expectation.storage);
-                    assertThat(
-                            "For " + expectation.storageName,
-                            txStates,
-                            hasSize(expectation.expectedCount)
-                    );
-                    assertThat(txStates, everyItem(is(commit ? TxState.COMMITTED : TxState.ABORTED)));
-                })
-        );
+        assertAll(assertions);
+    }
+
+    private static void assertTxStateStorageAsExpected(
+            String storageName,
+            TxStatePartitionStorage txStatePartitionStorage,
+            int expectedCount,
+            boolean commit
+    ) {
+        List<TxState> txStates = txStatesInPartitionStorage(txStatePartitionStorage);
+
+        assertThat("For " + storageName, txStates, hasSize(expectedCount));
+        assertThat(txStates, everyItem(is(commit ? TxState.COMMITTED : TxState.ABORTED)));
     }
 
     private static List<TxState> txStatesInPartitionStorage(TxStatePartitionStorage txStatePartitionStorage) {
@@ -570,17 +578,5 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         // Using the infamous trick of triggering snapshot twice to cause Raft log truncation.
         return node.replicaManager.replica(groupId)
                 .thenCompose(replica -> replica.createSnapshotOn(member).thenCompose(v -> replica.createSnapshotOn(member)));
-    }
-
-    private static class CountExpectation {
-        private final String storageName;
-        private final TxStatePartitionStorage storage;
-        private final int expectedCount;
-
-        private CountExpectation(String storageName, TxStatePartitionStorage storage, int expectedCount) {
-            this.storageName = storageName;
-            this.storage = storage;
-            this.expectedCount = expectedCount;
-        }
     }
 }
