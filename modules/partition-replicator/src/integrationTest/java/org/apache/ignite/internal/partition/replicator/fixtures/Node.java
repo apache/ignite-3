@@ -613,7 +613,6 @@ public class Node {
                 schemaSyncService,
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
-                // minTimeCollectorService
                 txManager,
                 schemaManager,
                 minTimeCollectorService

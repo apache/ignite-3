@@ -60,9 +60,6 @@ import org.jetbrains.annotations.VisibleForTesting;
 public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
-    /** Zone replication group id. */
-    private final ZonePartitionId replicationGroupId;
-
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
     private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
 

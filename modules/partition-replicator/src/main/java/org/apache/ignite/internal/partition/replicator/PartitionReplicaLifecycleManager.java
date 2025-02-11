@@ -555,7 +555,6 @@ public class PartitionReplicaLifecycleManager extends
                     zonePartitionId.partitionId()
             );
 
-            // minTimeCollectorService
             var raftGroupListener = new ZonePartitionRaftListener(
                     zonePartitionId,
                     txStatePartitionStorage,
