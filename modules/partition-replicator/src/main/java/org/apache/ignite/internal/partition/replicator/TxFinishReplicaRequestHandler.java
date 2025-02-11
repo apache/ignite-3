@@ -259,13 +259,12 @@ public class TxFinishReplicaRequestHandler {
 
         return reliableCatalogVersionFor(tsForCatalogVersion)
                 .thenCompose(catalogVersion -> applyFinishCommand(
-                                txId,
-                                commit,
-                                commitTimestamp,
-                                catalogVersion,
-                                toPartitionIdMessage(partitionIds)
-                        )
-                )
+                        txId,
+                        commit,
+                        commitTimestamp,
+                        catalogVersion,
+                        toPartitionIdMessage(partitionIds)
+                ))
                 .handle((txOutcome, ex) -> {
                     if (ex != null) {
                         // RAFT 'finish' command failed because the state has already been written by someone else.
