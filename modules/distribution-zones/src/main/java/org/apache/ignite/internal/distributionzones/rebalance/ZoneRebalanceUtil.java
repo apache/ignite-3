@@ -426,7 +426,6 @@ public class ZoneRebalanceUtil {
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
 
-
     /**
      * Key that is needed for skipping stale events of pending key change.
      *

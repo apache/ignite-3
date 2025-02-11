@@ -260,7 +260,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
      *        after invoking {@link RebalanceUtil#updatePendingAssignmentsKeys}.
      */
     @MethodSource("assignmentsProvider")
-    @ParameterizedTest
+    @ParameterizedTest(name = "[{index}] new nodes: {0}; stable configuration: {1}; assignments in metastorage: [{2}, {3}, {4}];"
+            + " expected assignments after update: [{5}, {6}, {7}]")
     void testAssignmentsUpdate(
             Collection<String> nodesForNewAssignments,
             Set<Assignment> tableCfgAssignments,
