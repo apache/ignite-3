@@ -15,36 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
-
-import static java.util.function.Function.identity;
+package org.apache.ignite.internal.partition.replicator;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
- * Decorates a {@link SchemaSyncService} to make sure that completion stages depending on the returned futures are always completed
- * either using the provided {@link Executor} or in the thread that executed the addition of the corresponding stage to the returned future.
+ * Logic to obtain catalog versions in a reliable (with respect to schema sync) way.
  */
-public class ExecutorInclinedSchemaSyncService implements SchemaSyncService {
+public class ReliableCatalogVersions {
     private final SchemaSyncService schemaSyncService;
+    private final CatalogService catalogService;
 
-    private final Executor completionExecutor;
-
-    public ExecutorInclinedSchemaSyncService(SchemaSyncService schemaSyncService, Executor completionExecutor) {
+    /** Constructor. */
+    public ReliableCatalogVersions(SchemaSyncService schemaSyncService, CatalogService catalogService) {
         this.schemaSyncService = schemaSyncService;
-        this.completionExecutor = completionExecutor;
+        this.catalogService = catalogService;
     }
 
-    @Override
-    public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        CompletableFuture<Void> future = schemaSyncService.waitForMetadataCompleteness(ts);
-        if (future.isDone()) {
-            return future;
-        }
-
-        return future.thenApplyAsync(identity(), completionExecutor);
+    /**
+     * Returns Catalog version corresponding to the given timestamp.
+     *
+     * <p>This should only be used when the startup procedure is complete as it relies on the catalog to be started.
+     *
+     * @param ts Timestamp for which a Catalog version is to be obtained.
+     */
+    public CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
+        return schemaSyncService.waitForMetadataCompleteness(ts)
+                .thenApply(unused -> catalogService.activeCatalogVersion(ts.longValue()));
     }
 }
