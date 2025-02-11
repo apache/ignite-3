@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneWithStorageProfile;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
@@ -84,7 +83,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -94,6 +92,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -444,7 +443,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
         KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
 
-        InternalTransaction transaction = unwrapInternalTransaction(node.transactions().begin());
+        Transaction transaction = node.transactions().begin();
         kvView1.put(transaction, 42, 69);
         kvView2.put(transaction, 142, 169);
         if (commit) {
