@@ -1089,7 +1089,9 @@ public class DataNodesManager {
 
     private void stopAllTimers(int zoneId) {
         ZoneTimers zt = zoneTimers.get(zoneId);
-        zt.stopAllTimers();
+        if (zt != null) {
+            zt.stopAllTimers();
+        }
     }
 
     private WatchListener createScaleUpTimerPrefixListener() {

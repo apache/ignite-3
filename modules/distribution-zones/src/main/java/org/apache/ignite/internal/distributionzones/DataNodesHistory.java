@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -98,6 +99,23 @@ public class DataNodesHistory {
     @Override
     public String toString() {
         return "DataNodesHistory [history=" + history + "].";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DataNodesHistory history1 = (DataNodesHistory) o;
+        return Objects.equals(history, history1.history);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(history);
     }
 
     /**
