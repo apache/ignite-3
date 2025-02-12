@@ -80,6 +80,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -870,7 +871,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             txStateVolatileStorage.start();
 
-            txViewProvider.init(localNodeId, lowWatermark.lockIds(), txStateVolatileStorage.statesMap());
+            txViewProvider.init(txStateVolatileStorage.statesMap().values());
 
             orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
@@ -939,7 +940,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Map<TablePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,

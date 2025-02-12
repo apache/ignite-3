@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.sql.type.SqlTypeName.BINARY_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.STRING_TYPES;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
@@ -704,7 +706,7 @@ public class TypeUtils {
         }
     }
 
-    /** Check limitation for character types and throws exception if row contains character sequence more than type defined.
+    /** Check limitation for character and binary types and throws exception if row does not fit into type defined.
      *  <br>
      *  Store assignment section defines:
      *  If the declared type of T is fixed-length character string with length in characters L and
@@ -715,16 +717,26 @@ public class TypeUtils {
      *  <br>
      *  2) If one or more of the rightmost M-L characters of V are not space(s), then an
      *   exception condition is raised: data exception — string data, right truncation.
+     *  <br><br>
+     *  If the declared type of T is binary string and the length in octets M of V is greater than
+     *   the maximum length in octets L of T, then:
+     *  <br>
+     *  1) If the rightmost M-L octets of V are all equal to X’00’, then the value of T is set to
+     *   the first L octets of V and the length in octets of T is set to L.
+     *  <br>
+     *  2) If one or more of the rightmost M-L octets of V are not equal to X’00’, then an
+     *   exception condition is raised: data exception — string data, right truncation.
      */
-    public static <RowT> RowT validateCharactersOverflowAndTrimIfPossible(
+    public static <RowT> RowT validateStringTypesOverflowAndTrimIfPossible(
             RelDataType rowType,
             RowHandler<RowT> rowHandler,
             RowT row,
             Supplier<RowSchema> schema
     ) {
-        boolean containCharType = rowType.getFieldList().stream().anyMatch(t -> CHAR_TYPES.contains(t.getType().getSqlTypeName()));
+        boolean containValidatedType =
+                rowType.getFieldList().stream().anyMatch(t -> STRING_TYPES.contains(t.getType().getSqlTypeName()));
 
-        if (!containCharType) {
+        if (!containValidatedType) {
             return row;
         }
 
@@ -733,41 +745,64 @@ public class TypeUtils {
 
         for (int i = 0; i < colCount; ++i) {
             RelDataType colType = rowType.getFieldList().get(i).getType();
+            SqlTypeName typeName = colType.getSqlTypeName();
             Object data = rowHandler.get(i, row);
 
-            // Skip null values and non-character types.
-            if (!CHAR_TYPES.contains(colType.getSqlTypeName()) || data == null) {
+            if (data == null || (!BINARY_TYPES.contains(typeName) && !CHAR_TYPES.contains(typeName))) {
                 if (rowBldr != null) {
                     rowBldr.addField(data);
                 }
                 continue;
             }
-            // Otherwise validate and trim if needed.
-
-            assert data instanceof String;
-
-            String str = (String) data;
 
             int colPrecision = colType.getPrecision();
 
             assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
 
-            if (str.length() > colPrecision) {
-                for (int pos = str.length(); pos > colPrecision; --pos) {
-                    if (str.charAt(pos - 1) != ' ') {
-                        throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+            // Validate and trim if needed.
+
+            if (BINARY_TYPES.contains(typeName)) {
+                assert data instanceof ByteString;
+
+                ByteString byteString = (ByteString) data;
+
+                if (byteString.length() > colPrecision) {
+                    for (int pos = byteString.length(); pos > colPrecision; --pos) {
+                        if (byteString.byteAt(pos - 1) != 0) {
+                            throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                        }
+                    }
+
+                    data = byteString.substring(0, colPrecision);
+
+                    if (rowBldr == null) {
+                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
                     }
                 }
+            }
 
-                str = str.substring(0, colPrecision);
+            if (CHAR_TYPES.contains(typeName)) {
+                assert data instanceof String;
 
-                if (rowBldr == null) {
-                    rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                String str = (String) data;
+
+                if (str.length() > colPrecision) {
+                    for (int pos = str.length(); pos > colPrecision; --pos) {
+                        if (str.charAt(pos - 1) != ' ') {
+                            throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                        }
+                    }
+
+                    data = str.substring(0, colPrecision);
+
+                    if (rowBldr == null) {
+                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                    }
                 }
             }
 
             if (rowBldr != null) {
-                rowBldr.addField(str);
+                rowBldr.addField(data);
             }
         }
 

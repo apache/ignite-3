@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIn
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -82,7 +81,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
         } else if (source instanceof CatalogSortedIndexDescriptor) {
             updateIndexDescriptor = updateSortedIndexStatus((CatalogSortedIndexDescriptor) source, newStatus);
         } else {
-            throw new CatalogValidationException(format("Unsupported index type '{}' {}", source.id(), source));
+            throw new CatalogValidationException("Unsupported index type '{}' {}", source.id(), source);
         }
 
         updateIndexDescriptor.updateToken(causalityToken);

@@ -86,11 +86,11 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
 
     private void validate() {
         if (nullOrEmpty(collations)) {
-            throw new CatalogValidationException("Collations not specified");
+            throw new CatalogValidationException("Collations not specified.");
         }
 
         if (collations.size() != columns.size()) {
-            throw new CatalogValidationException("Columns collations doesn't match number of columns");
+            throw new CatalogValidationException("Columns collations doesn't match number of columns.");
         }
     }
 

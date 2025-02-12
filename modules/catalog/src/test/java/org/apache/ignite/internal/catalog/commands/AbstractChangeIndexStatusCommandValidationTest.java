@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
-import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -116,7 +116,7 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
 
         assertThrowsWithCause(
                 () -> command.get(new UpdateContext(catalog)),
-                IndexNotFoundValidationException.class,
+                CatalogValidationException.class,
                 "Index with ID '1' not found"
         );
     }

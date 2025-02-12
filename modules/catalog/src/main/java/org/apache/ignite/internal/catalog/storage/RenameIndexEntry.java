@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIn
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -85,7 +84,7 @@ public class RenameIndexEntry implements UpdateEntry {
         } else if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
             newIndexDescriptor = changeSortedIndexName((CatalogSortedIndexDescriptor) indexDescriptor);
         } else {
-            throw new CatalogValidationException(format("Unsupported index type '{}' {}", indexDescriptor.id(), indexDescriptor));
+            throw new CatalogValidationException("Unsupported index type '{}' {}", indexDescriptor.id(), indexDescriptor);
         }
 
         newIndexDescriptor.updateToken(causalityToken);

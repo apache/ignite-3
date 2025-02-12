@@ -109,6 +109,8 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -1931,7 +1933,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
-        return cause.getMessage() != null && cause.getMessage().contains("The primary replica has changed");
+        return ExceptionUtils.extractCodeFrom(cause) == Replicator.REPLICA_MISS_ERR;
     }
 
     private void startNodesInParallel(int... nodeIndexes) {

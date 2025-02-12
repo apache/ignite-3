@@ -29,7 +29,6 @@ import java.util.function.BiFunction;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -119,7 +118,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     public String explain() {
         IgniteRel clonedRoot = Cloner.clone(lookupNode, Commons.cluster());
 
-        return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+        return ExplainUtils.toString(clonedRoot);
     }
 
     public IgniteKeyValueGet lookupNode() {

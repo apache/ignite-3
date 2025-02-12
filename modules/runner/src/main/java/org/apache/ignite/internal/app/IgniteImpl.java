@@ -189,6 +189,7 @@ import org.apache.ignite.internal.network.serialization.SerializationRegistrySer
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -241,6 +242,8 @@ import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtens
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -255,7 +258,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
@@ -944,30 +946,6 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
-        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolve(TX_STATE_DIR),
-                threadPoolsManager.commonScheduler(),
-                threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
-        );
-
-        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
-                catalogManager,
-                replicaMgr,
-                distributionZoneManager,
-                metaStorageMgr,
-                clusterSvc.topologyService(),
-                lowWatermark,
-                threadPoolsManager.tableIoExecutor(),
-                rebalanceScheduler,
-                threadPoolsManager.partitionOperationsExecutor(),
-                clockService,
-                placementDriverMgr.placementDriver(),
-                schemaSyncService,
-                systemDistributedConfiguration,
-                sharedTxStateStorage
-        );
-
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
                 clusterSvc.messagingService(),
@@ -1026,7 +1004,34 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.commonScheduler()
         );
 
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve(TX_STATE_DIR),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
+        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
+                catalogManager,
+                replicaMgr,
+                distributionZoneManager,
+                metaStorageMgr,
+                clusterSvc.topologyService(),
+                lowWatermark,
+                threadPoolsManager.tableIoExecutor(),
+                rebalanceScheduler,
+                threadPoolsManager.partitionOperationsExecutor(),
+                clockService,
+                placementDriverMgr.placementDriver(),
+                schemaSyncService,
+                systemDistributedConfiguration,
+                sharedTxStateStorage,
+                txManager,
+                schemaManager
+        );
+
         systemViewManager.register(txManager);
+        killCommandHandler.register(transactionKillHandler(txManager));
 
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
@@ -1177,7 +1182,7 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
-        killCommandHandler.register(((IgniteComputeImpl) compute).killHandler());
+        killCommandHandler.register(computeKillHandler(compute));
 
         authenticationManager = createAuthenticationManager();
 
@@ -1854,6 +1859,51 @@ public class IgniteImpl implements Ignite {
                 nodeConfiguration().notifyCurrentConfigurationListeners(),
                 clusterConfiguration().notifyCurrentConfigurationListeners()
         );
+    }
+
+    /** Returns a {@link OperationKillHandler kill handler} for the compute job. */
+    private static OperationKillHandler computeKillHandler(IgniteComputeInternal compute) {
+        return new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                UUID jobId = UUID.fromString(operationId);
+
+                return compute.cancelAsync(jobId)
+                        .thenApply(res -> res != null ? res : Boolean.FALSE);
+            }
+
+            @Override
+            public boolean local() {
+                return false;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.COMPUTE;
+            }
+        };
+    }
+
+    /** Returns a {@link OperationKillHandler kill handler} for the transaction. */
+    private static OperationKillHandler transactionKillHandler(TxManager txManager) {
+        return new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                UUID transactionId = UUID.fromString(operationId);
+
+                return txManager.kill(transactionId);
+            }
+
+            @Override
+            public boolean local() {
+                return true;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.TRANSACTION;
+            }
+        };
     }
 
     @TestOnly

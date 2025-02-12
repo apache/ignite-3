@@ -358,7 +358,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         gatewayNode.initSchema("CREATE INDEX T1_NEW_HASH_VAK_IDX ON T1 USING HASH (VAL)");
 
         MultiStepPlan plan = (MultiStepPlan) gatewayNode.prepare("SELECT * FROM t1 WHERE val = ?");
-        assertThat(plan.explain(), containsString("index=[T1_NEW_HASH_VAK_IDX], type=[HASH]"));
+        assertThat(plan.explain(), containsString("index: T1_NEW_HASH_VAK_IDX"));
     }
 
     @Test

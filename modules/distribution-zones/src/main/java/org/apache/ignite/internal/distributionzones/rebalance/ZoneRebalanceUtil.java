@@ -636,4 +636,35 @@ public class ZoneRebalanceUtil {
                     return numberOfMsPartitions == 0 ? Map.of() : result;
                 });
     }
+
+    /**
+     * Returns zone pending assignments for all zone partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with zone assignments as a value.
+     */
+    public static List<Assignments> zonePendingAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(partitionId -> getLocalAssignments(metaStorageManager, zoneId, partitionId, revision))
+                .collect(toList());
+    }
+
+    private static @Nullable Assignments getLocalAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(pendingPartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)), revision);
+
+        return entry != null ? Assignments.fromBytes(entry.value()) : null;
+    }
 }

@@ -24,9 +24,9 @@ import org.apache.ignite.internal.event.Event;
  */
 public enum LocalPartitionReplicaEvent implements Event {
     /**
-     * Fired when partition replica has started.
+     * Fired before a partition replica is started.
      */
-    AFTER_REPLICA_STARTED,
+    BEFORE_REPLICA_STARTED,
 
     /**
      * Fired when partition replica has been destroyed.
