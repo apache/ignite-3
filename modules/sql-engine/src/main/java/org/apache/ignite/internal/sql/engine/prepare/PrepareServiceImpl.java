@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
@@ -80,7 +81,6 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -227,10 +227,9 @@ public class PrepareServiceImpl implements PrepareService {
 
         assert schemaName != null;
 
-        IgniteSchemas rootSchema = schemaManager.schemas(operationContext.operationTime().longValue());
-        if (rootSchema == null) {
-            return CompletableFuture.failedFuture(new SchemaNotFoundException("Root schema"));
-        }
+        long timestamp = operationContext.operationTime().longValue();
+        IgniteSchemas rootSchema = schemaManager.schemas(timestamp);
+        assert rootSchema != null : "Root schema does not exist";
 
         QueryCancel cancelHandler = operationContext.cancel();
         assert cancelHandler != null;
