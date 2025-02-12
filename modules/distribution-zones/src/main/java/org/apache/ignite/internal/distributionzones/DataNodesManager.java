@@ -108,6 +108,15 @@ import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Manager for data nodes of distribution zones.
+ * <br>
+ * It is used by {@link DistributionZoneManager} to calculate data nodes, see {@link #dataNodes(int, HybridTimestamp)}.
+ * Data nodes are stored in meta storage as {@link DataNodesHistory} for each zone, also for each zone there are scale up and
+ * scale down timer, stored as {@link DistributionZoneTimer}. Partition reset timer is calculated on the node recovery according
+ * to the scale down timer state, see {@link #restorePartitionResetTimer(int, DistributionZoneTimer, long)}.
+ * <br>
+ * Data nodes history is appended on topology changes, on zone filter changes and on zone auto adjust alterations (i.e. alterations of
+ * scale up and scale down timer configuration), see {@link #onTopologyChange}, {@link #onZoneFilterChange} and
+ * {@link #onAutoAdjustAlteration} methods respectively.
  */
 public class DataNodesManager {
     /** The logger. */
@@ -258,6 +267,40 @@ public class DataNodesManager {
         shutdownAndAwaitTermination(executor, 10, SECONDS);
     }
 
+    /**
+     * Recalculates data nodes on topology changes, modifies scale up and scale down timers and appends data nodes history in meta storage.
+     * It takes the current data nodes according to timestamp, compares them with the new topology and calculates added nodes and
+     * removed nodes, also compares with the old topology and calculates added nodes comparing to the old topology (if they are not empty
+     * then the history entry will be always added).
+     * <br>
+     * Added nodes and removed nodes are added to scale up and scale down timers respectively. Their time to trigger is refreshed
+     * according to current zone descriptor. If their time to trigger is less than or equal to  the current timestamp (including the cases
+     * when auto adjust timeout is immediate), then they are applied automatically to the new history entry, in this cases their value
+     * in meta storage is set to {@link DistributionZoneTimer#DEFAULT_TIMER}.
+     * <br>
+     * For example:
+     * <ul>
+     *     <li>there are nodes A, B in the latest data nodes history entry, its timestamp is 1;</li>
+     *     <li>scale up auto adjust is 5, scale down auto adjust is 100 (let's say that time units for auto adjust are the same as used
+     *     for timestamps);</li>
+     *     <li>node A leaves, node C joins at timestamp 10;</li>
+     *     <li>onTopologyChange is triggered and sets scale up timer to 15 and scale down to 110;</li>
+     *     <li>for some reason scheduled executor hangs and doesn't trigger timers (let's consider case when everything is recalculated in
+     *     onTopologyChange);</li>
+     *     <li>node B leaves at time 20;</li>
+     *     <li>onTopologyChange is triggered again and sees that scale up timer should have been already triggered (its time to trigger
+     *     was 15), it adds node C automatically to new history entry. Scale down timer is scheduled and has to wait more, but
+     *     another node (B) left, so scale down timer's nodes are now A and B, and its time to trigger is rescheduled and is now
+     *     20 + 100 = 120. Data nodes in the new data nodes history entry are A, B, C.</li>
+     * </ul>
+     *
+     * @param zoneDescriptor Zone descriptor.
+     * @param revision Meta storage revision.
+     * @param timestamp Timestamp, that is consistent with meta storage revision.
+     * @param newLogicalTopology New logical topology.
+     * @param oldLogicalTopology Old logical topology.
+     * @return CompletableFuture that is completed when the operation is done.
+     */
     CompletableFuture<Void> onTopologyChange(
             CatalogZoneDescriptor zoneDescriptor,
             long revision,
@@ -399,10 +442,6 @@ public class DataNodesManager {
             );
         }
 
-        LOG.info("Merging scale " + (scaleUp ? "up" : "down") + " timer on topology change [zoneId={}, timestamp={}, nodes={}, topology={},"
-                        + " currentTimer={}, newTimer={}].",
-                zoneDescriptor.id(), timestamp, nodeNames(nodes), nodeNames(logicalTopology), currentTimer, timer);
-
         return timer;
     }
 
@@ -418,6 +457,14 @@ public class DataNodesManager {
         return timer.timeToTrigger().longValue() <= currentTimestamp.longValue() ? DEFAULT_TIMER : timer;
     }
 
+    /**
+     * Recalculates data nodes on zone filter changes according only to current topology and new filters. Stops and discards all timers.
+     *
+     * @param zoneDescriptor Zone descriptor.
+     * @param timestamp Current timestamp.
+     * @param logicalTopology New logical topology.
+     * @return CompletableFuture that is completed when the operation is done.
+     */
     CompletableFuture<Void> onZoneFilterChange(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
@@ -435,6 +482,11 @@ public class DataNodesManager {
                         if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
                             return null;
                         }
+
+                        LOG.debug("Distribution zone filter changed [zoneId={}, timestamp={}, logicalTopology={}, descriptor={}].", zoneId,
+                                timestamp, nodeNames(logicalTopology), zoneDescriptor);
+
+                        stopAllTimers(zoneId);
 
                         Set<NodeWithAttributes> dataNodes = filterDataNodes(logicalTopology, zoneDescriptor);
 
@@ -457,6 +509,17 @@ public class DataNodesManager {
         }, zoneDescriptor);
     }
 
+    /**
+     * Recalculates data nodes on zone auto adjust alterations. Modifies scale up and scale down timers and appends data nodes history.
+     * The new data nodes are calculated according to the new timer values. See also description of {@link #onTopologyChange} method
+     * for more details and examples of how data nodes are recalculated.
+     *
+     * @param zoneDescriptor Zone descriptor.
+     * @param timestamp Current timestamp.
+     * @param oldAutoAdjustScaleUp Old scale up auto adjust value.
+     * @param oldAutoAdjustScaleDown Old scale down auto adjust value.
+     * @return CompletableFuture that is completed when the operation is done.
+     */
     CompletableFuture<Void> onAutoAdjustAlteration(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
@@ -475,6 +538,10 @@ public class DataNodesManager {
                         if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
                             return null;
                         }
+
+                        LOG.debug("Distribution zone auto adjust changed [zoneId={}, timestamp={}, oldAutoAdjustScaleUp={}, "
+                                + ", oldAutoAdjustScaleDown={}, descriptor={}].",
+                                zoneId, timestamp, oldAutoAdjustScaleUp, oldAutoAdjustScaleDown, zoneDescriptor);
 
                         DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
                         DistributionZoneTimer scaleDownTimer = dataNodeHistoryContext.scaleDownTimer();
@@ -573,6 +640,14 @@ public class DataNodesManager {
         }
     }
 
+    /**
+     * The closure that is executed on scale up or scale down schedule. Appends data nodes history in meta storage and sets the timer
+     * to default value.
+     *
+     * @param zoneDescriptor Zone descriptor.
+     * @param scheduledTimer Scheduled timer.
+     * @return Runnable that is executed on schedule.
+     */
     private Runnable applyTimerClosure(CatalogZoneDescriptor zoneDescriptor, ScheduledTimer scheduledTimer) {
         int zoneId = zoneDescriptor.id();
 
@@ -589,7 +664,7 @@ public class DataNodesManager {
                             return null;
                         }
 
-                        LOG.info("Triggered " + scheduledTimer.name() + " [zoneId={}, timer={}].", zoneId, timer);
+                        LOG.debug("Triggered " + scheduledTimer.name() + " [zoneId={}, timer={}].", zoneId, timer);
 
                         HybridTimestamp timeToTrigger = timer.timeToTrigger();
 
@@ -612,6 +687,10 @@ public class DataNodesManager {
                         Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = scheduledTimer
                                 .recalculateDataNodes(dataNodesHistory, timer);
 
+                        // We need to wait for actual time according to hybrid clock plus clock skew, because scheduled executor
+                        // is not synchronized with hybrid clock. If we don't do this and scheduled executor will trigger this closure
+                        // earlier than max hybrid clock time in cluster, we may append new history entry having timestamp that
+                        // is (actually) in future.
                         return clockService.waitFor(timeToTrigger.addPhysicalTime(clockService.maxClockSkewMillis()))
                                 .thenApply(ignored -> new LoggedIif(iif(
                                                 and(
@@ -739,7 +818,9 @@ public class DataNodesManager {
     }
 
     /**
-     * Returns data nodes for the given zone and timestamp.
+     * Returns data nodes for the given zone and timestamp. It doesn't recalculate the data nodes, it just retrieves them from data nodes
+     * history. For information how data nodes are calculated, see {@link #onTopologyChange}, {@link #onZoneFilterChange} and {@link
+     * #onAutoAdjustAlteration} methods.
      *
      * @param zoneId Zone ID.
      * @param timestamp Timestamp.
@@ -879,6 +960,15 @@ public class DataNodesManager {
         return msInvokeWithRetry(iifSupplier, MAX_ATTEMPTS_ON_RETRY, zone);
     }
 
+    /**
+     * Utility method for meta storage invocation.
+     *
+     * @param iifSupplier Function that returns IIF operation to use in meta storage invocation. It contains the actual logic
+     *     of operation.
+     * @param attemptsLeft Number of attempts left, used if meta storage invoke did not succeed due to CAS fail.
+     * @param zone Zone descriptor.
+     * @return Future reflecting the completion of meta storage invocation.
+     */
     private CompletableFuture<Void> msInvokeWithRetry(
             Function<DataNodeHistoryContextMetaStorageGetter, CompletableFuture<LoggedIif>> iifSupplier,
             int attemptsLeft,
@@ -916,7 +1006,7 @@ public class DataNodesManager {
                             return msInvokeWithRetry(iifSupplier, attemptsLeft - 1, zone);
                         }
                     } else {
-                        LOG.warn(iifFuture.join().messageOnFailure, e);
+                        LOG.error(iifFuture.join().messageOnFailure, e);
 
                         return null;
                     }
@@ -997,6 +1087,11 @@ public class DataNodesManager {
         }
     }
 
+    private void stopAllTimers(int zoneId) {
+        ZoneTimers zt = zoneTimers.get(zoneId);
+        zt.stopAllTimers();
+    }
+
     private WatchListener createScaleUpTimerPrefixListener() {
         return event -> inBusyLockAsync(
                 busyLock,
@@ -1066,7 +1161,7 @@ public class DataNodesManager {
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<Void> processWatchEvent(
+    private static CompletableFuture<Void> processWatchEvent(
             WatchEvent event,
             String keyPrefix,
             BiFunction<Integer, Entry, CompletableFuture<Void>> processor
@@ -1176,7 +1271,7 @@ public class DataNodesManager {
         final String messageOnSuccess;
         final String messageOnFailure;
 
-        public LoggedIif(Iif iif, String messageOnSuccess, String messageOnFailure) {
+        LoggedIif(Iif iif, String messageOnSuccess, String messageOnFailure) {
             this.iif = iif;
             this.messageOnSuccess = messageOnSuccess;
             this.messageOnFailure = messageOnFailure;
@@ -1185,10 +1280,15 @@ public class DataNodesManager {
 
     @FunctionalInterface
     private interface DataNodeHistoryContextMetaStorageGetter {
-        /** The future may contain {@code null}. */
+        /** The future may contain {@code null} result. */
         CompletableFuture<DataNodeHistoryContext> get(List<ByteArray> keys);
     }
 
+    /**
+     * This class is used to generalize the logic of distribution zone timers related to their scheduled closure, see
+     * {@link #applyTimerClosure}. The only difference in implementations is the name of timer that is used for logging,
+     * the meta storage key, fields of {@link ZoneTimers} used for scheduling, etc.
+     */
     private interface ScheduledTimer {
         /**
          * Name of the timer, is used for logging.

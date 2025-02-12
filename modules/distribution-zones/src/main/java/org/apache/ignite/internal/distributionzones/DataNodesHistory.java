@@ -34,7 +34,7 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 
 /**
- * Data nodes history.
+ * Data nodes history. Is actually a map of timestamps to sets of nodes with their attributes.
  */
 public class DataNodesHistory {
     private final NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> history;

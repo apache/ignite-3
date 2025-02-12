@@ -704,7 +704,6 @@ public class DistributionZoneManager extends
     }
 
     private void fireTopologyReduceLocalEvent(long revision, int zoneId) {
-        LOG.info("qqq fireTopologyReduceLocalEvent");
         fireEvent(
                 HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
                 new HaZoneTopologyUpdateEventParams(zoneId, revision)
