@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -147,7 +148,6 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
 
-
         assertQuery("SELECT count(*) FROM test")
                 .returns(1L)
                 .check();
@@ -214,7 +214,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT col FROM test_null_def WHERE id = 2").returns(null).check();
     }
 
-    /**Test full MERGE command. */
+    /** Test full MERGE command. */
     @Test
     public void testMerge() {
         clearAndPopulateMergeTable1();
@@ -373,7 +373,9 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT count(*) FROM test2 WHERE b = 0").returns(10_000L).check();
 
-        sql("MERGE INTO test2 dst USING test1 src ON dst.a = src.a"
+        var longerTimeoutOptions = new TransactionOptions().readOnly(false).timeoutMillis(TimeUnit.MINUTES.toMillis(2));
+        var tx = igniteTx().begin(longerTimeoutOptions);
+        sql(tx, "MERGE INTO test2 dst USING test1 src ON dst.a = src.a"
                 + " WHEN MATCHED THEN UPDATE SET b = 1 "
                 + " WHEN NOT MATCHED THEN INSERT (key, a, b) VALUES (src.key, src.a, 2)");
 
