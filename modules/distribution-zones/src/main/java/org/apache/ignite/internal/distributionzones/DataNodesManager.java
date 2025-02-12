@@ -72,6 +72,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -91,6 +92,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -996,88 +998,89 @@ public class DataNodesManager {
     }
 
     private WatchListener createScaleUpTimerPrefixListener() {
-        return event -> inBusyLockAsync(busyLock, () -> {
-            for (EntryEvent entryEvent : event.entryEvents()) {
-                Entry e = entryEvent.newEntry();
-
-                if (e != null && !e.empty() && !e.tombstone() && e.value() != null) {
-                    String keyString = new String(e.key(), UTF_8);
-                    assert keyString.startsWith(DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX) : "Unexpected key: " + keyString;
-
-                    int zoneId = extractZoneId(e.key(), DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX.getBytes(UTF_8));
-
-                    DistributionZoneTimer timer = DistributionZoneTimerSerializer.deserialize(e.value());
-
-                    CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(event.timestamp().longValue()).zone(zoneId);
-
-                    if (zoneDescriptor == null) {
-                        return nullCompletedFuture();
-                    }
-
-                    onScaleUpTimerChange(zoneDescriptor, timer);
-                }
-            }
-
-            return nullCompletedFuture();
-        });
+        return event -> inBusyLockAsync(
+                busyLock,
+                () -> processWatchEvent(
+                        event,
+                        DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX,
+                        (zoneId, e) -> processTimerWatchEvent(zoneId, e, true)
+                )
+        );
     }
 
     private WatchListener createScaleDownTimerPrefixListener() {
-        return event -> inBusyLockAsync(busyLock, () -> {
-            for (EntryEvent entryEvent : event.entryEvents()) {
-                Entry e = entryEvent.newEntry();
-
-                if (e != null && !e.empty() && !e.tombstone() && e.value() != null) {
-                    String keyString = new String(e.key(), UTF_8);
-                    assert keyString.startsWith(DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX) : "Unexpected key: " + keyString;
-
-                    int zoneId = extractZoneId(e.key(), DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX.getBytes(UTF_8));
-
-                    DistributionZoneTimer timer = DistributionZoneTimerSerializer.deserialize(e.value());
-
-                    CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(event.timestamp().longValue()).zone(zoneId);
-
-                    if (zoneDescriptor == null) {
-                        return nullCompletedFuture();
-                    }
-
-                    onScaleDownTimerChange(zoneDescriptor, timer);
-                }
-            }
-
-            return nullCompletedFuture();
-        });
+        return event -> inBusyLockAsync(
+                busyLock,
+                () -> processWatchEvent(
+                        event,
+                        DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX,
+                        (zoneId, e) -> processTimerWatchEvent(zoneId, e, false)
+                )
+        );
     }
 
     private WatchListener createDataNodesListener() {
-        return event -> inBusyLockAsync(busyLock, () -> {
-            for (EntryEvent entryEvent : event.entryEvents()) {
-                Entry e = entryEvent.newEntry();
+        return event -> inBusyLockAsync(
+                busyLock,
+                () -> processWatchEvent(event, DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX, this::processDataNodesHistoryWatchEvent)
+        );
+    }
 
-                if (e != null && !e.empty()) {
-                    String keyString = new String(e.key(), UTF_8);
-                    assert keyString.startsWith(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX) : "Unexpected key: " + keyString;
+    private CompletableFuture<Void> processTimerWatchEvent(int zoneId, Entry e, boolean scaleUp) {
+        DistributionZoneTimer timer = DistributionZoneTimerSerializer.deserialize(e.value());
 
-                    int zoneId = extractZoneId(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(UTF_8));
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(e.timestamp().longValue()).zone(zoneId);
 
-                    if (!e.tombstone() && e.value() != null) {
-                        DataNodesHistory history = DataNodesHistorySerializer.deserialize(e.value());
+        if (zoneDescriptor == null) {
+            return nullCompletedFuture();
+        }
 
-                        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(event.timestamp().longValue()).zone(zoneId);
+        if (scaleUp) {
+            onScaleUpTimerChange(zoneDescriptor, timer);
+        } else {
+            onScaleDownTimerChange(zoneDescriptor, timer);
+        }
 
-                        if (zoneDescriptor == null) {
-                            return nullCompletedFuture();
-                        }
+        return nullCompletedFuture();
+    }
 
-                        dataNodesHistoryVolatile.put(zoneId, history);
-                    } else if (e.tombstone()) {
-                        dataNodesHistoryVolatile.remove(zoneId);
-                    }
-                }
+    private CompletableFuture<Void> processDataNodesHistoryWatchEvent(int zoneId, Entry e) {
+        if (!e.tombstone() && e.value() != null) {
+            DataNodesHistory history = DataNodesHistorySerializer.deserialize(e.value());
+
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(e.timestamp().longValue()).zone(zoneId);
+
+            if (zoneDescriptor == null) {
+                return nullCompletedFuture();
             }
 
-            return nullCompletedFuture();
-        });
+            dataNodesHistoryVolatile.put(zoneId, history);
+        } else if (e.tombstone()) {
+            dataNodesHistoryVolatile.remove(zoneId);
+        }
+
+        return nullCompletedFuture();
+    }
+
+    private CompletableFuture<Void> processWatchEvent(
+            WatchEvent event,
+            String keyPrefix,
+            BiFunction<Integer, Entry, CompletableFuture<Void>> processor
+    ) {
+        EntryEvent entryEvent = event.entryEvent();
+
+        Entry e = entryEvent.newEntry();
+
+        if (e != null && !e.empty()) {
+            String keyString = new String(e.key(), UTF_8);
+            assert keyString.startsWith(keyPrefix) : "Unexpected key: " + keyString;
+
+            int zoneId = extractZoneId(e.key(), keyPrefix.getBytes(UTF_8));
+
+            return processor.apply(zoneId, e);
+        }
+
+        return nullCompletedFuture();
     }
 
     @TestOnly
