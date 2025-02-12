@@ -378,6 +378,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         sql(tx, "MERGE INTO test2 dst USING test1 src ON dst.a = src.a"
                 + " WHEN MATCHED THEN UPDATE SET b = 1 "
                 + " WHEN NOT MATCHED THEN INSERT (key, a, b) VALUES (src.key, src.a, 2)");
+        tx.commit();
 
         assertQuery("SELECT count(*) FROM test2 WHERE b = 0").returns(5_000L).check();
         assertQuery("SELECT count(*) FROM test2 WHERE b = 1").returns(5_000L).check();
