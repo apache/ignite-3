@@ -105,6 +105,14 @@ public class NodeManager implements Lifecycle<NodeOptions> {
 
                     try {
                         rpcClient.invokeAsync(peer, builder.build(), null, (result, err) -> {
+                            if (err != null) {
+                                for (CompletableFuture<Message> fut : futs) {
+                                    fut.completeExceptionally(err);
+                                }
+
+                                return;
+                            }
+
                             CoalescedHeartbeatResponse resp = (CoalescedHeartbeatResponse) result;
 
                             assert resp.messages().size() == futs.size();

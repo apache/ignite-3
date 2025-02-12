@@ -368,6 +368,7 @@ public class JraftServerImpl implements RaftServer {
         assert nodes.isEmpty() : IgniteStringFormatter.format("Raft nodes {} are still running on the Ignite node {}", nodes.keySet(),
                 service.topologyService().localMember().name());
 
+        opts.getNodeManager().shutdown();
         rpcServer.shutdown();
 
         if (opts.getfSMCallerExecutorDisruptor() != null) {
