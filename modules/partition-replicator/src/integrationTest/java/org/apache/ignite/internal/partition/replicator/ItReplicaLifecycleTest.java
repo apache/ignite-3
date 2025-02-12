@@ -911,9 +911,9 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         boolean result = waitForCondition(() -> getEarliestCatalogVersion(node) == expectedVersion, 10_000);
 
         assertTrue(result,
-                "Failed to wait for the expected catalog version [expected=" + expectedVersion +
-                        ", earliest=" + getEarliestCatalogVersion(node) +
-                        ", latest=" + getLatestCatalogVersion(node) + ']');
+                "Failed to wait for the expected catalog version [expected=" + expectedVersion
+                        + ", earliest=" + getEarliestCatalogVersion(node)
+                        + ", latest=" + getLatestCatalogVersion(node) + ']');
     }
 
     private static int getLatestCatalogVersion(Node node) {

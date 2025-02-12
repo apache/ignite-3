@@ -19,4 +19,5 @@
  * This package contains RAFT command handlers that is used by
  * {@link org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener} and table raft processor.
  */
+
 package org.apache.ignite.internal.partition.replicator.raft.handlers;

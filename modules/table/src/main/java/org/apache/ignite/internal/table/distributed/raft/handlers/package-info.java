@@ -16,8 +16,8 @@
  */
 
 /**
- * This package contains replica request handlers that is used by
- * {@link org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener} and table requests processor.
+ * This package contains RAFT command handlers that is used by
+ * {@link org.apache.ignite.internal.table.distributed.raft.PartitionListener} aka table raft processor.
  */
 
-package org.apache.ignite.internal.partition.replicator.handlers;
+package org.apache.ignite.internal.table.distributed.raft.handlers;

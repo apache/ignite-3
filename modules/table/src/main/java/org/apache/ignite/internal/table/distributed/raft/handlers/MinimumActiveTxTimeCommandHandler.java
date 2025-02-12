@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft.handlers;
+package org.apache.ignite.internal.table.distributed.raft.handlers;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
