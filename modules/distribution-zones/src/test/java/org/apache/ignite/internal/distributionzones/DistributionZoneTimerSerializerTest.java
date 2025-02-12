@@ -53,8 +53,6 @@ public class DistributionZoneTimerSerializerTest {
 
     @Test
     public void serializationAndDeserialization() {
-        DistributionZoneTimerSerializer serializer = new DistributionZoneTimerSerializer();
-
         DistributionZoneTimer timer0 = new DistributionZoneTimer(new HybridTimestamp(1234L, 1), 60, Set.of(A));
         DistributionZoneTimer timer1 = new DistributionZoneTimer(new HybridTimestamp(12341234L, 10), 10000, Set.of(A, B));
 
