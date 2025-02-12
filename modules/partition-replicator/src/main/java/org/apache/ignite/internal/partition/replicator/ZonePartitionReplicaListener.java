@@ -117,6 +117,23 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
+        return ensureReplicaIsPrimary(request)
+                .thenCompose(res -> processRequest(request, res.get1(), senderId, res.get2()))
+                .thenApply(res -> {
+                    if (res instanceof ReplicaResult) {
+                        return (ReplicaResult) res;
+                    } else {
+                        return new ReplicaResult(res, null);
+                    }
+                });
+    }
+
+    private CompletableFuture<?> processRequest(
+            ReplicaRequest request,
+            @Nullable Boolean isPrimary,
+            UUID senderId,
+            @Nullable Long leaseStartTime
+    ) {
         if (request instanceof TableAware) {
             // This type of request propagates to the table processor directly.
             return processTableAwareRequest(request, senderId);
@@ -128,15 +145,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                     .thenApply(res -> new ReplicaResult(res, null));
         }
 
-        return ensureReplicaIsPrimary(request)
-                .thenCompose(res -> processZoneReplicaRequest(request, res.get1(), senderId, res.get2()))
-                .thenApply(res -> {
-                    if (res instanceof ReplicaResult) {
-                        return (ReplicaResult) res;
-                    } else {
-                        return new ReplicaResult(res, null);
-                    }
-                });
+        return processZoneReplicaRequest(request, isPrimary, senderId, leaseStartTime);
     }
 
     /**
