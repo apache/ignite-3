@@ -1027,6 +1027,10 @@ public class DataNodesManager {
     }
 
     private CompletableFuture<Void> processTimerWatchEvent(int zoneId, Entry e, boolean scaleUp) {
+        if (e.tombstone()) {
+            return nullCompletedFuture();
+        }
+
         DistributionZoneTimer timer = DistributionZoneTimerSerializer.deserialize(e.value());
 
         CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(e.timestamp().longValue()).zone(zoneId);
