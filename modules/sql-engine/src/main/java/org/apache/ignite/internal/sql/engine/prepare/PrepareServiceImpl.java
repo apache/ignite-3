@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
