@@ -54,6 +54,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -137,7 +138,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
+        Map<ReplicationGroupId, String> partitions = Map.of(
                 tablePartitionId1, LOCAL_NODE.name(),
                 tablePartitionId2, LOCAL_NODE.name(),
                 tablePartitionId3, LOCAL_NODE.name());
@@ -161,7 +162,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
+        Map<ReplicationGroupId, String> partitions = Map.of(
                 tablePartitionId1, LOCAL_NODE.name(),
                 tablePartitionId2, LOCAL_NODE.name(),
                 tablePartitionId3, LOCAL_NODE.name());
@@ -197,7 +198,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
+        Map<ReplicationGroupId, String> partitions = Map.of(
                 tablePartitionId1, LOCAL_NODE.name(),
                 tablePartitionId2, LOCAL_NODE.name(),
                 tablePartitionId3, LOCAL_NODE.name());

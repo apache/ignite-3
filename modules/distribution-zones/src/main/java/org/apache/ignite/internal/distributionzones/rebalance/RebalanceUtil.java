@@ -611,7 +611,7 @@ public class RebalanceUtil {
      * @param partitionId Partition ID.
      * @return Future with partition assignments as a value.
      */
-    public static CompletableFuture<Set<Assignment>> partitionAssignments(
+    public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
             int partitionId

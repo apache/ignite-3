@@ -18,24 +18,30 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptySet;
+import static java.util.Map.of;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -58,6 +65,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfig
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -65,8 +73,22 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionException;
 
 /** Parent for tests of HA zones feature. */
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
@@ -81,6 +103,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private static final String SC_TABLE_NAME = "SC_TABLE";
 
     private static final int PARTITIONS_NUMBER = 2;
+
+    private static final int ENTRIES = 2;
 
     static Set<Integer> PARTITION_IDS = IntStream
             .range(0, PARTITIONS_NUMBER)
@@ -233,7 +257,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
         return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
-                .map(tableId -> partitionAssignments(node.metaStorageManager(), tableId, partNum).join())
+                .map(tableId -> stablePartitionAssignments(node.metaStorageManager(), tableId, partNum).join())
                 .orElse(Set.of());
     }
 
@@ -415,5 +439,71 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .stream(indexes)
                 .map(i -> node(i).name())
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    static List<Throwable> insertValues(Table table, int offset) {
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        List<Throwable> errors = new ArrayList<>();
+
+        for (int i = 0; i < ENTRIES; i++) {
+            Tuple key = Tuple.create(of("id", i));
+
+            CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
+
+            try {
+                assertThat(insertFuture, willCompleteSuccessfully());
+
+                Tuple value = keyValueView.get(null, key);
+
+                assertNotNull(value);
+            } catch (Throwable e) {
+                Throwable cause = unwrapCause(e);
+
+                if (cause instanceof IgniteException && isPrimaryReplicaHasChangedException((IgniteException) cause)
+                        || cause instanceof TransactionException
+                        || cause instanceof TimeoutException
+                ) {
+                    errors.add(cause);
+                } else {
+                    fail("Unexpected exception", e);
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    void assertValuesPresentOnNodes(HybridTimestamp ts, Table table, Integer... indexes) {
+        for (Integer index : indexes) {
+            assertValuesPresentOnNode(table, ts, index);
+        }
+    }
+
+    private void assertValuesPresentOnNode(Table table, HybridTimestamp ts, int targetNodeIndex) {
+        IgniteImpl targetNode = unwrapIgniteImpl(node(targetNodeIndex));
+
+        TableImpl tableImpl = unwrapTableImpl(table);
+        InternalTable internalTable = tableImpl.internalTable();
+
+        for (int i = 0; i < ENTRIES; i++) {
+            CompletableFuture<BinaryRow> fut =
+                    internalTable.get(marshalKey(tableImpl, Tuple.create(of("id", i))), ts, targetNode.node());
+            assertThat(fut, willCompleteSuccessfully());
+
+            assertNotNull(fut.join());
+        }
+    }
+
+    private static Row marshalKey(TableViewInternal table, Tuple key) {
+        SchemaRegistry schemaReg = table.schemaView();
+
+        var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
+
+        return marshaller.marshal(key, null);
+    }
+
+    private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
+        return ExceptionUtils.extractCodeFrom(cause) == Replicator.REPLICA_MISS_ERR;
     }
 }

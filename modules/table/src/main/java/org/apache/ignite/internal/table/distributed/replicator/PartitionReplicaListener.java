@@ -724,6 +724,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         false,
                         // Enlistment consistency token is not required for the rollback, so it is 0L.
                         Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
+                        Set.of(replicationGroupId.tableId()),
                         txId
                 )
                 .whenComplete((v, ex) -> runCleanupOnNode(replicationGroupId, txId, senderId));

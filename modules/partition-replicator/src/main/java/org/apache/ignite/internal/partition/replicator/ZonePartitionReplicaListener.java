@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.UUID;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -222,7 +222,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         // Need to copy&paste logic from PartitionReplicaListener to process other messages.
         LOG.debug("Non table request is not supported by the zone partition yet " + request);
 
-        return nullCompletedFuture();
+        return completedFuture(new ReplicaResult(null, null));
     }
 
     @Override
@@ -278,11 +278,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         try {
             if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
                 return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
-            } else {
-                // TODO Probably, it would be better to throw an exception here.
+            } else if (request instanceof ReplicaSafeTimeSyncRequest) {
                 LOG.debug("Non table request is not supported by the zone partition yet " + request);
-                return nullCompletedFuture();
+            } else {
+                LOG.debug("Non table request is not supported by the zone partition yet " + request);
             }
+            return completedFuture(new ReplicaResult(null, null));
         } catch (Throwable e) {
             throw e;
         }

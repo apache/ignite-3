@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
@@ -738,7 +739,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         doAnswer(invocation -> {
-            UUID txId = invocation.getArgument(4);
+            UUID txId = invocation.getArgument(5);
 
             txManager.updateTxMeta(txId, old -> new TxStateMeta(
                     ABORTED,
@@ -749,7 +750,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             ));
 
             return nullCompletedFuture();
-        }).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
+        }).when(txManager).finish(any(), any(), anyBoolean(), any(), any(), any());
 
         CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(tablePartitionIdMessage(grpId))
@@ -1813,6 +1814,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .commitPartitionId(tablePartitionIdMessage(grpId))
                 .txId(txId)
                 .groups(Map.of(tablePartitionIdMessage(grpId), localNode.name()))
+                .tableIds(Set.of(grpId.tableId()))
                 .commit(false)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .build();
@@ -1878,6 +1880,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .commitPartitionId(tablePartitionIdMessage(grpId))
                 .txId(txId)
                 .groups(Map.of(tablePartitionIdMessage(grpId), localNode.name()))
+                .tableIds(Set.of(grpId.tableId()))
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
@@ -2225,7 +2228,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
+        doAnswer(invocation -> nullCompletedFuture()).when(txManager).finish(any(), any(), anyBoolean(), any(), any(), any());
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).cleanup(any(), anyString(), any());
     }
 
@@ -2651,6 +2654,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .groupId(tablePartitionIdMessage(commitPartitionId))
                         .commitPartitionId(tablePartitionIdMessage(commitPartitionId))
                         .groups(groups.entrySet().stream().collect(toMap(e -> tablePartitionIdMessage(e.getKey()), Map.Entry::getValue)))
+                        .tableIds(groups.keySet().stream().map(TablePartitionId::tableId).collect(toSet()))
                         .txId(txId)
                         .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                         .commit(true)

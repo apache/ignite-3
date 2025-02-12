@@ -19,7 +19,7 @@ package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -50,9 +50,8 @@ import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValida
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
@@ -125,14 +124,14 @@ public class TxFinishReplicaRequestHandler {
      */
     public CompletableFuture<TransactionResult> handle(TxFinishReplicaRequest request) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-        Map<TablePartitionId, String> enlistedGroups = asTablePartitionIdStringMap(request.groups());
+        Map<ReplicationGroupId, String> enlistedGroups = asReplicationGroupIdToStringMap(request.groups());
 
         UUID txId = request.txId();
 
         if (request.commit()) {
             HybridTimestamp commitTimestamp = request.commitTimestamp();
 
-            return schemaCompatValidator.validateCommit(txId, enlistedGroups.keySet(), commitTimestamp)
+            return schemaCompatValidator.validateCommit(txId, request.tableIds(), commitTimestamp)
                     .thenCompose(validationResult ->
                             finishAndCleanup(
                                     enlistedGroups,
@@ -149,18 +148,18 @@ public class TxFinishReplicaRequestHandler {
         }
     }
 
-    private static Map<TablePartitionId, String> asTablePartitionIdStringMap(Map<TablePartitionIdMessage, String> messages) {
-        var result = new HashMap<TablePartitionId, String>(IgniteUtils.capacity(messages.size()));
+    private static Map<ReplicationGroupId, String> asReplicationGroupIdToStringMap(Map<ReplicationGroupIdMessage, String> messages) {
+        var result = new HashMap<ReplicationGroupId, String>(IgniteUtils.capacity(messages.size()));
 
-        for (Entry<TablePartitionIdMessage, String> e : messages.entrySet()) {
-            result.put(e.getKey().asTablePartitionId(), e.getValue());
+        for (Entry<ReplicationGroupIdMessage, String> e : messages.entrySet()) {
+            result.put(e.getKey().asReplicationGroupId(), e.getValue());
         }
 
         return result;
     }
 
     private CompletableFuture<TransactionResult> finishAndCleanup(
-            Map<TablePartitionId, String> enlistedPartitions,
+            Map<ReplicationGroupId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -251,7 +250,7 @@ public class TxFinishReplicaRequestHandler {
      * @return Future to wait of the finish.
      */
     private CompletableFuture<TransactionResult> finishTransaction(
-            Collection<TablePartitionId> partitionIds,
+            Collection<ReplicationGroupId> partitionIds,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -301,7 +300,7 @@ public class TxFinishReplicaRequestHandler {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             int catalogVersion,
-            List<TablePartitionIdMessage> partitionIds
+            List<ReplicationGroupIdMessage> partitionIds
     ) {
         HybridTimestamp now = clockService.now();
         FinishTxCommandBuilder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
@@ -318,23 +317,23 @@ public class TxFinishReplicaRequestHandler {
         return raftCommandApplicator.applyCmdWithExceptionHandling(finishTxCmdBldr.build());
     }
 
-    private static List<TablePartitionIdMessage> toPartitionIdMessage(Collection<TablePartitionId> partitionIds) {
-        List<TablePartitionIdMessage> list = new ArrayList<>(partitionIds.size());
+    private static List<ReplicationGroupIdMessage> toPartitionIdMessage(Collection<ReplicationGroupId> partitionIds) {
+        List<ReplicationGroupIdMessage> list = new ArrayList<>(partitionIds.size());
 
-        for (TablePartitionId partitionId : partitionIds) {
-            list.add(tablePartitionId(partitionId));
+        for (ReplicationGroupId partitionId : partitionIds) {
+            list.add(replicationGroupId(partitionId));
         }
 
         return list;
     }
 
     /**
-     * Method to convert from {@link TablePartitionId} object to command-based {@link TablePartitionIdMessage} object.
+     * Method to convert from {@link ReplicationGroupId} object to command-based {@link ReplicationGroupIdMessage} object.
      *
-     * @param tablePartId {@link TablePartitionId} object to convert to {@link TablePartitionIdMessage}.
-     * @return {@link TablePartitionIdMessage} object converted from argument.
+     * @param replicationGroupId {@link ReplicationGroupId} object to convert to {@link ReplicationGroupIdMessage}.
+     * @return {@link ReplicationGroupIdMessage} object converted from argument.
      */
-    private static TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
-        return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartId);
+    private static ReplicationGroupIdMessage replicationGroupId(ReplicationGroupId replicationGroupId) {
+        return toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
     }
 }

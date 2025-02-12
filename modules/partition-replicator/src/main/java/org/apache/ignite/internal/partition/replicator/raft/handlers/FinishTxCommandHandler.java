@@ -32,8 +32,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -113,11 +114,11 @@ public class FinishTxCommandHandler {
         return new IgniteBiTuple<>(new TransactionResult(stateToSet, cmd.commitTimestamp()), true);
     }
 
-    private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
-        List<TablePartitionId> list = new ArrayList<>(partitionIds.size());
+    private static List<ReplicationGroupId> fromPartitionIdMessage(List<ReplicationGroupIdMessage> partitionIds) {
+        List<ReplicationGroupId> list = new ArrayList<>(partitionIds.size());
 
-        for (TablePartitionIdMessage partitionIdMessage : partitionIds) {
-            list.add(partitionIdMessage.asTablePartitionId());
+        for (ReplicationGroupIdMessage partitionIdMessage : partitionIds) {
+            list.add(partitionIdMessage.asReplicationGroupId());
         }
 
         return list;

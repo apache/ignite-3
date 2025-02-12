@@ -1148,11 +1148,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
                     for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
+                        // TODO: IGNITE-24482 - enlist either table or zone partition ID.
                         TablePartitionId tablePartId = new TablePartitionId(tableId, partWithToken.getKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
                         tx.enlist(tablePartId,
+                                tableId,
                                 new IgniteBiTuple<>(
                                         topSrvc.getByConsistentId(assignment.name()),
                                         assignment.enlistmentConsistencyToken())
