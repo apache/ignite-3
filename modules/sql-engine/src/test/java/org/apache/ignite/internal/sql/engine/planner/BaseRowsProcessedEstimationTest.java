@@ -88,7 +88,7 @@ public class BaseRowsProcessedEstimationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    static Matcher<Double> approximatelyEqual(double expected) {
+    static Matcher<Integer> approximatelyEqual(double expected) {
         return new BaseMatcher<>() {
             @Override
             public boolean matches(Object o) {

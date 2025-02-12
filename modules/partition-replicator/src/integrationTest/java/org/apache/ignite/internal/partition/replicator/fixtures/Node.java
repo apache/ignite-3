@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.internal.util.MockUtil.isMock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -163,6 +164,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -230,6 +232,8 @@ public class Node {
 
     private final LowWatermarkImpl lowWatermark;
 
+    public final RemotelyTriggeredResourceRegistry resourcesRegistry;
+
     /** The future have to be complete after the node start and all Meta storage watches are deployd. */
     private CompletableFuture<Void> deployWatchesFut;
 
@@ -253,10 +257,6 @@ public class Node {
     private final IndexMetaStorage indexMetaStorage;
 
     private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
-
-    private volatile MvTableStorage mvTableStorage;
-
-    private volatile TxStateStorage txStateStorage;
 
     @Nullable
     private volatile InvokeInterceptor invokeInterceptor;
@@ -452,7 +452,7 @@ public class Node {
                 threadPoolsManager.commonScheduler()
         );
 
-        var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+        resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
 
@@ -490,7 +490,8 @@ public class Node {
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                new PersistentPageMemoryDataStorageModule()
+                new PersistentPageMemoryDataStorageModule(),
+                new NonVolatileTestDataStorageModule()
         ));
 
         Path storagePath = dir.resolve("storage");
@@ -611,7 +612,9 @@ public class Node {
                 placementDriver,
                 schemaSyncService,
                 systemDistributedConfiguration,
-                sharedTxStateStorage
+                sharedTxStateStorage,
+                txManager,
+                schemaManager
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
@@ -660,9 +663,9 @@ public class Node {
 
             @Override
             protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
+                MvTableStorage storage = super.createTableStorage(tableDescriptor, zoneDescriptor);
 
-                return mvTableStorage;
+                return isMock(storage) ? storage : spy(storage);
             }
 
             @Override
@@ -670,9 +673,9 @@ public class Node {
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                txStateStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+                TxStateStorage storage = super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
 
-                return txStateStorage;
+                return isMock(storage) ? storage : spy(storage);
             }
         };
 
@@ -809,5 +812,9 @@ public class Node {
         } catch (IOException e) {
             throw new IgniteInternalException(e);
         }
+    }
+
+    public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+        return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
     }
 }

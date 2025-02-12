@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -629,7 +630,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void testCharTypesWithTrailingSpacesAreTrimmed() {
         sql("create table limitedChar (pk int primary key, f1 VARCHAR(3))");
 
@@ -652,7 +652,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void insertCharLimitation() {
         sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
@@ -712,7 +711,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     /** Test correctness of char types limitation against merge and update operations. */
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void charLimitationWithMergeUpdateOp() {
         try {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
@@ -745,6 +743,47 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         } finally {
             sql("DROP TABLE IF EXISTS limitedChar");
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"BINARY", "VARBINARY"})
+    public void testErrorIfBinaryValueSizeGtThanTypePrecision(String type) {
+        sql(format("CREATE TABLE t(id INT PRIMARY KEY, val5 {}(5), val6 {}(6))", type, type));
+
+        Object param = "1".repeat(6).getBytes(StandardCharsets.UTF_8);
+        Object value = "1".repeat(12);
+
+        sql(format("INSERT INTO t VALUES(1, DEFAULT, x'{}')", value));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql("INSERT INTO t VALUES(2, ?, DEFAULT)", param)
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("INSERT INTO t VALUES(2, x'{}', DEFAULT)", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("UPDATE t SET val5=x'{}' WHERE id=1", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql("INSERT INTO t SELECT id, val6, val6 FROM t")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("INSERT INTO t SELECT * FROM (VALUES(2, x'{}', x'{}')) as tk(k, v1, v2)", value, value))
+        );
     }
 
     @Test

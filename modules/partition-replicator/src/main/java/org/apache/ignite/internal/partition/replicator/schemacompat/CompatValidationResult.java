@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.internal.partition.replicator.schemacompat;
 
 import org.jetbrains.annotations.Nullable;
 

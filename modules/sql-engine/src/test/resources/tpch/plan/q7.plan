@@ -1,20 +1,76 @@
-Sort(sort0=[$0], sort1=[$1], sort2=[$2], dir0=[ASC], dir1=[ASC], dir2=[ASC])
-  ColocatedHashAggregate(group=[{0, 1, 2}], REVENUE=[SUM($3)])
-    Project(exprs=[[$14, $10, EXTRACT(FLAG(YEAR), $4), *($2, -(1, $3))]])
-      HashJoin(condition=[AND(=($11, $1), OR(=($10, _UTF-8'GERMANY'), =($14, _UTF-8'GERMANY')), OR(=($14, _UTF-8'FRANCE'), =($10, _UTF-8'FRANCE')))], joinType=[inner])
-        HashJoin(condition=[=($5, $0)], joinType=[inner])
-          Exchange(distribution=[single])
-            TableScan(table=[[PUBLIC, LINEITEM]], filters=[AND(>=($t4, 1995-01-01), <=($t4, 1996-12-31))], requiredColumns=[{0, 2, 5, 6, 10}])
-          HashJoin(condition=[=($2, $1)], joinType=[inner])
-            Exchange(distribution=[single])
-              TableScan(table=[[PUBLIC, ORDERS]], requiredColumns=[{0, 1}])
-            HashJoin(condition=[=($1, $2)], joinType=[inner])
-              Exchange(distribution=[single])
-                TableScan(table=[[PUBLIC, CUSTOMER]], requiredColumns=[{0, 3}])
-              Exchange(distribution=[single])
-                TableScan(table=[[PUBLIC, NATION]], filters=[OR(=($t1, _UTF-8'FRANCE'), =($t1, _UTF-8'GERMANY'))], requiredColumns=[{0, 1}])
-        HashJoin(condition=[=($1, $2)], joinType=[inner])
-          Exchange(distribution=[single])
-            TableScan(table=[[PUBLIC, SUPPLIER]], requiredColumns=[{0, 3}])
-          Exchange(distribution=[single])
-            TableScan(table=[[PUBLIC, NATION]], filters=[OR(=($t1, _UTF-8'FRANCE'), =($t1, _UTF-8'GERMANY'))], requiredColumns=[{0, 1}])
+Sort
+    collation: [SUPP_NATION ASC, CUST_NATION ASC, L_YEAR ASC]
+    est. row count: 32031
+  ColocatedHashAggregate
+      group: [SUPP_NATION, CUST_NATION, L_YEAR]
+      aggs: [SUM(VOLUME)]
+      est. row count: 32031
+    Project
+        fields: [SUPP_NATION, CUST_NATION, L_YEAR, VOLUME]
+        exprs: [N_NAME0, N_NAME, EXTRACT(FLAG(YEAR), L_SHIPDATE), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
+        est. row count: 65638
+      HashJoin
+          condition: AND(=(S_SUPPKEY, L_SUPPKEY), OR(=(N_NAME0, _UTF-8'FRANCE'), =(N_NAME, _UTF-8'FRANCE')), OR(=(N_NAME, _UTF-8'GERMANY'), =(N_NAME0, _UTF-8'GERMANY')))
+          joinType: inner
+          est. row count: 65638
+        HashJoin
+            condition: =(O_ORDERKEY, L_ORDERKEY)
+            joinType: inner
+            est. row count: 375076
+          Exchange
+              distribution: single
+              est. row count: 1500304
+            TableScan
+                table: [PUBLIC, LINEITEM]
+                filters: SEARCH(L_SHIPDATE, Sarg[[1995-01-01..1996-12-31]])
+                fields: [L_ORDERKEY, L_SUPPKEY, L_EXTENDEDPRICE, L_DISCOUNT, L_SHIPDATE]
+                est. row count: 1500304
+          HashJoin
+              condition: =(C_CUSTKEY, O_CUSTKEY)
+              joinType: inner
+              est. row count: 375000
+            Exchange
+                distribution: single
+                est. row count: 1500000
+              TableScan
+                  table: [PUBLIC, ORDERS]
+                  fields: [O_ORDERKEY, O_CUSTKEY]
+                  est. row count: 1500000
+            HashJoin
+                condition: =(C_NATIONKEY, N_NATIONKEY)
+                joinType: inner
+                est. row count: 37500
+              Exchange
+                  distribution: single
+                  est. row count: 150000
+                TableScan
+                    table: [PUBLIC, CUSTOMER]
+                    fields: [C_CUSTKEY, C_NATIONKEY]
+                    est. row count: 150000
+              Exchange
+                  distribution: single
+                  est. row count: 6
+                TableScan
+                    table: [PUBLIC, NATION]
+                    filters: SEARCH(N_NAME, Sarg[_UTF-8'FRANCE':CHAR(7) CHARACTER SET "UTF-8", _UTF-8'GERMANY']:CHAR(7) CHARACTER SET "UTF-8")
+                    fields: [N_NATIONKEY, N_NAME]
+                    est. row count: 6
+        HashJoin
+            condition: =(S_NATIONKEY, N_NATIONKEY)
+            joinType: inner
+            est. row count: 2500
+          Exchange
+              distribution: single
+              est. row count: 10000
+            TableScan
+                table: [PUBLIC, SUPPLIER]
+                fields: [S_SUPPKEY, S_NATIONKEY]
+                est. row count: 10000
+          Exchange
+              distribution: single
+              est. row count: 6
+            TableScan
+                table: [PUBLIC, NATION]
+                filters: SEARCH(N_NAME, Sarg[_UTF-8'FRANCE':CHAR(7) CHARACTER SET "UTF-8", _UTF-8'GERMANY']:CHAR(7) CHARACTER SET "UTF-8")
+                fields: [N_NATIONKEY, N_NAME]
+                est. row count: 6

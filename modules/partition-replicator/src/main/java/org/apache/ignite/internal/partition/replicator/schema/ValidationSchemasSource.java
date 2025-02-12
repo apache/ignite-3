@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.partition.replicator.schema;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.partition.replicator.schema;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;

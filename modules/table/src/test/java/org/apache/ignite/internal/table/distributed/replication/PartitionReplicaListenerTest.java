@@ -25,6 +25,8 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -42,6 +44,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
@@ -153,6 +156,10 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
+import org.apache.ignite.internal.partition.replicator.schemacompat.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
@@ -163,11 +170,15 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -203,14 +214,9 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaVersionException;
-import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -276,6 +282,10 @@ import org.mockito.quality.Strictness;
 @ExtendWith(ConfigurationExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class PartitionReplicaListenerTest extends IgniteAbstractTest {
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
+
     private static final int PART_ID = 0;
 
     private static final int CURRENT_SCHEMA_VERSION = 1;
@@ -1458,6 +1468,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId);
     }
 
+    private static ZonePartitionIdMessage zonePartitionIdMessage(ZonePartitionId zonePartitionId) {
+        return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId);
+    }
+
     private CompletableFuture<?> doMultiRowRequest(UUID txId, Collection<BinaryRow> binaryRows, RequestType requestType) {
         return doMultiRowRequest(txId, binaryRows, requestType, false);
     }
@@ -2125,9 +2139,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> doRwScanCloseRequest(UUID targetTxId) {
+        ReplicationGroupIdMessage serializedMsg = enabledColocationFeature
+                ? zonePartitionIdMessage(new ZonePartitionId(tableDescriptor.zoneId(), grpId.partitionId()))
+                : tablePartitionIdMessage(grpId);
+
         return partitionReplicaListener.invoke(
                 TABLE_MESSAGES_FACTORY.scanCloseReplicaRequest()
-                        .groupId(tablePartitionIdMessage(grpId))
+                        .groupId(serializedMsg)
+                        .tableId(grpId.tableId())
                         .transactionId(targetTxId)
                         .scanId(1)
                         .build(),
