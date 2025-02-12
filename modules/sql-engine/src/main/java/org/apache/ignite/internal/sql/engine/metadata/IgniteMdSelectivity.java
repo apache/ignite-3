@@ -33,7 +33,6 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
@@ -58,130 +57,114 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
 
+    private static double computeOpsSelectivity(Map<RexNode, List<SqlKind>> operands, double baseSelectivity) {
+        double EQ_SELECTIVITY = 0.333;
+        double result = baseSelectivity;
+
+        for (Map.Entry<RexNode, List<SqlKind>> e : operands.entrySet()) {
+            int eqNum = 0;
+            double result0 = 0.0;
+
+            for (SqlKind kind : e.getValue()) {
+                switch (kind) {
+                    case IS_NOT_NULL:
+                        result0 = Math.max(result0, 0.9);
+                        break;
+                    case EQUALS:
+                        // Take into account Zipf`s distribution.
+                        result0 = Math.min(result0 + (EQ_SELECTIVITY / Math.sqrt(++eqNum)), 1.0);
+                        break;
+                    case GREATER_THAN:
+                    case LESS_THAN:
+                    case GREATER_THAN_OR_EQUAL:
+                    case LESS_THAN_OR_EQUAL:
+                        result0 = Math.min(result0 + 0.5, 1.0);
+                        break;
+                    default:
+                        // Not clear here, proceed with default.
+                        result0 += 0.05;
+                }
+            }
+
+            result = Math.max(result, result0);
+        }
+
+        return result;
+    }
+
     /**
-     * Implements shuttle for selectivity prediction. <br>
+     * Implements selectivity prediction algorithm. <br>
      * Current implementation work as follows: <br><br>
      * 1. If mixed OR-related operands are processed i.e: OR(=($t1, 'D'), =($t1, 'M'), =($t2, 'W')) selectivity computes separately
-     * for each local ref. <br>
+     * for each local ref and a big one is chosen <br>
      * 2. If mixed OR or AND related operands are processed i.e:
      * OR(<($t3, 110), >($t3, 150), AND(>=($t2, -($t1, 2)), <=($t2, +($t3, 2))), >($t4, $t2), <($t4, $t3)) selectivity computes separately
      * for each local ref with AND selectivity adjustment. <br>
      */
-    private static class SelectivityShuttle extends RexShuttle {
-        private final Map<RexNode, List<SqlKind>> orOps = new HashMap<>();
-        private double baseSelectivity;
-        private static final double EQ_SELECTIVITY = 0.333;
+    private static double computeSelectivity(RexCall call) {
+        ImmutableList<RexNode> operands = call.operands;
+        List<RexNode> andOperands = null;
+        List<RexNode> otherOperands = null;
+        double baseSelectivity = 0.0;
+        Map<RexNode, List<SqlKind>> processOperands = new HashMap<>();
 
-        double computeSelectivity() {
-            double result = baseSelectivity;
+        assert !operands.isEmpty();
 
-            for (Map.Entry<RexNode, List<SqlKind>> e : orOps.entrySet()) {
-                int eqNum = 0;
-                double result0 = 0.0;
+        boolean andConsist = operands.stream().anyMatch(op -> op.isA(SqlKind.AND));
 
-                for (SqlKind kind : e.getValue()) {
-                    switch (kind) {
-                        case IS_NOT_NULL:
-                            result0 = Math.max(result0, 0.9);
-                            break;
-                        case EQUALS:
-                            // Take into account Zipf`s distribution.
-                            result0 = Math.min(result0 + (EQ_SELECTIVITY / Math.sqrt(++eqNum)), 1.0);
-                            break;
-                        case GREATER_THAN:
-                        case LESS_THAN:
-                        case GREATER_THAN_OR_EQUAL:
-                        case LESS_THAN_OR_EQUAL:
-                            result0 = Math.min(result0 + 0.5, 1.0);
-                            break;
-                        default:
-                            // Not clear here, proceed with default.
-                            result0 *= 0.25;
+        if (andConsist) {
+            for (RexNode op : operands) {
+                if (op.isA(SqlKind.AND)) {
+                    if (andOperands == null) {
+                        andOperands = new ArrayList<>();
                     }
+
+                    andOperands.add(op);
+                } else {
+                    if (otherOperands == null) {
+                        otherOperands = new ArrayList<>();
+                    }
+
+                    otherOperands.add(op);
                 }
-
-                result = Math.max(result, result0);
             }
-
-            return result;
         }
 
-        @Override
-        public RexNode visitCall(RexCall call) {
-            if (call.isA(SqlKind.OR)) {
-                ImmutableList<RexNode> operands = call.operands;
-                List<RexNode> andOperands = null;
-                List<RexNode> otherOperands = null;
-
-                assert !operands.isEmpty();
-
-                boolean andConsist = operands.stream().anyMatch(op -> op.isA(SqlKind.AND));
-
-                if (andConsist) {
-                    for (RexNode op : operands) {
-                        if (op.isA(SqlKind.AND)) {
-                            if (andOperands == null) {
-                                andOperands = new ArrayList<>();
-                            }
-
-                            andOperands.add(op);
-                        } else {
-                            if (otherOperands == null) {
-                                otherOperands = new ArrayList<>();
-                            }
-
-                            otherOperands.add(op);
-                        }
-                    }
-                }
-
-                // AND inside OR
-                if (andOperands != null) {
-                    for (RexNode andOp : andOperands) {
-                        baseSelectivity = Math.max(baseSelectivity, RelMdUtil.guessSelectivity(andOp));
-                    }
-                }
-
-                if (andConsist) {
-                    // nothing to process
-                    if (otherOperands == null) {
-                        return null;
-                    } else if (otherOperands.size() == 1) {
-                        call = (RexCall) otherOperands.get(0);
-                    } else {
-                        // otherwise build new OR without AND operands
-                        call = (RexCall) Commons.rexBuilder().makeCall(call.op, otherOperands);
-
-                        return super.visitCall(call);
-                    }
-                }
-            } else if (call.isA(SqlKind.AND)) {
-                assert false : "Should never happen";
+        // AND inside OR
+        if (andOperands != null) {
+            for (RexNode andOp : andOperands) {
+                baseSelectivity = Math.max(baseSelectivity, RelMdUtil.guessSelectivity(andOp));
             }
+        }
 
-            RexNode res = getLocalRef(call);
+        List<RexNode> operandsToProcess = otherOperands == null ? call.getOperands() : otherOperands;
+
+        for (RexNode node : operandsToProcess) {
+            RexNode res = getLocalRef(node);
 
             // It can be null for case with expression for example: LENGTH('abc') = 3
             if (res != null) {
-                List<SqlKind> vals = orOps.computeIfAbsent(res, (k) -> new ArrayList<>());
+                List<SqlKind> vals = processOperands.computeIfAbsent(res, (k) -> new ArrayList<>());
 
-                vals.add(call.getKind());
+                vals.add(node.getKind());
             } else {
                 baseSelectivity = Math.max(baseSelectivity, nonColumnRefSelectivity(call));
             }
-
-            return super.visitCall(call);
         }
 
-        private static double nonColumnRefSelectivity(RexCall call) {
-            if (call.isA(SqlKind.EQUALS)) {
-                return EQ_SELECTIVITY;
-            } else if (call.isA(SqlKind.COMPARISON)) {
-                return 0.5;
-            } else {
-                // different OTHER_FUNCTION and other uncovered cases
-                return 0;
-            }
+        return computeOpsSelectivity(processOperands, baseSelectivity);
+    }
+
+    private static double nonColumnRefSelectivity(RexCall call) {
+        double EQ_SELECTIVITY = 0.333;
+
+        if (call.isA(SqlKind.EQUALS)) {
+            return EQ_SELECTIVITY;
+        } else if (call.isA(SqlKind.COMPARISON)) {
+            return 0.5;
+        } else {
+            // different OTHER_FUNCTION and other uncovered cases
+            return 0;
         }
     }
 
@@ -218,9 +201,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             RexNode predicateExpanded = expandSearch(Commons.rexBuilder(), null, pred);
 
             if (predicateExpanded.isA(SqlKind.OR)) {
-                SelectivityShuttle shuttle = new SelectivityShuttle();
-                predicateExpanded.accept(shuttle);
-                double processed = shuttle.computeSelectivity();
+                double processed = computeSelectivity((RexCall) predicateExpanded);
                 sel *= processed;
             } else if (predicateExpanded.getKind() == SqlKind.IS_NOT_NULL) {
                 sel *= 0.9;

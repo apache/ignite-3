@@ -35,7 +35,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 )
 public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     @ParameterizedTest
-    @ValueSource(strings = "64")
+    @ValueSource(strings = "48")
     public void test(String queryId) {
         validateQueryPlan(queryId);
     }
