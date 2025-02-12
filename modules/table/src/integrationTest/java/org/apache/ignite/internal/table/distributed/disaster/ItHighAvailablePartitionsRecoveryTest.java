@@ -21,6 +21,7 @@ import static java.lang.String.format;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -257,6 +258,12 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNodes(1, 2, 3, 4);
 
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+
+        assertThat(errors, is(empty()));
+
         waitAndAssertRecoveryKeyIsNotEmpty(node);
 
         assertRecoveryRequestForHaZoneTable(node);
@@ -280,6 +287,8 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
                 PARTITION_IDS,
                 Set.of(node.name(), node1.name(), node2.name())
         );
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
     }
 
     @Test
@@ -397,4 +406,70 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
                 keyValueStorage
         );
     }
+
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode with 7 nodes (A, B, C, D, E, F, G).</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (A, B, C, D).</li>
+     *   <li>Wait for the partition to become available on the remaining nodes (E, F, G).</li>
+     *   <li>Start node A.</li>
+     *   <li>Verify that node A cleans up its state.</li>
+     * </ol>
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testNodeStateCleanupAfterRestartInHaMode() throws Exception {
+        startNode(3);
+        startNode(4);
+        startNode(5);
+        startNode(6);
+
+        createHaZoneWithTable();
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+        assertValuesPresentOnNodes(node0.clock().now(), table, 0, 1, 2, 3, 4, 5, 6);
+
+        alterZone(node0.catalogManager(), HA_ZONE_NAME, INFINITE_TIMER_VALUE, null, null);
+
+        stopNodes(3, 4, 5, 6);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0, 1, 2));
+
+        startNode(6);
+
+        assertValuesNotPresentOnNodes(node0.clock().now(), table, 6);
+    }
+
+    @Test
+    void test() throws Exception {
+        startNode(3);
+        startNode(4);
+        startNode(5);
+        startNode(6);
+
+        createHaZoneWithTable();
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(HA_TABLE_NAME);
+
+        stopNodes(3, 4, 5, 6);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0, 1, 2));
+
+        stopNodes(1, 2);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
+
+        startNode(6);
+
+        assertValuesNotPresentOnNodes(node0.clock().now(), table, 6);
+    }
+
 }

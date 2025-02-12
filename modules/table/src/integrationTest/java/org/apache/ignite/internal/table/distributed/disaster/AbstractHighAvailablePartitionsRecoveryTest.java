@@ -38,6 +38,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -480,6 +481,12 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         }
     }
 
+    void assertValuesNotPresentOnNodes(HybridTimestamp ts, Table table, Integer... indexes) {
+        for (Integer index : indexes) {
+            assertValuesNotPresentOnNode(table, ts, index);
+        }
+    }
+
     private void assertValuesPresentOnNode(Table table, HybridTimestamp ts, int targetNodeIndex) {
         IgniteImpl targetNode = unwrapIgniteImpl(node(targetNodeIndex));
 
@@ -492,6 +499,21 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             assertThat(fut, willCompleteSuccessfully());
 
             assertNotNull(fut.join());
+        }
+    }
+
+    private void assertValuesNotPresentOnNode(Table table, HybridTimestamp ts, int targetNodeIndex) {
+        IgniteImpl targetNode = unwrapIgniteImpl(node(targetNodeIndex));
+
+        TableImpl tableImpl = unwrapTableImpl(table);
+        InternalTable internalTable = tableImpl.internalTable();
+
+        for (int i = 0; i < ENTRIES; i++) {
+            CompletableFuture<BinaryRow> fut =
+                    internalTable.get(marshalKey(tableImpl, Tuple.create(of("id", i))), ts, targetNode.node());
+            assertThat(fut, willCompleteSuccessfully());
+
+            assertNull(fut.join());
         }
     }
 
