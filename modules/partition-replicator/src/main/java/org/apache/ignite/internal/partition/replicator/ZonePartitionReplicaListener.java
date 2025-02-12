@@ -36,6 +36,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TxManager;
@@ -93,7 +94,11 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                         .thenApply(res -> new ReplicaResult(res, null));
             } else {
-                LOG.warn("Non table request is not supported by the zone partition yet " + request);
+                if (request instanceof ReplicaSafeTimeSyncRequest) {
+                    LOG.debug("Non table request is not supported by the zone partition yet " + request);
+                } else {
+                    LOG.warn("Non table request is not supported by the zone partition yet " + request);
+                }
             }
 
             return completedFuture(new ReplicaResult(null, null));
