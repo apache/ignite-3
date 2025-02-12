@@ -1044,6 +1044,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         tx.enlist(
                 tblPartId,
+                tblPartId.tableId(),
                 new IgniteBiTuple<>(
                         ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
                                 .findFirst().orElseThrow(),

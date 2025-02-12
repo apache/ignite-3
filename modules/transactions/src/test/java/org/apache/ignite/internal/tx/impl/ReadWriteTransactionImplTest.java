@@ -38,6 +38,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -63,6 +64,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private static final IgniteBiTuple NODE_AND_TOKEN = new IgniteBiTuple(CLUSTER_NODE, 0L);
 
     private static final int TABLE_ID = 1;
+    private static final int ZONE_ID = 2;
 
     /** Transaction commit partition id. */
     public static final TablePartitionId TX_COMMIT_PART = new TablePartitionId(TABLE_ID, 0);
@@ -96,8 +98,8 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private void startTxAndTryToEnlist(boolean commit) {
         HashSet<UUID> finishedTxs = new HashSet<>();
 
-        Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), any())).thenAnswer(invocation -> {
-            finishedTxs.add(invocation.getArgument(4));
+        Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), any(), any())).thenAnswer(invocation -> {
+            finishedTxs.add(invocation.getArgument(5));
 
             return nullCompletedFuture();
         });
@@ -120,8 +122,8 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         tx.assignCommitPartition(TX_COMMIT_PART);
 
-        tx.enlist(new TablePartitionId(TABLE_ID, 0), NODE_AND_TOKEN);
-        tx.enlist(new TablePartitionId(TABLE_ID, 2), NODE_AND_TOKEN);
+        tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, NODE_AND_TOKEN);
+        tx.enlist(new ZonePartitionId(ZONE_ID, 2), TABLE_ID, NODE_AND_TOKEN);
 
         if (commit) {
             if (txState == null) {
@@ -138,11 +140,11 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         }
 
         TransactionException ex = assertThrows(TransactionException.class,
-                () -> tx.enlist(new TablePartitionId(TABLE_ID, 5), NODE_AND_TOKEN));
+                () -> tx.enlist(new ZonePartitionId(ZONE_ID, 5), TABLE_ID, NODE_AND_TOKEN));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
 
-        ex = assertThrows(TransactionException.class, () -> tx.enlist(new TablePartitionId(TABLE_ID, 0), NODE_AND_TOKEN));
+        ex = assertThrows(TransactionException.class, () -> tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, NODE_AND_TOKEN));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
     }
