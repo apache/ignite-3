@@ -158,7 +158,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private volatile UUID localNodeId;
 
     /* Feature flag for zone based collocation track */
-    // TODO IGNITE-https://issues.apache.org/jira/browse/IGNITE-22115 Remove it.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove it.
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**

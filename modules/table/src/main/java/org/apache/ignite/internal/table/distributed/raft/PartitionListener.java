@@ -19,8 +19,6 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
@@ -96,10 +94,6 @@ import org.jetbrains.annotations.TestOnly;
 public class PartitionListener implements RaftGroupListener, RaftTableProcessor {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
-
-    /* Feature flag for zone based collocation track */
-    // TODO IGNITE-22115 remove it
-    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /** Transaction manager. */
     private final TxManager txManager;
