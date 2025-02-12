@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCou
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
@@ -124,17 +125,17 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
     }
 
     private static String appendEqConditions(int count) {
-        String query = "SELECT * FROM CATALOG_SALES WHERE";
+        IgniteStringBuilder query = new IgniteStringBuilder("SELECT * FROM CATALOG_SALES WHERE");
 
         for (int i = 0; i < count; ++i) {
             if (i != 0) {
-                query += " OR ";
+                query.app(" OR ");
             }
 
-            query += " CS_SOLD_DATE_SK = " + (2 * i);
+            query.app(" CS_SOLD_DATE_SK = " + (2 * i));
         }
 
-        return query;
+        return query.toString();
     }
 
 
