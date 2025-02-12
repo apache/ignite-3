@@ -144,6 +144,7 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE subcategory = 'Camera Lens' "
                 + "OR subcategory = 'Other'")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(not(containsUnion(true)))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
                 .matches(containsString("searchBounds=[[MultiBounds"))
