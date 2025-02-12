@@ -37,6 +37,8 @@ import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
@@ -45,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -184,10 +187,25 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         }
     }
 
-    private static double guessSelectivity(@Nullable RexNode predicate) {
+    private static double guessSelectivity(@Nullable RexNode predicate, ProjectableFilterableTableScan rel) {
         double sel = 1.0;
         if ((predicate == null) || predicate.isAlwaysTrue()) {
             return sel;
+        }
+
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null : "No table";
+
+        ImmutableIntList keyColumns = table.keyColumns();
+        ImmutableBitSet requiredColunms = rel.requiredColumns();
+
+        boolean pkSpecificCheck = false;
+
+        for (int key : keyColumns) {
+            if (requiredColunms.get(key)) {
+                pkSpecificCheck = true;
+                break;
+            }
         }
 
         double artificialSel = 1.0;
@@ -210,6 +228,15 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
                             == RelMdUtil.ARTIFICIAL_SELECTIVITY_FUNC)) {
                 artificialSel *= RelMdUtil.getSelectivityValue(predicateExpanded);
             } else if (predicateExpanded.isA(SqlKind.EQUALS)) {
+                if (pkSpecificCheck) {
+                    RexLocalRef localRef = getLocalRef(pred);
+
+                    if (localRef != null) {
+                        if (keyColumns.contains(localRef.getIndex())) {
+                            return 0.0;
+                        }
+                    }
+                }
                 sel *= 0.15;
             } else if (predicateExpanded.isA(SqlKind.COMPARISON)) {
                 sel *= 0.5;
@@ -227,16 +254,16 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      */
     public Double getSelectivity(ProjectableFilterableTableScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate == null) {
-            return guessSelectivity(rel.condition());
+            return guessSelectivity(rel.condition(), rel);
         }
 
         RexNode condition = rel.pushUpPredicate();
         if (condition == null) {
-            return guessSelectivity(predicate);
+            return guessSelectivity(predicate, rel);
         }
 
         RexNode diff = RelMdUtil.minusPreds(RexUtils.builder(rel), predicate, condition);
-        return guessSelectivity(diff);
+        return guessSelectivity(diff, rel);
     }
 
     /**

@@ -55,7 +55,7 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
     static void startCluster() {
         CLUSTER.start();
 
-        for (TpcTable table : List.of(TpcdsTables.CATALOG_SALES, TpcdsTables.CATALOG_RETURNS, TpcdsTables.DATE_DIM)) {
+        for (TpcTable table : List.of(TpcdsTables.CATALOG_SALES)) {
             NODE.initSchema(table.ddlScript());
         }
 
@@ -65,6 +65,14 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
     @AfterAll
     static void stopCluster() throws Exception {
         CLUSTER.stop();
+    }
+
+    @Test
+    void testConditionWithPk() {
+        double selectivityFactor = 1.0 / TABLE_REAL_SIZE;
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
     }
 
     @Test
@@ -120,6 +128,12 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
 
         selectivityFactor = 0.33;
         assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK = 10 OR LENGTH('12') = 2")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
+
+        // IS NOT NULL over NOT NULL column
+        selectivityFactor = 1;
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK IS NOT NULL")
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
     }
