@@ -57,8 +57,9 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
 
+    private static final double EQ_SELECTIVITY = 0.333;
+
     private static double computeOpsSelectivity(Map<RexNode, List<SqlKind>> operands, double baseSelectivity) {
-        double EQ_SELECTIVITY = 0.333;
         double result = baseSelectivity;
 
         for (Map.Entry<RexNode, List<SqlKind>> e : operands.entrySet()) {
@@ -156,8 +157,6 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
     }
 
     private static double nonColumnRefSelectivity(RexCall call) {
-        double EQ_SELECTIVITY = 0.333;
-
         if (call.isA(SqlKind.EQUALS)) {
             return EQ_SELECTIVITY;
         } else if (call.isA(SqlKind.COMPARISON)) {

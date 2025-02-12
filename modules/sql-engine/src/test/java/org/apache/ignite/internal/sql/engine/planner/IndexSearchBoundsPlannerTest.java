@@ -678,6 +678,11 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     private static boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
         for (int i = 0; i < predicates.length; i++) {
+            if (searchBounds == null) {
+                LOG.info("null bounds do not not match: {}", predicates[i]);
+                return false;
+            }
+
             if (!predicates[i].test(searchBounds.get(i))) {
                 LOG.info("{} bounds do not not match: {}", searchBounds.get(i), predicates[i]);
                 return false;
