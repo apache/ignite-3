@@ -92,11 +92,11 @@ public class BaseRowsProcessedEstimationTest extends BaseIgniteAbstractTest {
         return new BaseMatcher<>() {
             @Override
             public boolean matches(Object o) {
-                if (!(o instanceof Double)) {
+                if (!(o instanceof Integer)) {
                     return false;
                 }
 
-                double value = (double) o;
+                double value = ((Integer) o).doubleValue();
                 return Math.abs(1 - (value / expected)) < 0.05;
             }
 
