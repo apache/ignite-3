@@ -124,8 +124,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     // This variable is volatile, because it may be updated outside the Raft thread under the colocation feature.
     private volatile Set<String> currentGroupTopology;
 
-    private final MinimumRequiredTimeCollectorService minTimeCollectorService;
-
     // Raft command handlers.
     private final RaftTxFinishMarker txFinisher;
 
@@ -157,7 +155,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.schemaRegistry = schemaRegistry;
         this.indexMetaStorage = indexMetaStorage;
         this.localNodeId = localNodeId;
-        this.minTimeCollectorService = minTimeCollectorService;
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
