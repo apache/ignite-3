@@ -249,7 +249,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
-        IgniteBiTuple<Serializable, Boolean> result = null;
+        IgniteBiTuple<Serializable, Boolean> result;
 
         if (command instanceof UpdateCommand) {
             result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm, safeTimestamp);
@@ -268,15 +268,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         } else if (command instanceof VacuumTxStatesCommand) {
             result = handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
         } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-            if (!enabledColocationFeature) {
-                result = minimumActiveTxTimeCommandHandler.handle((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex);
-            }
+            result = minimumActiveTxTimeCommandHandler.handle((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex);
         } else {
             throw new AssertionError("Unknown command type [command=" + command.toStringForLightLogging() + ']');
         }
-
-        assert result != null : "Command should not be passed to PartitionListener "
-                + "[cmd=" + command.toStringForLightLogging() + ", colocationEnabled=" + enabledColocationFeature + ']';
 
         if (Boolean.TRUE.equals(result.get2())) {
             // Adjust safe time before completing update to reduce waiting.

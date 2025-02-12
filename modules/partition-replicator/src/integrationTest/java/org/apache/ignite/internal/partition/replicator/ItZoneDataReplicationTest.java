@@ -74,6 +74,7 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -141,6 +142,9 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
     private static StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private static GcConfiguration gcConfiguration;
 
     @InjectExecutorService
     private static ScheduledExecutorService scheduledExecutorService;
@@ -232,7 +236,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
-                null
+                null,
+                gcConfiguration
         );
     }
 

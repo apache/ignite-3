@@ -51,6 +51,7 @@ import java.util.function.LongSupplier;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -78,6 +79,7 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
@@ -90,6 +92,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -130,7 +134,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
@@ -261,6 +264,8 @@ public class Node {
     @Nullable
     private volatile InvokeInterceptor invokeInterceptor;
 
+    private final CatalogCompactionRunner catalogCompactionRunner;
+
     /** Interceptor for {@link MetaStorageManager#invoke} calls. */
     @FunctionalInterface
     public interface InvokeInterceptor {
@@ -283,7 +288,8 @@ public class Node {
             ReplicationConfiguration replicationConfiguration,
             TransactionConfiguration transactionConfiguration,
             ScheduledExecutorService scheduledExecutorService,
-            @Nullable InvokeInterceptor invokeInterceptor
+            @Nullable InvokeInterceptor invokeInterceptor,
+            GcConfiguration gcConfiguration
     ) {
         this.invokeInterceptor = invokeInterceptor;
 
@@ -487,8 +493,6 @@ public class Node {
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
-        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
-
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                 new PersistentPageMemoryDataStorageModule(),
                 new NonVolatileTestDataStorageModule()
@@ -512,7 +516,7 @@ public class Node {
 
         lowWatermark = new LowWatermarkImpl(
                 name,
-                gcConfig.lowWatermark(),
+                gcConfiguration.lowWatermark(),
                 clockService,
                 vaultManager,
                 failureManager,
@@ -573,6 +577,28 @@ public class Node {
 
         schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
+        MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
+        catalogCompactionRunner = new CatalogCompactionRunner(
+                name,
+                (CatalogManagerImpl) catalogManager,
+                clusterService.messagingService(),
+                logicalTopologyService,
+                placementDriver,
+                replicaSvc,
+                clockService,
+                schemaSyncService,
+                clusterService.topologyService(),
+                threadPoolsManager.commonScheduler(),
+                clockService::nowLong,
+                minTimeCollectorService,
+                new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
+
+        ((MetaStorageManagerImpl) metaStorageManager).addElectionListener(catalogCompactionRunner::updateCoordinator);
+
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
+                params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
+
         ScheduledExecutorService rebalanceScheduler = Executors.newScheduledThreadPool(
                 REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(name, "test-rebalance-scheduler", LOG)
@@ -620,12 +646,10 @@ public class Node {
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                 .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
-        MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
-
         tableManager = new TableManager(
                 name,
                 registry,
-                gcConfig,
+                gcConfiguration,
                 transactionConfiguration,
                 storageUpdateConfiguration,
                 clusterService.messagingService(),
@@ -727,6 +751,7 @@ public class Node {
                 clusterCfgMgr,
                 clockWaiter,
                 catalogManager,
+                catalogCompactionRunner,
                 indexMetaStorage,
                 distributionZoneManager,
                 replicaManager,
@@ -816,5 +841,9 @@ public class Node {
 
     public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
+    }
+
+    public DataStorageManager dataStorageManager() {
+        return dataStorageMgr;
     }
 }
