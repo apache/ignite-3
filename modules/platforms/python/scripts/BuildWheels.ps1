@@ -34,6 +34,7 @@
 
 param ([Parameter(Mandatory)][string]$PyVers)
 
+$ErrorActionPreference = "Stop"
 $PyVersList=$PyVers.Replace(".","").Split(",") | ForEach-Object { $_.Trim() }
 $WheelsBuildDir="wheels_build"
 $WheelsTargetDir="distr"
