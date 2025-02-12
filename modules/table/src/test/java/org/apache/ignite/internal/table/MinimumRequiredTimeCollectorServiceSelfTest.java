@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService.UNDEFINED_MIN_TIME;
+import static org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService.UNDEFINED_MIN_TIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;

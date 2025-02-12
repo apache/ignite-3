@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft;
+package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.Map;
 import org.apache.ignite.internal.replicator.TablePartitionId;

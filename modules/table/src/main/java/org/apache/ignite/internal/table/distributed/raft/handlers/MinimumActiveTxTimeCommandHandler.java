@@ -20,9 +20,9 @@ package org.apache.ignite.internal.table.distributed.raft.handlers;
 import java.io.Serializable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
-import org.apache.ignite.internal.partition.replicator.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 
 /**
  * RAFT command handler that process {@link UpdateMinimumActiveTxBeginTimeCommand} commands.
