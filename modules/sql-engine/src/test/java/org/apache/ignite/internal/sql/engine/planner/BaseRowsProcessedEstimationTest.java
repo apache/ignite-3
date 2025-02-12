@@ -33,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.CancellationToken;
 import org.hamcrest.BaseMatcher;
@@ -45,7 +46,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Base class for selectivity estimations.
  */
 @ExtendWith(QueryCheckerExtension.class)
-public class BaseRowsProcessedEstimationTest {
+public class BaseRowsProcessedEstimationTest extends BaseIgniteAbstractTest {
     @InjectQueryCheckerFactory
     private static QueryCheckerFactory queryCheckerFactory;
 

@@ -69,10 +69,11 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      */
     private static class SelectivityShuttle extends RexShuttle {
         private final Map<RexNode, List<SqlKind>> orOps = new HashMap<>();
-        private double andSelectivity;
+        private double baseSelectivity;
+        private static final double EQ_SELECTIVITY = 0.333;
 
         double computeSelectivity() {
-            double result = andSelectivity;
+            double result = baseSelectivity;
 
             for (Map.Entry<RexNode, List<SqlKind>> e : orOps.entrySet()) {
                 int eqNum = 0;
@@ -85,7 +86,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
                             break;
                         case EQUALS:
                             // Take into account Zipf`s distribution.
-                            result0 = Math.min(result0 + (0.333 / Math.sqrt(++eqNum)), 1.0);
+                            result0 = Math.min(result0 + (EQ_SELECTIVITY / Math.sqrt(++eqNum)), 1.0);
                             break;
                         case GREATER_THAN:
                         case LESS_THAN:
@@ -114,39 +115,45 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
 
                 assert !operands.isEmpty();
 
-                for (RexNode op : operands) {
-                    if (op.isA(SqlKind.AND)) {
-                       if (andOperands == null) {
-                           andOperands = new ArrayList<>();
-                       }
+                boolean andConsist = operands.stream().anyMatch(op -> op.isA(SqlKind.AND));
 
-                       andOperands.add(op);
-                    } else {
-                        if (otherOperands == null) {
-                            otherOperands = new ArrayList<>();
+                if (andConsist) {
+                    for (RexNode op : operands) {
+                        if (op.isA(SqlKind.AND)) {
+                            if (andOperands == null) {
+                                andOperands = new ArrayList<>();
+                            }
+
+                            andOperands.add(op);
+                        } else {
+                            if (otherOperands == null) {
+                                otherOperands = new ArrayList<>();
+                            }
+
+                            otherOperands.add(op);
                         }
-
-                        otherOperands.add(op);
                     }
                 }
 
                 // AND inside OR
                 if (andOperands != null) {
                     for (RexNode andOp : andOperands) {
-                        andSelectivity = Math.max(andSelectivity, RelMdUtil.guessSelectivity(andOp));
+                        baseSelectivity = Math.max(baseSelectivity, RelMdUtil.guessSelectivity(andOp));
                     }
                 }
 
-                // nothing to process
-                if (otherOperands == null) {
-                    return null;
-                } else if (otherOperands.size() == 1) {
-                    call = (RexCall) otherOperands.get(0);
-                } else {
-                    // otherwise build new OR without AND operands
-                    RexCall newCall = (RexCall) Commons.rexBuilder().makeCall(call.op, otherOperands);
+                if (andConsist) {
+                    // nothing to process
+                    if (otherOperands == null) {
+                        return null;
+                    } else if (otherOperands.size() == 1) {
+                        call = (RexCall) otherOperands.get(0);
+                    } else {
+                        // otherwise build new OR without AND operands
+                        call = (RexCall) Commons.rexBuilder().makeCall(call.op, otherOperands);
 
-                    return super.visitCall(newCall);
+                        return super.visitCall(call);
+                    }
                 }
             } else if (call.isA(SqlKind.AND)) {
                 assert false : "Should never happen";
@@ -159,9 +166,22 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
                 List<SqlKind> vals = orOps.computeIfAbsent(res, (k) -> new ArrayList<>());
 
                 vals.add(call.getKind());
+            } else {
+                baseSelectivity = Math.max(baseSelectivity, nonColumnRefSelectivity(call));
             }
 
             return super.visitCall(call);
+        }
+
+        private static double nonColumnRefSelectivity(RexCall call) {
+            if (call.isA(SqlKind.EQUALS)) {
+                return EQ_SELECTIVITY;
+            } else if (call.isA(SqlKind.COMPARISON)) {
+                return 0.5;
+            } else {
+                // different OTHER_FUNCTION and other uncovered cases
+                return 0;
+            }
         }
     }
 
@@ -232,11 +252,11 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
 
         RexNode condition = rel.pushUpPredicate();
         if (condition == null) {
-            return RelMdUtil.guessSelectivity(predicate);
+            return guessSelectivity(predicate);
         }
 
         RexNode diff = RelMdUtil.minusPreds(RexUtils.builder(rel), predicate, condition);
-        return RelMdUtil.guessSelectivity(diff);
+        return guessSelectivity(diff);
     }
 
     /**

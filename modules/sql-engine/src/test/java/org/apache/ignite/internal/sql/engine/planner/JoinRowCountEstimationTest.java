@@ -27,19 +27,16 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests to check row count estimation for join relation.
  */
 @SuppressWarnings("ConcatenationWithEmptyString")
-@ExtendWith(QueryCheckerExtension.class)
 public class JoinRowCountEstimationTest extends BaseRowsProcessedEstimationTest {
     private static final int CATALOG_SALES_SIZE = 1_441_548;
     private static final int CATALOG_RETURNS_SIZE = 144_067;

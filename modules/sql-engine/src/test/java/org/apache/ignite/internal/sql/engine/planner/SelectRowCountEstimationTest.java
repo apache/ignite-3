@@ -27,18 +27,15 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests to check row count estimation for select relation.
  */
-@ExtendWith(QueryCheckerExtension.class)
 public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTest {
     private static final int TABLE_REAL_SIZE = 73_049;
 
@@ -117,6 +114,11 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
 
         selectivityFactor = 0.9;
         assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK IS NOT NULL")
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .check();
+
+        selectivityFactor = 0.33;
+        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK = 10 OR LENGTH('12') = 2")
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
     }
