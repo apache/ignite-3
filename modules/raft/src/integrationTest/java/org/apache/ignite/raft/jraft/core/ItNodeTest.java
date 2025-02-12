@@ -4657,7 +4657,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         executors.add(requestExecutor);
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
@@ -4665,7 +4665,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {
+        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer) {
             @Override public synchronized void shutdown() {
                 rpcServer.shutdown();
 

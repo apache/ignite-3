@@ -14,24 +14,123 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.CoalescedHeartbeatRequestBuilder;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RpcClient;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.CoalescedHeartbeatResponse;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 
 /**
  * Raft nodes manager.
  */
-public class NodeManager {
+public class NodeManager implements Lifecycle<NodeOptions> {
+    private static final IgniteLogger LOG = Loggers.forClass(NodeManager.class);
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
     private final ConcurrentMap<NodeId, Node> nodeMap = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, List<Node>> groupMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<PeerId, Queue<Object[]>> coalesced = new ConcurrentHashMap<>();
+
+    /** Node options. */
+    private NodeOptions options;
+    /** Task scheduler. */
+    private Scheduler scheduler;
+    /** Rpc client. */
+    private RpcClient rpcClient;
+    /** Message factory. */
+    private RaftMessagesFactory messagesFactory;
+
+    @Override
+    public boolean init(NodeOptions opts) {
+        this.options = opts;
+        this.scheduler = opts.getScheduler();
+        this.rpcClient = opts.getRpcClient();
+        this.messagesFactory = opts.getRaftMessagesFactory();
+
+        scheduler.schedule(this::onSentHeartbeat , opts.getElectionTimeoutMs(), TimeUnit.MILLISECONDS);
+
+        return true;
+    }
+
+    @Override
+    public void shutdown() {
+        stopGuard.compareAndSet(false, true);
+    }
+
+    /**
+     * Sends a heartbeat request.
+     */
+    private void onSentHeartbeat() {
+        for (PeerId remote : coalesced.keySet()) {
+            coalesced.computeIfPresent(remote, (peer, queue) -> {
+                if (!queue.isEmpty()) {
+                    CoalescedHeartbeatRequestBuilder builder = messagesFactory.coalescedHeartbeatRequest();
+                    ArrayList<AppendEntriesRequest> list = new ArrayList<>();
+                    builder.messages(list);
+
+                    Object[] req;
+
+                    List<CompletableFuture<Message>> futs = new ArrayList<>();
+
+                    while ((req = queue.poll()) != null) {
+                        var msg = (AppendEntriesRequest) req[0];
+
+                        builder.messages().add(msg);
+
+                        futs.add((CompletableFuture<Message>) req[1]);
+                    }
+
+                    try {
+                        rpcClient.invokeAsync(peer, builder.build(), null, (result, err) -> {
+                            CoalescedHeartbeatResponse resp = (CoalescedHeartbeatResponse) result;
+
+                            assert resp.messages().size() == futs.size();
+
+                            int i = 0;
+                            for (Message message : resp.messages()) {
+                                futs.get(i++).complete(message); // Future completion will trigger callbacks.
+                            }
+                        }, options.getElectionTimeoutMs() / 2);
+                    } catch (Exception e) {
+                        LOG.error("Failed to send heartbeat message to remote node [remote={}].", e, peer);
+
+                        for (CompletableFuture<Message> fut : futs) {
+                            fut.completeExceptionally(e);
+                        }
+                    }
+                }
+
+                return queue;
+            });
+        }
+
+        if (!stopGuard.get()) {
+            scheduler.schedule(this::onSentHeartbeat, options.getElectionTimeoutMs() / 4, TimeUnit.MILLISECONDS);
+        }
+    }
 
     /**
      * Adds a node.
@@ -68,11 +167,21 @@ public class NodeManager {
      */
     public boolean remove(final Node node) {
         if (this.nodeMap.remove(node.getNodeId(), node)) {
-            final List<Node> nodes = this.groupMap.get(node.getGroupId());
+            PeerId peerId = node.getNodeId().getPeerId();
+
+            for (PeerId remote : coalesced.keySet()) {
+                if (remote.equals(peerId.getConsistentId())) {
+                    coalesced.remove(remote);
+                }
+            }
+
+            List<Node> nodes = this.groupMap.get(node.getGroupId());
+
             if (nodes != null) {
                 return nodes.remove(node);
             }
         }
+
         return false;
     }
 
@@ -95,5 +204,18 @@ public class NodeManager {
      */
     public List<Node> getAllNodes() {
         return this.groupMap.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
+    }
+
+    public CompletableFuture<Message> enqueue(PeerId to, Message request) {
+        CompletableFuture<Message> fut = new CompletableFuture<>();
+
+        coalesced.computeIfAbsent(to, k -> new ConcurrentLinkedQueue<>())
+                .add(new Object[]{request, fut});
+
+        return fut;
+    }
+
+    public ConcurrentMap<PeerId, Queue<Object[]>> getCoalesced() {
+        return coalesced;
     }
 }
