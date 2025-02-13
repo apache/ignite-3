@@ -78,7 +78,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
         );
 
         NodeOptions nodeOptions = new NodeOptions();
-        nodeOptions.setNodeManager(new NodeManager());
+        nodeOptions.setNodeManager(new NodeManager(service));
 
         requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 

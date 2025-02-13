@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -40,6 +41,7 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.CoalescedHeartbeatResponse;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 
 /**
@@ -59,16 +61,19 @@ public class NodeManager implements Lifecycle<NodeOptions> {
     /** Task scheduler. */
     private Scheduler scheduler;
     /** Rpc client. */
-    private RpcClient rpcClient;
+    private final RpcClient rpcClient;
     /** Message factory. */
     private RaftMessagesFactory messagesFactory;
 
+    public NodeManager(ClusterService service) {
+        rpcClient = new IgniteRpcClient(service);
+    }
+
     @Override
     public boolean init(NodeOptions opts) {
-        this.options = opts;
-        this.scheduler = opts.getScheduler();
-        this.rpcClient = opts.getRpcClient();
-        this.messagesFactory = opts.getRaftMessagesFactory();
+        options = opts;
+        scheduler = opts.getScheduler();
+        messagesFactory = opts.getRaftMessagesFactory();
 
         scheduler.schedule(this::onSentHeartbeat , opts.getElectionTimeoutMs(), TimeUnit.MILLISECONDS);
 
@@ -78,6 +83,8 @@ public class NodeManager implements Lifecycle<NodeOptions> {
     @Override
     public void shutdown() {
         stopGuard.compareAndSet(false, true);
+
+        rpcClient.shutdown();
     }
 
     /**

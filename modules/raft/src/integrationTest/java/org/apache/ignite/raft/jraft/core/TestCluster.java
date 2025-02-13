@@ -260,9 +260,10 @@ public class TestCluster {
                 ));
             }
 
-            nodeOptions.setNodeManager(new NodeManager());
-
             ClusterService clusterService = clusterService(testInfo, peer.getPort(), new StaticNodeFinder(addressList));
+
+            nodeOptions.setScheduler(JRaftUtils.createScheduler(nodeOptions));
+            nodeOptions.setNodeManager(new NodeManager(clusterService));
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
@@ -275,6 +276,8 @@ public class TestCluster {
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
 
             assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+            nodeOptions.getNodeManager().init(nodeOptions);
 
             if (optsClo != null)
                 optsClo.accept(peer.getPeerId(), nodeOptions);

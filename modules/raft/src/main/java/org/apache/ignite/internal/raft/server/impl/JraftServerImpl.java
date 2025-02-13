@@ -273,12 +273,8 @@ public class JraftServerImpl implements RaftServer {
             opts.setSnapshotTimer(JRaftUtils.createTimer(opts, "JRaft-SnapshotTimer"));
         }
 
-        if (opts.getRpcClient() == null) {
-            opts.setRpcClient(new IgniteRpcClient(service));
-        }
-
         if (opts.getNodeManager() == null) {
-            opts.setNodeManager(new NodeManager());
+            opts.setNodeManager(new NodeManager(service));
         }
 
         requestExecutor = Executors.newFixedThreadPool(
@@ -521,6 +517,8 @@ public class JraftServerImpl implements RaftServer {
             List<PeerId> learnerIds = configuration.learners().stream().map(PeerId::fromPeer).collect(toList());
 
             nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds));
+
+            nodeOptions.setRpcClient(new IgniteRpcClient(service));
 
             nodeOptions.setExternallyEnforcedConfigIndex(groupOptions.externallyEnforcedConfigIndex());
 

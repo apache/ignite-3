@@ -3234,7 +3234,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
-        nodeOpts.setNodeManager(new NodeManager());
+        nodeOpts.setNodeManager(new NodeManager(null));
 
         RaftGroupService service = createService("test", peer, nodeOpts, List.of());
 
@@ -3282,7 +3282,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
         assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
-        nodeOpts.setNodeManager(new NodeManager());
+        nodeOpts.setNodeManager(new NodeManager(null));
 
         RaftGroupService service = createService("test", peer, nodeOpts, List.of());
 
@@ -4554,6 +4554,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         options.setServiceFactory(new IgniteJraftServiceFactory(log));
         options.setLogUri("test");
+        options.setNodeManager(new NodeManager(null));
 
         return options;
     }
@@ -4646,8 +4647,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<NetworkAddress> addressList = peers.stream()
             .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
             .collect(toList());
-
-        var nodeManager = new NodeManager();
 
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(
                 testInfo,

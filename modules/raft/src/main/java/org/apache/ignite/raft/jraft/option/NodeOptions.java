@@ -736,7 +736,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setEnableMetrics(this.enableMetrics);
         nodeOptions.setRaftOptions(this.raftOptions.copy());
         nodeOptions.setReplicationStateListeners(this.replicationStateListeners);
-        nodeOptions.setRpcClient(this.getRpcClient());
         nodeOptions.setCommonExecutor(this.getCommonExecutor());
         nodeOptions.setStripedExecutor(this.getStripedExecutor());
         nodeOptions.setServerName(this.getServerName());
