@@ -697,6 +697,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
+            ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
             return startReplicaInternal(
                     replicaGrpId,
                     snapshotStorageFactory,
@@ -704,18 +706,28 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     raftGroupEventsListener,
                     isVolatileStorage,
-                    (raftClient) -> new ReplicaImpl(
-                            replicaGrpId,
-                            createListener.apply(raftClient),
-                            storageIndexTracker,
-                            clusterNetSvc.topologyService().localMember(),
-                            executor,
-                            placementDriver,
-                            clockService,
-                            replicaStateManager::reserveReplica,
-                            getPendingAssignmentsSupplier,
-                            failureManager
-                    )
+                    (raftClient) -> {
+                        var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
+                                replicaGrpId,
+                                localNode,
+                                placementDriver,
+                                clockService,
+                                replicaStateManager::reserveReplica,
+                                executor,
+                                storageIndexTracker,
+                                raftClient
+                        );
+
+                        return new ReplicaImpl(
+                                replicaGrpId,
+                                createListener.apply(raftClient),
+                                localNode,
+                                placementDriver,
+                                getPendingAssignmentsSupplier,
+                                failureManager,
+                                placementDriverMessageProcessor
+                        );
+                    }
             );
         } finally {
             leaveBusy();

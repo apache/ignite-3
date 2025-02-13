@@ -121,17 +121,27 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         var listener = mock(ReplicaListener.class);
         when(listener.raftClient()).thenReturn(raftClient);
 
+        var placementDriver = new TestPlacementDriver(LOCAL_NODE);
+
+        var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
+                GRP_ID,
+                LOCAL_NODE,
+                placementDriver,
+                new TestClockService(new HybridClockImpl()),
+                (unused0, unused1) -> reservationSuccess,
+                executor,
+                storageIndexTracker,
+                raftClient
+        );
+
         return new ReplicaImpl(
                 GRP_ID,
                 listener,
-                storageIndexTracker,
                 LOCAL_NODE,
-                executor,
-                new TestPlacementDriver(LOCAL_NODE),
-                new TestClockService(new HybridClockImpl()),
-                (unused0, unused1) -> reservationSuccess,
+                placementDriver,
                 groupId -> null,
-                null
+                null,
+                placementDriverMessageProcessor
         );
     }
 
