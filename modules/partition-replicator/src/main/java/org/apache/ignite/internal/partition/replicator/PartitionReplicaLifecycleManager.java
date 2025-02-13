@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -144,6 +145,7 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Class that manages per-zone replicas.
@@ -286,6 +288,45 @@ public class PartitionReplicaLifecycleManager extends
             TxManager txManager,
             SchemaManager schemaManager
     ) {
+        this(
+                catalogService,
+                replicaMgr,
+                distributionZoneMgr,
+                metaStorageMgr,
+                topologyService,
+                lowWatermark,
+                ioExecutor,
+                rebalanceScheduler,
+                partitionOperationsExecutor,
+                clockService,
+                placementDriver,
+                schemaSyncService,
+                systemDistributedConfiguration,
+                txManager,
+                schemaManager,
+                new ZoneResourcesManager(sharedTxStateStorage)
+        );
+    }
+
+    @VisibleForTesting
+    PartitionReplicaLifecycleManager(
+            CatalogService catalogService,
+            ReplicaManager replicaMgr,
+            DistributionZoneManager distributionZoneMgr,
+            MetaStorageManager metaStorageMgr,
+            TopologyService topologyService,
+            LowWatermark lowWatermark,
+            ExecutorService ioExecutor,
+            ScheduledExecutorService rebalanceScheduler,
+            Executor partitionOperationsExecutor,
+            ClockService clockService,
+            PlacementDriver placementDriver,
+            SchemaSyncService schemaSyncService,
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            TxManager txManager,
+            SchemaManager schemaManager,
+            ZoneResourcesManager zoneResourcesManager
+    ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
         this.distributionZoneMgr = distributionZoneMgr;
@@ -300,6 +341,7 @@ public class PartitionReplicaLifecycleManager extends
         this.placementDriver = placementDriver;
         this.txManager = txManager;
         this.schemaManager = schemaManager;
+        this.zoneResourcesManager = zoneResourcesManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -308,8 +350,6 @@ public class PartitionReplicaLifecycleManager extends
                 DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT,
                 Integer::parseInt
         );
-
-        zoneResourcesManager = new ZoneResourcesManager(sharedTxStateStorage);
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -588,7 +628,6 @@ public class PartitionReplicaLifecycleManager extends
                                     raftGroupEventsListener,
                                     // TODO: IGNITE-24371 - pass real isVolatile flag
                                     false,
-                                    txStatePartitionStorage,
                                     busyLock
                             );
                         } catch (NodeStoppingException e) {
@@ -1323,6 +1362,8 @@ public class PartitionReplicaLifecycleManager extends
                         return nullCompletedFuture();
                     }
 
+                    zoneResourcesManager.destroyZonePartitionResources(zonePartitionId.zoneId(), zonePartitionId.partitionId());
+
                     return fireEvent(
                             LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
                             new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
@@ -1439,6 +1480,6 @@ public class PartitionReplicaLifecycleManager extends
 
     @TestOnly
     public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
-        return zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId);
+        return requireNonNull(zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId));
     }
 }

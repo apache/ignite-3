@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Peer;
@@ -30,7 +28,6 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Replica for the zone based partitions.
@@ -42,26 +39,21 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     private final TopologyAwareRaftGroupService raftClient;
 
-    private final ManuallyCloseable partitionResources;
-
     /**
      * Constructor.
      *
      * @param replicaGrpId  Replication group id.
      * @param listener Listener for the replica.
      * @param raftClient Raft client.
-     * @param partitionResources Resources managed by this replica (will be closed on replica shutdown).
      */
     public ZonePartitionReplicaImpl(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient,
-            ManuallyCloseable partitionResources
+            TopologyAwareRaftGroupService raftClient
     )  {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
         this.raftClient = raftClient;
-        this.partitionResources = partitionResources;
     }
 
     @Override
@@ -92,12 +84,6 @@ public class ZonePartitionReplicaImpl implements Replica {
     @Override
     public CompletableFuture<Void> shutdown() {
         listener.onShutdown();
-
-        try {
-            partitionResources.close();
-        } catch (Exception e) {
-            throw new IgniteInternalException(Common.INTERNAL_ERR, e);
-        }
 
         return nullCompletedFuture();
     }
