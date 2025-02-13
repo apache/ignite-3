@@ -234,7 +234,16 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                         .thenApply(res -> new ReplicaResult(res, null));
             } else if (request instanceof ChangePeersAndLearnersAsyncReplicaRequest) {
-                return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
+                ReplicationGroupId replicationGroupId = request.groupId().asReplicationGroupId();
+
+                if (replicationGroupId instanceof TablePartitionId) {
+                    replicas.get(replicationGroupId).invoke(request, senderId);
+                } else if (replicationGroupId instanceof ZonePartitionId) {
+                    return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
+                } else {
+                    throw new IllegalArgumentException("Requests with replication group type "
+                            + request.groupId().getClass() + " is not supported");
+                }
             } else if (request instanceof ReplicaSafeTimeSyncRequest) {
                 LOG.debug("Non table request is not supported by the zone partition yet " + request);
             } else {

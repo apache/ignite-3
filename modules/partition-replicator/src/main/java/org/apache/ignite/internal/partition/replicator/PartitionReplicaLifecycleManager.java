@@ -1143,8 +1143,11 @@ public class PartitionReplicaLifecycleManager extends
                             ? pendingAssignmentsNodes
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
-                    replicaMgr.replica(replicaGrpId)
-                            .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
+                    CompletableFuture<Replica> replicaFuture = replicaMgr.replica(replicaGrpId);
+
+                    assert replicaFuture != null : "Replica is lost for group=" + replicaGrpId + " of " + replicaGrpId.getClass();
+
+                    replicaFuture.thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
     }
 
