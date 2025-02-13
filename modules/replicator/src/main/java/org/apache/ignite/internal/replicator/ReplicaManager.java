@@ -697,6 +697,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
+            ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
             return startReplicaInternal(
                     replicaGrpId,
                     snapshotStorageFactory,
@@ -707,14 +709,20 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     (raftClient) -> new ReplicaImpl(
                             replicaGrpId,
                             createListener.apply(raftClient),
-                            storageIndexTracker,
-                            clusterNetSvc.topologyService().localMember(),
-                            executor,
+                            localNode,
                             placementDriver,
-                            clockService,
-                            replicaStateManager::reserveReplica,
                             getPendingAssignmentsSupplier,
-                            failureManager
+                            failureManager,
+                            new PlacementDriverMessageProcessor(
+                                    replicaGrpId,
+                                    localNode,
+                                    placementDriver,
+                                    clockService,
+                                    replicaStateManager::reserveReplica,
+                                    executor,
+                                    storageIndexTracker,
+                                    raftClient
+                            )
                     )
             );
         } finally {
