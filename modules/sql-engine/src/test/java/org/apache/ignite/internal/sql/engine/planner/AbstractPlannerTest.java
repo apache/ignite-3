@@ -278,6 +278,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                                 .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
+                .catalogVersion(1)
+                .defaultSchemaName(defaultSchema.getName())
                 .query(sql)
                 .parameters(paramsMap)
                 // Assume that we use explicit transactions by default.
