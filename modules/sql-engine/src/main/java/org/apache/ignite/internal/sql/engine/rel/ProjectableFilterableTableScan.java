@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.calcite.sql.SqlExplainLevel.ALL_ATTRIBUTES;
+import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.builder;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.replaceLocalRefs;
 
@@ -128,8 +128,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     public RelWriter explainTerms(RelWriter pw) {
         return explainTerms0(pw
                 .item("table", table.getQualifiedName())
-                .itemIf("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id()),
-                pw.getDetailLevel() == ALL_ATTRIBUTES));
+                .itemIf("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id()), !forExplain(pw)));
     }
 
     /** {@inheritDoc} */
@@ -147,8 +146,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
                     RexUtil.expandSearch(getCluster().getRexBuilder(), null, condition));
         }
 
-        return pw.itemIf("projects", projects, projects != null)
-                .itemIf("requiredColumns", requiredColumns, requiredColumns != null);
+        return pw.itemIf("fields", getRowType().getFieldNames(), forExplain(pw))
+                .itemIf("projects", projects, projects != null)
+                .itemIf("requiredColumns", requiredColumns, !forExplain(pw) && requiredColumns != null);
     }
 
     /** {@inheritDoc} */

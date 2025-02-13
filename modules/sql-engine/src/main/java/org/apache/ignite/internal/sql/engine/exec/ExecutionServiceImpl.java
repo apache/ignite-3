@@ -114,6 +114,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
@@ -370,7 +371,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private IgniteRel relationalTreeFromJsonString(int catalogVersion, String jsonFragment) {
-        SchemaPlus rootSchema = sqlSchemaManager.schema(catalogVersion);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(catalogVersion);
+        SchemaPlus rootSchema = schemas.root();
 
         return physNodesCache.computeIfAbsent(
                 new FragmentCacheKey(catalogVersion, jsonFragment),
@@ -1148,11 +1150,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
                     for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
+                        // TODO: IGNITE-24482 - enlist either table or zone partition ID.
                         TablePartitionId tablePartId = new TablePartitionId(tableId, partWithToken.getKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
                         tx.enlist(tablePartId,
+                                tableId,
                                 new IgniteBiTuple<>(
                                         topSrvc.getByConsistentId(assignment.name()),
                                         assignment.enlistmentConsistencyToken())

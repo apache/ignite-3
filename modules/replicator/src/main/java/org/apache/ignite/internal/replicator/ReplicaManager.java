@@ -476,7 +476,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, sender.id());
 
-            resFut.whenComplete((res, ex) -> {
+            resFut.handle((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
@@ -516,6 +516,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         // Using strong send here is important to avoid a reordering with a normal response.
                         clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
                     });
+                }
+
+                return null;
+            }).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    failureManager.process(new FailureContext(CRITICAL_ERROR, ex));
                 }
             });
         } finally {
@@ -722,7 +728,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
      * @param newConfiguration A configuration for new raft group.
-     * @param raftGroupListener Raft group listener for raft group starting.
+     * @param raftGroupListener Raft group listener for the raft group being started.
      * @param raftGroupEventsListener Raft group events listener for raft group starting.
      * @param isVolatileStorage Whether partition storage is volatile for this partition.
      * @param partitionResources Resources managed by this replica (they will be closed on replica shutdown).

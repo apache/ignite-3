@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -51,6 +53,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -82,16 +85,22 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds;
+import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry.RemotelyTriggeredResource;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
@@ -768,7 +777,76 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         }
     }
 
-    private void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
+    @Test
+    public void testScanCloseReplicaRequest(TestInfo testInfo) throws Exception {
+        // Prepare a single node cluster.
+        startNodes(testInfo, 1);
+        Node node = getNode(0);
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        // Prepare a zone.
+        String zoneName = "test_zone";
+        createZone(node, zoneName, 1, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        prepareTableIdToZoneIdConverter(node, zoneId);
+
+        // Create a table to work with.
+        String tableName = "test_table";
+        createTable(node, zoneName, tableName);
+        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+        TableViewInternal tableViewInternal = node.tableManager.table(tableId);
+        KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
+
+        // Write 2 rows to the table.
+        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
+        assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
+
+        InternalTable table = tableViewInternal.internalTable();
+
+        // Be sure that the only partition identifier is 0.
+        assertEquals(1, table.partitions());
+        int partId = 0;
+
+        // We have to use explicit transaction to check scan close scenario.
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        // Prepare a subscription on table scan in explicit transaction.
+        List<BinaryRow> scannedRows = new ArrayList<>();
+        PartitionScanPublisher<BinaryRow> publisher = (PartitionScanPublisher<BinaryRow>) table.scan(partId, tx);
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+        // Let's request a row to be ensure later that rows could be read.
+        subscription.request(1);
+
+        // Waiting while request will be done.
+        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), AWAIT_TIMEOUT_MILLIS));
+
+        // By the cursor ID we can track if the cursor will be closed after subscription cancel.
+        FullyQualifiedResourceId cursorId = RemoteResourceIds.cursorId(tx.id(), publisher.scanId(subscription));
+
+        // Check that cursor is opened.
+        assertNotNull(getVersionedStorageCursor(node, cursorId));
+
+        // Check there that scanned rows count is equals to read ones.
+        assertEquals(1, scannedRows.size());
+
+        // Triggers scan close with the corresponding request.
+        assertDoesNotThrow(subscription::cancel);
+
+        // Wait while ScanCloseReplicaRequest will pass through all handlers and PartitionReplicaListener#processScanCloseAction will
+        // close the cursor and remove it from the registry.
+        assertTrue(waitForCondition(() -> getVersionedStorageCursor(node, cursorId) == null, AWAIT_TIMEOUT_MILLIS));
+
+        // Commit the open transaction.
+        assertDoesNotThrow(tx::commit);
+    }
+
+    private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
+        return node.resourcesRegistry.resources().get(cursorId);
+    }
+
+    private static void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
         node.setRequestConverter(request ->  {
             if (request instanceof WriteIntentSwitchReplicaRequest) {
                 return request.groupId().asReplicationGroupId();

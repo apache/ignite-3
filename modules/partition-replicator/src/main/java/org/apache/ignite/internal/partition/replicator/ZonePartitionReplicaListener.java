@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -33,17 +36,18 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
+import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Zone partition replica listener.
  */
 public class ZonePartitionReplicaListener implements ReplicaListener {
-    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
-
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
@@ -51,43 +55,53 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     private final RaftCommandRunner raftClient;
 
+    private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
+
     /**
      * The constructor.
      *
      * @param raftClient Raft client.
      */
-    public ZonePartitionReplicaListener(RaftCommandRunner raftClient) {
+    public ZonePartitionReplicaListener(
+            TxStatePartitionStorage txStatePartitionStorage,
+            ClockService clockService,
+            TxManager txManager,
+            ValidationSchemasSource validationSchemasSource,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService,
+            RaftCommandRunner raftClient,
+            ZonePartitionId replicationGroupId
+    ) {
         this.raftClient = raftClient;
+
+        txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
+                txStatePartitionStorage,
+                clockService,
+                txManager,
+                validationSchemasSource,
+                schemaSyncService,
+                catalogService,
+                raftClient,
+                replicationGroupId
+        );
     }
 
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
         if (!(request instanceof TableAware)) {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22621 implement zone-based transaction storage
-            //  and txn messages processing
             if (request instanceof TxFinishReplicaRequest) {
-                TxFinishReplicaRequest txFinishReplicaRequest = (TxFinishReplicaRequest) request;
-
-                TxFinishReplicaRequest requestForTableListener = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
-                        .txId(txFinishReplicaRequest.txId())
-                        .commitPartitionId(txFinishReplicaRequest.commitPartitionId())
-                        .timestamp(txFinishReplicaRequest.timestamp())
-                        .groupId(txFinishReplicaRequest.commitPartitionId())
-                        .groups(txFinishReplicaRequest.groups())
-                        .commit(txFinishReplicaRequest.commit())
-                        .commitTimestamp(txFinishReplicaRequest.commitTimestamp())
-                        .enlistmentConsistencyToken(txFinishReplicaRequest.enlistmentConsistencyToken())
-                        .build();
-
-                return replicas
-                        .get(txFinishReplicaRequest.commitPartitionId().asTablePartitionId())
-                        .invoke(requestForTableListener, senderId);
+                return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
+                        .thenApply(res -> new ReplicaResult(res, null));
             } else {
-                LOG.debug("Non table request is not supported by the zone partition yet " + request);
+                if (request instanceof ReplicaSafeTimeSyncRequest) {
+                    LOG.debug("Non table request is not supported by the zone partition yet " + request);
+                } else {
+                    LOG.warn("Non table request is not supported by the zone partition yet " + request);
+                }
             }
 
-            return nullCompletedFuture();
+            return completedFuture(new ReplicaResult(null, null));
         } else {
             int partitionId;
 

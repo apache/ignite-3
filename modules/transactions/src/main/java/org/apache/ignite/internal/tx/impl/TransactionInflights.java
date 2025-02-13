@@ -37,6 +37,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -150,7 +151,7 @@ public class TransactionInflights {
         });
     }
 
-    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new ReadWriteTxContext(placementDriver, clockService); // No writes enlisted.
@@ -186,7 +187,7 @@ public class TransactionInflights {
 
         abstract void onInflightsRemoved();
 
-        abstract void finishTx(@Nullable Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
+        abstract void finishTx(@Nullable Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
 
         abstract boolean isTxFinishing();
 
@@ -209,7 +210,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(@Nullable Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(@Nullable Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
             markedFinished = true;
         }
 
@@ -233,8 +234,8 @@ public class TransactionInflights {
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
         private final PlacementDriver placementDriver;
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
-        private volatile Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
-        private ClockService clockService;
+        private volatile Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
+        private final ClockService clockService;
 
         private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService) {
             this.placementDriver = placementDriver;
@@ -286,7 +287,7 @@ public class TransactionInflights {
 
                 int cntr = 0;
 
-                for (Map.Entry<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
+                for (Map.Entry<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
                     futures[cntr++] = placementDriver.getPrimaryReplica(e.getKey(), now)
                             .thenApply(replicaMeta -> {
                                 Long enlistmentConsistencyToken = e.getValue().get2();
@@ -326,7 +327,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
             this.enlistedGroups = enlistedGroups;
             finishInProgressFuture = new CompletableFuture<>();
         }

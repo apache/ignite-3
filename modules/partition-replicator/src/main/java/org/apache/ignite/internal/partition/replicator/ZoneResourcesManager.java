@@ -29,6 +29,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Manages resources of distribution zones; that is, allows creation of underlying storages and closes them on node stop.
@@ -94,5 +95,16 @@ class ZoneResourcesManager implements ManuallyCloseable {
         private ZoneResources(TxStateStorage txStateStorage) {
             this.txStateStorage = txStateStorage;
         }
+    }
+
+    @TestOnly
+    public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+        ZoneResources resources = resourcesByZoneId.get(zoneId);
+        assert resources != null : "No resources yet for zone " + zoneId;
+
+        TxStatePartitionStorage partitionStorage = resources.txStateStorage.getPartitionStorage(partitionId);
+        assert partitionStorage != null : "No partition storage for zone " + zoneId + " and partition " + partitionId;
+
+        return partitionStorage;
     }
 }

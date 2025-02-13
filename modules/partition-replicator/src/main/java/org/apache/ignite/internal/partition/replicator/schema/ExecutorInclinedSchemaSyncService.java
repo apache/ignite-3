@@ -15,21 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.partition.replicator.schema;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static java.util.function.Function.identity;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
- * Test implementation of {@link SchemaSyncService} that never waits and always behaves as if the metadata was already in sync for any
- * passed ts.
+ * Decorates a {@link SchemaSyncService} to make sure that completion stages depending on the returned futures are always completed
+ * either using the provided {@link Executor} or in the thread that executed the addition of the corresponding stage to the returned future.
  */
-public class AlwaysSyncedSchemaSyncService implements SchemaSyncService {
+public class ExecutorInclinedSchemaSyncService implements SchemaSyncService {
+    private final SchemaSyncService schemaSyncService;
+
+    private final Executor completionExecutor;
+
+    public ExecutorInclinedSchemaSyncService(SchemaSyncService schemaSyncService, Executor completionExecutor) {
+        this.schemaSyncService = schemaSyncService;
+        this.completionExecutor = completionExecutor;
+    }
+
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return nullCompletedFuture();
+        CompletableFuture<Void> future = schemaSyncService.waitForMetadataCompleteness(ts);
+        if (future.isDone()) {
+            return future;
+        }
+
+        return future.thenApplyAsync(identity(), completionExecutor);
     }
 }

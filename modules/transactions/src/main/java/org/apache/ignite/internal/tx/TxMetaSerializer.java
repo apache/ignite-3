@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -33,14 +39,19 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     /** Serializer instance. */
     public static final TxMetaSerializer INSTANCE = new TxMetaSerializer();
 
+    // TODO IGNITE-22115 remove it
+    private static final boolean ENABLED_COLOCATION_FEATURE = getBoolean(COLOCATION_FEATURE_FLAG, false);
+
     @Override
     protected void writeExternalData(TxMeta meta, IgniteDataOutput out) throws IOException {
         out.writeVarInt(meta.txState().ordinal());
 
         out.writeVarInt(meta.enlistedPartitions().size());
-        for (TablePartitionId partitionId : meta.enlistedPartitions()) {
-            out.writeVarInt(partitionId.tableId());
-            out.writeVarInt(partitionId.partitionId());
+        for (ReplicationGroupId partitionId : meta.enlistedPartitions()) {
+            PartitionGroupId partitionGroupId = (PartitionGroupId) partitionId;
+
+            out.writeVarInt(partitionGroupId.objectId());
+            out.writeVarInt(partitionGroupId.partitionId());
         }
 
         HybridTimestamp.write(meta.commitTimestamp(), out);
@@ -49,23 +60,31 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     @Override
     protected TxMeta readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         TxState state = TxState.fromOrdinal(in.readVarIntAsInt());
-        List<TablePartitionId> enlistedPartitions = readEnlistedPartitions(in);
+        List<ReplicationGroupId> enlistedPartitions = readEnlistedPartitions(in);
         HybridTimestamp commitTimestamp = HybridTimestamp.readNullableFrom(in);
 
         return new TxMeta(state, enlistedPartitions, commitTimestamp);
     }
 
-    private static List<TablePartitionId> readEnlistedPartitions(IgniteDataInput in) throws IOException {
+    private static List<ReplicationGroupId> readEnlistedPartitions(IgniteDataInput in) throws IOException {
         int length = in.readVarIntAsInt();
 
-        List<TablePartitionId> enlistedPartitions = new ArrayList<>(length);
+        List<ReplicationGroupId> enlistedPartitions = new ArrayList<>(length);
         for (int i = 0; i < length; i++) {
-            int tableId = in.readVarIntAsInt();
+            int objectId = in.readVarIntAsInt();
             int partitionId = in.readVarIntAsInt();
 
-            enlistedPartitions.add(new TablePartitionId(tableId, partitionId));
+            enlistedPartitions.add(replicationGroupId(objectId, partitionId));
         }
 
         return enlistedPartitions;
+    }
+
+    private static ReplicationGroupId replicationGroupId(int objectId, int partitionId) {
+        if (ENABLED_COLOCATION_FEATURE) {
+            return new ZonePartitionId(objectId, partitionId);
+        } else {
+            return new TablePartitionId(objectId, partitionId);
+        }
     }
 }

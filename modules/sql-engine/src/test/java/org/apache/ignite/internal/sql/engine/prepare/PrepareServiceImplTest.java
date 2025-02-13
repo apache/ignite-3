@@ -350,6 +350,24 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         assertTrue(empty, "Cache is not empty: " + cache.size());
     }
 
+    @Test
+    public void testDoNotFailPlanningOnMissingSchemaThatIsNotUsed() {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table));
+
+        PrepareService service = createPlannerService(schema);
+
+        await(service.prepareAsync(
+                parse("SELECT * FROM test.t WHERE c = 1"),
+                operationContext().defaultSchemaName("MISSING").build()
+        ));
+    }
+
     private static Stream<Arguments> parameterTypes() {
         int noScale = ColumnMetadata.UNDEFINED_SCALE;
         int noPrecision = ColumnMetadata.UNDEFINED_PRECISION;
@@ -411,10 +429,10 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 1000);
     }
 
-    private static PrepareServiceImpl createPlannerService(IgniteSchema schema, CacheFactory cacheFactory, int timeoutMillis) {
+    private static PrepareServiceImpl createPlannerService(IgniteSchema schemas, CacheFactory cacheFactory, int timeoutMillis) {
         PrepareServiceImpl service = new PrepareServiceImpl("test", 1000, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, mock(MetricManagerImpl.class),
-                new PredefinedSchemaManager(schema));
+                new PredefinedSchemaManager(schemas));
 
         createdServices.add(service);
 

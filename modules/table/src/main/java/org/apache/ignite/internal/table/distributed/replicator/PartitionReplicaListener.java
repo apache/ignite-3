@@ -64,8 +64,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -76,7 +74,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -109,10 +106,13 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
+import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
+import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
+import org.apache.ignite.internal.partition.replicator.TxFinishReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandBuilder;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessageBuilder;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -140,6 +140,9 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
+import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -154,7 +157,6 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
@@ -190,16 +192,11 @@ import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
-import org.apache.ignite.internal.table.distributed.raft.UnexpectedTransactionStateException;
-import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
-import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionMeta;
-import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -358,6 +355,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     // TODO IGNITE-22115 remove it
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
+    private final ReliableCatalogVersions reliableCatalogVersions;
+    private final ReplicationRaftCommandApplicator raftCommandApplicator;
+    private final ReplicaTxFinishMarker replicaTxFinishMarker;
+
+    private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
+
     /**
      * The constructor.
      *
@@ -435,6 +438,21 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
         this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+
+        reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
+        raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
+        replicaTxFinishMarker = new ReplicaTxFinishMarker(txManager);
+
+        txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
+                txStatePartitionStorage,
+                clockService,
+                txManager,
+                validationSchemasSource,
+                schemaSyncService,
+                catalogService,
+                raftCommandRunner,
+                replicationGroupId
+        );
 
         prepareIndexBuilderTxRwOperationTracker();
     }
@@ -699,6 +717,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         false,
                         // Enlistment consistency token is not required for the rollback, so it is 0L.
                         Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
+                        Set.of(replicationGroupId.tableId()),
                         txId
                 )
                 .whenComplete((v, ex) -> runCleanupOnNode(replicationGroupId, txId, senderId));
@@ -838,7 +857,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return nullCompletedFuture();
         } else if (request instanceof TxFinishReplicaRequest) {
-            return processTxFinishAction((TxFinishReplicaRequest) request);
+            return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request);
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
             return processWriteIntentSwitchAction((WriteIntentSwitchReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
@@ -1650,210 +1669,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Processes transaction finish request.
-     * <ol>
-     *     <li>Get commit timestamp from finish replica request.</li>
-     *     <li>If attempting a commit, validate commit (and, if not valid, switch to abort)</li>
-     *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
-     *     <li>Send cleanup requests to all enlisted primary replicas.</li>
-     * </ol>
-     *
-     * @param request Transaction finish request.
-     * @return future result of the operation.
-     */
-    private CompletableFuture<TransactionResult> processTxFinishAction(TxFinishReplicaRequest request) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-        Map<TablePartitionId, String> enlistedGroups = asTablePartitionIdStringMap(request.groups());
-
-        UUID txId = request.txId();
-
-        if (request.commit()) {
-            HybridTimestamp commitTimestamp = request.commitTimestamp();
-
-            return schemaCompatValidator.validateCommit(txId, enlistedGroups.keySet(), commitTimestamp)
-                    .thenCompose(validationResult ->
-                            finishAndCleanup(
-                                    enlistedGroups,
-                                    validationResult.isSuccessful(),
-                                    validationResult.isSuccessful() ? commitTimestamp : null,
-                                    txId
-                            ).thenApply(txResult -> {
-                                throwIfSchemaValidationOnCommitFailed(validationResult, txResult);
-                                return txResult;
-                            }));
-        } else {
-            // Aborting.
-            return finishAndCleanup(enlistedGroups, false, null, txId);
-        }
-    }
-
-    private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
-        if (!validationResult.isSuccessful()) {
-            if (validationResult.isTableDropped()) {
-                throw new IncompatibleSchemaAbortException(
-                        format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName()),
-                        txResult
-                );
-            } else {
-                throw new IncompatibleSchemaAbortException(
-                        format(
-                                "Commit failed because schema is not forward-compatible "
-                                        + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
-                                validationResult.fromSchemaVersion(),
-                                validationResult.toSchemaVersion(),
-                                validationResult.failedTableName(),
-                                validationResult.details()
-                        ),
-                        txResult
-                );
-            }
-        }
-    }
-
-    private CompletableFuture<TransactionResult> finishAndCleanup(
-            Map<TablePartitionId, String> enlistedPartitions,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId
-    ) {
-        // Read TX state from the storage, we will need this state to check if the locks are released.
-        // Since this state is written only on the transaction finish (see PartitionListener.handleFinishTxCommand),
-        // the value of txMeta can be either null or COMMITTED/ABORTED. No other values is expected.
-        TxMeta txMeta = txStatePartitionStorage.get(txId);
-
-        // Check whether a transaction has already been finished.
-        boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
-
-        if (transactionAlreadyFinished) {
-            // - The Coordinator calls use same tx state over retries, both abort and commit are possible.
-            // - Server side recovery may only change tx state to aborted.
-            // - The Coordinator itself should prevent user calls with different proposed state to the one,
-            //   that was already triggered (e.g. the client side -> txCoordinator.commitAsync(); txCoordinator.rollbackAsync()).
-            // - A coordinator might send a commit, then die, but the commit message might still arrive at the commit partition primary.
-            //   If it arrived with a delay, another node might come across a write intent/lock from that tx
-            //   and realize that the coordinator is no longer available and start tx recovery.
-            //   The original commit message might arrive later than the recovery one,
-            //   hence a 'commit over rollback' case.
-            // The possible states that a 'commit' is allowed to see:
-            // - null (if it's the first change state attempt)
-            // - committed (if it was already updated in the previous attempt)
-            // - aborted (if it was aborted by the initiate recovery logic,
-            //   though this is a very unlikely case because initiate recovery will only roll back the tx if coordinator is dead).
-            //
-            // Within 'roll back' it's allowed to see:
-            // - null (if it's the first change state attempt)
-            // - aborted  (if it was already updated in the previous attempt or the result of a concurrent recovery)
-            // - commit (if initiate recovery has started, but a delayed message from the coordinator finally arrived and executed earlier).
-
-            // Let the client know a transaction has finished with a different outcome.
-            if (commit != (txMeta.txState() == COMMITTED)) {
-                LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
-                        txId,
-                        commit ? COMMITTED : ABORTED,
-                        txMeta.txState()
-                );
-
-                throw new MismatchingTransactionOutcomeInternalException(
-                        "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
-                        new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
-                );
-            }
-
-            return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
-        }
-
-        return finishTransaction(enlistedPartitions.keySet(), txId, commit, commitTimestamp)
-                .thenCompose(txResult ->
-                        txManager.cleanup(replicationGroupId, enlistedPartitions, commit, commitTimestamp, txId)
-                                .thenApply(v -> txResult)
-                );
-    }
-
-    /**
-     * Finishes a transaction. This operation is idempotent.
-     *
-     * @param partitionIds Collection of enlisted partition groups.
-     * @param txId Transaction id.
-     * @param commit True is the transaction is committed, false otherwise.
-     * @param commitTimestamp Commit timestamp, if applicable.
-     * @return Future to wait of the finish.
-     */
-    private CompletableFuture<TransactionResult> finishTransaction(
-            Collection<TablePartitionId> partitionIds,
-            UUID txId,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        assert !(commit && commitTimestamp == null) : "Cannot commit without the timestamp.";
-
-        HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : clockService.now();
-
-        return reliableCatalogVersionFor(tsForCatalogVersion)
-                .thenCompose(catalogVersion -> applyFinishCommand(
-                                txId,
-                                commit,
-                                commitTimestamp,
-                                catalogVersion,
-                                toPartitionIdMessage(partitionIds)
-                        )
-                )
-                .handle((txOutcome, ex) -> {
-                    if (ex != null) {
-                        // RAFT 'finish' command failed because the state has already been written by someone else.
-                        // In that case we throw a corresponding exception.
-                        if (ex instanceof UnexpectedTransactionStateException) {
-                            UnexpectedTransactionStateException utse = (UnexpectedTransactionStateException) ex;
-                            TransactionResult result = utse.transactionResult();
-
-                            markFinished(txId, result.transactionState(), result.commitTimestamp());
-
-                            throw new MismatchingTransactionOutcomeInternalException(utse.getMessage(), utse.transactionResult());
-                        }
-                        // Otherwise we convert from the internal exception to the client one.
-                        throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
-                    }
-
-                    TransactionResult result = (TransactionResult) txOutcome;
-
-                    markFinished(txId, result.transactionState(), result.commitTimestamp());
-
-                    return result;
-                });
-    }
-
-    private static List<TablePartitionIdMessage> toPartitionIdMessage(Collection<TablePartitionId> partitionIds) {
-        List<TablePartitionIdMessage> list = new ArrayList<>(partitionIds.size());
-
-        for (TablePartitionId partitionId : partitionIds) {
-            list.add(tablePartitionId(partitionId));
-        }
-
-        return list;
-    }
-
-    private CompletableFuture<Object> applyFinishCommand(
-            UUID transactionId,
-            boolean commit,
-            HybridTimestamp commitTimestamp,
-            int catalogVersion,
-            List<TablePartitionIdMessage> partitionIds
-    ) {
-        HybridTimestamp now = clockService.now();
-        FinishTxCommandBuilder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
-                .txId(transactionId)
-                .commit(commit)
-                .initiatorTime(now)
-                .requiredCatalogVersion(catalogVersion)
-                .partitionIds(partitionIds);
-
-        if (commit) {
-            finishTxCmdBldr.commitTimestamp(commitTimestamp);
-        }
-
-        return applyCmdWithExceptionHandling(finishTxCmdBldr.build()).thenApply(ResultWrapper::getResult);
-    }
-
-    /**
      * Processes transaction cleanup request:
      * <ol>
      *     <li>Waits for finishing of local transactional operations;</li>
@@ -1867,7 +1682,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return CompletableFuture of ReplicaResult.
      */
     private CompletableFuture<ReplicaResult> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
-        markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
+        replicaTxFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenCompose(res -> {
@@ -2674,38 +2489,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         return true;
     }
 
-    /**
-     * Executes a command and handles exceptions. A result future can be finished with exception by following rules:
-     * <ul>
-     *     <li>If RAFT command cannot finish due to timeout, the future finished with {@link ReplicationTimeoutException}.</li>
-     *     <li>If RAFT command finish with a runtime exception, the exception is moved to the result future.</li>
-     *     <li>If RAFT command finish with any other exception, the future finished with {@link ReplicationException}.
-     *     The original exception is set as cause.</li>
-     * </ul>
-     *
-     * @param cmd Raft command.
-     * @return Raft future or raft decorated future with command that was processed.
-     */
-    private CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
-        CompletableFuture<ResultWrapper<Object>> resultFuture = new CompletableFuture<>();
-
-        raftCommandRunner.run(cmd).whenComplete((res, ex) -> {
-            if (ex != null) {
-                resultFuture.completeExceptionally(ex);
-            } else {
-                resultFuture.complete(new ResultWrapper<>(cmd, res));
-            }
-        });
-
-        return resultFuture.exceptionally(throwable -> {
-            if (throwable instanceof TimeoutException) {
-                throw new ReplicationTimeoutException(replicationGroupId);
-            } else if (throwable instanceof RuntimeException) {
-                throw (RuntimeException) throwable;
-            } else {
-                throw new ReplicationException(replicationGroupId, throwable);
-            }
-        });
+    private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd) {
+        return raftCommandApplicator.applyCmdWithExceptionHandling(cmd);
     }
 
     /**
@@ -2768,7 +2553,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(new CommandApplicationResult(null, repFut));
         } else {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
-                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
+                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                 if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
@@ -2901,7 +2686,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(new CommandApplicationResult(null, repFut));
         } else {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
-                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
+                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                 if (!updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(
@@ -3882,8 +3667,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
-        return schemaSyncService.waitForMetadataCompleteness(ts)
-                .thenApply(unused -> catalogService.activeCatalogVersion(ts.longValue()));
+        return reliableCatalogVersions.reliableCatalogVersionFor(ts);
     }
 
     /**
@@ -3930,27 +3714,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private boolean isLocalPeer(UUID nodeId) {
         return localNode.id().equals(nodeId);
-    }
-
-    /**
-     * Marks the transaction as finished in local tx state map.
-     *
-     * @param txId Transaction id.
-     * @param txState Transaction state, must be either {@link TxState#COMMITTED} or {@link TxState#ABORTED}.
-     * @param commitTimestamp Commit timestamp.
-     */
-    private void markFinished(UUID txId, TxState txState, @Nullable HybridTimestamp commitTimestamp) {
-        assert isFinalState(txState) : "Unexpected state [txId=" + txId + ", txState=" + txState + ']';
-
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                txState,
-                old == null ? null : old.txCoordinatorId(),
-                old == null ? null : old.commitPartitionId(),
-                txState == COMMITTED ? commitTimestamp : null,
-                old == null ? null : old.tx(),
-                old == null ? null : old.initialVacuumObservationTimestamp(),
-                old == null ? null : old.cleanupCompletionTimestamp()
-        ));
     }
 
     private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
@@ -4254,37 +4017,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         public int hashCode() {
             int result = initiatorId.hashCode();
             result = 31 * result + (int) (ts ^ (ts >>> 32));
-            return result;
-        }
-    }
-
-    private static Map<TablePartitionId, String> asTablePartitionIdStringMap(Map<TablePartitionIdMessage, String> messages) {
-        var result = new HashMap<TablePartitionId, String>(messages.size());
-
-        for (Entry<TablePartitionIdMessage, String> e : messages.entrySet()) {
-            result.put(e.getKey().asTablePartitionId(), e.getValue());
-        }
-
-        return result;
-    }
-
-    /**
-     * Wrapper for the update(All)Command processing result that besides result itself stores actual command that was processed.
-     */
-    private static class ResultWrapper<T> {
-        private final Command command;
-        private final T result;
-
-        ResultWrapper(Command command, T result) {
-            this.command = command;
-            this.result = result;
-        }
-
-        Command getCommand() {
-            return command;
-        }
-
-        T getResult() {
             return result;
         }
     }

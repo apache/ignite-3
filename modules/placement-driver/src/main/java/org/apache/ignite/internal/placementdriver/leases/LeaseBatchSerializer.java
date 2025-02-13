@@ -166,7 +166,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
         writePartitionedGroupLeases(tableLeases, minExpirationTimePhysical, commonExpirationTime, nodesDictionary, out);
 
-        assert zoneLeases.isEmpty() : "There are zone leases which are not supported yet";
+        writePartitionedGroupLeases(zoneLeases, minExpirationTimePhysical, commonExpirationTime, nodesDictionary, out);
     }
 
     private static long minExpirationTimePhysicalPart(LeaseBatch batch) {
@@ -389,6 +389,17 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                 in,
                 TablePartitionId::new
         );
+
+        if (in.available() > 0) {
+            readPartitionedGroupLeases(
+                    minExpirationTimePhysical,
+                    commonExpirationTime,
+                    nodesDictionary,
+                    leases,
+                    in,
+                    ZonePartitionId::new
+            );
+        }
 
         return new LeaseBatch(leases);
     }

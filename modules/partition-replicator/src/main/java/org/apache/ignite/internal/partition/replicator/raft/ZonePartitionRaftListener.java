@@ -17,16 +17,14 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
-
 import java.io.Serializable;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
@@ -38,8 +36,15 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
-import org.apache.ignite.internal.tx.TransactionResult;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * RAFT listener for the zone partition.
@@ -47,7 +52,11 @@ import org.apache.ignite.internal.tx.TransactionResult;
 public class ZonePartitionRaftListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionRaftListener.class);
 
-    private final Map<TablePartitionId, RaftGroupListener> tablePartitionRaftListeners = new ConcurrentHashMap<>();
+    private final SafeTimeValuesTracker safeTimeTracker;
+
+    private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
+
+    private final Map<TablePartitionId, RaftTableProcessor> tableProcessors = new ConcurrentHashMap<>();
 
     /**
      * Latest committed configuration of the zone-wide Raft group.
@@ -70,6 +79,27 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
         }
+    }
+
+    private final FinishTxCommandHandler finishTxCommandHandler;
+
+    /** Constructor. */
+    public ZonePartitionRaftListener(
+            TxStatePartitionStorage txStatePartitionStorage,
+            TxManager txManager,
+            SafeTimeValuesTracker safeTimeTracker,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            ZonePartitionId zonePartitionId
+    ) {
+        this.safeTimeTracker = safeTimeTracker;
+        this.storageIndexTracker = storageIndexTracker;
+
+        finishTxCommandHandler = new FinishTxCommandHandler(
+                txStatePartitionStorage,
+                // TODO: IGNITE-24343 - use ZonePartitionId here.
+                new TablePartitionId(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
+                txManager
+        );
     }
 
     @Override
@@ -101,60 +131,56 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     }
 
     private void processWriteCommand(CommandClosure<WriteCommand> clo) {
-        Command command = clo.command();
+        WriteCommand command = clo.command();
+
+        long commandIndex = clo.index();
+        long commandTerm = clo.term();
+        @Nullable HybridTimestamp safeTimestamp = clo.safeTimestamp();
+        assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand : command;
+
+        IgniteBiTuple<Serializable, Boolean> result;
 
         if (command instanceof FinishTxCommand) {
-            FinishTxCommand cmd = (FinishTxCommand) command;
-
-            clo.result(new TransactionResult(cmd.commit() ? COMMITTED : ABORTED, cmd.commitTimestamp()));
+            result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
             // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
-            CommandClosure<WriteCommand> idempotentCommandClosure = idempotentCommandClosure(clo);
+            tableProcessors.values()
+                    .forEach(processor -> processor.processCommand(command, commandIndex, commandTerm, safeTimestamp));
 
-            tablePartitionRaftListeners.values().forEach(listener -> listener.onWrite(singletonIterator(idempotentCommandClosure)));
-
-            clo.result(null);
+            result = new IgniteBiTuple<>(null, true);
         } else if (command instanceof TableAwareCommand) {
             TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
 
-            processTableAwareCommand(tablePartitionId, clo);
+            result = processTableAwareCommand(tablePartitionId, command, commandIndex, commandTerm, safeTimestamp);
         } else {
             LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
 
-            clo.result(null);
+            result = new IgniteBiTuple<>(null, true);
         }
+
+        if (Boolean.TRUE.equals(result.get2())) {
+            // Adjust safe time before completing update to reduce waiting.
+            if (safeTimestamp != null) {
+                updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+            }
+
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, clo.index());
+        }
+
+        // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
+        // trigger other actions taking same locks.
+        clo.result(result.get1());
     }
 
-    private void processTableAwareCommand(TablePartitionId tablePartitionId, CommandClosure<WriteCommand> clo) {
-        tablePartitionRaftListeners.get(tablePartitionId).onWrite(singletonIterator(clo));
-    }
-
-    private static <T> Iterator<T> singletonIterator(T value) {
-        return Collections.singleton(value).iterator();
-    }
-
-    private static CommandClosure<WriteCommand> idempotentCommandClosure(CommandClosure<WriteCommand> clo) {
-        return new CommandClosure<>() {
-            @Override
-            public WriteCommand command() {
-                return clo.command();
-            }
-
-            @Override
-            public long index() {
-                return clo.index();
-            }
-
-            @Override
-            public long term() {
-                return clo.term();
-            }
-
-            @Override
-            public void result(Serializable res) {
-            }
-        };
+    private IgniteBiTuple<Serializable, Boolean> processTableAwareCommand(
+            TablePartitionId tablePartitionId,
+            WriteCommand command,
+            long commandIndex,
+            long commandTerm,
+            @Nullable HybridTimestamp safeTimestamp
+    ) {
+        return tableProcessors.get(tablePartitionId).processCommand(command, commandIndex, commandTerm, safeTimestamp);
     }
 
     @Override
@@ -162,7 +188,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         synchronized (commitedConfigurationLock) {
             currentCommitedConfiguration = new CommittedConfiguration(config, lastAppliedIndex, lastAppliedTerm);
 
-            tablePartitionRaftListeners.values()
+            tableProcessors.values()
                     .forEach(listener -> listener.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm));
         }
     }
@@ -181,25 +207,36 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
-        tablePartitionRaftListeners.values().forEach(RaftGroupListener::onShutdown);
+        tableProcessors.values().forEach(RaftTableProcessor::onShutdown);
     }
 
     /**
-     * Adds a given Table Partition-level Raft listener to the set of managed listeners.
+     * Adds a given Table Partition-level Raft processor to the set of managed processor.
      */
-    public void addTablePartitionRaftListener(TablePartitionId tablePartitionId, RaftGroupListener listener) {
+    public void addTableProcessor(TablePartitionId tablePartitionId, RaftTableProcessor processor) {
         synchronized (commitedConfigurationLock) {
             if (currentCommitedConfiguration != null) {
-                listener.onConfigurationCommitted(
+                processor.onConfigurationCommitted(
                         currentCommitedConfiguration.configuration,
                         currentCommitedConfiguration.lastAppliedIndex,
                         currentCommitedConfiguration.lastAppliedTerm
                 );
             }
 
-            RaftGroupListener prev = tablePartitionRaftListeners.put(tablePartitionId, listener);
+            RaftTableProcessor prev = tableProcessors.put(tablePartitionId, processor);
 
             assert prev == null : "Listener for table partition " + tablePartitionId + " already exists";
+        }
+    }
+
+    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
+            PendingComparableValuesTracker<T, Void> tracker,
+            T newValue
+    ) {
+        try {
+            tracker.update(newValue, null);
+        } catch (TrackerClosedException ignored) {
+            // No-op.
         }
     }
 }

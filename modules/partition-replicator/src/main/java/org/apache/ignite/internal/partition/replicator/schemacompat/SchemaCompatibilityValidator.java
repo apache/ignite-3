@@ -15,11 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.internal.partition.replicator.schemacompat;
 
-import static java.util.stream.Collectors.toSet;
-
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -30,19 +27,18 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.partition.replicator.schema.ColumnDefinitionDiff;
+import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
+import org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.ColumnDefinitionDiff;
-import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
-import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Validates schema compatibility.
  */
-class SchemaCompatibilityValidator {
+public class SchemaCompatibilityValidator {
     private final ValidationSchemasSource validationSchemasSource;
     private final CatalogService catalogService;
     private final SchemaSyncService schemaSyncService;
@@ -58,7 +54,7 @@ class SchemaCompatibilityValidator {
     );
 
     /** Constructor. */
-    SchemaCompatibilityValidator(
+    public SchemaCompatibilityValidator(
             ValidationSchemasSource validationSchemasSource,
             CatalogService catalogService,
             SchemaSyncService schemaSyncService
@@ -74,20 +70,16 @@ class SchemaCompatibilityValidator {
      * (identified by the commit timestamp).
      *
      * @param txId ID of the transaction that gets validated.
-     * @param enlistedGroupIds IDs of the partitions that are enlisted with the transaction.
+     * @param enlistedTableIds IDs of the tables that are enlisted with the transaction.
      * @param commitTimestamp Commit timestamp.
      * @return Future of validation result.
      */
-    CompletableFuture<CompatValidationResult> validateCommit(
+    public CompletableFuture<CompatValidationResult> validateCommit(
             UUID txId,
-            Collection<TablePartitionId> enlistedGroupIds,
+            Set<Integer> enlistedTableIds,
             HybridTimestamp commitTimestamp
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
-
-        Set<Integer> tableIds = enlistedGroupIds.stream()
-                .map(TablePartitionId::tableId)
-                .collect(toSet());
 
         // Using compareTo() instead of after()/begin() because the latter methods take clock skew into account
         // which only makes sense when comparing 'unrelated' timestamps. beginTs and commitTs have a causal relationship,
@@ -95,7 +87,7 @@ class SchemaCompatibilityValidator {
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
         return schemaSyncService.waitForMetadataCompleteness(commitTimestamp)
-                .thenApply(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp));
+                .thenApply(ignored -> validateCommit(enlistedTableIds, commitTimestamp, beginTimestamp));
     }
 
     private CompatValidationResult validateCommit(Set<Integer> tableIds, HybridTimestamp commitTimestamp, HybridTimestamp beginTimestamp) {
@@ -204,7 +196,7 @@ class SchemaCompatibilityValidator {
      * @param txId ID of the transaction that gets validated.
      * @return Future of validation result.
      */
-    CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
+    public CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
         return schemaSyncService.waitForMetadataCompleteness(beginTimestamp)
@@ -238,7 +230,15 @@ class SchemaCompatibilityValidator {
         );
     }
 
-    void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
+    /**
+     * Throws an exception if schema has changed between transaction start and operation timestamp.
+     *
+     * @param txId ID of the transaction.
+     * @param operationTimestamp Timestamp of the operation.
+     * @param tableId ID of the table which the operation concerns.
+     * @throws IncompatibleSchemaVersionException If schema has changed.
+     */
+    public void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
         HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
         CatalogTableDescriptor tableAtBeginTs = catalogService.activeCatalog(beginTs.longValue()).table(tableId);
         CatalogTableDescriptor tableAtOpTs = catalogService.activeCatalog(operationTimestamp.longValue()).table(tableId);
@@ -258,7 +258,14 @@ class SchemaCompatibilityValidator {
         }
     }
 
-    void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, int tableId) {
+    /**
+     * Throws an exception if the given table does not exist at the given operation timestamp.
+     *
+     * @param operationTimestamp Timestamp of the operation.
+     * @param tableId ID of the table
+     * @throws IncompatibleSchemaVersionException If the table doesn't exist at the timestamp.
+     */
+    public void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, int tableId) {
         CatalogTableDescriptor tableAtOpTs = catalogService.activeCatalog(operationTimestamp.longValue()).table(tableId);
 
         if (tableAtOpTs == null) {
@@ -275,7 +282,7 @@ class SchemaCompatibilityValidator {
      * @param tableId ID of the table.
      * @throws InternalSchemaVersionMismatchException Thrown if the schema versions are different.
      */
-    void failIfRequestSchemaDiffersFromTxTs(HybridTimestamp txTs, int requestSchemaVersion, int tableId) {
+    public void failIfRequestSchemaDiffersFromTxTs(HybridTimestamp txTs, int requestSchemaVersion, int tableId) {
         CatalogTableDescriptor table = catalogService.activeCatalog(txTs.longValue()).table(tableId);
 
         assert table != null : "No table " + tableId + " at " + txTs;

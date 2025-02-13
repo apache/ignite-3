@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
@@ -84,7 +86,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
+            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId) {
                 return null;
             }
 
@@ -105,7 +107,8 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public IgniteBiTuple<ClusterNode, Long> enlist(
-                    TablePartitionId tablePartitionId,
+                    ReplicationGroupId replicationGroupId,
+                    int tableId,
                     IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
                 return null;
             }
@@ -202,7 +205,8 @@ public class FakeTxManager implements TxManager {
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Set<Integer> enlistedTableIds,
             UUID txId
     ) {
         return nullCompletedFuture();
@@ -210,8 +214,8 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
-            Map<TablePartitionId, String> enlistedPartitions,
+            ReplicationGroupId commitPartitionId,
+            Map<ReplicationGroupId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -222,7 +226,7 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> cleanup(
             TablePartitionId commitPartitionId,
-            Collection<TablePartitionId> enlistedPartitions,
+            Collection<ReplicationGroupId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
