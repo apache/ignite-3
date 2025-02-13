@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -1072,11 +1073,12 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
      *
      * @param node Node to start the checkpoint on.
      */
-    private void forceCheckpoint(Node node) throws ExecutionException, InterruptedException, TimeoutException {
+    private void forceCheckpoint(Node node) {
         PersistentPageMemoryStorageEngine storageEngine = (PersistentPageMemoryStorageEngine) node
                 .dataStorageManager()
                 .engineByStorageProfile(DEFAULT_STORAGE_PROFILE);
 
-        storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED).get(10, SECONDS);
+        assertThat(storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED),
+                willSucceedIn(10, SECONDS));
     }
 }

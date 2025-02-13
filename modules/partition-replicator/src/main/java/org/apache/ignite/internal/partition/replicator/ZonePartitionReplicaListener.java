@@ -290,7 +290,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             } else if (request instanceof ReplicaSafeTimeSyncRequest) {
                 LOG.debug("Non table request is not supported by the zone partition yet " + request);
             } else {
-                LOG.debug("Non table request is not supported by the zone partition yet " + request);
+                LOG.warn("Non table request is not supported by the zone partition yet " + request);
             }
             return completedFuture(new ReplicaResult(null, null));
         } catch (Throwable e) {
