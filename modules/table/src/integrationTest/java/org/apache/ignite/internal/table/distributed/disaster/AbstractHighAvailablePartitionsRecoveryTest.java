@@ -525,7 +525,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 SCHEMA_NAME,
                 HA_TABLE_NAME,
                 true,
-                0
+                -1
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());

@@ -360,6 +360,20 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         assertValuesPresentOnNodes(node.clock().now(), node.tables().table(HA_TABLE_NAME), 0, 1, 2, 3, 4);
     }
 
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode (7 nodes, A, B, C, D, E, F, G)</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 5 minutes</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (4 nodes A, B, C, D)</li>
+     *   <li>Manually execute partition reset before 'partitionDistributionResetTimeout' expires</li>
+     *   <li>Wait for the partition to become available (E, F, G), no new writes</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 0 to trigger automatic reset</li>
+     *   <li>Verify there is no second reset</li>
+     *   <li>No data should be lost</li>
+     * </ol>
+     */
     @Test
     void testManualRecovery() throws InterruptedException {
         startNode(3);

@@ -123,7 +123,6 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
                 getZoneId(ZONE_NAME), Set.of(A, C), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
-
     protected ConsistencyMode consistencyMode() {
         return ConsistencyMode.STRONG_CONSISTENCY;
     }

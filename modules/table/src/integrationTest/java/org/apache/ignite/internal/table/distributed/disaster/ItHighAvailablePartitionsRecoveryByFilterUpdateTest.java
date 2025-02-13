@@ -140,6 +140,19 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         executeSql(String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", zoneName, filter));
     }
 
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode (node filter allows A, B, C)</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 5 minutes</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (B, C)</li>
+     *   <li>Change filter to allow (D, E, F) before 'partitionDistributionResetTimeout' expires</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 0 to trigger automatic reset</li>
+     *   <li>Verify the partition is on D,E,F</li>
+     *   <li>No data should be lost</li>
+     * </ol>
+     */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
     @Test
     void testResetAfterChangeFilters() throws InterruptedException {
@@ -185,6 +198,19 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         assertValuesPresentOnNodes(node.clock().now(), table, 3, 4, 5);
     }
 
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode (profile filter allows A, B, C)</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 5 minutes</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (B, C)</li>
+     *   <li>Change filter to allow (D, E, F) before 'partitionDistributionResetTimeout' expires</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 0 to trigger automatic reset</li>
+     *   <li>Verify the partition is on D,E,F</li>
+     *   <li>No data should be lost</li>
+     * </ol>
+     */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
     @Test
     void testResetAfterChangeStorageProfiles() throws InterruptedException {
