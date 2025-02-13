@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.metadata;
 
 import static org.apache.calcite.rex.RexUtil.expandSearch;
 
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +60,9 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
 
     private static final double EQ_SELECTIVITY = 0.333;
+    private static final double IS_NOT_NULL_SELECTIVITY = 0.9;
+    private static final double COMPARISON_SELECTIVITY = 0.5;
+    private static final double DEFAULT_SELECTIVITY_INCREMENT = 0.05;
 
     private static double computeOpsSelectivity(Map<RexNode, List<SqlKind>> operands, double baseSelectivity) {
         double result = baseSelectivity;
@@ -72,7 +74,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             for (SqlKind kind : e.getValue()) {
                 switch (kind) {
                     case IS_NOT_NULL:
-                        result0 = Math.max(result0, 0.9);
+                        result0 = Math.max(result0, IS_NOT_NULL_SELECTIVITY);
                         break;
                     case EQUALS:
                         // Take into account Zipf`s distribution.
@@ -82,11 +84,11 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
                     case LESS_THAN:
                     case GREATER_THAN_OR_EQUAL:
                     case LESS_THAN_OR_EQUAL:
-                        result0 = Math.min(result0 + 0.5, 1.0);
+                        result0 = Math.min(result0 + COMPARISON_SELECTIVITY, 1.0);
                         break;
                     default:
                         // Not clear here, proceed with default.
-                        result0 += 0.05;
+                        result0 += DEFAULT_SELECTIVITY_INCREMENT;
                 }
             }
 
@@ -106,7 +108,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      * for each local ref with AND selectivity adjustment. <br>
      */
     private static double computeSelectivity(RexCall call) {
-        ImmutableList<RexNode> operands = call.operands;
+        List<RexNode> operands = call.operands;
         List<RexNode> andOperands = null;
         List<RexNode> otherOperands = null;
         double baseSelectivity = 0.0;
@@ -163,7 +165,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         if (call.isA(SqlKind.EQUALS)) {
             return EQ_SELECTIVITY;
         } else if (call.isA(SqlKind.COMPARISON)) {
-            return 0.5;
+            return COMPARISON_SELECTIVITY;
         } else {
             // different OTHER_FUNCTION and other uncovered cases
             return 0;
@@ -194,18 +196,21 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         }
 
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
-        assert table != null : "No table";
-
-        ImmutableIntList keyColumns = table.keyColumns();
-        ImmutableBitSet requiredColumns = rel.requiredColumns();
 
         boolean pkSpecificCheck = false;
+        ImmutableIntList keyColumns = null;
 
-        if (requiredColumns != null) {
-            for (int key : keyColumns) {
-                if (requiredColumns.get(key)) {
-                    pkSpecificCheck = true;
-                    break;
+        // sys view is possible here
+        if (table != null) {
+            keyColumns = table.keyColumns();
+            ImmutableBitSet requiredColumns = rel.requiredColumns();
+
+            if (requiredColumns != null) {
+                for (int key : keyColumns) {
+                    if (requiredColumns.get(key)) {
+                        pkSpecificCheck = true;
+                        break;
+                    }
                 }
             }
         }

@@ -83,7 +83,7 @@ public class JoinRowCountEstimationTest extends BaseRowsProcessedEstimationTest 
                 .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE)))
                 .check();
 
-        // Defined by IgniteMdSelectivity.guessSelectivity(RexNode, boolean).
+        // Defined by IgniteMdSelectivity.guessSelectivity.
         double isNotNullPredicateFactor = 0.9;
         assertQuery(NODE, ""
                 + "SELECT *"
@@ -108,7 +108,7 @@ public class JoinRowCountEstimationTest extends BaseRowsProcessedEstimationTest 
                 .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE)))
                 .check();
 
-        // Defined by IgniteMdSelectivity.guessSelectivity(RexNode, boolean).
+        // Defined by IgniteMdSelectivity.guessSelectivity.
         double greaterPredicateFactor = 0.5;
         assertQuery(NODE, ""
                 + "SELECT *"
