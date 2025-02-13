@@ -110,8 +110,8 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      */
     private static double computeOrSelectivity(RexCall call, @Nullable BitSet primaryKeys) {
         List<RexNode> operands = call.operands;
-        List<RexNode> andOperands = null;
-        List<RexNode> otherOperands = null;
+        List<RexNode> andOperands = new ArrayList<>();
+        List<RexNode> otherOperands = new ArrayList<>();
         double baseSelectivity = 0.0;
         Map<RexNode, List<SqlKind>> processOperands = new HashMap<>();
 
@@ -122,30 +122,20 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         if (andConsist) {
             for (RexNode op : operands) {
                 if (op.isA(SqlKind.AND)) {
-                    if (andOperands == null) {
-                        andOperands = new ArrayList<>();
-                    }
-
                     andOperands.add(op);
                 } else {
-                    if (otherOperands == null) {
-                        otherOperands = new ArrayList<>();
-                    }
-
                     otherOperands.add(op);
                 }
             }
         }
 
         // AND inside OR
-        if (andOperands != null) {
-            for (RexNode andOp : andOperands) {
-                baseSelectivity = Math.max(baseSelectivity, guessAndSelectivity(andOp, primaryKeys == null
-                        ? null : (BitSet) primaryKeys.clone()));
-            }
+        for (RexNode andOp : andOperands) {
+            baseSelectivity = Math.max(baseSelectivity, guessAndSelectivity(andOp, primaryKeys == null
+                    ? null : (BitSet) primaryKeys.clone()));
         }
 
-        List<RexNode> operandsToProcess = otherOperands == null ? call.getOperands() : otherOperands;
+        List<RexNode> operandsToProcess = otherOperands.isEmpty() ? call.getOperands() : otherOperands;
 
         for (RexNode node : operandsToProcess) {
             RexNode ref = getLocalRef(node);
