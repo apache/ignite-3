@@ -384,6 +384,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new PartitionReplicaLifecycleManager(
                         catalogManager,
                         replicaMgr,
+                        null, // pass null there as TableManager
                         distributionZoneManager,
                         metaStorageManager,
                         topologyService,

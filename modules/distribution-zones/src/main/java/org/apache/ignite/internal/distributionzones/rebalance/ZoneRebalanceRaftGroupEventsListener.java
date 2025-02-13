@@ -162,6 +162,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     /** {@inheritDoc} */
     @Override
     public void onLeaderElected(long term) {
+        // TODO: remove the leader based failover https://issues.apache.org/jira/browse/IGNITE-24193
         if (!busyLock.enterBusy()) {
             return;
         }

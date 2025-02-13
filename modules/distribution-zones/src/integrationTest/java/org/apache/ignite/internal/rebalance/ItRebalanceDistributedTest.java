@@ -1517,6 +1517,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new PartitionReplicaLifecycleManager(
                             catalogManager,
                             replicaManager,
+                            replicaSvc,
                             distributionZoneManager,
                             metaStorageManager,
                             clusterService.topologyService(),

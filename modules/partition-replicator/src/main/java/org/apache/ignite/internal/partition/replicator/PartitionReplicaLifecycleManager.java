@@ -52,10 +52,8 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
@@ -75,6 +73,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -111,6 +110,8 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
@@ -119,18 +120,21 @@ import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSc
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
-import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TxManager;
@@ -162,9 +166,18 @@ public class PartitionReplicaLifecycleManager extends
     // TODO IGNITE-22115 remove it
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    /** Zone messages factory. */
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY
+            = new PartitionReplicationMessagesFactory();
+
     private final CatalogService catalogService;
 
     private final ReplicaManager replicaMgr;
+
+    private final ReplicaService replicaSvc;
 
     private final DistributionZoneManager distributionZoneMgr;
 
@@ -254,6 +267,7 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param catalogService Catalog service.
      * @param replicaMgr Replica manager.
+     * @param replicaSvc Cross-replicas messaging service.
      * @param distributionZoneMgr Distribution zone manager.
      * @param metaStorageMgr Metastorage manager.
      * @param topologyService Topology service.
@@ -271,6 +285,7 @@ public class PartitionReplicaLifecycleManager extends
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
             ReplicaManager replicaMgr,
+            ReplicaService replicaSvc,
             DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr,
             TopologyService topologyService,
@@ -288,6 +303,7 @@ public class PartitionReplicaLifecycleManager extends
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
+        this.replicaSvc = replicaSvc;
         this.distributionZoneMgr = distributionZoneMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.topologyService = topologyService;
@@ -569,6 +585,8 @@ public class PartitionReplicaLifecycleManager extends
                                     raftClient -> {
                                         var replicaListener = new ZonePartitionReplicaListener(
                                                 txStatePartitionStorage,
+                                                placementDriver,
+                                                localNode(),
                                                 clockService,
                                                 txManager,
                                                 new CatalogValidationSchemasSource(catalogService, schemaManager),
@@ -1026,24 +1044,15 @@ public class PartitionReplicaLifecycleManager extends
                     stableAssignments,
                     pendingAssignments,
                     revision
-            ).thenCompose(v -> {
-                boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
-                        zonePartitionId,
-                        stableAssignments,
-                        pendingAssignments,
-                        revision
-                );
-
-                if (!isLocalNodeInStableOrPending) {
-                    return nullCompletedFuture();
-                }
-
-                return changePeersOnRebalance(
-                        replicaMgr,
-                        zonePartitionId,
-                        pendingAssignments.nodes(),
-                        revision);
-            });
+            ).thenAccept(v -> executeIfLocalNodeIsPrimaryForGroup(
+                    zonePartitionId,
+                    replicaMeta -> sendChangePeersAndLearnersRequest(
+                            replicaMeta,
+                            zonePartitionId,
+                            pendingAssignments,
+                            revision
+                    )
+            ));
         } finally {
             busyLock.leaveBusy();
         }
@@ -1149,62 +1158,6 @@ public class PartitionReplicaLifecycleManager extends
         return zoneDescriptor;
     }
 
-    private CompletableFuture<Void> changePeersOnRebalance(
-            ReplicaManager replicaMgr,
-            ZonePartitionId replicaGrpId,
-            Set<Assignment> pendingAssignments,
-            long revision
-    ) {
-        return replicaMgr.replica(replicaGrpId)
-                .thenApply(Replica::raftClient)
-                .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
-                        .exceptionally(throwable -> {
-                            throwable = unwrapCause(throwable);
-
-                            if (throwable instanceof TimeoutException) {
-                                LOG.info("Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
-                                        replicaGrpId);
-
-                                return LeaderWithTerm.NO_LEADER;
-                            }
-
-                            throw new IgniteInternalException(
-                                    INTERNAL_ERR,
-                                    "Failed to get a leader for the RAFT replication group [get=" + replicaGrpId + "].",
-                                    throwable
-                            );
-                        })
-                        .thenCompose(leaderWithTerm -> {
-                            if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
-                                return nullCompletedFuture();
-                            }
-
-                            // run update of raft configuration if this node is a leader
-                            LOG.info("Current node={} is the leader of partition raft group={}. "
-                                            + "Initiate rebalance process for partition={}, zoneId={}",
-                                    leaderWithTerm.leader(), replicaGrpId, replicaGrpId.partitionId(), replicaGrpId.zoneId());
-
-                            return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
-                                    .thenCompose(latestPendingAssignmentsEntry -> {
-                                        // Do not change peers of the raft group if this is a stale event.
-                                        // Note that we start raft node before for the sake of the consistency in a
-                                        // starting and stopping raft nodes.
-                                        if (revision < latestPendingAssignmentsEntry.revision()) {
-                                            return nullCompletedFuture();
-                                        }
-
-                                        PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
-
-                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
-                                                .exceptionally(e -> null);
-                                    });
-                        }));
-    }
-
-    private boolean isLocalPeer(Peer peer) {
-        return peer.consistentId().equals(localNode().name());
-    }
-
     private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
         return assignments.stream().anyMatch(isLocalNodeAssignment);
     }
@@ -1214,28 +1167,28 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Checks that the local node is primary or not.
+     * Returns future with {@link ReplicaMeta} if primary is presented or null otherwise.
      * <br>
-     * Internally we use there {@link PlacementDriver#getPrimaryReplica} with a penultimate safe time value, because metastore is waiting
-     * for pending or stable assignments events handling over and only then metastore will increment the safe time. On the other hand
-     * placement driver internally is waiting the metastore for given safe time plus {@link ClockService#maxClockSkewMillis}. So, if given
-     * time is just {@link ClockService#now}, then there is a dead lock: metastore is waiting until assignments handling is over, but
-     * internally placement driver is waiting for a non-applied safe time.
+     * Internally we use there {@link PlacementDriver#getPrimaryReplica} with a penultimate
+     * safe time value, because metastore is waiting for pending or stable assignments events handling over and only then metastore will
+     * increment the safe time. On the other hand placement driver internally is waiting the metastore for given safe time plus
+     * {@link ClockService#maxClockSkewMillis}. So, if given time is just {@link ClockService#now}, then there is a dead lock: metastore
+     * is waiting until assignments handling is over, but internally placement driver is waiting for a non-applied safe time.
      * <br>
      * To solve this issue we pass to {@link PlacementDriver#getPrimaryReplica} current time minus the skew, so placement driver could
      * successfully get primary replica for the time stamp before the handling has began. Also there a corner case for tests that are using
      * {@code WatchListenerInhibitor#metastorageEventsInhibitor} and it leads to current time equals {@link HybridTimestamp#MIN_VALUE} and
      * the skew's subtraction will lead to {@link IllegalArgumentException} from {@link HybridTimestamp}. Then, if we got the minimal
-     * possible timestamp, then we also couldn't have any primary replica, then return {@code false}.
+     * possible timestamp, then we also couldn't have any primary replica, then return {@code null} as a future's result.
      *
      * @param replicationGroupId Replication group ID for that we check is the local node a primary.
-     * @return {@code true} is the local node is primary and {@code false} otherwise.
+     * @return completed future with primary replica's meta or {@code null} otherwise.
      */
-    private CompletableFuture<Boolean> isLocalNodeIsPrimary(ReplicationGroupId replicationGroupId) {
+    private CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId) {
         HybridTimestamp currentSafeTime = metaStorageMgr.clusterTime().currentSafeTime();
 
         if (HybridTimestamp.MIN_VALUE.equals(currentSafeTime)) {
-            return falseCompletedFuture();
+            return nullCompletedFuture();
         }
 
         long skewMs = clockService.maxClockSkewMillis();
@@ -1243,10 +1196,7 @@ public class PartitionReplicaLifecycleManager extends
         try {
             HybridTimestamp previousMetastoreSafeTime = currentSafeTime.subtractPhysicalTime(skewMs);
 
-            return placementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
-                    .thenApply(replicaMeta -> replicaMeta != null
-                            && replicaMeta.getLeaseholderId() != null
-                            && replicaMeta.getLeaseholderId().equals(localNode().id()));
+            return placementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime);
         } catch (IllegalArgumentException e) {
             long currentSafeTimeMs = currentSafeTime.longValue();
 
@@ -1255,6 +1205,58 @@ public class PartitionReplicaLifecycleManager extends
                     + ", skewMs=" + skewMs
                     + ", internal=" + (currentSafeTimeMs + ((-skewMs) << LOGICAL_TIME_BITS_SIZE)) + "]", e);
         }
+    }
+
+    private void executeIfLocalNodeIsPrimaryForGroup(
+            ReplicationGroupId groupId,
+            Consumer<ReplicaMeta> toExecute
+    ) {
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = getPrimaryReplica(groupId);
+
+        isLocalNodeIsPrimary(primaryReplicaFuture).thenAccept(isPrimary -> {
+            if (isPrimary) {
+                primaryReplicaFuture.thenAccept(toExecute);
+            }
+        });
+    }
+
+    private CompletableFuture<Boolean> isLocalNodeIsPrimary(ReplicationGroupId replicationGroupId) {
+        return isLocalNodeIsPrimary(getPrimaryReplica(replicationGroupId));
+    }
+
+    private CompletableFuture<Boolean> isLocalNodeIsPrimary(CompletableFuture<ReplicaMeta> primaryReplicaFuture) {
+        return primaryReplicaFuture.thenApply(primaryReplicaMeta -> primaryReplicaMeta != null
+                && primaryReplicaMeta.getLeaseholder() != null
+                && primaryReplicaMeta.getLeaseholder().equals(localNode().name())
+        );
+    }
+
+    private void sendChangePeersAndLearnersRequest(
+            ReplicaMeta replicaMeta,
+            ZonePartitionId replicationGroupId,
+            Assignments pendingAssignments,
+            long currentRevision
+    ) {
+        metaStorageMgr.get(pendingPartAssignmentsKey(replicationGroupId)).thenAccept(latestPendingAssignmentsEntry -> {
+            // Do not change peers of the raft group if this is a stale event.
+            // Note that we start raft node before for the sake of the consistency in a
+            // starting and stopping raft nodes.
+            if (currentRevision < latestPendingAssignmentsEntry.revision()) {
+                return;
+            }
+
+            ZonePartitionIdMessage zonePartitionIdMessage = ReplicaMessageUtils
+                    .toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
+
+            ChangePeersAndLearnersAsyncReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY
+                    .changePeersAndLearnersAsyncReplicaRequest()
+                    .groupId(zonePartitionIdMessage)
+                    .pendingAssignments(pendingAssignments.toBytes())
+                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                    .build();
+
+            replicaSvc.invoke(localNode(), request);
+        });
     }
 
     private boolean isNodeInReducedStableOrPendingAssignments(

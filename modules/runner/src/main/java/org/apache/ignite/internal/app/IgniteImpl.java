@@ -1014,6 +1014,7 @@ public class IgniteImpl implements Ignite {
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaMgr,
+                replicaSvc,
                 distributionZoneManager,
                 metaStorageMgr,
                 clusterSvc.topologyService(),

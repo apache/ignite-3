@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.fixtures;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -26,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -46,13 +48,39 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     private volatile ReplicaMeta primary;
 
+    private volatile ReplicaMeta defaultZonePrimaryReplica;
+
+    /**
+     * Set the primary replica.
+     *
+     * @param node Primary replica node.
+     * @param leaseStartTime Time when the node is considered elected.
+     */
+    public void setPrimary(ClusterNode node, HybridTimestamp leaseStartTime) {
+        primary = createReplicaMeta(node, leaseStartTime);
+    }
+
     /**
      * Set the primary replica.
      *
      * @param node Primary replica node.
      */
-    public void setPrimary(ClusterNode node, HybridTimestamp leaseStartTime) {
-        primary = new ReplicaMeta() {
+    public void setPrimary(ClusterNode node) {
+        Loggers.forClass(TestPlacementDriver.class).info("Test Primary is {}", node);
+
+        setPrimary(node, HybridTimestamp.MIN_VALUE);
+    }
+
+    private void setDefaultZonePrimary(ClusterNode node, HybridTimestamp leaseStartTime) {
+        defaultZonePrimaryReplica = createReplicaMeta(node, leaseStartTime);
+    }
+
+    public void setDefaultZonePrimary(ClusterNode node) {
+        setDefaultZonePrimary(node, HybridTimestamp.MIN_VALUE);
+    }
+
+    private static ReplicaMeta createReplicaMeta(ClusterNode node, HybridTimestamp leaseStartTime) {
+        return new ReplicaMeta() {
             @Override
             public @Nullable String getLeaseholder() {
                 return node.name();
@@ -73,10 +101,6 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
                 return HybridTimestamp.MAX_VALUE;
             }
         };
-    }
-
-    public void setPrimary(ClusterNode node) {
-        setPrimary(node, HybridTimestamp.MIN_VALUE);
     }
 
     @Override
@@ -110,7 +134,9 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta(ReplicationGroupId replicationGroupId) {
         if (replicationGroupId instanceof ZonePartitionId && ((ZonePartitionId) replicationGroupId).zoneId() == DEFAULT_ZONE_ID) {
-            return nullCompletedFuture();
+            assert defaultZonePrimaryReplica != null;
+
+            return completedFuture(defaultZonePrimaryReplica);
         }
 
         if (primary == null) {
