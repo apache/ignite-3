@@ -1414,6 +1414,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         cleanup(txId);
     }
+
     @Test
     public void testCleanupOnCompactedCatalogVersion() {
         UUID txId = newTxId();

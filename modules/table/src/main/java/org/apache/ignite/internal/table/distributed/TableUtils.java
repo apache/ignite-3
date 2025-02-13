@@ -74,17 +74,8 @@ public class TableUtils {
      */
     // TODO: IGNITE-21476 Select indexes by operation timestamp of read-write transaction
     public static @Nullable List<Integer> indexIdsAtRwTxBeginTsOrNull(CatalogService catalogService, UUID txId, int tableId) {
-        HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
-
         try {
-            Catalog catalog = catalogService.activeCatalog(beginTs.longValue());
-
-            List<CatalogIndexDescriptor> indexes = catalog.indexes(tableId);
-
-            assert !indexes.isEmpty() : String.format("txId=%s, tableId=%s, catalogVersion=%s", txId, tableId, catalog.version());
-
-            return view(indexes, CatalogObjectDescriptor::id);
-
+            return indexIdsAtRwTxBeginTs(catalogService, txId, tableId);
         } catch (CatalogNotFoundException e) {
             return null;
         }
