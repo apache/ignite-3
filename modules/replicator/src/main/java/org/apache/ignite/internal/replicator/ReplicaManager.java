@@ -476,7 +476,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, sender.id());
 
-            resFut.whenComplete((res, ex) -> {
+            resFut.handle((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
@@ -516,6 +516,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         // Using strong send here is important to avoid a reordering with a normal response.
                         clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
                     });
+                }
+
+                return null;
+            }).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    failureManager.process(new FailureContext(CRITICAL_ERROR, ex));
                 }
             });
         } finally {

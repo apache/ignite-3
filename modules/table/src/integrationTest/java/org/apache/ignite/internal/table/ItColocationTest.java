@@ -220,7 +220,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
                     boolean commitIntent,
-                    Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+                    Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+                    Set<Integer> enlistedTableIds,
                     UUID txId
             ) {
                 return nullCompletedFuture();

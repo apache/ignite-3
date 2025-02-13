@@ -65,6 +65,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -79,7 +80,6 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -226,21 +226,28 @@ public class PrepareServiceImpl implements PrepareService {
 
         assert schemaName != null;
 
-        SchemaPlus schema = schemaManager.schema(operationContext.operationTime().longValue())
-                .getSubSchema(schemaName);
-
-        if (schema == null) {
-            return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
-        }
+        long timestamp = operationContext.operationTime().longValue();
+        IgniteSchemas rootSchema = schemaManager.schemas(timestamp);
+        assert rootSchema != null : "Root schema does not exist";
 
         QueryCancel cancelHandler = operationContext.cancel();
         assert cancelHandler != null;
         boolean explicitTx = operationContext.txContext() != null && operationContext.txContext().explicitTx() != null;
 
+        SchemaPlus schemaPlus = rootSchema.root();
+        SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
+        // If default schema does not exist or misconfigured, we should use the root schema as default one
+        // because there is no other schema for the validator to use.
+        if (defaultSchema == null) {
+            defaultSchema = schemaPlus;
+        }
+
         PlanningContext planningContext = PlanningContext.builder()
-                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
+                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(defaultSchema).build())
                 .query(parsedResult.originalQuery())
                 .plannerTimeout(plannerTimeout)
+                .catalogVersion(rootSchema.catalogVersion())
+                .defaultSchemaName(schemaName)
                 .parameters(Commons.arrayToMap(operationContext.parameters()))
                 .explicitTx(explicitTx)
                 .build();
@@ -691,7 +698,10 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes = result;
         }
 
-        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+        String schemaName = ctx.schemaName();
+        assert schemaName != null;
+
+        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
     private static CacheKey createCacheKeyFromParameterMetadata(ParsedResult parsedResult, PlanningContext ctx,

@@ -24,7 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -67,14 +67,14 @@ public class WriteIntentSwitchProcessor {
      * Run switch write intent on the provided node.
      */
     public CompletableFuture<ReplicaResponse> switchLocalWriteIntents(
-            TablePartitionId tablePartitionId,
+            ReplicationGroupId replicationGroupId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
         String localNodeName = topologyService.localMember().name();
 
-        return txMessageSender.switchWriteIntents(localNodeName, tablePartitionId, txId, commit, commitTimestamp);
+        return txMessageSender.switchWriteIntents(localNodeName, replicationGroupId, txId, commit, commitTimestamp);
     }
 
     /**
@@ -84,7 +84,7 @@ public class WriteIntentSwitchProcessor {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
-            TablePartitionId partitionId
+            ReplicationGroupId partitionId
     ) {
         return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(partitionId)
                 .thenCompose(leaseHolder ->
