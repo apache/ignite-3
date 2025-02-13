@@ -197,14 +197,16 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         assert table != null : "No table";
 
         ImmutableIntList keyColumns = table.keyColumns();
-        ImmutableBitSet requiredColunms = rel.requiredColumns();
+        ImmutableBitSet requiredColumns = rel.requiredColumns();
 
         boolean pkSpecificCheck = false;
 
-        for (int key : keyColumns) {
-            if (requiredColunms.get(key)) {
-                pkSpecificCheck = true;
-                break;
+        if (requiredColumns != null) {
+            for (int key : keyColumns) {
+                if (requiredColumns.get(key)) {
+                    pkSpecificCheck = true;
+                    break;
+                }
             }
         }
 
