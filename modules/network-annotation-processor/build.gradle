@@ -35,6 +35,12 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.compileTesting
+
+    constraints {
+        testImplementation('com.google.truth:truth:1.4.4'){
+            because 'previous versions have a CVE'
+        }
+    }
 }
 
 description = 'ignite-network-annotation-processor'

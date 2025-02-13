@@ -154,6 +154,12 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.awaitility
+
+    constraints {
+        api('com.google.protobuf:protobuf-java:3.25.6'){
+            because 'previous versions have a CVE'
+        }
+    }
 }
 
 integrationTest {

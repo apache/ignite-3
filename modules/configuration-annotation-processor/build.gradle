@@ -39,6 +39,15 @@ dependencies {
     integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.spoon.core
     integrationTestImplementation libs.javapoet
+
+    constraints {
+        integrationTestImplementation('com.google.truth:truth:1.4.4'){
+            because 'previous versions have a CVE'
+        }
+        testImplementation('com.google.truth:truth:1.4.4'){
+            because 'previous versions have a CVE'
+        }
+    }
 }
 
 description = 'ignite-configuration-annotation-processor'
