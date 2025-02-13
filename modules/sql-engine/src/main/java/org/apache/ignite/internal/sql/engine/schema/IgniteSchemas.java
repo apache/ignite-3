@@ -49,7 +49,7 @@ public final class IgniteSchemas {
     }
 
     /**
-     * Returns a catalog version this schema container belong to.
+     * Returns a catalog version this schema container belongs to.
      *
      * @return Catalog version.
      */
