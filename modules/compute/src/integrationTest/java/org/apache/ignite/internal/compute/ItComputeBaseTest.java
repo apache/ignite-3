@@ -461,13 +461,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = "WRONG_SCHEMA")
+    @ValueSource(strings = {"WRONG_SCHEMA", "PUBLIC"})
     void submitColocatedThrowsTableNotFoundExceptionWhenSchemaDoesNotExist(String schemaName) {
         sql("DROP SCHEMA IF EXISTS " + schemaName);
 
         var ex = assertThrows(CompletionException.class,
                 () -> compute().submitAsync(
-                        JobTarget.colocated("Wrong_Schema.test", Tuple.create(Map.of("k", 1))),
+                        JobTarget.colocated(schemaName + ".test", Tuple.create(Map.of("k", 1))),
                         JobDescriptor.builder(getNodeNameJobClass()).units(units()).build(),
                         null
                 ).join()
@@ -480,7 +480,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = "WRONG_SCHEMA")
+    @ValueSource(strings = {"WRONG_SCHEMA", "PUBLIC"})
     void submitBroadcastThrowsTableNotFoundExceptionWhenSchemaDoesNotExist(String schemaName) {
         sql("DROP SCHEMA IF EXISTS " + schemaName);
 
