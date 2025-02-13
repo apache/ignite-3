@@ -640,8 +640,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 SqlBatchException.class,
-                Sql.SCHEMA_NOT_FOUND_ERR,
-                "Schema not found [schemaName=NON_EXISTING_SCHEMA]",
+                Sql.STMT_VALIDATION_ERR,
+                "Object 'TEST' not found",
                 () -> executeBatch(statement, args));
     }
 

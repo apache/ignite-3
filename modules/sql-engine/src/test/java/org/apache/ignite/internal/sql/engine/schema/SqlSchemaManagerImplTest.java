@@ -134,7 +134,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
 
         // just to fill up cache
-        sqlSchemaManager.schema(versionAfter);
+        sqlSchemaManager.schemas(versionAfter);
 
         int nonExistingTableId = Integer.MAX_VALUE;
 
@@ -158,8 +158,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         assertNotNull(rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME));
         assertNotNull(rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME));
@@ -177,8 +178,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -235,8 +237,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         int version = catalogManager.latestCatalogVersion();
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(version);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(version);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -273,8 +276,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -342,8 +346,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -394,8 +399,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -455,8 +461,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -493,8 +500,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             int versionAfter = catalogManager.latestCatalogVersion();
             assertThat(versionAfter, equalTo(versionBefore + 2));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -512,8 +520,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             int versionAfter = catalogManager.latestCatalogVersion();
             assertThat(versionAfter, equalTo(versionBefore + 3));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -545,8 +554,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -580,8 +590,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             int versionAfter = catalogManager.latestCatalogVersion();
             assertThat(versionAfter, equalTo(versionBefore + 2));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -602,8 +613,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             int versionAfter = catalogManager.latestCatalogVersion();
             assertThat(versionAfter, equalTo(versionBefore + 3));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -629,8 +641,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             int versionAfter = catalogManager.latestCatalogVersion();
             assertThat(versionAfter, equalTo(versionBefore + 4));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -666,8 +679,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -732,8 +746,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -772,8 +787,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaPlus);

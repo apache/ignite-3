@@ -70,6 +70,8 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
                         .build())
+                .catalogVersion(1)
+                .defaultSchemaName(schemaName)
                 .query("")
                 .build();
     }
