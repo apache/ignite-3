@@ -950,13 +950,15 @@ public class PartitionReplicaLifecycleManager extends
                     ? Assignments.EMPTY
                     : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
 
-            return stopAndDestroyPartitionAndUpdateClients(
-                    zonePartitionId,
-                    stableAssignments,
-                    pendingAssignments,
-                    isRecovery,
-                    revision
-            );
+            return isLocalNodeIsPrimary(zonePartitionId)
+                    .thenCompose(isLeaseholder -> stopAndDestroyPartitionAndUpdateClients(
+                            zonePartitionId,
+                            stableAssignments,
+                            pendingAssignments,
+                            isRecovery,
+                            revision,
+                            isLeaseholder
+                    ));
         }, ioExecutor).thenCompose(identity());
     }
 
@@ -987,7 +989,10 @@ public class PartitionReplicaLifecycleManager extends
             Set<Assignment> stableAssignments,
             Assignments pendingAssignments,
             boolean isRecovery,
-            long revision
+            long revision,
+            // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-24374
+            // It's a workaround because with TestPlacementDriver we couldn't reserve primary replicas that's we we shouldn't stop them now.
+            boolean isLeaseholder
     ) {
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
@@ -1000,7 +1005,7 @@ public class PartitionReplicaLifecycleManager extends
         )
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
-        if (shouldStopLocalServices) {
+        if (shouldStopLocalServices && !isLeaseholder) {
             return clientUpdateFuture.thenCompose(v -> weakStopAndDestroyPartition(zonePartitionId, revision));
         } else {
             return clientUpdateFuture;
@@ -1137,17 +1142,21 @@ public class PartitionReplicaLifecycleManager extends
                             : "The local node is outside of the replication group [inStableOrPending=" + isLocalNodeInStableOrPending
                             + ", isLeaseholder=" + isLeaseholder + "].";
 
+                    assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                            + "grpId=" + replicaGrpId
+                            + ", isLeaseholder=" + isLeaseholder
+                            + ", stable=" + stableAssignments
+                            + ", pending=" + pendingAssignments
+                            + ", localName=" + localNode().name() + "].";
+
                     // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
                     // Union is not required in such a case.
                     Set<Assignment> newAssignments = pendingAssignmentsAreForced || stableAssignments == null
                             ? pendingAssignmentsNodes
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
-                    CompletableFuture<Replica> replicaFuture = replicaMgr.replica(replicaGrpId);
-
-                    assert replicaFuture != null : "Replica is lost for group=" + replicaGrpId + " of " + replicaGrpId.getClass();
-
-                    replicaFuture.thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
+                    replicaMgr.replica(replicaGrpId)
+                            .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
     }
 

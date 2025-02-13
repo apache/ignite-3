@@ -517,10 +517,6 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     }
 
     @Test
-    // Test is disabled because there is a possible race between a primary replica stopping process because of AFTER_REPLICA_DESTROYED and
-    // the primary replica weak stopping and peers set update in TableManager due to assignments stable switch if the primary colocated node
-    // is became outside of the stable assignments. It will be fixed if true PlacementDriver with replicas messaging will be used.
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
     void testTableReplicaListenersRemoveAfterRebalance(TestInfo testInfo) throws Exception {
         String zoneName = "TEST_ZONE";
         String tableName = "TEST_TABLE";

@@ -2400,6 +2400,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                            + "grpId=" + replicaGrpId
+                            + ", isLeaseholder=" + isLeaseholder
                             + ", stable=" + stableAssignments
                             + ", pending=" + pendingAssignments
                             + ", localName=" + localNode().name() + "].";
