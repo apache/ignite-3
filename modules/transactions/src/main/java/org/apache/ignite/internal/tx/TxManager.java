@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -158,13 +159,15 @@ public interface TxManager extends IgniteComponent {
      * @param commitPartition Partition to store a transaction state.
      * @param commit {@code true} if a commit requested.
      * @param enlistedGroups Enlisted partition groups with consistency tokens.
+     * @param enlistedTableIds IDs of the tables taking part in the transaction.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Set<Integer> enlistedTableIds,
             UUID txId
     );
 
@@ -182,7 +185,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             ReplicationGroupId commitPartitionId,
-            Map<TablePartitionId, String> enlistedPartitions,
+            Map<ReplicationGroupId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -202,7 +205,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             TablePartitionId commitPartitionId,
-            Collection<TablePartitionId> enlistedPartitions,
+            Collection<ReplicationGroupId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

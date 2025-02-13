@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
+import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -412,7 +413,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 cmd.commit(),
                 cmd.commitTimestamp(),
                 () -> storage.lastApplied(commandIndex, commandTerm),
-                indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+                indexIdsAtRwTxBeginTsOrNull(catalogService, txId, storage.tableId())
         );
 
         return new IgniteBiTuple<>(null, true);

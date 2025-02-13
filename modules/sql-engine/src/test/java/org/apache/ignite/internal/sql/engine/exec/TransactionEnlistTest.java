@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.times;
 
 import java.util.List;
@@ -99,7 +100,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
             // No op.
         }
 
-        Mockito.verify(spiedTx, times(2)).enlist(any(), any());
+        Mockito.verify(spiedTx, times(2)).enlist(any(), anyInt(), any());
     }
 
     private static QueryChecker assertQuery(String qry, InternalTransaction tx) {

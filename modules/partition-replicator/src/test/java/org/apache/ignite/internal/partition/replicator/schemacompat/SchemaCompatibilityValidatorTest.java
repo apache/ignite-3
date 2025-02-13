@@ -120,7 +120,11 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, commitTimestamp))
                 .thenReturn(changeSource.schemaVersions());
 
-        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(txId, List.of(tablePartitionId), commitTimestamp);
+        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(
+                txId,
+                Set.of(tablePartitionId.tableId()),
+                commitTimestamp
+        );
 
         assertThat(resultFuture, willCompleteSuccessfully());
 
@@ -140,7 +144,11 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, commitTimestamp))
                 .thenReturn(changeSource.schemaVersions());
 
-        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(txId, List.of(tablePartitionId), commitTimestamp);
+        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(
+                txId,
+                Set.of(tablePartitionId.tableId()),
+                commitTimestamp
+        );
 
         assertThat(resultFuture, willCompleteSuccessfully());
 
