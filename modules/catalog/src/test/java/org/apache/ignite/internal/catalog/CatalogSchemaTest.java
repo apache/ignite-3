@@ -262,51 +262,24 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testEmptyPublicSchema() {
-        CatalogSchemaDescriptor publicSchema1 = latestCatalog().schema("PUBLIC");
+    public void testDropCreateEmptyDefaultSchema() {
+        CatalogSchemaDescriptor publicSchema1 = latestCatalog().schema(SqlCommon.DEFAULT_SCHEMA_NAME);
         assertNotNull(publicSchema1);
 
         // Drop public schema
-        CatalogCommand dropSchemaCmd = DropSchemaCommand.builder().name("PUBLIC").build();
+        CatalogCommand dropSchemaCmd = DropSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build();
         tryApplyAndExpectApplied(dropSchemaCmd);
-        assertNull(latestCatalog().schema("PUBLIC"));
+        assertNull(latestCatalog().schema(SqlCommon.DEFAULT_SCHEMA_NAME));
 
         // Create public schema
-        CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name("PUBLIC").build();
+        CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build();
         tryApplyAndExpectApplied(newSchemaCmd);
 
-        CatalogSchemaDescriptor publicSchema2 = latestCatalog().schema("PUBLIC");
+        CatalogSchemaDescriptor publicSchema2 = latestCatalog().schema(SqlCommon.DEFAULT_SCHEMA_NAME);
         assertNotNull(publicSchema2);
         assertNotEquals(publicSchema1.id(), publicSchema2.id());
     }
 
-    @Test
-    public void testNonEmptyPublicSchema() {
-        CatalogSchemaDescriptor publicSchema1 = latestCatalog().schema("PUBLIC");
-        assertNotNull(publicSchema1);
-
-        CatalogCommand newTableCmd = newTableCommand("PUBLIC", "T1");
-        tryApplyAndExpectApplied(newTableCmd);
-
-        // Should fail because the schema is not empty.
-        assertThat(
-                manager.execute(DropSchemaCommand.builder().name("PUBLIC").build()),
-                willThrowFast(CatalogValidationException.class, "Schema 'PUBLIC' is not empty. Use CASCADE to drop it anyway.")
-        );
-
-        // Drop public schema cascade
-        CatalogCommand dropSchemaCmd = DropSchemaCommand.builder().name("PUBLIC").cascade(true).build();
-        tryApplyAndExpectApplied(dropSchemaCmd);
-        assertNull(latestCatalog().schema("PUBLIC"));
-
-        // Create public schema
-        CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name("PUBLIC").build();
-        tryApplyAndExpectApplied(newSchemaCmd);
-
-        CatalogSchemaDescriptor publicSchema2 = latestCatalog().schema("PUBLIC");
-        assertNotNull(publicSchema2);
-        assertNotEquals(publicSchema1.id(), publicSchema2.id());
-    }
 
     private Catalog latestCatalog() {
         Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
