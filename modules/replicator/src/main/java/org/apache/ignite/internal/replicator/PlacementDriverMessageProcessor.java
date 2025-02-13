@@ -28,7 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Replica specific placement driver message processor.
@@ -80,10 +80,10 @@ public class PlacementDriverMessageProcessor {
     // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
     //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
     /** Completes when leader is elected. */
-    private final CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
+    private final CompletableFuture<Void> leaderReadyFuture = new CompletableFuture<>();
 
     /** Container of the elected leader. */
-    private final AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+    private volatile @Nullable ClusterNode leaderRef = null;
 
     private final TopologyAwareRaftGroupService raftClient;
 
@@ -273,14 +273,11 @@ public class PlacementDriverMessageProcessor {
     }
 
     private void onLeaderElected(ClusterNode clusterNode, long term) {
-        leaderRef.set(clusterNode);
-
-        if (!leaderFuture.isDone()) {
-            leaderFuture.complete(leaderRef);
-        }
+        leaderRef = clusterNode;
+        leaderReadyFuture.complete(null);
     }
 
     private CompletableFuture<ClusterNode> leaderFuture() {
-        return leaderFuture.thenApply(AtomicReference::get);
+        return leaderReadyFuture.thenApply(ignored -> leaderRef);
     }
 }

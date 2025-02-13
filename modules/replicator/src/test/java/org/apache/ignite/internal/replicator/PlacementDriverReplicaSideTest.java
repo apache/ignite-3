@@ -123,6 +123,17 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         var placementDriver = new TestPlacementDriver(LOCAL_NODE);
 
+        var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
+                GRP_ID,
+                LOCAL_NODE,
+                placementDriver,
+                new TestClockService(new HybridClockImpl()),
+                (unused0, unused1) -> reservationSuccess,
+                executor,
+                storageIndexTracker,
+                raftClient
+        );
+
         return new ReplicaImpl(
                 GRP_ID,
                 listener,
@@ -130,16 +141,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 placementDriver,
                 groupId -> null,
                 null,
-                new PlacementDriverMessageProcessor(
-                        GRP_ID,
-                        LOCAL_NODE,
-                        placementDriver,
-                        new TestClockService(new HybridClockImpl()),
-                        (unused0, unused1) -> reservationSuccess,
-                        executor,
-                        storageIndexTracker,
-                        raftClient
-                )
+                placementDriverMessageProcessor
         );
     }
 

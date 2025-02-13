@@ -706,24 +706,28 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     raftGroupEventsListener,
                     isVolatileStorage,
-                    (raftClient) -> new ReplicaImpl(
-                            replicaGrpId,
-                            createListener.apply(raftClient),
-                            localNode,
-                            placementDriver,
-                            getPendingAssignmentsSupplier,
-                            failureManager,
-                            new PlacementDriverMessageProcessor(
-                                    replicaGrpId,
-                                    localNode,
-                                    placementDriver,
-                                    clockService,
-                                    replicaStateManager::reserveReplica,
-                                    executor,
-                                    storageIndexTracker,
-                                    raftClient
-                            )
-                    )
+                    (raftClient) -> {
+                        var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
+                                replicaGrpId,
+                                localNode,
+                                placementDriver,
+                                clockService,
+                                replicaStateManager::reserveReplica,
+                                executor,
+                                storageIndexTracker,
+                                raftClient
+                        );
+
+                        return new ReplicaImpl(
+                                replicaGrpId,
+                                createListener.apply(raftClient),
+                                localNode,
+                                placementDriver,
+                                getPendingAssignmentsSupplier,
+                                failureManager,
+                                placementDriverMessageProcessor
+                        );
+                    }
             );
         } finally {
             leaveBusy();
