@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.metadata;
 import static org.apache.calcite.rex.RexUtil.expandSearch;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,6 @@ import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
@@ -59,10 +59,11 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
 
-    private static final double EQ_SELECTIVITY = 0.333;
-    private static final double IS_NOT_NULL_SELECTIVITY = 0.9;
-    private static final double COMPARISON_SELECTIVITY = 0.5;
-    private static final double DEFAULT_SELECTIVITY_INCREMENT = 0.05;
+    public static final double EQ_SELECTIVITY = 0.333;
+    public static final double IS_NOT_NULL_SELECTIVITY = 0.9;
+    public static final double COMPARISON_SELECTIVITY = 0.5;
+    public static final double DEFAULT_SELECTIVITY_INCREMENT = 0.05;
+    public static final double DEFAULT_SELECTIVITY = 0.25;
 
     private static double computeOpsSelectivity(Map<RexNode, List<SqlKind>> operands, double baseSelectivity) {
         double result = baseSelectivity;
@@ -107,7 +108,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      * OR(<($t3, 110), >($t3, 150), AND(>=($t2, -($t1, 2)), <=($t2, +($t3, 2))), >($t4, $t2), <($t4, $t3)) selectivity computes separately
      * for each local ref with AND selectivity adjustment. <br>
      */
-    private static double computeSelectivity(RexCall call) {
+    private static double computeOrSelectivity(RexCall call, @Nullable BitSet primaryKeys) {
         List<RexNode> operands = call.operands;
         List<RexNode> andOperands = null;
         List<RexNode> otherOperands = null;
@@ -139,18 +140,19 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         // AND inside OR
         if (andOperands != null) {
             for (RexNode andOp : andOperands) {
-                baseSelectivity = Math.max(baseSelectivity, RelMdUtil.guessSelectivity(andOp));
+                baseSelectivity = Math.max(baseSelectivity, guessAndSelectivity(andOp, primaryKeys == null
+                        ? null : (BitSet) primaryKeys.clone()));
             }
         }
 
         List<RexNode> operandsToProcess = otherOperands == null ? call.getOperands() : otherOperands;
 
         for (RexNode node : operandsToProcess) {
-            RexNode res = getLocalRef(node);
+            RexNode ref = getLocalRef(node);
 
             // It can be null for case with expression for example: LENGTH('abc') = 3
-            if (res != null) {
-                List<SqlKind> vals = processOperands.computeIfAbsent(res, (k) -> new ArrayList<>());
+            if (ref != null) {
+                List<SqlKind> vals = processOperands.computeIfAbsent(ref, (k) -> new ArrayList<>());
 
                 vals.add(node.getKind());
             } else {
@@ -195,23 +197,18 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             return sel;
         }
 
-        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        @Nullable IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
-        boolean pkSpecificCheck = false;
-        ImmutableIntList keyColumns = null;
+        ImmutableIntList keyColumns;
+        BitSet primaryKeys = null;
 
         // sys view is possible here
         if (table != null) {
             keyColumns = table.keyColumns();
-            ImmutableBitSet requiredColumns = rel.requiredColumns();
+            primaryKeys = new BitSet();
 
-            if (requiredColumns != null) {
-                for (int key : keyColumns) {
-                    if (requiredColumns.get(key)) {
-                        pkSpecificCheck = true;
-                        break;
-                    }
-                }
+            for (int i : keyColumns) {
+                primaryKeys.set(i);
             }
         }
 
@@ -225,39 +222,69 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             RexNode predicateExpanded = expandSearch(Commons.rexBuilder(), null, pred);
 
             if (predicateExpanded.isA(SqlKind.OR)) {
-                double processed = computeSelectivity((RexCall) predicateExpanded);
+                double processed = computeOrSelectivity((RexCall) predicateExpanded, primaryKeys == null
+                        ? null : (BitSet) primaryKeys.clone());
                 sel *= processed;
-            } else if (predicateExpanded.getKind() == SqlKind.IS_NOT_NULL) {
-                sel *= 0.9;
-            } else if (
-                    (predicateExpanded instanceof RexCall)
-                            && (((RexCall) predicateExpanded).getOperator()
-                            == RelMdUtil.ARTIFICIAL_SELECTIVITY_FUNC)) {
-                artificialSel *= RelMdUtil.getSelectivityValue(predicateExpanded);
-            } else if (predicateExpanded.isA(SqlKind.EQUALS)) {
-                if (pkSpecificCheck) {
-                    RexLocalRef localRef = getLocalRef(pred);
-
-                    if (localRef != null) {
-                        if (keyColumns.contains(localRef.getIndex())) {
-                            return 0.0;
-                        }
-                    }
-                }
-                sel *= 0.15;
-            } else if (predicateExpanded.isA(SqlKind.COMPARISON)) {
-                sel *= 0.5;
             } else {
-                sel *= 0.25;
+                sel *= computeSelectivity(predicateExpanded, primaryKeys);
             }
         }
 
         return sel * artificialSel;
     }
 
-    /**
-     * GetSelectivity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+    private static double guessAndSelectivity(@Nullable RexNode predicate, @Nullable BitSet keyColumns) {
+        double sel = 1.0;
+        if ((predicate == null) || predicate.isAlwaysTrue()) {
+            return sel;
+        }
+
+        List<RexNode> conjunctions = RelOptUtil.conjunctions(predicate);
+
+        for (RexNode pred : conjunctions) {
+            sel *= computeSelectivity(pred, keyColumns);
+        }
+
+        return sel;
+    }
+
+    private static double computeSelectivity(RexNode predicate, @Nullable BitSet keyColumns) {
+        double sel = 1.0;
+        double artificialSel = 1.0;
+
+        if (predicate.getKind() == SqlKind.IS_NOT_NULL) {
+            sel *= IS_NOT_NULL_SELECTIVITY;
+        } else if (
+                (predicate instanceof RexCall)
+                        && (((RexCall) predicate).getOperator()
+                        == RelMdUtil.ARTIFICIAL_SELECTIVITY_FUNC)) {
+            artificialSel *= RelMdUtil.getSelectivityValue(predicate);
+        } else if (predicate.isA(SqlKind.EQUALS)) {
+            if (keyColumns != null) {
+                RexLocalRef localRef = getLocalRef(predicate);
+
+                if (localRef != null) {
+                    keyColumns.clear(localRef.getIndex());
+                    if (keyColumns.isEmpty()) {
+                        return 0.0;
+                    }
+                }
+            }
+            sel *= EQ_SELECTIVITY;
+        } else if (predicate.isA(SqlKind.COMPARISON)) {
+            sel *= COMPARISON_SELECTIVITY;
+        } else {
+            sel *= DEFAULT_SELECTIVITY;
+        }
+
+        return sel * artificialSel;
+    }
+
+    /** Implements selectivity prediction algorithm.
+     *
+     * @param rel Relational operator.
+     * @param mq Relational metadata.
+     * @param predicate Operation predicate.
      */
     public Double getSelectivity(ProjectableFilterableTableScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate == null) {
@@ -273,9 +300,11 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return guessSelectivity(diff, rel);
     }
 
-    /**
-     * GetSelectivity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+    /** Implements selectivity prediction algorithm.
+     *
+     * @param rel Relational operator.
+     * @param mq Relational metadata.
+     * @param predicate Operation predicate.
      */
     public Double getSelectivity(IgniteSortedIndexSpool rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
@@ -289,9 +318,11 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return mq.getSelectivity(rel.getInput(), rel.condition());
     }
 
-    /**
-     * GetSelectivity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+    /** Implements selectivity prediction algorithm.
+     *
+     * @param rel Relational operator.
+     * @param mq Relational metadata.
+     * @param predicate Operation predicate.
      */
     public Double getSelectivity(IgniteHashIndexSpool rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
