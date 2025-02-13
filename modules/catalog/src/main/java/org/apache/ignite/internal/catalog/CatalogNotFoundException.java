@@ -23,7 +23,8 @@ package org.apache.ignite.internal.catalog;
 public class CatalogNotFoundException extends CatalogValidationException {
     private static final long serialVersionUID = 6675295082901837711L;
 
-    CatalogNotFoundException(String message) {
+    /** Constructor. */
+    public CatalogNotFoundException(String message) {
         super(message);
     }
 }
