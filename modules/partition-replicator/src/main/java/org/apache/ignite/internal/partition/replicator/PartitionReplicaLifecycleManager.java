@@ -549,6 +549,10 @@ public class PartitionReplicaLifecycleManager extends
                     zonePartitionId.partitionId()
             );
 
+
+            // TODO sanpwc investigate how it should work.
+            // storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
+            // internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
             var raftGroupListener = new ZonePartitionRaftListener(
                     txStatePartitionStorage,
                     txManager,
@@ -589,7 +593,8 @@ public class PartitionReplicaLifecycleManager extends
                                     // TODO: IGNITE-24371 - pass real isVolatile flag
                                     false,
                                     txStatePartitionStorage,
-                                    busyLock
+                                    busyLock,
+                                    storageIndexTracker
                             );
                         } catch (NodeStoppingException e) {
                             return failedFuture(e);

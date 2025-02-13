@@ -64,7 +64,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.Member;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -147,8 +147,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
     private final List<Node> cluster = new ArrayList<>();
 
-    private final TestPlacementDriver placementDriver = new TestPlacementDriver();
-
     private NodeFinder nodeFinder;
 
     private TestInfo testInfo;
@@ -223,7 +221,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
                 address,
                 nodeFinder,
                 workDir,
-                placementDriver,
                 systemConfiguration,
                 raftConfiguration,
                 nodeAttributesConfiguration,
@@ -596,26 +593,32 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         };
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24374 Remove.
     private void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {
-        ClusterNode newPrimaryReplicaNode = node.clusterService.topologyService().localMember();
-
-        HybridTimestamp leaseStartTime = node.hybridClock.now();
-
-        placementDriver.setPrimary(newPrimaryReplicaNode, leaseStartTime);
-
-        if (zonePartitionId != null) {
-            PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
-                    .primaryReplicaNodeId(newPrimaryReplicaNode.id())
-                    .primaryReplicaNodeName(newPrimaryReplicaNode.name())
-                    .leaseStartTime(leaseStartTime.longValue())
-                    .build();
-
-            CompletableFuture<Void> primaryReplicaChangeFuture = node.replicaManager
-                    .replica(zonePartitionId)
-                    .thenCompose(replica -> replica.raftClient().run(cmd));
-
-            assertThat(primaryReplicaChangeFuture, willCompleteSuccessfully());
-        }
+//        if (zonePartitionId != null) {
+//            CompletableFuture<ReplicaMeta> primaryReplicaFuture = node.placementDriverManager.placementDriver().awaitPrimaryReplica(
+//                    zonePartitionId,
+//                    node.hybridClock.now(),
+//                    10,
+//                    SECONDS
+//            );
+//
+//            assertThat(primaryReplicaFuture, willCompleteSuccessfully());
+//
+//            ReplicaMeta primaryReplicaMeta = primaryReplicaFuture.join();
+//
+//            PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+//                    .primaryReplicaNodeId(primaryReplicaMeta.getLeaseholderId())
+//                    .primaryReplicaNodeName(primaryReplicaMeta.getLeaseholder())
+//                    .leaseStartTime(primaryReplicaMeta.getStartTime().longValue())
+//                    .build();
+//
+//            CompletableFuture<Void> primaryReplicaChangeFuture = node.replicaManager
+//                    .replica(zonePartitionId)
+//                    .thenCompose(replica -> replica.raftClient().run(cmd));
+//
+//            assertThat(primaryReplicaChangeFuture, willCompleteSuccessfully());
+//        }
     }
 
     private void truncateLogOnEveryNode(ReplicationGroupId groupId) {

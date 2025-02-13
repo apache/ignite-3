@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -31,6 +32,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -76,10 +79,13 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Pending assignment Meta storage watch listener. */
     private final WatchListener pendingAssignmentsListener;
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    private final boolean colocationEnabled = getBoolean(COLOCATION_FEATURE_FLAG, false);
+
     /**
      * The constructor.
      *
-     * @param msManager Metastorage manager.
+     * @param msManager Meta storage manager.
      */
     public AssignmentsTracker(MetaStorageManager msManager) {
         this.msManager = msManager;
@@ -95,12 +101,12 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * Restores assignments form Vault and subscribers on further updates.
      */
     public void startTrack() {
-        msManager.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES), pendingAssignmentsListener);
-        msManager.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsListener);
+        msManager.registerPrefixWatch(new ByteArray(pendingAssignmentsPrefixBytes()), pendingAssignmentsListener);
+        msManager.registerPrefixWatch(new ByteArray(stableAssignmentsPrefixBytes()), stableAssignmentsListener);
 
         msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
-            handleRecoveryAssignments(recoveryRevisions, PENDING_ASSIGNMENTS_PREFIX_BYTES, groupPendingAssignments);
-            handleRecoveryAssignments(recoveryRevisions, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments);
+            handleRecoveryAssignments(recoveryRevisions, pendingAssignmentsPrefixBytes(), groupPendingAssignments);
+            handleRecoveryAssignments(recoveryRevisions, stableAssignmentsPrefixBytes(), groupStableAssignments);
         }).whenComplete((res, ex) -> {
             if (ex != null) {
                 LOG.error("Failed to start assignment tracker due to recovery error", ex);
@@ -162,7 +168,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            handleReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments);
+            handleReceivedAssignments(event, stableAssignmentsPrefixBytes(), groupStableAssignments);
 
             return nullCompletedFuture();
         };
@@ -174,13 +180,14 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            handleReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX_BYTES, groupPendingAssignments);
+            handleReceivedAssignments(event, pendingAssignmentsPrefixBytes(), groupPendingAssignments);
 
             return nullCompletedFuture();
         };
     }
 
-    private static void handleReceivedAssignments(
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Make it static.
+    private void handleReceivedAssignments(
             WatchEvent event,
             byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
@@ -188,7 +195,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         for (EntryEvent evt : event.entryEvents()) {
             Entry entry = evt.newEntry();
 
-            ReplicationGroupId grpId = extractTablePartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
+            ReplicationGroupId grpId = extractReplicationGroupPartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
             if (entry.tombstone()) {
                 groupIdToAssignmentsMap.remove(grpId);
@@ -213,7 +220,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                     continue;
                 }
 
-                ReplicationGroupId grpId = extractTablePartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
+                ReplicationGroupId grpId = extractReplicationGroupPartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
                 updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry);
             }
@@ -323,5 +330,18 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         }
 
         return sb.toString();
+    }
+
+    private byte[] pendingAssignmentsPrefixBytes() {
+        return colocationEnabled ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES : RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+    }
+
+    private byte[] stableAssignmentsPrefixBytes() {
+        return colocationEnabled ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES : RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
+    }
+
+    private ReplicationGroupId extractReplicationGroupPartitionId(byte[] key, byte[] prefix) {
+        return colocationEnabled ? extractZonePartitionId(key, prefix) : extractTablePartitionId(key, prefix);
+
     }
 }

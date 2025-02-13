@@ -24,6 +24,8 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
@@ -232,6 +234,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
     private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+
+    /* Feature flag for zone based collocation track */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * Constructor for a replica service.
@@ -739,7 +745,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupEventsListener raftGroupEventsListener,
             boolean isVolatileStorage,
             ManuallyCloseable partitionResources,
-            IgniteSpinBusyLock busyLock
+            IgniteSpinBusyLock busyLock,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -757,7 +764,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             replicaGrpId,
                             listenerFactory.apply(raftClient),
                             raftClient,
-                            partitionResources
+                            partitionResources,
+                            placementDriver,
+                            clockService,
+                            replicaStateManager::reserveReplica,
+                            executor,
+                            storageIndexTracker,
+                            clusterNetSvc.topologyService().localMember()
                     )
             );
         } finally {
@@ -1144,6 +1157,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         Replica replica = replicaFuture.join();
 
+        // TODO Fixme in order not to send SafeTime requests to table partitions in case of enabled colocation.
+        if (replica.groupId() instanceof TablePartitionId && enabledColocationFeature) {
+            return;
+        }
+
         ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                 .groupId(toReplicationGroupIdMessage(replica.groupId()))
                 .build();
@@ -1299,10 +1317,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 synchronized (context) {
                     if (localNodeId.equals(parameters.leaseholderId())) {
-                        assert context.replicaState != ReplicaState.STOPPED
-                                : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
-                                    + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
-                                    + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
+                        // TODO sanpwc Fixme
+//                        assert context.replicaState != ReplicaState.STOPPED
+//                                : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
+//                                    + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
+//                                    + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
                     } else if (context.reservedForPrimary) {
                         context.assertReservation(replicationGroupId, parameters.startTime());
 

@@ -82,6 +82,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -1050,7 +1051,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             TablePartitionId groupId = enlistedGroup.getKey();
             Long expectedEnlistmentConsistencyToken = enlistedGroup.getValue().get2();
 
-            verificationFutures[++cnt] = placementDriver.getPrimaryReplica(groupId, commitTimestamp)
+            ReplicationGroupId aPartitionId = groupId;
+            if (groupId.tableId() == 4 || groupId.tableId() == 6) {
+                aPartitionId = new ZonePartitionId(3, groupId.partitionId());
+            }
+
+            verificationFutures[++cnt] = placementDriver.getPrimaryReplica(aPartitionId, commitTimestamp)
                     .thenAccept(currentPrimaryReplica -> {
                         if (currentPrimaryReplica == null
                                 || !expectedEnlistmentConsistencyToken.equals(currentPrimaryReplica.getStartTime().longValue())

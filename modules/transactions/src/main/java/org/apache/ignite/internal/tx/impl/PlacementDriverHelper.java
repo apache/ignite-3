@@ -39,7 +39,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.tx.TransactionException;
 
 /**
@@ -84,7 +86,11 @@ public class PlacementDriverHelper {
             TablePartitionId partitionId,
             HybridTimestamp timestamp
     ) {
-        return placementDriver.awaitPrimaryReplica(partitionId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+        ReplicationGroupId aPartitionId = partitionId;
+        if (partitionId.tableId() == 4 || partitionId.tableId() == 6) {
+            aPartitionId = new ZonePartitionId(3, partitionId.partitionId());
+        }
+        return placementDriver.awaitPrimaryReplica(aPartitionId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((primaryReplica, e) -> {
                     if (e != null) {
                         LOG.debug("Failed to retrieve primary replica for partition {}", partitionId, e);

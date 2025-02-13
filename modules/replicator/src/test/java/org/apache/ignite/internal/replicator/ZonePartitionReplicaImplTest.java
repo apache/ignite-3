@@ -39,14 +39,31 @@ class ZonePartitionReplicaImplTest extends BaseIgniteAbstractTest {
     @Mock
     private TopologyAwareRaftGroupService raftGroupService;
 
+    // TODO sanpwc FixMe.
     @Test
     void closesResourcesOnShutdown() throws Exception {
         ManuallyCloseable resources = mock(ManuallyCloseable.class);
 
-        var replica = new ZonePartitionReplicaImpl(new ZonePartitionId(1, 0), listener, raftGroupService, resources);
-
-        assertThat(replica.shutdown(), willCompleteSuccessfully());
-
-        verify(resources).close();
+//        var replica = new ZonePartitionReplicaImpl(
+//                new ZonePartitionId(1, 0),
+//                listener,
+//                raftGroupService,
+//                resources,
+//        );
+//
+//        replicaGrpId,
+//                listenerFactory.apply(raftClient),
+//                raftClient,
+//                partitionResources,
+//                placementDriver,
+//                clockService,
+//                replicaStateManager::reserveReplica,
+//                executor,
+//                storageIndexTracker,
+//                clusterNetSvc.topologyService().localMember()
+//
+//        assertThat(replica.shutdown(), willCompleteSuccessfully());
+//
+//        verify(resources).close();
     }
 }

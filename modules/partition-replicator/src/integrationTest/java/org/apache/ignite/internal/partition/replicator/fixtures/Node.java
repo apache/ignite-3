@@ -101,6 +101,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -112,7 +113,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -258,6 +259,8 @@ public class Node {
 
     private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
+    public final PlacementDriverManager placementDriverManager;
+
     @Nullable
     private volatile InvokeInterceptor invokeInterceptor;
 
@@ -274,7 +277,6 @@ public class Node {
             NetworkAddress address,
             NodeFinder nodeFinder,
             Path workDir,
-            PlacementDriver placementDriver,
             SystemLocalConfiguration systemLocalConfiguration,
             RaftConfiguration raftConfiguration,
             NodeAttributesConfiguration nodeAttributesConfiguration,
@@ -462,7 +464,20 @@ public class Node {
                 () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
         );
 
-        var transactionInflights = new TransactionInflights(placementDriver, clockService);
+        placementDriverManager = new PlacementDriverManager(
+                name,
+                metaStorageManager,
+                MetastorageGroupId.INSTANCE,
+                clusterService,
+                cmgManager::metaStorageNodes,
+                logicalTopologyService,
+                raftManager,
+                topologyAwareRaftGroupServiceFactory,
+                clockService,
+                replicationConfiguration
+        );
+
+        var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
 
         var cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
@@ -526,7 +541,7 @@ public class Node {
                 lockManager,
                 clockService,
                 new TransactionIdGenerator(address.port()),
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
@@ -541,7 +556,7 @@ public class Node {
                 cmgManager,
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new NoOpFailureManager(),
@@ -609,7 +624,7 @@ public class Node {
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
                 clockService,
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 schemaSyncService,
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
@@ -649,7 +664,7 @@ public class Node {
                 schemaSyncService,
                 catalogManager,
                 observableTimestampTracker,
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 () -> mock(IgniteSql.class),
                 resourcesRegistry,
                 lowWatermark,
@@ -725,6 +740,7 @@ public class Node {
                 componentContext,
                 metaStorageManager,
                 clusterCfgMgr,
+                placementDriverManager,
                 clockWaiter,
                 catalogManager,
                 indexMetaStorage,

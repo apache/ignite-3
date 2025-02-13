@@ -1311,7 +1311,7 @@ public class InternalTableImpl implements InternalTable {
         assert allSchemaVersionsSame(rows) : "Different schema versions encountered: " + uniqueSchemaVersions(rows);
 
         return TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                .groupId(serializeTablePartitionId(groupId))
+                .groupId(colocationAwareSerializeReplicationGroupId(colocationAwareReplicationGroupId(groupId.partitionId())))
                 .tableId(tableId)
                 .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
@@ -2034,7 +2034,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private CompletableFuture<ReplicaMeta> partitionMeta(TablePartitionId tablePartitionId, HybridTimestamp at) {
-        return awaitPrimaryReplica(tablePartitionId, at)
+        // TODO sanpwcFixme
+        return awaitPrimaryReplica(colocationAwareReplicationGroupId(tablePartitionId.partitionId()), at)
                 .exceptionally(e -> {
                     throw withCause(
                             TransactionException::new,

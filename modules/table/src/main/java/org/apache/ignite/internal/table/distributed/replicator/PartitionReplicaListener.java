@@ -154,6 +154,7 @@ import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -3362,7 +3363,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return new IgniteBiTuple<>(null, primaryReplicaMeta.getStartTime().longValue());
             };
 
-            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, current);
+            ReplicationGroupId aReplicationGroupId = enabledColocationFeature ? request.groupId().asReplicationGroupId() : replicationGroupId;
+
+            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(aReplicationGroupId, current);
 
             if (meta != null) {
                 try {
@@ -3372,7 +3375,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
             }
 
-            return placementDriver.getPrimaryReplica(replicationGroupId, current).thenApply(validateClo);
+            return placementDriver.getPrimaryReplica(aReplicationGroupId, current).thenApply(validateClo);
         } else if (request instanceof ReadOnlyReplicaRequest) {
             return isLocalNodePrimaryReplicaAt(current);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
@@ -3383,11 +3386,16 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> isLocalNodePrimaryReplicaAt(HybridTimestamp timestamp) {
-        return placementDriver.getPrimaryReplica(replicationGroupId, timestamp)
-                .thenApply(primaryReplica -> new IgniteBiTuple<>(
-                        primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId()),
-                        null
-                ));
+        // TODO sanpwc Fixme
+        if (enabledColocationFeature) {
+            return completedFuture(new IgniteBiTuple<>(true, null));
+        } else {
+            return placementDriver.getPrimaryReplica(replicationGroupId, timestamp)
+                    .thenApply(primaryReplica -> new IgniteBiTuple<>(
+                            primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId()),
+                            null
+                    ));
+        }
     }
 
     /**
