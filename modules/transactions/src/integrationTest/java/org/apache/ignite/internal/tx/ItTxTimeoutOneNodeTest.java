@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -31,8 +32,7 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 
 abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
-    private static final String TABLE1_NAME = "TEST1";
-    private static final String TABLE2_NAME = "TEST2";
+    private static final String TABLE_NAME = "TEST";
 
 
     @Override
@@ -48,9 +48,9 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     void roTransactionTimesOut() throws Exception {
         Ignite ignite = ignite();
 
-        ignite.sql().executeScript("CREATE TABLE " + TABLE1_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
+        ignite.sql().executeScript("CREATE TABLE " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
 
-        Table table = ignite.tables().table(TABLE1_NAME);
+        Table table = ignite.tables().table(TABLE_NAME);
 
         Transaction roTx = ignite.transactions().begin(new TransactionOptions().readOnly(true).timeoutMillis(100));
 
@@ -71,9 +71,9 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     void readWriteTransactionTimesOut() throws InterruptedException {
         Ignite ignite = ignite();
 
-        ignite.sql().executeScript("CREATE TABLE " + TABLE2_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
+        ignite.sql().executeScript("CREATE TABLE " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
 
-        Table table = ignite.tables().table(TABLE2_NAME);
+        Table table = ignite.tables().table(TABLE_NAME);
 
         Transaction rwTx = ignite.transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(5_000));
 
@@ -88,7 +88,41 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
         assertThrows(TransactionException.class, () -> doGetOn(table, rwTx));
         // TODO: uncomment the following assert after IGNITE-24233 is fixed.
         // assertThrows(TransactionException.class, roTx::commit);
+    }
 
+    @Test
+    void timeoutExceptionHasCorrectCause() throws InterruptedException {
+        Ignite ignite = ignite();
+
+        ignite.sql().executeScript("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
+
+        Table table = ignite.tables().table(TABLE_NAME);
+
+        Transaction rwTx = ignite.transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(1_000));
+
+        // Wait for an exception.
+        assertTrue(
+                waitForCondition(() -> timeoutExceeded(table, rwTx), 10_000),
+                "Write operation should throw an exception with TX_TIMEOUT_EXCEEDED error code"
+        );
+
+        assertThrows(TransactionException.class, () -> doGetOn(table, rwTx));
+        // TODO: uncomment the following assert after IGNITE-24233 is fixed.
+        // assertThrows(TransactionException.class, roTx::commit);
+    }
+
+    private static boolean timeoutExceeded(Table table, Transaction rwTx) {
+        try {
+            doPutOn(table, rwTx);
+            return false;
+        } catch (TransactionException ex) {
+            if (ex.getMessage().contains("timeout exceeded")) {
+                return true;
+            } else {
+                fail("Expected TX_TIMEOUT_EXCEEDED error code, but got: " + ex.code());
+                return false;
+            }
+        }
     }
 
     private static void doGetOn(Table table, Transaction tx) {

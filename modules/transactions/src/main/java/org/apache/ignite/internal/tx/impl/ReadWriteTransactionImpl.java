@@ -143,7 +143,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> commitAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(true, null, false),
+                finish(true, null, false, false),
                 TX_COMMIT_ERR
         );
     }
@@ -151,18 +151,28 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, null, false),
+                finish(false, null, false, false),
                 TX_ROLLBACK_ERR
         );
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full) {
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, null, false, true),
+                TX_ROLLBACK_ERR
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(
+            boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+    ) {
         if (finishFuture != null) {
             return finishFuture;
         }
 
-        return finishInternal(commit, executionTimestamp, full, true);
+        return finishInternal(commit, executionTimestamp, full, true, timeoutExceeded);
     }
 
     /**
@@ -178,7 +188,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean commit,
             @Nullable HybridTimestamp executionTimestamp,
             boolean full,
-            boolean isComplete
+            boolean isComplete,
+            boolean timeoutExceeded
     ) {
         enlistPartitionLock.writeLock().lock();
 
@@ -198,7 +209,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 }
 
                 if (full) {
-                    txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit);
+                    txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit, timeoutExceeded);
 
                     if (isComplete) {
                         finishFuture = nullCompletedFuture();
@@ -210,6 +221,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             observableTsTracker,
                             commitPart,
                             commit,
+                            timeoutExceeded,
                             enlisted,
                             id()
                     );
@@ -255,6 +267,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> kill() {
-        return finishInternal(false, null, false, false);
+        return finishInternal(false, null, false, false, false);
     }
 }

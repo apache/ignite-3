@@ -50,6 +50,8 @@ public class TxStateMeta implements TransactionMeta {
 
     private final @Nullable Long cleanupCompletionTimestamp;
 
+    private final @Nullable Boolean isFinishedDueToTimeout;
+
     /**
      * The ignite transaction object is associated with this state. This field can be initialized only on the transaction coordinator,
      * {@code null} in other nodes.
@@ -71,9 +73,10 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable UUID txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
-            @Nullable InternalTransaction tx
+            @Nullable InternalTransaction tx,
+            @Nullable Boolean isFinishedDueToTimeout
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, null);
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, null, isFinishedDueToTimeout);
     }
 
     /**
@@ -92,9 +95,10 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable InternalTransaction tx,
-            @Nullable Long initialVacuumObservationTimestamp
+            @Nullable Long initialVacuumObservationTimestamp,
+            @Nullable Boolean isFinishedDueToTimeout
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, initialVacuumObservationTimestamp, null);
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, initialVacuumObservationTimestamp, null, isFinishedDueToTimeout);
     }
 
     /**
@@ -115,7 +119,8 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable InternalTransaction tx,
             @Nullable Long initialVacuumObservationTimestamp,
-            @Nullable Long cleanupCompletionTimestamp
+            @Nullable Long cleanupCompletionTimestamp,
+            @Nullable Boolean isFinishedDueToTimeout
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
@@ -124,6 +129,7 @@ public class TxStateMeta implements TransactionMeta {
         this.tx = tx;
         this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
         this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
+        this.isFinishedDueToTimeout = isFinishedDueToTimeout;
     }
 
     /**
@@ -181,6 +187,10 @@ public class TxStateMeta implements TransactionMeta {
         return cleanupCompletionTimestamp;
     }
 
+    public @Nullable Boolean isFinishedDueToTimeout() {
+        return isFinishedDueToTimeout;
+    }
+
     @Override
     public TxStateMetaMessage toTransactionMetaMessage(
             ReplicaMessagesFactory replicaMessagesFactory,
@@ -193,6 +203,7 @@ public class TxStateMeta implements TransactionMeta {
                 .commitTimestamp(commitTimestamp)
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                .isFinishedDueToTimeout(isFinishedDueToTimeout)
                 .build();
     }
 

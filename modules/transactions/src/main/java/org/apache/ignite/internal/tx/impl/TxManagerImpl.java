@@ -552,7 +552,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit) {
+    public void finishFull(
+            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeout
+    ) {
         TxState finalState;
 
         finishedTxs.add(1);
@@ -573,7 +575,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         old == null ? null : old.txCoordinatorId(),
                         old == null ? null : old.commitPartitionId(),
                         ts,
-                        old == null ? null : old.tx()
+                        old == null ? null : old.tx(),
+                        timeout
                 ));
 
         decrementRwTxCount(txId);
@@ -588,6 +591,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commitIntent,
+            boolean timeout,
             Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             UUID txId
     ) {
@@ -604,7 +608,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     localNodeId,
                     commitPartition,
                     commitTimestamp(commitIntent),
-                    old == null ? null : old.tx()
+                    old == null ? null : old.tx(),
+                    timeout
             ));
 
             decrementRwTxCount(txId);
@@ -753,7 +758,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                             result.commitTimestamp(),
                                             old == null ? null : old.tx(),
                                             old == null ? null : old.initialVacuumObservationTimestamp(),
-                                            old == null ? null : old.cleanupCompletionTimestamp()
+                                            old == null ? null : old.cleanupCompletionTimestamp(),
+                                            old == null ? null : old.isFinishedDueToTimeout()
                                     )
                             );
 
@@ -820,7 +826,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     txResult.commitTimestamp(),
                                     old == null ? null : old.tx(),
                                     old == null ? null : old.initialVacuumObservationTimestamp(),
-                                    old == null ? null : old.cleanupCompletionTimestamp()
+                                    old == null ? null : old.cleanupCompletionTimestamp(),
+                                    old == null ? null : old.isFinishedDueToTimeout()
                             ));
 
                     assert isFinalState(updatedMeta.txState()) :

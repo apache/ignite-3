@@ -110,7 +110,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> commitAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(true, readTimestamp, false),
+                finish(true, readTimestamp, false, false),
                 TX_COMMIT_ERR
         );
     }
@@ -118,13 +118,21 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, readTimestamp, false),
+                finish(false, readTimestamp, false, false),
                 TX_ROLLBACK_ERR
         );
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, readTimestamp, false, true),
+                TX_ROLLBACK_ERR
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
         assert !full : "Read-only transactions cannot be full.";
 
         if (!finishGuard.compareAndSet(false, true)) {
@@ -147,6 +155,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> kill() {
-        return finish(false, readTimestamp, false);
+        return finish(false, readTimestamp, false, false);
     }
 }

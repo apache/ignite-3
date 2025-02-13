@@ -517,7 +517,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         req.coordinatorId(),
                         req.commitPartitionId().asTablePartitionId(),
                         null,
-                        old == null ? null : old.tx()
+                        old == null ? null : old.tx(),
+                        old == null ? null : old.isFinishedDueToTimeout()
                 ));
             }
         }
@@ -697,6 +698,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         // Tx recovery is executed on the commit partition.
                         replicationGroupId,
                         false,
+                        false,
                         // Enlistment consistency token is not required for the rollback, so it is 0L.
                         Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
                         txId
@@ -813,7 +815,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     req.coordinatorId(),
                     req.commitPartitionId().asTablePartitionId(),
                     null,
-                    old == null ? null : old.tx()
+                    old == null ? null : old.tx(),
+                    old == null ? null : old.isFinishedDueToTimeout()
             ));
 
             var opId = new OperationId(senderId, req.timestamp().longValue());
@@ -3949,7 +3952,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txState == COMMITTED ? commitTimestamp : null,
                 old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
-                old == null ? null : old.cleanupCompletionTimestamp()
+                old == null ? null : old.cleanupCompletionTimestamp(),
+                old == null ? null : old.isFinishedDueToTimeout()
         ));
     }
 

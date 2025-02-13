@@ -63,12 +63,13 @@ public class ClientTransactions implements IgniteTransactions {
             @Nullable TransactionOptions options,
             long observableTimestamp) {
         boolean readOnly = options != null && options.readOnly();
+        long timeout = options == null ? 0 : options.timeoutMillis();
 
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
                 w -> {
                     w.out().packBoolean(readOnly);
-                    w.out().packLong(options == null ? 0 : options.timeoutMillis());
+                    w.out().packLong(timeout);
                     w.out().packLong(observableTimestamp);
                 },
                 r -> readTx(r, readOnly),
