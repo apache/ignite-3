@@ -72,7 +72,7 @@ public class TableUtils {
      * @param tableId Table ID for which indexes will be selected.
      * @return Ascending sorted list of index IDs or {@code null} if catalog version was not found.
      */
-    // TODO: IGNITE-21476 Select indexes by operation timestamp of read-write transaction
+    // TODO IGNITE-24368 Use IndexMetaStorage to get the list of indices.
     public static @Nullable List<Integer> indexIdsAtRwTxBeginTsOrNull(CatalogService catalogService, UUID txId, int tableId) {
         try {
             return indexIdsAtRwTxBeginTs(catalogService, txId, tableId);
