@@ -116,6 +116,7 @@ import org.apache.ignite.distributed.replicator.action.RequestTypes;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -1410,6 +1411,18 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         checkNoRowInIndex(row0);
         checkNoRowInIndex(row1);
+
+        cleanup(txId);
+    }
+    @Test
+    public void testCleanupOnCompactedCatalogVersion() {
+        UUID txId = newTxId();
+
+        BinaryRow testRow = binaryRow(0);
+
+        assertThat(doSingleRowRequest(txId, testRow, RW_INSERT), willCompleteSuccessfully());
+
+        when(catalogService.activeCatalog(anyLong())).thenThrow(new CatalogNotFoundException("Catalog not found"));
 
         cleanup(txId);
     }

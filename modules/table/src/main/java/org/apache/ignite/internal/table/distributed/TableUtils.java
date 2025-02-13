@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -60,6 +61,33 @@ public class TableUtils {
         assert !indexes.isEmpty() : String.format("txId=%s, tableId=%s, catalogVersion=%s", txId, tableId, catalog.version());
 
         return view(indexes, CatalogObjectDescriptor::id);
+    }
+
+    /**
+     * Returns index IDs for the table of interest from the catalog for the active catalog version at the beginning timestamp of read-write
+     * transaction or {@code null} if catalog version was not found.
+     *
+     * @param catalogService Catalog service.
+     * @param txId Read-write transaction ID for which indexes will be selected.
+     * @param tableId Table ID for which indexes will be selected.
+     * @return Ascending sorted list of index IDs or {@code null} if catalog version was not found.
+     */
+    // TODO: IGNITE-21476 Select indexes by operation timestamp of read-write transaction
+    public static @Nullable List<Integer> indexIdsAtRwTxBeginTsOrNull(CatalogService catalogService, UUID txId, int tableId) {
+        HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
+
+        try {
+            Catalog catalog = catalogService.activeCatalog(beginTs.longValue());
+
+            List<CatalogIndexDescriptor> indexes = catalog.indexes(tableId);
+
+            assert !indexes.isEmpty() : String.format("txId=%s, tableId=%s, catalogVersion=%s", txId, tableId, catalog.version());
+
+            return view(indexes, CatalogObjectDescriptor::id);
+
+        } catch (CatalogNotFoundException e) {
+            return null;
+        }
     }
 
     /**
