@@ -25,7 +25,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Updat
 import org.apache.ignite.internal.raft.Command;
 
 /**
- * Handler for {@link org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest}.
+ * Handler for {@link UpdateMinimumActiveTxBeginTimeReplicaRequest}.
  */
 public class MinimumActiveTxTimeReplicaRequestHandler {
     /** Factory to create RAFT command messages. */
@@ -53,7 +53,7 @@ public class MinimumActiveTxTimeReplicaRequestHandler {
     }
 
     /**
-     * Handles {@link org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest}.
+     * Handles {@link UpdateMinimumActiveTxBeginTimeReplicaRequest}.
      *
      * @param request Request to handle.
      * @return Future that will be completed when the request is handled.

@@ -887,7 +887,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processVacuumTxStateReplicaRequest((VacuumTxStateReplicaRequest) request);
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             if (!enabledColocationFeature) {
-                return processMinimumActiveTxTimeReplicaRequest((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
+                return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
             }
         }
 
@@ -3972,10 +3972,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .build();
 
         return raftCommandRunner.run(cmd);
-    }
-
-    private CompletableFuture<?> processMinimumActiveTxTimeReplicaRequest(UpdateMinimumActiveTxBeginTimeReplicaRequest request) {
-        return minimumActiveTxTimeReplicaRequestHandler.handle(request);
     }
 
     /**

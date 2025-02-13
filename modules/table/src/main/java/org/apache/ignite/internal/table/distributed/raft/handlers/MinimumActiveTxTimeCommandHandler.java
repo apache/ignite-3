@@ -59,8 +59,7 @@ public class MinimumActiveTxTimeCommandHandler {
      *
      * @param cmd Command to be processed.
      * @param commandIndex Command index.
-     * @return Pair that represents command processing.
-     *     The first parameter is always {@code null}, and the second one is boolean that indicates.
+     * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
      */
     public IgniteBiTuple<Serializable, Boolean> handle(UpdateMinimumActiveTxBeginTimeCommand cmd, long commandIndex) {
         // Skips the write command because the storage has already executed it.
