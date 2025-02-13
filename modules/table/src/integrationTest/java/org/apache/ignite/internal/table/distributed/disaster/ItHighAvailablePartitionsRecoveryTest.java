@@ -446,30 +446,4 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         assertValuesNotPresentOnNodes(node0.clock().now(), table, 6);
     }
-
-    @Test
-    void test() throws Exception {
-        startNode(3);
-        startNode(4);
-        startNode(5);
-        startNode(6);
-
-        createHaZoneWithTable();
-
-        IgniteImpl node0 = igniteImpl(0);
-        Table table = node0.tables().table(HA_TABLE_NAME);
-
-        stopNodes(3, 4, 5, 6);
-
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0, 1, 2));
-
-        stopNodes(1, 2);
-
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
-
-        startNode(6);
-
-        assertValuesNotPresentOnNodes(node0.clock().now(), table, 6);
-    }
-
 }
