@@ -199,7 +199,7 @@ public class ItSchemaTest extends BaseSqlIntegrationTest {
                 .check();
 
         // Should work as wee, because we do not access the MISSING schema,
-        // but we get  Schema not found instead.
+        // Works fine because we do not access the MISSING schema.
         assertQuery("SELECT count(*) FROM s1.t1")
                 .withDefaultSchema("MISSING")
                 .returns(0L)
