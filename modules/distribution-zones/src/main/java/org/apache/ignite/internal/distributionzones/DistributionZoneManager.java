@@ -35,10 +35,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersionAndClusterId;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonePartitionResetTimerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyClusterIdKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -46,12 +42,10 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
@@ -405,51 +399,6 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Method deletes data nodes value for the specified zone.
-     *
-     * @param zoneId Unique id of a zone
-     * @param timestamp Timestamp of an event that has triggered this method.
-     */
-    private CompletableFuture<Void> removeDataNodesKeys(int zoneId, HybridTimestamp timestamp) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            Condition condition = exists(zoneDataNodesHistoryKey(zoneId));
-
-            Update removeKeysUpd = ops(
-                    // TODO remove(zoneDataNodesHistoryKey(zoneId)), https://issues.apache.org/jira/browse/IGNITE-24345
-                    remove(zoneScaleUpTimerKey(zoneId)),
-                    remove(zoneScaleDownTimerKey(zoneId)),
-                    remove(zonePartitionResetTimerKey(zoneId))
-            ).yield(true);
-
-            Iif iif = iif(condition, removeKeysUpd, ops().yield(false));
-
-            return metaStorageManager.invoke(iif)
-                    .thenApply(StatementResult::getAsBoolean)
-                    .whenComplete((invokeResult, e) -> {
-                        if (e != null) {
-                            LOG.error(
-                                    "Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]",
-                                    e,
-                                    zoneId,
-                                    timestamp
-                            );
-                        } else if (invokeResult) {
-                            LOG.info("Delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
-                        } else {
-                            LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
-                        }
-                    })
-                    .thenCompose(ignored -> nullCompletedFuture());
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
      * Updates {@link DistributionZonesUtil#zonesLogicalTopologyKey()} and {@link DistributionZonesUtil#zonesLogicalTopologyVersionKey()}
      * in meta storage.
      *
@@ -793,8 +742,7 @@ public class DistributionZoneManager extends
 
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        return removeDataNodesKeys(parameters.zoneId(), timestamp)
-                .thenRun(() -> dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp));
+        return dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp);
     }
 
     private class ManagerCatalogAlterZoneEventListener extends CatalogAlterZoneEventListener {

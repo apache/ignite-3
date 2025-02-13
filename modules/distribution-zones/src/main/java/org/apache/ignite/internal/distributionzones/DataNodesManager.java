@@ -46,6 +46,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -53,6 +54,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -1080,10 +1082,58 @@ public class DataNodesManager {
         }
     }
 
-    void onZoneDrop(int zoneId, HybridTimestamp timestamp) {
-        ZoneTimers zt = zoneTimers.remove(zoneId);
-        if (zt != null) {
-            zt.stopAllTimers();
+    CompletableFuture<Void> onZoneDrop(int zoneId, HybridTimestamp timestamp) {
+        return removeDataNodesKeys(zoneId, timestamp)
+                .thenRun(() -> {
+                    ZoneTimers zt = zoneTimers.remove(zoneId);
+                    if (zt != null) {
+                        zt.stopAllTimers();
+                    }
+                });
+    }
+
+    /**
+     * Method deletes data nodes related values for the specified zone.
+     *
+     * @param zoneId Unique id of a zone.
+     * @param timestamp Timestamp of an event that has triggered this method.
+     */
+    private CompletableFuture<Void> removeDataNodesKeys(int zoneId, HybridTimestamp timestamp) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            Condition condition = exists(zoneDataNodesHistoryKey(zoneId));
+
+            Update removeKeysUpd = ops(
+                    // TODO remove(zoneDataNodesHistoryKey(zoneId)), https://issues.apache.org/jira/browse/IGNITE-24345
+                    remove(zoneScaleUpTimerKey(zoneId)),
+                    remove(zoneScaleDownTimerKey(zoneId)),
+                    remove(zonePartitionResetTimerKey(zoneId))
+            ).yield(true);
+
+            Iif iif = iif(condition, removeKeysUpd, ops().yield(false));
+
+            return metaStorageManager.invoke(iif)
+                    .thenApply(StatementResult::getAsBoolean)
+                    .whenComplete((invokeResult, e) -> {
+                        if (e != null) {
+                            LOG.error(
+                                    "Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]",
+                                    e,
+                                    zoneId,
+                                    timestamp
+                            );
+                        } else if (invokeResult) {
+                            LOG.info("Delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
+                        } else {
+                            LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
+                        }
+                    })
+                    .thenCompose(ignored -> nullCompletedFuture());
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
