@@ -847,21 +847,22 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     }
 
     private static void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
-        node.setRequestConverter(request ->  {
-            if (request instanceof WriteIntentSwitchReplicaRequest) {
-                return request.groupId().asReplicationGroupId();
-            }
-
-            boolean colocationAwareRequest = request.groupId().asReplicationGroupId() instanceof ZonePartitionId;
-
-            if (colocationAwareRequest) {
-                return request.groupId().asReplicationGroupId();
-            } else {
-                TablePartitionId tablePartId = (TablePartitionId) request.groupId().asReplicationGroupId();
-
-                return new ZonePartitionId(zoneId, tablePartId.partitionId());
-            }
-        });
+//        node.setRequestConverter(request ->  {
+//            if (request instanceof WriteIntentSwitchReplicaRequest) {
+//                return request.groupId().asReplicationGroupId();
+//            }
+//
+//            boolean colocationAwareRequest = request.groupId().asReplicationGroupId() instanceof ZonePartitionId;
+//
+//            return request.groupId().asReplicationGroupId();
+////            if (colocationAwareRequest) {
+////                return request.groupId().asReplicationGroupId();
+////            } else {
+////                TablePartitionId tablePartId = (TablePartitionId) request.groupId().asReplicationGroupId();
+////
+////                return new ZonePartitionId(zoneId, tablePartId.partitionId());
+////            }
+//        });
     }
 
     private Node getNode(int nodeIndex) {

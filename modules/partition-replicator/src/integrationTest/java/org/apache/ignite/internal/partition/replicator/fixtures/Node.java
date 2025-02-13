@@ -246,8 +246,6 @@ public class Node {
     /** Failure processor. */
     private final FailureManager failureManager;
 
-    private volatile Function<ReplicaRequest, ReplicationGroupId> converter = request -> request.groupId().asReplicationGroupId();
-
     private final LogStorageFactory partitionsLogStorageFactory;
 
     private final LogStorageFactory msLogStorageFactory;
@@ -551,7 +549,6 @@ public class Node {
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
-                t -> converter.apply(t),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
         );
@@ -798,10 +795,6 @@ public class Node {
 
     public void setInvokeInterceptor(@Nullable InvokeInterceptor invokeInterceptor) {
         this.invokeInterceptor = invokeInterceptor;
-    }
-
-    public void setRequestConverter(Function<ReplicaRequest, ReplicationGroupId> converter) {
-        this.converter = converter;
     }
 
     private static Path resolveDir(Path workDir, String dirName) {

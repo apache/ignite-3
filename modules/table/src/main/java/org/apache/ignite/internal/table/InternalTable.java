@@ -26,6 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -520,7 +521,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partitionId Replication group ID.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId);
+    CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partitionId);
 
     /**
      * Returns the <em>estimated size</em> of this table.

@@ -18,6 +18,8 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -45,7 +47,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -87,6 +91,10 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
     /** Data access listener. */
     private BiConsumer<String, Object> dataAccessListener;
+
+    /* Feature flag for zone based collocation track */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove it.
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * The constructor.
@@ -516,9 +524,9 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId) {
+    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId replicationGroupId) {
         List<ReplicaMeta> replicaMetas = placementDriver.primaryReplicas();
-        ReplicaMeta replica = replicaMetas.get(partitionId.partitionId());
+        ReplicaMeta replica = replicaMetas.get(partitionIndexFromReplicationGroupId(replicationGroupId));
 
         //noinspection DataFlowIssue
         return completedFuture(
@@ -550,5 +558,13 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                 JobTarget.node(node),
                 JobDescriptor.builder(StreamerReceiverJob.class).units(deploymentUnits).build(),
                 payload);
+    }
+
+    private int partitionIndexFromReplicationGroupId(ReplicationGroupId replicationGroupId) {
+        if (enabledColocationFeature) {
+            return ((ZonePartitionId) replicationGroupId).partitionId();
+        } else {
+            return ((TablePartitionId) replicationGroupId).partitionId();
+        }
     }
 }
