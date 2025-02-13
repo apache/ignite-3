@@ -237,7 +237,7 @@ public class PrepareServiceImpl implements PrepareService {
         SchemaPlus schemaPlus = rootSchema.root();
         SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
         // If default schema does not exist or misconfigured, we should use the root schema as default one
-        // because if there is no other schema for the validator to use.
+        // because there is no other schema for the validator to use.
         if (defaultSchema == null) {
             defaultSchema = schemaPlus;
         }
