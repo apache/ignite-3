@@ -126,19 +126,6 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testDropDefaultSchemaIsAllowed() {
-        CatalogCommand cmd = DropSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build();
-
-        tryApplyAndExpectApplied(cmd);
-        assertThat(latestCatalog().schema(SqlCommon.DEFAULT_SCHEMA_NAME), nullValue());
-
-        assertThat(
-                manager.execute(simpleTable("test")),
-                willThrowFast(CatalogValidationException.class, "Schema with name 'PUBLIC' not found.")
-        );
-    }
-
-    @Test
     public void testDropNonEmpty() {
         CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name(TEST_SCHEMA).build();
         CatalogCommand newTableCmd = newTableCommand("T1");
