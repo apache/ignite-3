@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshot;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
@@ -194,21 +195,13 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public void close() {
-        cleanupSnapshots();
-    }
-
-    private void cleanupSnapshots() {
-        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
-
-        partitionSnapshots.acquireReadLock();
-
-        try {
-            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
-
-            partitionsSnapshots.removeSnapshots(partitionKey);
-        } finally {
-            partitionSnapshots.releaseReadLock();
+        if (partitionKey instanceof ZonePartitionKey) {
+            // This is a hack for the colocation feature, for zone-based partitions snapshots are cleaned up for a bunch of storages at
+            // once and this is done in a separate place.
+            return;
         }
+
+        partitionsSnapshots.cleanupOutgoingSnapshots(partitionKey);
     }
 
     @Override

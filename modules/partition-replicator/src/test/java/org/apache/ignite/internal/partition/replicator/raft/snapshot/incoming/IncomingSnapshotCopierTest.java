@@ -105,7 +105,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionStorageAccessImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -380,7 +380,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 outgoingSnapshotsManager,
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
-                singleton(TABLE_ID, spy(new PartitionStorageAccessImpl(
+                singleton(TABLE_ID, spy(new PartitionMvStorageAccessImpl(
                         PARTITION_ID,
                         incomingTableStorage,
                         mvGc,

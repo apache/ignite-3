@@ -30,8 +30,8 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -49,8 +49,8 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
 
     @Test
     void testForChoosingMaximumAppliedIndexForMeta() throws IOException {
-        PartitionStorageAccess partitionAccess1 = mock(PartitionStorageAccess.class);
-        PartitionStorageAccess partitionAccess2 = mock(PartitionStorageAccess.class);
+        PartitionMvStorageAccess partitionAccess1 = mock(PartitionMvStorageAccess.class);
+        PartitionMvStorageAccess partitionAccess2 = mock(PartitionMvStorageAccess.class);
 
         when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
         when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
@@ -70,7 +70,7 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
 
         PartitionTxStateAccess txStateAccess = mock(PartitionTxStateAccess.class);
 
-        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionStorageAccess>();
+        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionMvStorageAccess>();
 
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);

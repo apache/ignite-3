@@ -50,7 +50,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -83,7 +83,7 @@ public class OutgoingSnapshot {
 
     private final PartitionKey partitionKey;
 
-    private final Int2ObjectSortedMap<PartitionStorageAccess> partitionsByTableId;
+    private final Int2ObjectSortedMap<PartitionMvStorageAccess> partitionsByTableId;
 
     private final PartitionTxStateAccess txState;
 
@@ -113,10 +113,10 @@ public class OutgoingSnapshot {
     private final Queue<SnapshotMvDataResponse.ResponseEntry> outOfOrderMvData = new ArrayDeque<>();
 
     /**
-     * Current delivery state of partition data. Can be {@code null} only if the delivery has not started yet..
+     * Current delivery state of MV partition data. Can be {@code null} only if the delivery has not started yet.
      */
     @Nullable
-    private PartitionDeliveryState partitionDeliveryState;
+    private MvPartitionDeliveryState mvPartitionDeliveryState;
 
     private Cursor<IgniteBiTuple<UUID, TxMeta>> txDataCursor;
 
@@ -133,7 +133,7 @@ public class OutgoingSnapshot {
     public OutgoingSnapshot(
             UUID id,
             PartitionKey partitionKey,
-            Int2ObjectMap<PartitionStorageAccess> partitionsByTableId,
+            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
             CatalogService catalogService
     ) {
@@ -177,8 +177,10 @@ public class OutgoingSnapshot {
     }
 
     private PartitionSnapshotMeta takeSnapshotMeta() {
-        PartitionStorageAccess partitionStorageWithMaxAppliedIndex = partitionsByTableId.values().stream()
-                .max(comparingLong(PartitionStorageAccess::lastAppliedIndex))
+        // TODO: partitionsByTableId will be empty for zones without tables, need another way to get meta in that case,
+        //  see https://issues.apache.org/jira/browse/IGNITE-24517
+        PartitionMvStorageAccess partitionStorageWithMaxAppliedIndex = partitionsByTableId.values().stream()
+                .max(comparingLong(PartitionMvStorageAccess::lastAppliedIndex))
                 .orElseThrow();
 
         RaftGroupConfiguration config = partitionStorageWithMaxAppliedIndex.committedGroupConfiguration();
@@ -329,16 +331,16 @@ public class OutgoingSnapshot {
             return totalBatchSize;
         }
 
-        if (partitionDeliveryState == null) {
-            partitionDeliveryState = new PartitionDeliveryState(partitionsByTableId.values());
+        if (mvPartitionDeliveryState == null) {
+            mvPartitionDeliveryState = new MvPartitionDeliveryState(partitionsByTableId.values());
         } else {
-            partitionDeliveryState.advance();
+            mvPartitionDeliveryState.advance();
         }
 
-        if (!partitionDeliveryState.isEmpty()) {
-            RowId rowId = partitionDeliveryState.currentRowId();
+        if (!finishedMvData()) {
+            RowId rowId = mvPartitionDeliveryState.currentRowId();
 
-            PartitionStorageAccess partition = partitionDeliveryState.currentPartitionStorage();
+            PartitionMvStorageAccess partition = mvPartitionDeliveryState.currentPartitionStorage();
 
             if (!rowIdsToSkip.remove(rowId)) {
                 SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(partition, rowId);
@@ -359,7 +361,7 @@ public class OutgoingSnapshot {
     }
 
     @Nullable
-    private static SnapshotMvDataResponse.ResponseEntry rowEntry(PartitionStorageAccess partition, RowId rowId) {
+    private static SnapshotMvDataResponse.ResponseEntry rowEntry(PartitionMvStorageAccess partition, RowId rowId) {
         List<ReadResult> rowVersionsN2O = partition.getAllRowVersions(rowId);
 
         if (rowVersionsN2O.isEmpty()) {
@@ -483,7 +485,7 @@ public class OutgoingSnapshot {
      * @return {@code true} if finished.
      */
     private boolean finishedMvData() {
-        return partitionDeliveryState != null && partitionDeliveryState.isEmpty();
+        return mvPartitionDeliveryState != null && mvPartitionDeliveryState.isExhausted();
     }
 
     /**
@@ -512,13 +514,20 @@ public class OutgoingSnapshot {
     public boolean alreadyPassed(int tableId, RowId rowId) {
         assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
+        if (mvPartitionDeliveryState == null) {
+            // We haven't started sending MV data yet.
+            return false;
+        }
+
         if (finishedMvData()) {
             return true;
         }
 
-        return partitionDeliveryState != null
-                && tableId <= partitionDeliveryState.currentTableId()
-                && rowId.compareTo(partitionDeliveryState.currentRowId()) <= 0;
+        if (tableId == mvPartitionDeliveryState.currentTableId()) {
+            return rowId.compareTo(mvPartitionDeliveryState.currentRowId()) <= 0;
+        } else {
+            return tableId < mvPartitionDeliveryState.currentTableId();
+        }
     }
 
     /**

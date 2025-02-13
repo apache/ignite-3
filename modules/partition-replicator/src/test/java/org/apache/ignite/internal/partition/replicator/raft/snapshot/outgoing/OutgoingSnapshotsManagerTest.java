@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -31,7 +32,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
@@ -50,7 +51,7 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
     private OutgoingSnapshotsManager manager;
 
     @Mock
-    private PartitionStorageAccess partitionAccess;
+    private PartitionMvStorageAccess partitionAccess;
 
     @Mock
     private CatalogService catalogService;
@@ -101,6 +102,7 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
     private UUID startSnapshot() {
         UUID snapshotId = UUID.randomUUID();
         OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
+        lenient().when(snapshot.id()).thenReturn(snapshotId);
         doReturn(partitionKey).when(snapshot).partitionKey();
 
         manager.startOutgoingSnapshot(snapshotId, snapshot);
@@ -111,7 +113,7 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
     void removesPartitionsCollection() {
         startSnapshot();
 
-        manager.removeSnapshots(partitionKey);
+        manager.cleanupOutgoingSnapshots(partitionKey);
 
         assertThat(manager.partitionSnapshots(partitionKey).ongoingSnapshots(), is(empty()));
     }

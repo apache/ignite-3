@@ -17,17 +17,12 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
-import static java.lang.Math.max;
-import static java.util.concurrent.CompletableFuture.allOf;
-
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -71,8 +66,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final PartitionKey partitionKey;
 
-    private final TxStatePartitionStorage txStatePartitionStorage;
-
     /**
      * Latest committed configuration of the zone-wide Raft group.
      *
@@ -98,6 +91,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final FinishTxCommandHandler finishTxCommandHandler;
 
+    private final OnSnapshotSaveHandler onSnapshotSaveHandler;
+
     /** Constructor. */
     public ZonePartitionRaftListener(
             TxStatePartitionStorage txStatePartitionStorage,
@@ -110,7 +105,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
         this.partitionsSnapshots = partitionsSnapshots;
-        this.txStatePartitionStorage = txStatePartitionStorage;
         this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
         finishTxCommandHandler = new FinishTxCommandHandler(
@@ -119,6 +113,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 new TablePartitionId(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 txManager
         );
+
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
     }
 
     @Override
@@ -228,32 +224,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        long maxPartitionLastAppliedIndex = tableProcessors.values().stream()
-                .mapToLong(RaftTableProcessor::lastAppliedIndex)
-                .max()
-                .orElse(0);
-
-        long maxPartitionLastAppliedTerm = tableProcessors.values().stream()
-                .mapToLong(RaftTableProcessor::lastAppliedTerm)
-                .max()
-                .orElse(0);
-
-        long maxLastAppliedIndex = max(maxPartitionLastAppliedIndex, txStatePartitionStorage.lastAppliedIndex());
-
-        long maxLastAppliedTerm = max(maxPartitionLastAppliedTerm, txStatePartitionStorage.lastAppliedTerm());
-
-        tableProcessors.values().forEach(processor -> processor.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm));
-
-        txStatePartitionStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
-
-        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
-
-        Stream<CompletableFuture<?>> flushFutures = Stream.concat(
-                tableProcessors.values().stream().map(RaftTableProcessor::flushStorage),
-                Stream.of(txStatePartitionStorage.flush())
-        );
-
-        allOf(flushFutures.toArray(CompletableFuture[]::new))
+        onSnapshotSaveHandler.onSnapshotSave(tableProcessors.values())
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
@@ -300,17 +271,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     }
 
     private void cleanupSnapshots() {
-        PartitionSnapshots partitionSnapshots = partitionSnapshots();
-
-        partitionSnapshots.acquireReadLock();
-
-        try {
-            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
-
-            partitionsSnapshots.removeSnapshots(partitionKey);
-        } finally {
-            partitionSnapshots.releaseReadLock();
-        }
+        partitionsSnapshots.cleanupOutgoingSnapshots(partitionKey);
     }
 
     private PartitionSnapshots partitionSnapshots() {

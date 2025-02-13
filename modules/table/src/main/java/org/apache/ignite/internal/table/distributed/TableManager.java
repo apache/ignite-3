@@ -211,7 +211,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionStorageAccessImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -907,7 +907,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     minTimeCollectorService
             );
 
-            var partitionStorageAccess = new PartitionStorageAccessImpl(
+            var partitionStorageAccess = new PartitionMvStorageAccessImpl(
                     partId,
                     table.internalTable().storage(),
                     mvGc,
@@ -1277,8 +1277,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
+                    var partitionKey = new TablePartitionKey(tableId, partId);
+
                     PartitionDataStorage partitionDataStorage = partitionDataStorage(
-                            new TablePartitionKey(tableId, partId),
+                            partitionKey,
                             internalTbl.tableId(),
                             partitionStorages.getMvPartitionStorage()
                     );
@@ -2511,7 +2513,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) {
         int partitionId = replicaGrpId.partitionId();
 
-        var partitionAccess = new PartitionStorageAccessImpl(
+        var partitionAccess = new PartitionMvStorageAccessImpl(
                 partitionId,
                 internalTable.storage(),
                 mvGc,

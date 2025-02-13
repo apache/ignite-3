@@ -45,7 +45,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
@@ -63,8 +63,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** For {@link PartitionStorageAccessImpl} testing. */
-public class PartitionStorageAccessImplTest extends BaseIgniteAbstractTest {
+/** For {@link PartitionMvStorageAccessImpl} testing. */
+public class PartitionMvStorageAccessImplTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     private static final int INDEX_ID_0 = 2;
@@ -109,7 +109,7 @@ public class PartitionStorageAccessImplTest extends BaseIgniteAbstractTest {
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
-        PartitionStorageAccess mvPartitionAccess = createPartitionAccessImpl(mvTableStorage);
+        PartitionMvStorageAccess mvPartitionAccess = createPartitionAccessImpl(mvTableStorage);
 
         assertEquals(0, mvPartitionAccess.lastAppliedIndex());
 
@@ -128,7 +128,7 @@ public class PartitionStorageAccessImplTest extends BaseIgniteAbstractTest {
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
-        PartitionStorageAccess mvPartitionAccess = createPartitionAccessImpl(mvTableStorage);
+        PartitionMvStorageAccess mvPartitionAccess = createPartitionAccessImpl(mvTableStorage);
 
         assertEquals(0, mvPartitionAccess.lastAppliedTerm());
 
@@ -159,7 +159,7 @@ public class PartitionStorageAccessImplTest extends BaseIgniteAbstractTest {
 
         FullStateTransferIndexChooser fullStateTransferIndexChooser = mock(FullStateTransferIndexChooser.class);
 
-        PartitionStorageAccess mvPartitionAccess =
+        PartitionMvStorageAccess mvPartitionAccess =
                 createPartitionAccessImpl(mvTableStorage, indexUpdateHandler, fullStateTransferIndexChooser);
 
         List<IndexIdAndTableVersion> indexIds = List.of(
@@ -210,7 +210,7 @@ public class PartitionStorageAccessImplTest extends BaseIgniteAbstractTest {
 
         FullStateTransferIndexChooser fullStateTransferIndexChooser = mock(FullStateTransferIndexChooser.class);
 
-        PartitionStorageAccess mvPartitionAccess =
+        PartitionMvStorageAccess mvPartitionAccess =
                 createPartitionAccessImpl(mvTableStorage, indexUpdateHandler, fullStateTransferIndexChooser);
 
         List<IndexIdAndTableVersion> indexIdTableVersionList = List.of(
@@ -257,8 +257,8 @@ public class PartitionStorageAccessImplTest extends BaseIgniteAbstractTest {
         return createMvPartitionFuture.join();
     }
 
-    private static PartitionStorageAccessImpl createPartitionAccessImpl(MvTableStorage mvTableStorage) {
-        return new PartitionStorageAccessImpl(
+    private static PartitionMvStorageAccessImpl createPartitionAccessImpl(MvTableStorage mvTableStorage) {
+        return new PartitionMvStorageAccessImpl(
                 TEST_PARTITION_ID,
                 mvTableStorage,
                 mock(MvGc.class),
@@ -270,12 +270,12 @@ public class PartitionStorageAccessImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static PartitionStorageAccessImpl createPartitionAccessImpl(
+    private static PartitionMvStorageAccessImpl createPartitionAccessImpl(
             MvTableStorage mvTableStorage,
             IndexUpdateHandler indexUpdateHandler,
             FullStateTransferIndexChooser fullStateTransferIndexChooser
     ) {
-        return new PartitionStorageAccessImpl(
+        return new PartitionMvStorageAccessImpl(
                 TEST_PARTITION_ID,
                 mvTableStorage,
                 mock(MvGc.class),

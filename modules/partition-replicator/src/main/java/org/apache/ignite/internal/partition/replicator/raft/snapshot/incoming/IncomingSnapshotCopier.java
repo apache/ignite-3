@@ -54,8 +54,8 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.RaftSnapshotPartitionMeta;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -90,7 +90,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
-    private final Int2ObjectMap<PartitionStorageAccess> partitionsByTableId;
+    private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId;
 
     private final SnapshotUri snapshotUri;
 
@@ -294,7 +294,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     /**
-     * Requests and the snapshot meta.
+     * Requests the snapshot meta.
      */
     private CompletableFuture<PartitionSnapshotMeta> loadSnapshotMeta(ClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
@@ -517,18 +517,18 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return partitionSnapshotStorage.partitionKey().toString();
     }
 
-    private void writeVersion(PartitionSnapshotMeta snapshotMeta, ResponseEntry entry, int i) {
-        PartitionStorageAccess partition = partitionsByTableId.get(entry.tableId());
+    private void writeVersion(PartitionSnapshotMeta snapshotMeta, ResponseEntry entry, int entryIndex) {
+        PartitionMvStorageAccess partition = partitionsByTableId.get(entry.tableId());
 
         RowId rowId = new RowId(partId(), entry.rowId());
 
-        BinaryRowMessage rowVersion = entry.rowVersions().get(i);
+        BinaryRowMessage rowVersion = entry.rowVersions().get(entryIndex);
 
         BinaryRow binaryRow = rowVersion == null ? null : rowVersion.asBinaryRow();
 
         int snapshotCatalogVersion = snapshotMeta.requiredCatalogVersion();
 
-        if (i == entry.timestamps().length) {
+        if (entryIndex == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
             assert entry.txId() != null;
             assert entry.commitTableId() != null;
@@ -537,7 +537,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId(), snapshotCatalogVersion);
         } else {
             // Writes committed version.
-            partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[i]), snapshotCatalogVersion);
+            partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[entryIndex]), snapshotCatalogVersion);
         }
     }
 
@@ -598,7 +598,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private CompletableFuture<Void> startRebalance() {
         return allOf(
-                aggregateFutureFromPartitions(PartitionStorageAccess::startRebalance),
+                aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance),
                 partitionSnapshotStorage.txState().startRebalance()
         );
     }
@@ -612,12 +612,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private CompletableFuture<Void> abortRebalance() {
         return allOf(
-                aggregateFutureFromPartitions(PartitionStorageAccess::abortRebalance),
+                aggregateFutureFromPartitions(PartitionMvStorageAccess::abortRebalance),
                 partitionSnapshotStorage.txState().abortRebalance()
         );
     }
 
-    private CompletableFuture<Void> aggregateFutureFromPartitions(Function<PartitionStorageAccess, CompletableFuture<Void>> action) {
+    private CompletableFuture<Void> aggregateFutureFromPartitions(Function<PartitionMvStorageAccess, CompletableFuture<Void>> action) {
         CompletableFuture<?>[] futures = partitionsByTableId.values().stream()
                 .map(action)
                 .toArray(CompletableFuture[]::new);

@@ -60,7 +60,7 @@ public interface RaftTableProcessor {
     long lastAppliedIndex();
 
     /**
-     * Returns the last applied Raft term.
+     * Returns the term of the last applied Raft index.
      */
     long lastAppliedTerm();
 

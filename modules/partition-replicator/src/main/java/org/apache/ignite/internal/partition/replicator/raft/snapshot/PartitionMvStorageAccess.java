@@ -33,9 +33,9 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
+ * Small abstractions for MV partition storages that includes only methods, mandatory for the snapshot storage.
  */
-public interface PartitionStorageAccess {
+public interface PartitionMvStorageAccess {
     /** Table ID of the table that this partition storage is associated with. */
     int tableId();
 

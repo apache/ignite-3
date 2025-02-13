@@ -62,7 +62,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /**
      * Partition storages grouped by table ID.
      */
-    private final Int2ObjectMap<PartitionStorageAccess> partitionsByTableId = synchronize(new Int2ObjectOpenHashMap<>());
+    private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId = synchronize(new Int2ObjectOpenHashMap<>());
 
     private final PartitionTxStateAccess txStateStorage;
 
@@ -91,8 +91,8 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /**
      * Adds a given table partition storage to the snapshot storage, managed by this factory.
      */
-    public void addMvPartition(int tableId, PartitionStorageAccess partition) {
-        PartitionStorageAccess prev = partitionsByTableId.put(tableId, partition);
+    public void addMvPartition(int tableId, PartitionMvStorageAccess partition) {
+        PartitionMvStorageAccess prev = partitionsByTableId.put(tableId, partition);
 
         assert prev == null : "Partition storage for table ID " + tableId + " already exists.";
     }
@@ -121,7 +121,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
         // lowest applied index and thus no data loss occurs.
         return partitionsByTableId.values().stream()
-                .min(comparingLong(PartitionStorageAccess::lastAppliedIndex))
+                .min(comparingLong(PartitionMvStorageAccess::lastAppliedIndex))
                 .map(storageWithMinLastAppliedIndex -> {
                     long minLastAppliedIndex = min(storageWithMinLastAppliedIndex.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
@@ -132,7 +132,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                     int lastCatalogVersionAtStart = catalogService.latestCatalogVersion();
 
                     return snapshotMetaAt(
-                            min(storageWithMinLastAppliedIndex.lastAppliedIndex(), txStateStorage.lastAppliedIndex()),
+                            minLastAppliedIndex,
                             min(storageWithMinLastAppliedIndex.lastAppliedTerm(), txStateStorage.lastAppliedTerm()),
                             Objects.requireNonNull(storageWithMinLastAppliedIndex.committedGroupConfiguration()),
                             lastCatalogVersionAtStart,

@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.RaftSnapshotPartitionMeta;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
@@ -47,8 +47,8 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
-/** {@link PartitionStorageAccess} implementation. */
-public class PartitionStorageAccessImpl implements PartitionStorageAccess {
+/** {@link PartitionMvStorageAccess} implementation. */
+public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
     private final int partitionId;
 
     private final MvTableStorage mvTableStorage;
@@ -79,7 +79,7 @@ public class PartitionStorageAccessImpl implements PartitionStorageAccess {
      * @param schemaRegistry Schema registry.
      * @param lowWatermark Low watermark.
      */
-    public PartitionStorageAccessImpl(
+    public PartitionMvStorageAccessImpl(
             int partitionId,
             MvTableStorage mvTableStorage,
             MvGc mvGc,

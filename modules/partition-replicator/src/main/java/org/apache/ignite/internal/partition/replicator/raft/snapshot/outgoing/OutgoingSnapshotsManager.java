@@ -219,8 +219,20 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     @Override
-    public void removeSnapshots(PartitionKey partitionKey) {
-        snapshotsByPartition.remove(partitionKey);
+    public void cleanupOutgoingSnapshots(PartitionKey partitionKey) {
+        PartitionSnapshots partitionSnapshots = snapshotsByPartition.remove(partitionKey);
+
+        if (partitionSnapshots == null) {
+            return;
+        }
+
+        partitionSnapshots.acquireReadLock();
+
+        try {
+            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> finishOutgoingSnapshot(snapshot.id()));
+        } finally {
+            partitionSnapshots.releaseReadLock();
+        }
     }
 
     private static class PartitionSnapshotsImpl implements PartitionSnapshots {

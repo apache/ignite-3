@@ -30,7 +30,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMetaBuilder;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -97,14 +97,14 @@ public class SnapshotMetaUtils {
      */
     public static Map<Integer, UUID> collectNextRowIdToBuildIndexes(
             CatalogService catalogService,
-            Collection<PartitionStorageAccess> mvPartitions,
+            Collection<PartitionMvStorageAccess> mvPartitions,
             int catalogVersion
     ) {
         var nextRowIdToBuildByIndexId = new HashMap<Integer, UUID>();
 
         Catalog catalog = catalogService.catalog(catalogVersion);
 
-        for (PartitionStorageAccess mvPartition : mvPartitions) {
+        for (PartitionMvStorageAccess mvPartition : mvPartitions) {
             int tableId = mvPartition.tableId();
 
             for (CatalogIndexDescriptor index : catalog.indexes(tableId)) {

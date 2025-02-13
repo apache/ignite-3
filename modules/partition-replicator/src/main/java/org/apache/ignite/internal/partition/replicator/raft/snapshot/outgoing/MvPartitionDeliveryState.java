@@ -19,15 +19,15 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
 import java.util.Collection;
 import java.util.Iterator;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.storage.RowId;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Outgoing snapshot delivery state for a given partition.
  */
-class PartitionDeliveryState {
-    private final Iterator<PartitionStorageAccess> partitionStoragesIterator;
+class MvPartitionDeliveryState {
+    private final Iterator<PartitionMvStorageAccess> partitionStoragesIterator;
 
     /**
      * Current row ID within the current partition storage. Can be {@code null} only if the snapshot has delivered all possible data.
@@ -39,9 +39,9 @@ class PartitionDeliveryState {
      * Current partition storage. Can be {@code null} only if the snapshot has delivered all possible data.
      */
     @Nullable
-    private PartitionStorageAccess currentPartitionStorage;
+    private PartitionMvStorageAccess currentPartitionStorage;
 
-    PartitionDeliveryState(Collection<PartitionStorageAccess> partitionStorages) {
+    MvPartitionDeliveryState(Collection<PartitionMvStorageAccess> partitionStorages) {
         this.partitionStoragesIterator = partitionStorages.iterator();
 
         advance();
@@ -53,7 +53,7 @@ class PartitionDeliveryState {
         return currentRowId;
     }
 
-    PartitionStorageAccess currentPartitionStorage() {
+    PartitionMvStorageAccess currentPartitionStorage() {
         assert currentPartitionStorage != null;
 
         return currentPartitionStorage;
@@ -63,46 +63,39 @@ class PartitionDeliveryState {
         return currentPartitionStorage().tableId();
     }
 
-    boolean isEmpty() {
+    /**
+     * Returns {@code true} if all data for the snapshot has been retrieved.
+     */
+    boolean isExhausted() {
         return currentPartitionStorage == null;
     }
 
     void advance() {
-        if (currentPartitionStorage == null) {
-            if (!partitionStoragesIterator.hasNext()) {
+        while (true) {
+            if (currentPartitionStorage == null) {
+                if (!partitionStoragesIterator.hasNext()) {
+                    return;
+                }
+
+                currentPartitionStorage = partitionStoragesIterator.next();
+
+                currentRowId = currentPartitionStorage.closestRowId(RowId.lowestRowId(currentPartitionStorage.partitionId()));
+            } else {
+                assert currentRowId != null;
+
+                currentRowId = currentRowId.increment();
+
+                if (currentRowId != null) {
+                    currentRowId = currentPartitionStorage.closestRowId(currentRowId);
+                }
+            }
+
+            if (currentRowId != null) {
                 return;
             }
 
-            currentPartitionStorage = partitionStoragesIterator.next();
-
-            currentRowId = currentPartitionStorage.closestRowId(RowId.lowestRowId(currentPartitionStorage.partitionId()));
-
-            // Partition is empty, try the next one.
-            if (currentRowId == null) {
-                moveToNextPartitionStorage();
-            }
-        } else {
-            assert currentRowId != null;
-
-            RowId nextRowId = currentRowId.increment();
-
-            // We've exhausted all possible row IDs in the partition, switch to the next one.
-            if (nextRowId == null) {
-                moveToNextPartitionStorage();
-            } else {
-                currentRowId = currentPartitionStorage.closestRowId(nextRowId);
-
-                // We've read all data from this partition, switch to the next one.
-                if (currentRowId == null) {
-                    moveToNextPartitionStorage();
-                }
-            }
+            // We've read all data from this partition, continue to the next one.
+            currentPartitionStorage = null;
         }
-    }
-
-    private void moveToNextPartitionStorage() {
-        currentPartitionStorage = null;
-
-        advance();
     }
 }

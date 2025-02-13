@@ -65,7 +65,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      *
      * <p>This map is modified externally by the {@link PartitionSnapshotStorageFactory}.
      */
-    private final Int2ObjectMap<PartitionStorageAccess> partitionsByTableId;
+    private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId;
 
     private final PartitionTxStateAccess txState;
 
@@ -108,7 +108,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             String snapshotUri,
             RaftOptions raftOptions,
-            Int2ObjectMap<PartitionStorageAccess> partitionsByTableId,
+            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
             CatalogService catalogService,
             @Nullable SnapshotMeta startupSnapshotMeta,
@@ -147,7 +147,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             String snapshotUri,
             RaftOptions raftOptions,
-            Int2ObjectMap<PartitionStorageAccess> partitionsByTableId,
+            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
             CatalogService catalogService,
             @Nullable SnapshotMeta startupSnapshotMeta,
@@ -202,7 +202,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /**
      * Returns partitions by table ID.
      */
-    public Int2ObjectMap<PartitionStorageAccess> partitionsByTableId() {
+    public Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId() {
         return partitionsByTableId;
     }
 

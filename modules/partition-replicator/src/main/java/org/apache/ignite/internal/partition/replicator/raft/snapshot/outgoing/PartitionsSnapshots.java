@@ -33,11 +33,13 @@ public interface PartitionsSnapshots {
     PartitionSnapshots partitionSnapshots(PartitionKey partitionKey);
 
     /**
-     * Removes the underlying collection for snapshots of this partition.
+     * Cleans up all outgoing snapshots for the given partition.
+     *
+     * <p>Cleaning up includes calling {@link #finishOutgoingSnapshot} on all snapshots for this partition.
      *
      * @param partitionKey Partition key.
      */
-    void removeSnapshots(PartitionKey partitionKey);
+    void cleanupOutgoingSnapshots(PartitionKey partitionKey);
 
     /**
      * Finishes a snapshot. This closes the snapshot and deregisters it.

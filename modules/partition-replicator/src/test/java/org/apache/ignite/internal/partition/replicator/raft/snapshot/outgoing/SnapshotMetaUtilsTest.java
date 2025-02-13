@@ -46,7 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -144,8 +144,8 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
             startBuildingIndex(catalogManager, indexId2);
             startBuildingIndex(catalogManager, indexId3);
 
-            PartitionStorageAccess partitionAccess0 = mock(PartitionStorageAccess.class, withSettings().strictness(LENIENT));
-            PartitionStorageAccess partitionAccess1 = mock(PartitionStorageAccess.class, withSettings().strictness(LENIENT));
+            PartitionMvStorageAccess partitionAccess0 = mock(PartitionMvStorageAccess.class, withSettings().strictness(LENIENT));
+            PartitionMvStorageAccess partitionAccess1 = mock(PartitionMvStorageAccess.class, withSettings().strictness(LENIENT));
 
             int tableId0 = getTableIdStrict(catalogManager, tableName0, clock.nowLong());
             int tableId1 = getTableIdStrict(catalogManager, tableName1, clock.nowLong());

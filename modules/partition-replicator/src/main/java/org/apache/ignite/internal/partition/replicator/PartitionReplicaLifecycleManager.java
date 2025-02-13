@@ -113,8 +113,8 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -1427,7 +1427,7 @@ public class PartitionReplicaLifecycleManager extends
             TablePartitionId tablePartitionId,
             Function<RaftCommandRunner, ReplicaListener> tablePartitionReplicaListenerFactory,
             RaftTableProcessor raftTableProcessor,
-            PartitionStorageAccess partitionStorageAccess
+            PartitionMvStorageAccess partitionMvStorageAccess
     ) {
         Listeners listeners = listenersByZonePartitionId.get(zonePartitionId);
 
@@ -1442,7 +1442,7 @@ public class PartitionReplicaLifecycleManager extends
 
         listeners.raftListener.addTableProcessor(tablePartitionId, raftTableProcessor);
 
-        listeners.snapshotStorageFactory.addMvPartition(tablePartitionId.tableId(), partitionStorageAccess);
+        listeners.snapshotStorageFactory.addMvPartition(tablePartitionId.tableId(), partitionMvStorageAccess);
     }
 
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {

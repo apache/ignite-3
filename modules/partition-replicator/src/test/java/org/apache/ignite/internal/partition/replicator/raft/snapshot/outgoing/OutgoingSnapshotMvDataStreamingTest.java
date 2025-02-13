@@ -43,7 +43,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -69,10 +69,10 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 1;
 
     @Mock
-    private PartitionStorageAccess partitionAccess1;
+    private PartitionMvStorageAccess partitionAccess1;
 
     @Mock
-    private PartitionStorageAccess partitionAccess2;
+    private PartitionMvStorageAccess partitionAccess2;
 
     @Mock
     private CatalogService catalogService;
@@ -98,12 +98,12 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void createTestInstance() {
         lenient().when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
-        lenient().when(partitionAccess1.partitionId()).thenReturn(partitionKey.partitionId());
+        lenient().when(partitionAccess1.partitionId()).thenReturn(PARTITION_ID);
 
         lenient().when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
-        lenient().when(partitionAccess2.partitionId()).thenReturn(partitionKey.partitionId());
+        lenient().when(partitionAccess2.partitionId()).thenReturn(PARTITION_ID);
 
-        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionStorageAccess>();
+        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionMvStorageAccess>();
 
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
@@ -534,6 +534,61 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         try {
             assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+        } finally {
+            snapshot.releaseMvLock();
+        }
+    }
+
+    @Test
+    void notYetSentRowIdIsNotPassedAcrossMultipleTables() {
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, ROW_2, clock.now());
+
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
+        when(partitionAccess1.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess1.getAllRowVersions(rowId2)).thenReturn(List.of(version1));
+
+        when(partitionAccess2.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess2.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
+        when(partitionAccess2.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess2.getAllRowVersions(rowId2)).thenReturn(List.of(version1));
+
+        snapshot.acquireMvLock();
+
+        try {
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+
+            getMvDataResponse(1);
+
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+
+            getMvDataResponse(1);
+
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+
+            getMvDataResponse(1);
+
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+
+            getMvDataResponse(1);
+
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
         } finally {
             snapshot.releaseMvLock();
         }

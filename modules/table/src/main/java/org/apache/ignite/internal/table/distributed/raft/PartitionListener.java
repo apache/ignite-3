@@ -52,6 +52,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -130,6 +131,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final FinishTxCommandHandler finishTxCommandHandler;
 
+    private final OnSnapshotSaveHandler onSnapshotSaveHandler;
+
     /** Constructor. */
     public PartitionListener(
             TxManager txManager,
@@ -162,6 +165,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 new TablePartitionId(storage.tableId(), storage.partitionId()),
                 txManager
         );
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
     }
 
     @Override
@@ -481,31 +485,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        // The max index here is required for local recovery and a possible scenario
-        // of false node failure when we actually have all required data. This might happen because we use the minimal index
-        // among storages on a node restart.
-        // Let's consider a more detailed example:
-        //      1) We don't propagate the maximal lastAppliedIndex among storages, and onSnapshotSave finishes, it leads to the raft log
-        //         truncation until the maximal lastAppliedIndex.
-        //      2) Unexpected cluster restart happens.
-        //      3) Local recovery of a node is started, where we request data from the minimal lastAppliedIndex among storages, because
-        //         some data for some node might not have been flushed before unexpected cluster restart.
-        //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
-        //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
-        //      5) Node cannot finish local recovery.
-        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
-        long maxLastAppliedTerm = Math.max(storage.lastAppliedTerm(), txStatePartitionStorage.lastAppliedTerm());
-
-        storage.runConsistently(locker -> {
-            storage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
-
-            return null;
-        });
-
-        txStatePartitionStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
-        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
-
-        CompletableFuture.allOf(storage.flush(), txStatePartitionStorage.flush())
+        onSnapshotSaveHandler.onSnapshotSave(List.of(this))
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 

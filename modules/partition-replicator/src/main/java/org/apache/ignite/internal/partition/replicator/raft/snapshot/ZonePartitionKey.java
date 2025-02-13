@@ -31,7 +31,7 @@ public class ZonePartitionKey implements PartitionKey {
     /**
      * Returns ID of the zone.
      */
-    public int tableId() {
+    public int zoneId() {
         return zoneId;
     }
 

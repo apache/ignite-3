@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
-import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.singleton;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -27,6 +26,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -35,10 +35,10 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,10 +49,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
-    private static final int TABLE_ID = 1;
+    private static final int TABLE_ID_1 = 1;
+    private static final int TABLE_ID_2 = 2;
 
     @Mock
-    private PartitionStorageAccess partitionAccess;
+    private PartitionMvStorageAccess partitionAccess1;
+
+    @Mock
+    private PartitionMvStorageAccess partitionAccess2;
 
     @Mock
     private CatalogService catalogService;
@@ -61,7 +65,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     private final PartitionReplicationMessagesFactory messagesFactory = new PartitionReplicationMessagesFactory();
 
-    private final PartitionKey partitionKey = new TablePartitionKey(TABLE_ID, 1);
+    private final PartitionKey partitionKey = new ZonePartitionKey(0, 1);
 
     private static final int REQUIRED_CATALOG_VERSION = 42;
 
@@ -69,10 +73,15 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
     void createTestInstance() {
         lenient().when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
+        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionMvStorageAccess>();
+
+        partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
+        partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
+
         snapshot = new OutgoingSnapshot(
                 UUID.randomUUID(),
                 partitionKey,
-                singleton(TABLE_ID, partitionAccess),
+                partitionsByTableId,
                 mock(PartitionTxStateAccess.class),
                 catalogService
         );
@@ -85,9 +94,12 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     @Test
     void sendsSnapshotMeta() {
-        when(partitionAccess.lastAppliedIndex()).thenReturn(100L);
-        when(partitionAccess.lastAppliedTerm()).thenReturn(3L);
-        when(partitionAccess.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
+        // Test that max applied index across all storages is sent.
+        when(partitionAccess1.lastAppliedIndex()).thenReturn(99L);
+
+        when(partitionAccess2.lastAppliedIndex()).thenReturn(100L);
+        when(partitionAccess2.lastAppliedTerm()).thenReturn(3L);
+        when(partitionAccess2.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 13L,
                 37L,
                 List.of("peer1:3000", "peer2:3000"),
@@ -98,9 +110,9 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
         when(catalogService.latestCatalogVersion()).thenReturn(REQUIRED_CATALOG_VERSION);
 
-        when(partitionAccess.leaseStartTime()).thenReturn(333L);
-        when(partitionAccess.primaryReplicaNodeId()).thenReturn(new UUID(1, 2));
-        when(partitionAccess.primaryReplicaNodeName()).thenReturn("primary");
+        when(partitionAccess2.leaseStartTime()).thenReturn(333L);
+        when(partitionAccess2.primaryReplicaNodeId()).thenReturn(new UUID(1, 2));
+        when(partitionAccess2.primaryReplicaNodeName()).thenReturn("primary");
 
         snapshot.freezeScopeUnderMvLock();
 
@@ -139,7 +151,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     @Test
     void doesNotSendOldConfigWhenItIsNotThere() {
-        when(partitionAccess.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
+        when(partitionAccess1.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 13L, 37L, List.of(), List.of(), null, null
         ));
 

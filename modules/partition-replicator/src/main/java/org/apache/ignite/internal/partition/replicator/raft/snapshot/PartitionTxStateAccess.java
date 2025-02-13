@@ -26,7 +26,7 @@ import org.apache.ignite.internal.util.Cursor;
 /**
  * Small abstractions for TX storages that includes only methods, mandatory for the snapshot storage.
  *
- * @see PartitionStorageAccess
+ * @see PartitionMvStorageAccess
  */
 public interface PartitionTxStateAccess {
     /**
@@ -51,18 +51,19 @@ public interface PartitionTxStateAccess {
     long lastAppliedTerm();
 
     /**
-     * Prepares the TX storage for rebalance with the same guarantees and requirements as {@link PartitionStorageAccess#startRebalance}.
+     * Prepares the TX storage for rebalance with the same guarantees and requirements as {@link PartitionMvStorageAccess#startRebalance}.
      */
     CompletableFuture<Void> startRebalance();
 
     /**
      * Aborts an ongoing TX storage rebalance rebalance with the same guarantees and requirements as
-     * {@link PartitionStorageAccess#abortRebalance}.
+     * {@link PartitionMvStorageAccess#abortRebalance}.
      */
     CompletableFuture<Void> abortRebalance();
 
     /**
-     * Completes rebalancing of the TX storage with the same guarantees and requirements as {@link PartitionStorageAccess#finishRebalance}.
+     * Completes rebalancing of the TX storage with the same guarantees and requirements as
+     * {@link PartitionMvStorageAccess#finishRebalance}.
      */
     CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta);
 }

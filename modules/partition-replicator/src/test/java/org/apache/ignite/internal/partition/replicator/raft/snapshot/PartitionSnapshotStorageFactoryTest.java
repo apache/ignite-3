@@ -48,10 +48,10 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
     private static final int TABLE_ID_2 = 2;
 
     @Mock
-    private PartitionStorageAccess partitionAccess1;
+    private PartitionMvStorageAccess partitionAccess1;
 
     @Mock
-    private PartitionStorageAccess partitionAccess2;
+    private PartitionMvStorageAccess partitionAccess2;
 
     @Mock
     private PartitionTxStateAccess txStateAccess;

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
-import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -90,6 +89,8 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         );
 
         lenient().when(partitionsSnapshots.partitionSnapshots(any())).thenReturn(partitionSnapshots);
+
+        lenient().when(snapshot.id()).thenReturn(UUID.randomUUID());
     }
 
     @Test
@@ -283,21 +284,10 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void finishesSnapshotsOnStop() {
-        when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
-
-        testedStorage.close();
-
-        verify(partitionsSnapshots).finishOutgoingSnapshot(snapshot.id());
-    }
-
-    @Test
     void removesSnapshotsCollectionOnStop() {
-        when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
-
         testedStorage.close();
 
-        verify(partitionsSnapshots).removeSnapshots(partitionKey);
+        verify(partitionsSnapshots).cleanupOutgoingSnapshots(partitionKey);
     }
 
     private enum MvWriteAction {
