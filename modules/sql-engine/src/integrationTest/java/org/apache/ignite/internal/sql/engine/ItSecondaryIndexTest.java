@@ -572,6 +572,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrCondition5() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR name='Mozart'")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
