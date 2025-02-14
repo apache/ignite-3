@@ -19,7 +19,7 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -48,7 +48,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -213,13 +212,11 @@ class PartitionReplicaLifecycleManagerTest extends IgniteAbstractTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        var stableAssignmentsKey = new ByteArray(STABLE_ASSIGNMENTS_PREFIX + zonePartitionId);
-
         // Put empty stable assignments to force the replica manager to stop the running replicas.
         Assignments assignments = Assignments.of(Set.of(), 1);
 
         assertThat(
-                metaStorageManager.put(stableAssignmentsKey, assignments.toBytes()),
+                metaStorageManager.put(stablePartAssignmentsKey(zonePartitionId), assignments.toBytes()),
                 willCompleteSuccessfully()
         );
 
