@@ -29,6 +29,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -89,6 +90,16 @@ class ZoneResourcesManager implements ManuallyCloseable {
         }
     }
 
+    void destroyZonePartitionResources(int zoneId, int partitionId) {
+        inBusyLock(busyLock, () -> {
+            ZoneResources resources = resourcesByZoneId.get(zoneId);
+
+            if (resources != null) {
+                resources.txStateStorage.destroyTxStateStorage(partitionId);
+            }
+        });
+    }
+
     private static class ZoneResources {
         private final TxStateStorage txStateStorage;
 
@@ -98,13 +109,14 @@ class ZoneResourcesManager implements ManuallyCloseable {
     }
 
     @TestOnly
+    @Nullable
     public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         ZoneResources resources = resourcesByZoneId.get(zoneId);
-        assert resources != null : "No resources yet for zone " + zoneId;
 
-        TxStatePartitionStorage partitionStorage = resources.txStateStorage.getPartitionStorage(partitionId);
-        assert partitionStorage != null : "No partition storage for zone " + zoneId + " and partition " + partitionId;
+        if (resources == null) {
+            return null;
+        }
 
-        return partitionStorage;
+        return resources.txStateStorage.getPartitionStorage(partitionId);
     }
 }
