@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -56,7 +57,9 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
+import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -72,6 +75,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
@@ -79,7 +83,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Answers;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -116,7 +119,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @Mock(answer = Answers.RETURNS_DEEP_STUBS) ClusterService clusterService,
+            @Mock(answer = RETURNS_DEEP_STUBS) ClusterService clusterService,
             @Mock DistributionZoneManager distributionZoneManager,
             @Mock LowWatermark lowWatermark,
             @Mock ClockService clockService,
@@ -128,7 +131,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock FailureManager failureManager,
             @Mock TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             @Mock LogStorageFactoryCreator logStorageFactoryCreator,
-            @Mock OutgoingSnapshotsManager outgoingSnapshotsManager
+            @Mock PartitionSnapshotStorageFactory partitionSnapshotStorageFactory,
+            @Mock TxStatePartitionStorage txStatePartitionStorage,
+            @Mock ZonePartitionRaftListener raftGroupListener
     ) {
         String nodeName = testNodeName(testInfo, 0);
 
@@ -140,6 +145,13 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(nodeName)));
+
+        when(zoneResourcesManager.allocateZonePartitionResources(any(), anyInt()))
+                .thenReturn(new ZonePartitionResources(
+                        txStatePartitionStorage,
+                        raftGroupListener,
+                        partitionSnapshotStorageFactory
+                ));
 
         metaStorageManager = StandaloneMetaStorageManager.create();
 
@@ -180,7 +192,6 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 systemDistributedConfiguration,
                 txManager,
                 schemaManager,
-                outgoingSnapshotsManager,
                 zoneResourcesManager
         );
 
@@ -226,6 +237,6 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         InOrder inOrder = inOrder(raftManager, zoneResourcesManager);
 
         inOrder.verify(raftManager, timeout(1_000)).stopRaftNodes(zonePartitionId);
-        inOrder.verify(zoneResourcesManager, timeout(1_000)).destroyZonePartitionResources(zoneId, 0);
+        inOrder.verify(zoneResourcesManager, timeout(1_000)).destroyZonePartitionResources(zonePartitionId);
     }
 }
