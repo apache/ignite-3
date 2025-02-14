@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -413,13 +414,23 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         Set<String> threeNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
 
         setDistributionResetTimeout(node, TimeUnit.SECONDS.toMillis(0));
 
-        waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 10_000);
+        // We expect automatic reset to be triggered.
+        assertFalse(
+                node
+                        .distributionZoneManager()
+                        .zonesState()
+                        .get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
+                        .partitionDistributionResetTask()
+                        .isDone()
+        );
 
-        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
+        waitAndAssertRecoveryKeyIsNotEmpty(node);
+
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
     }
 
     @Test
