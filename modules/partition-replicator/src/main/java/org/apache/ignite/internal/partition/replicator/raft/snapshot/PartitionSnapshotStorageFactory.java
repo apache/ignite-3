@@ -92,6 +92,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
      * Adds a given table partition storage to the snapshot storage, managed by this factory.
      */
     public void addMvPartition(int tableId, PartitionMvStorageAccess partition) {
+        // FIXME: there are possible races with table creation, see https://issues.apache.org/jira/browse/IGNITE-24522
         PartitionMvStorageAccess prev = partitionsByTableId.put(tableId, partition);
 
         assert prev == null : "Partition storage for table ID " + tableId + " already exists.";

@@ -232,6 +232,7 @@ public class PartitionReplicaLifecycleManager extends
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
+    // TODO: move this map into ZoneResourcesManager, see https://issues.apache.org/jira/browse/IGNITE-24521
     private final ConcurrentMap<ZonePartitionId, Listeners> listenersByZonePartitionId = new ConcurrentHashMap<>();
 
     /** Holder class for Replica and Raft listeners. */

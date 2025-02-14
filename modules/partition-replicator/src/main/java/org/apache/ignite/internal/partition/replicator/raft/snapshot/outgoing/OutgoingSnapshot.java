@@ -524,6 +524,7 @@ public class OutgoingSnapshot {
         }
 
         if (tableId == mvPartitionDeliveryState.currentTableId()) {
+            // 'currentRowId' here has already been sent, hence the non-strict comparison.
             return rowId.compareTo(mvPartitionDeliveryState.currentRowId()) <= 0;
         } else {
             return tableId < mvPartitionDeliveryState.currentTableId();

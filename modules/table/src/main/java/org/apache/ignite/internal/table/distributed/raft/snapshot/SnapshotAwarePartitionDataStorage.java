@@ -196,8 +196,9 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public void close() {
         if (partitionKey instanceof ZonePartitionKey) {
-            // This is a hack for the colocation feature, for zone-based partitions snapshots are cleaned up for a bunch of storages at
-            // once and this is done in a separate place.
+            // FIXME: This is a hack for the colocation feature, for zone-based partitions snapshots are cleaned up for a bunch of storages
+            //  at once and this is done in a separate place. Should be removed as a part of
+            //  https://issues.apache.org/jira/browse/IGNITE-22522
             return;
         }
 
