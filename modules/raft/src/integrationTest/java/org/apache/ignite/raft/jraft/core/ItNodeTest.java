@@ -2716,7 +2716,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             assertEquals(20, fsm.getLogs().size());
     }
 
-    @RetryingTest(maxAttempts = 2)
+    @Test
     @Timeout(value = 25, unit = TimeUnit.SECONDS)
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
