@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.file.Path;
 import java.util.UUID;
@@ -76,6 +77,8 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void cleanup() {
+        manager.close();
+
         assertThat(sharedStorage.stopAsync(), willCompleteSuccessfully());
     }
 
@@ -97,6 +100,22 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
         assertThatStorageIsStopped(zone1storage1);
         assertThatStorageIsStopped(zone1storage5);
         assertThatStorageIsStopped(zone2storage3);
+    }
+
+    @Test
+    void removesTxStatePartitionStorageOnDestroy() {
+        int zoneId = 1;
+
+        getOrCreatePartitionTxStateStorage(zoneId, 10, 1);
+        getOrCreatePartitionTxStateStorage(zoneId, 10, 2);
+
+        assertThat(manager.txStatePartitionStorage(zoneId, 1), is(notNullValue()));
+        assertThat(manager.txStatePartitionStorage(zoneId, 2), is(notNullValue()));
+
+        bypassingThreadAssertions(() -> manager.destroyZonePartitionResources(zoneId, 1));
+
+        assertThat(manager.txStatePartitionStorage(zoneId, 1), is(nullValue()));
+        assertThat(manager.txStatePartitionStorage(zoneId, 2), is(notNullValue()));
     }
 
     @SuppressWarnings("ThrowableNotThrown")

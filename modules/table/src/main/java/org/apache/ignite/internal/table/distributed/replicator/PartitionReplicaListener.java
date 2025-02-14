@@ -1765,7 +1765,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 transactionId,
                 commit,
                 commitTimestamp,
-                indexIdsAtRwTxBeginTs(transactionId)
+                indexIdsAtRwTxBeginTsOrNull(transactionId)
         );
 
         return applyCmdWithExceptionHandling(wiSwitchCmd)
@@ -3503,7 +3503,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                            txId,
                            txState == COMMITTED,
                            commitTimestamp,
-                           indexIdsAtRwTxBeginTs(txId)
+                           indexIdsAtRwTxBeginTsOrNull(txId)
                    )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
@@ -3936,6 +3936,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {
         return TableUtils.indexIdsAtRwTxBeginTs(catalogService, txId, tableId());
+    }
+
+    private @Nullable List<Integer> indexIdsAtRwTxBeginTsOrNull(UUID txId) {
+        return TableUtils.indexIdsAtRwTxBeginTsOrNull(catalogService, txId, tableId());
     }
 
     private int tableVersionByTs(HybridTimestamp ts) {
