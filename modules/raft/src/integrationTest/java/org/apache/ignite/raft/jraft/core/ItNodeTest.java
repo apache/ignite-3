@@ -144,7 +144,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
-import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -4273,12 +4272,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         sendTestTaskAndWait(leader);
         cluster.ensureSame();
 
-        DefaultRaftClientService rpcService = (DefaultRaftClientService) leader.getRpcClientService();
-        RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
-
         AtomicInteger cnt = new AtomicInteger();
 
-        rpcClientEx.blockMessages((msg, nodeId) -> {
+        cluster.getServer(leader.getLeaderId()).getNodeOptions().getNodeManager().blockMessages((msg, nodeId) -> {
             assertTrue(msg instanceof RpcRequests.AppendEntriesRequest);
 
             if (cnt.get() >= 2)

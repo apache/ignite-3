@@ -261,9 +261,10 @@ public class TestCluster {
             }
 
             ClusterService clusterService = clusterService(testInfo, peer.getPort(), new StaticNodeFinder(addressList));
+            NodeManager nodeManager = new NodeManager(clusterService);
 
             nodeOptions.setScheduler(JRaftUtils.createScheduler(nodeOptions));
-            nodeOptions.setNodeManager(new NodeManager(clusterService));
+            nodeOptions.setNodeManager(nodeManager);
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
@@ -277,7 +278,7 @@ public class TestCluster {
 
             assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            nodeOptions.getNodeManager().init(nodeOptions);
+            nodeManager.init(nodeOptions);
 
             if (optsClo != null)
                 optsClo.accept(peer.getPeerId(), nodeOptions);
@@ -285,6 +286,7 @@ public class TestCluster {
             RaftGroupService server = new RaftGroupService(this.name, peer.getPeerId(),
                 nodeOptions, rpcServer) {
                 @Override public synchronized void shutdown() {
+                    nodeManager.shutdown();
                     // This stop order is consistent with JRaftServerImpl
                     rpcServer.shutdown();
 

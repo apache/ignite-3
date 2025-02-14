@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -64,6 +65,8 @@ public class NodeManager implements Lifecycle<NodeOptions> {
     private final RpcClient rpcClient;
     /** Message factory. */
     private RaftMessagesFactory messagesFactory;
+    /** Predicate to block a heartbeat messages. */
+    private BiPredicate<Message, PeerId> blockPred;
 
     public NodeManager(ClusterService service) {
         rpcClient = new IgniteRpcClient(service);
@@ -87,6 +90,14 @@ public class NodeManager implements Lifecycle<NodeOptions> {
         rpcClient.shutdown();
     }
 
+    public void blockMessages(BiPredicate<Message, PeerId> predicate) {
+        this.blockPred = predicate;
+    }
+
+    public void stopBlock() {
+        this.blockPred = null;
+    }
+
     /**
      * Sends a heartbeat request.
      */
@@ -101,14 +112,23 @@ public class NodeManager implements Lifecycle<NodeOptions> {
                     Object[] req;
 
                     List<CompletableFuture<Message>> futs = new ArrayList<>();
+                    ArrayList<Object[]> blocked = new ArrayList<>();
 
                     while ((req = queue.poll()) != null) {
                         var msg = (AppendEntriesRequest) req[0];
+
+                        if (blockPred != null && blockPred.test(msg, peer)) {
+                            blocked.add(req);
+
+                            continue;
+                        }
 
                         builder.messages().add(msg);
 
                         futs.add((CompletableFuture<Message>) req[1]);
                     }
+
+                    queue.addAll(blocked);
 
                     try {
                         rpcClient.invokeAsync(peer, builder.build(), null, (result, err) -> {
