@@ -17,17 +17,16 @@
 
 package org.apache.ignite.lang.util;
 
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility methods used for cluster's named objects: schemas, tables, columns, indexes, etc.
  */
 public final class IgniteNameUtils {
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 drop this.
-    @Deprecated
-    private static final Pattern NAME_PATTER = Pattern.compile("^(?:\\p{Alpha}\\w*)(?:\\.\\p{Alpha}\\w*)?$");
-
     /** No instance methods. */
     private IgniteNameUtils() {
     }
@@ -38,12 +37,8 @@ public final class IgniteNameUtils {
      * @param name String to parse object name.
      * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Use QualifiedName instead.
-    @Deprecated(forRemoval = true)
     public static String parseSimpleName(String name) {
-        if (name == null || name.isEmpty()) {
-            return name;
-        }
+        ensureNotNullAndNotEmpty(name, "name");
 
         var tokenizer = new Tokenizer(name);
 
@@ -57,43 +52,78 @@ public final class IgniteNameUtils {
     }
 
     /**
+     * Parses fully qualified name.
+     *
+     * @param name Fully qualified name of the object in canonical form.
+     * @return List of identifiers, where each identifier within the full name chain will be either unquoted or converted to uppercase.
+     */
+    public static List<String> parseName(String name) {
+        ensureNotNullAndNotEmpty(name, "name");
+
+        List<String> identifiers = new ArrayList<>();
+        Tokenizer tokenizer = new Tokenizer(name);
+
+        do {
+            identifiers.add(tokenizer.nextToken());
+        } while (tokenizer.hasNext());
+
+        return identifiers;
+    }
+
+    /**
      * Creates a fully qualified name in canonical form, that is, enclosing each part of the identifier chain in double quotes.
      *
-     * @param schemaName Name of the schema.
-     * @param objectName Name of the object.
+     * @param schemaName Normalized name of the schema.
+     * @param objectName Normalized name of the object.
      * @return Returns fully qualified name in canonical form.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: replace `quote` call with `quoteIfNeeded`
-    @Deprecated(forRemoval = true)
     public static String canonicalName(String schemaName, String objectName) {
-        return quote(schemaName) + '.' + quote(objectName);
+        return quoteIfNeeded(schemaName) + '.' + quoteIfNeeded(objectName);
     }
 
     /**
-     * Tests if given string is fully qualified name in canonical form or simple name.
+     * Wraps the given name with double quotes if it not uppercased non-quoted name, e.g. "myColumn" -&gt; "\"myColumn\"", "MYCOLUMN" -&gt;
+     * "MYCOLUMN"
      *
-     * @param s String to test.
-     * @return {@code True} if given string is fully qualified name in canonical form or simple name.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: drop this method.
-    @Deprecated(forRemoval = true)
-    public static boolean canonicalOrSimpleName(String s) {
-        return NAME_PATTER.matcher(s).matches();
-    }
-
-    /**
-     * Wraps the given name with double quotes, e.g. "myColumn" -&gt; "\"myColumn\""
-     *
-     * @param name Object name.
+     * @param identifier Object identifier.
      * @return Quoted object name.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 make it private, `quoteIfNeeded` should be used instead.
-    @Deprecated
-    public static String quote(String name) {
-        if (name == null || name.isEmpty()) {
-            return name;
+    public static String quoteIfNeeded(String identifier) {
+        ensureNotNullAndNotEmpty(identifier, "identifier");
+
+        if (!identifierStart(identifier.codePointAt(0)) && !Character.isUpperCase(identifier.codePointAt(0))) {
+            return quote(identifier);
         }
 
+        for (int pos = 0; pos < identifier.length(); pos++) {
+            int codePoint = identifier.codePointAt(pos);
+
+            if (!identifierExtend(codePoint) && !Character.isUpperCase(codePoint)) {
+                return quote(identifier);
+            }
+        }
+
+        return identifier;
+    }
+
+    /** An {@code identifier start} is any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”. */
+    private static boolean identifierStart(int codePoint) {
+        return Character.isAlphabetic(codePoint);
+    }
+
+    /** An {@code identifier extend} is U+00B7, or any character in the Unicode General Category classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.*/
+    private static boolean identifierExtend(int codePoint) {
+        return codePoint == ('·' & 0xff) /* “Middle Dot” character */
+                || ((((1 << Character.NON_SPACING_MARK)
+                | (1 << Character.COMBINING_SPACING_MARK)
+                | (1 << Character.DECIMAL_DIGIT_NUMBER)
+                | (1 << Character.CONNECTOR_PUNCTUATION)
+                | (1 << Character.FORMAT)) >> Character.getType(codePoint)) & 1) != 0;
+
+    }
+
+    /** Wraps the given name with double quotes. */
+    private static String quote(String name) {
         if (name.chars().noneMatch(cp -> cp == '\"')) {
             return '\"' + name + '\"';
         }
@@ -111,83 +141,51 @@ public final class IgniteNameUtils {
         return sb.toString();
     }
 
-    /**
-     * Wraps the given name with double quotes if it not upper case not-quoted name,
-     *     e.g. "myColumn" -&gt; "\"myColumn\"", "MYCOLUMN" -&gt; "MYCOLUMN"
-     *
-     * @param name Object name.
-     * @return Quoted object name.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 drop this method..
-    @Deprecated(forRemoval = true)
-    public static String quoteIfNeeded(String name) {
-        if (name == null || name.isEmpty()) {
-            return null;
+    private static void ensureNotNullAndNotEmpty(@Nullable String argument, String argumentName) {
+        Objects.requireNonNull(argument, "name");
+
+        if (argument.isEmpty()) {
+            throw new IllegalArgumentException("Argument \"" + argumentName + "\" can't be empty.");
         }
-
-        if (name.charAt(0) == '\"') {
-            String simpleName = parseSimpleName(name);
-
-            return name.equals(quote(simpleName)) ? name : quote(name);
-        }
-
-        if (!NAME_PATTER.matcher(name).matches()) {
-            return quote(name);
-        }
-
-        return name.toUpperCase().equals(name) ? name : quote(name); // NOPMD
-    }
-
-    /** An {@code identifier start} is any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”. */
-    public static boolean identifierStart(int codePoint) {
-        return Character.isAlphabetic(codePoint);
-    }
-
-    /** An {@code identifier extend} is U+00B7, or any character in the Unicode General Category classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.*/
-    public static boolean identifierExtend(int codePoint) {
-        return codePoint == ('·' & 0xff) /* “Middle Dot” character */
-                || ((((1 << Character.NON_SPACING_MARK)
-                | (1 << Character.COMBINING_SPACING_MARK)
-                | (1 << Character.DECIMAL_DIGIT_NUMBER)
-                | (1 << Character.CONNECTOR_PUNCTUATION)
-                | (1 << Character.FORMAT)) >> Character.getType(codePoint)) & 1) != 0;
-
     }
 
     /**
      * Identifier chain tokenizer.
      *
      * <p>Splits provided identifier chain (complex identifier like PUBLIC.MY_TABLE) into its component parts.
-     *
-     * <p>This tokenizer is not SQL compliant, but it is ok since it used to retrieve an object only. The sole purpose of this tokenizer
-     * is to split the chain into parts by a dot considering the quotation.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 Replace this with tokenizer from QualifiedName.
     private static class Tokenizer {
-        private int currentPosition;
         private final String source;
+        private int currentPosition;
+        private boolean foundDot;
 
         /**
          * Creates a tokenizer for given string source.
          *
          * @param source Source string to split.
          */
-        public Tokenizer(String source) {
+        private Tokenizer(String source) {
             this.source = source;
         }
 
         /** Returns {@code true} if at least one token is available. */
-        public boolean hasNext() {
-            return currentPosition < source.length();
+        private boolean hasNext() {
+            return foundDot || !isEol();
         }
 
         /** Returns next token. */
-        public @Nullable String nextToken() {
+        private String nextToken() {
             if (!hasNext()) {
-                return null;
+                throw new NoSuchElementException("No more tokens available.");
+            } else if (isEol()) {
+                assert foundDot;
+
+                foundDot = false;
+
+                return "";
             }
 
-            boolean quoted = source.charAt(currentPosition) == '"';
+            boolean quoted = currentChar() == '"';
 
             if (quoted) {
                 currentPosition++;
@@ -195,11 +193,22 @@ public final class IgniteNameUtils {
 
             int start = currentPosition;
             StringBuilder sb = new StringBuilder();
+            foundDot = false;
 
-            for (; currentPosition < source.length(); currentPosition++) {
-                if (currentChar() == '"') {
+            if (!quoted && !isEol()) {
+                if (identifierStart(source.codePointAt(currentPosition))) {
+                    currentPosition++;
+                } else {
+                    throwMalformedIdentifierException();
+                }
+            }
+
+            for (; !isEol(); currentPosition++) {
+                char c = currentChar();
+
+                if (c == '"') {
                     if (!quoted) {
-                        throwMalformedNameException();
+                        throwMalformedIdentifierException();
                     }
 
                     if (hasNextChar() && nextChar() == '"') {  // quote is escaped
@@ -213,27 +222,42 @@ public final class IgniteNameUtils {
                         // looks like we just found a closing quote
                         sb.append(source, start, currentPosition);
 
+                        foundDot = hasNextChar();
                         currentPosition += 2;
 
                         return sb.toString();
                     }
 
-                    throwMalformedNameException();
-                } else if (!quoted && (currentChar() == '.' || currentChar() == ' ')) {
+                    throwMalformedIdentifierException();
+                } else if (c == '.') {
+                    if (quoted) {
+                        continue;
+                    }
+
                     sb.append(source, start, currentPosition);
 
                     currentPosition++;
+                    foundDot = true;
 
                     return sb.toString().toUpperCase();
+                } else if (!quoted
+                        && !identifierStart(source.codePointAt(currentPosition))
+                        && !identifierExtend(source.codePointAt(currentPosition))
+                ) {
+                    throwMalformedIdentifierException();
                 }
             }
 
             if (quoted) {
                 // seems like there is no closing quote
-                throwMalformedNameException();
+                throwMalformedIdentifierException();
             }
 
             return source.substring(start).toUpperCase();
+        }
+
+        private boolean isEol() {
+            return currentPosition >= source.length();
         }
 
         private char currentChar() {
@@ -248,8 +272,8 @@ public final class IgniteNameUtils {
             return source.charAt(currentPosition + 1);
         }
 
-        private void throwMalformedNameException() {
-            throw new IllegalArgumentException("Malformed name [name=" + source + ", pos=" + currentPosition + ']');
+        private void throwMalformedIdentifierException() {
+            throw new IllegalArgumentException("Malformed identifier [identifier=" + source + ", pos=" + currentPosition + ']');
         }
     }
 }

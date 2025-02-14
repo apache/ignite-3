@@ -779,7 +779,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     void tupleCollectionSerialization(Collection<Tuple> arg) {
         List<Tuple> expected = new ArrayList<>(arg);
-        expected.add(Tuple.create().set("job-result", "done"));
+        expected.add(Tuple.create().set("job_result", "done"));
 
         for (int nodeIdx = 0; nodeIdx < initialNodes(); nodeIdx++) {
             ClusterNode executeNode = clusterNode(node(nodeIdx));

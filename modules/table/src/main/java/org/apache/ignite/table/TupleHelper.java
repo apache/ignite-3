@@ -42,7 +42,7 @@ public final class TupleHelper {
             return ((TupleImpl) tuple).valueOrDefaultSkipNormalization(normalizedName, defaultValue);
         }
 
-        return tuple.valueOrDefault(IgniteNameUtils.quote(normalizedName), defaultValue);
+        return tuple.valueOrDefault(IgniteNameUtils.quoteIfNeeded(normalizedName), defaultValue);
     }
 
     private TupleHelper() {
