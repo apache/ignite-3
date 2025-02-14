@@ -71,6 +71,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -4518,25 +4519,24 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
      * @param <T> the type of expected and actual value
      * @throws TimeoutException when the duration is reached
      */
-    @SuppressWarnings("BusyWait")
-    private static <T> void assertWaitForCondition(T expected, Supplier<T> actual, Duration timeout) throws TimeoutException {
+    private <T> void assertWaitForCondition(T expected, Supplier<T> actual, Duration timeout) throws TimeoutException {
         long stop = System.currentTimeMillis() + timeout.toMillis();
         HashSet<Object> results = new HashSet<>();
-        while (System.currentTimeMillis() < stop) {
+
+        boolean success = waitForCondition(() -> {
             T actualVal = actual.get();
-            try {
-                assertEquals(expected, actualVal);
-                return;
-            } catch (Throwable ignored) {
+            if (Objects.equals(expected, actualVal)) {
+                return true;
+            } else {
                 //no matching result, save for debug
                 results.add(actualVal);
+                return false;
             }
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException ignored) {
-            }
+        }, timeout.toMillis());
+
+        if(!success) {
+            fail(String.format("Timeout reached while waiting for expected result. Expected: %s, Actual Results: %s", expected, results));
         }
-        fail(String.format("Timeout reached while waiting for expected result. Expected: %s, Actual Results: %s", expected, results));
     }
 
     /**
