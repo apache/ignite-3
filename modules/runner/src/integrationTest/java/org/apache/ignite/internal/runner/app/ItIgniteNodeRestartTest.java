@@ -757,6 +757,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new PartitionReplicaLifecycleManager(
                         catalogManager,
                         replicaMgr,
+                        replicaService,
                         distributionZoneManager,
                         metaStorageMgr,
                         clusterSvc.topologyService(),

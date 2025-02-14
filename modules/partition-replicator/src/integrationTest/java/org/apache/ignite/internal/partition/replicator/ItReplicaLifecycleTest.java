@@ -204,6 +204,9 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
         placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
+        // The exception for default zone: the zone initially will hadnle pending assignments equals to 0th node and while it's a primary
+        // colocated node, then primary-related requests will work correctly.
+        placementDriver.setDefaultZonePrimary(node0.clusterService.topologyService().localMember());
 
         nodes.values().forEach(Node::waitWatches);
 

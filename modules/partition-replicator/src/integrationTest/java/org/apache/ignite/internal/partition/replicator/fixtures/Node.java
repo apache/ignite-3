@@ -601,6 +601,7 @@ public class Node {
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaManager,
+                replicaSvc,
                 distributionZoneManager,
                 metaStorageManager,
                 clusterService.topologyService(),

@@ -178,6 +178,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         Node node0 = cluster.get(0);
 
+        placementDriver.setDefaultZonePrimary(node0.clusterService.topologyService().localMember());
+
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
         setPrimaryReplica(node0, null);
@@ -369,7 +371,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
      * Tests that inserted data is replicated to a newly joined replica node.
      */
     @ParameterizedTest(name = "truncateRaftLog={0}")
-    @ValueSource(booleans = {false, true})
+    @ValueSource(booleans = {false})
     void testDataRebalance(boolean truncateRaftLog) throws Exception {
         assumeFalse(truncateRaftLog, "https://issues.apache.org/jira/browse/IGNITE-22416");
 
