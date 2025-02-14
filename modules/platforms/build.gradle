@@ -19,6 +19,7 @@ plugins {
     id 'signing'
     alias(libs.plugins.checksum)
     alias(libs.plugins.cmake)
+    id 'com.bmuschko.docker-remote-api' version '9.4.0'
 }
 
 import dev.welbyseely.CMakeBuildTask
@@ -27,6 +28,12 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.crypto.checksum.Checksum
+import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerStopContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerRemoveContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerExecContainer
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
 
 configurations {
     cppClient
@@ -35,6 +42,8 @@ configurations {
     odbc
     platformsHeaders
 }
+
+def manylinuxWheelsContainerName = "ignite_manylinux_wheels"
 
 dependencies {
     platformsHeaders project(path: ':ignite-api', configuration: 'platformsHeaders')
@@ -72,12 +81,6 @@ def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
     workingDir "$projectDir/cpp"
 
     commandLine "doxygen"
-}
-
-def windowsDbApiWheels = tasks.register('windowsDbApiWheels', Exec) {
-    workingDir "$projectDir/python"
-
-    commandLine "cmd", "/c", "Powershell -File .\\scripts\\BuildWheels.ps1 -PyVers \"$dbapiPythonVersions\""
 }
 
 def copyNativeLibs = tasks.register('copyNativeLibs', Copy) {
@@ -273,3 +276,64 @@ private void updatePythonVersion(String version) {
     def versionFile = file("$projectDir/python/pyignite_dbapi/_version.txt")
     versionFile.text = simpleProjectVersion(version)
 }
+
+def buildWindowsDbApiWheels = tasks.register('buildWindowsDbApiWheels', Exec) {
+    workingDir "$projectDir/python"
+
+    commandLine "cmd", "/c", "Powershell -File .\\scripts\\BuildWheels.ps1 -PyVers \"$dbapiPythonVersions\""
+}
+
+private void handleError(Throwable exc) {
+    if (exc.message != null && 
+        !exc.message.contains('NotModifiedException') && 
+        !exc.message.contains('No such container')) {
+        throw new RuntimeException(exc)
+    }
+}
+
+def buildManyLinuxWheelsDockerImage = tasks.register('buildManyLinuxWheelsDockerImage', DockerBuildImage) {
+    inputDir = file("$projectDir/python/scripts")
+    images = ["ignite_manylinux_python_wheels_build"]
+}
+
+def createManyLinuxWheelsContainer = tasks.register('createManyLinuxWheelsContainer', DockerCreateContainer) {
+    dependsOn buildManyLinuxWheelsDockerImage
+    targetImageId "ignite_manylinux_python_wheels_build"
+    containerName = "$manylinuxWheelsContainerName"
+    withEnvVar("PLAT", "x86_64")
+    hostConfig.binds = [
+        "$projectDir/python":"/pyignite_dbapi",
+        "$projectDir/cpp":"/cpp",
+        "$projectDir/python/distr":"/wheels"
+    ]
+}
+
+def startManyLinuxWheelsContainer = tasks.register('startManyLinuxWheelsContainer', DockerStartContainer) {
+    dependsOn createManyLinuxWheelsContainer
+    targetContainerId("$manylinuxWheelsContainerName")
+}
+
+def execManyLinuxWheelsContainer = tasks.register('execManyLinuxWheelsContainer', DockerExecContainer) {
+    dependsOn startManyLinuxWheelsContainer
+    finalizedBy removeManyLinuxWheelsContainer
+    targetContainerId("$manylinuxWheelsContainerName")
+    attachStdout = true
+    attachStderr = true
+    commands.add(["/pyignite_dbapi/scripts/build_wheels.sh"] as String[])
+}
+
+def stopManyLinuxWheelsContainer = tasks.register('stopManyLinuxWheelsContainer', DockerStopContainer) {
+    targetContainerId("$manylinuxWheelsContainerName")
+    onError { exception -> handleError(exception) }
+}
+
+def removeManyLinuxWheelsContainer = tasks.register('removeManyLinuxWheelsContainer', DockerRemoveContainer) {
+    dependsOn stopManyLinuxWheelsContainer
+    targetContainerId("$manylinuxWheelsContainerName")
+    onError { exception -> handleError(exception) }
+}
+
+def buildLinuxDbApiWheels = tasks.register('buildLinuxDbApiWheels', Task) {
+    dependsOn execManyLinuxWheelsContainer
+}
+
