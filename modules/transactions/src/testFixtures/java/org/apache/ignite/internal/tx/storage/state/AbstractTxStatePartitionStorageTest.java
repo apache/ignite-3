@@ -50,6 +50,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -148,7 +149,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         }
     }
 
-    private List<TablePartitionId> generateEnlistedPartitions(int c) {
+    private List<ReplicationGroupId> generateEnlistedPartitions(int c) {
         return IntStream.range(0, c)
                 .mapToObj(partitionNumber -> new TablePartitionId(TABLE_ID, partitionNumber))
                 .collect(toList());

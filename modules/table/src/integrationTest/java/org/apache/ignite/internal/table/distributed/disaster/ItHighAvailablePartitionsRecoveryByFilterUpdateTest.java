@@ -46,6 +46,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
     private static final String GLOBAL_NODES_CONFIG = nodeConfig("{zone = global}", null);
 
+    private static final String CUSTOM_NODES_CONFIG = nodeConfig("{zone = custom}", null);
+
     private static final String ROCKS_NODES_CONFIG = nodeConfig(null, "{lru_rocks.engine = rocksdb}");
 
     private static final String AIPERSIST_NODES_CONFIG = nodeConfig(null, "{segmented_aipersist.engine = aipersist}");
@@ -134,6 +136,190 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         // Due to the fact that only one [0] node is suitable according to storage profiles:
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
+    }
+
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode (7 nodes, A, B, C, D, E, F, G) - phase 1</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (4 nodes A, B, C, D)</li>
+     *   <li>Wait for the partition to become available (E, F, G), no new writes - phase 2</li>
+     *   <li>Stop a majority of nodes once again (E, F)</li>
+     *   <li>Wait for the partition to become available (G), no new writes - phase 3</li>
+     *   <li>Stop the last node G</li>
+     *   <li>Start one node from phase 1, A</li>
+     *   <li>Start one node from phase 3, G</li>
+     *   <li>Start one node from phase 2, E</li>
+     *   <li>No data should be lost (reads from partition on A and E must be consistent with G)</li>
+     * </ol>
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24513")
+    void testSeveralHaResetsAndSomeNodeRestart() throws Exception {
+        for (int i = 1; i < 8; i++) {
+            startNode(i, CUSTOM_NODES_CONFIG);
+        }
+
+        String globalFilter = "$[?(@.zone == \"custom\")]";
+        createHaZoneWithTable(7, globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+        assertValuesPresentOnNodes(node0.clock().now(), table, 1, 2, 3, 4, 5, 6, 7);
+
+        // Stop 4 nodes (A, B, C, D)
+        stopNodes(4, 5, 6, 7);
+
+        // Wait for the partition to become available on the remaining nodes (E, F, G)
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
+
+        // Stop 2 more nodes (E, F)
+        stopNodes(2, 3);
+
+        // Wait for the partition to become available on the last node (G)
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1));
+
+        // Stop the last node (G)
+        stopNode(1);
+
+        // Start one node from phase 1 (A)
+        startNode(4);
+
+        // Start one node from phase 3 (G)
+        startNode(1);
+
+        //  Start one node from phase 2 (E)
+        startNode(2);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 4));
+
+        // Verify that no data is lost and reads from partition on nodes A and E are consistent with node G
+        assertValuesPresentOnNodes(node0.clock().now(), table, 1, 2, 4);
+    }
+
+    /**
+     * Test scenario, where we start nodes from the previous assignments chain, with new writes.
+     * The whole scenario will be possible when second phase of HA feature will be implemented.
+     *
+     * <ol>
+     *   <li>Create a zone in HA mode with 7 nodes (A, B, C, D, E, F, G).</li>
+     *   <li>Stop a majority of nodes (4 nodes A, B, C, D).</li>
+     *   <li>Wait for the partition to become available on the remaining nodes (E, F, G).</li>
+     *   <li>Stop a majority of nodes (E, F).</li>
+     *   <li>Write data to node G.</li>
+     *   <li>Stop node G.</li>
+     *   <li>Start nodes E and F.</li>
+     *   <li>Nodes should wait for node G to come back online.</li>
+     * </ol>
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24509")
+    void testNodesWaitForLastNodeFromChainToComeBackOnlineAfterMajorityStops() throws Exception {
+        for (int i = 1; i < 8; i++) {
+            startNode(i, CUSTOM_NODES_CONFIG);
+        }
+
+        String globalFilter = "$[?(@.zone == \"custom\")]";
+        createHaZoneWithTable(7, globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+        assertValuesPresentOnNodes(node0.clock().now(), table, 1, 2, 3, 4, 5, 6, 7);
+
+        // Stop 4 nodes (A, B, C, D)
+        stopNodes(4, 5, 6, 7);
+
+        // Wait for the partition to become available on the remaining nodes (E, F, G)
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
+
+        // Stop 2 more nodes (E, F)
+        stopNodes(2, 3);
+
+        // Wait for the partition to become available on the last node (G)
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1));
+
+        errors = insertValues(table, 1000);
+        assertThat(errors, is(empty()));
+
+        assertValuesPresentOnNodes(node0.clock().now(), table, 1);
+
+        // Stop the last node (G)
+        stopNode(1);
+
+        // Start one node from phase 3 (E)
+        startNode(2);
+
+        //  Start one node from phase 2 (F)
+        startNode(3);
+
+        assertValuesNotPresentOnNodes(node0.clock().now(), table,  2, 3);
+    }
+
+    /**
+     * Test scenario, where we start nodes from the previous assignments chain, without new writes.
+     * The whole scenario will be possible when second phase of HA feature will be implemented.
+     * <ol>
+     *   <li>Create a zone in HA mode with 7 nodes (A, B, C, D, E, F, G).</li>
+     *   <li>Stop a majority of nodes (4 nodes A, B, C, D).</li>
+     *   <li>Wait for the partition to become available on the remaining nodes (E, F, G).</li>
+     *   <li>Stop a majority of nodes (E, F).</li>
+     *   <li>Stop node G.</li>
+     *   <li>Start nodes E and F.</li>
+     *   <li>Nodes should wait for nodes A, B, C, D, E, F, G to come back online.</li>
+     * </ol>
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24509")
+    void testNodesWaitForNodesFromGracefulChainToComeBackOnlineAfterMajorityStops() throws Exception {
+        for (int i = 1; i < 8; i++) {
+            startNode(i, CUSTOM_NODES_CONFIG);
+        }
+
+        String globalFilter = "$[?(@.zone == \"custom\")]";
+        createHaZoneWithTable(7, globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+        assertValuesPresentOnNodes(node0.clock().now(), table, 1, 2, 3, 4, 5, 6, 7);
+
+        // Stop 4 nodes (A, B, C, D)
+        stopNodes(4, 5, 6, 7);
+
+        // Wait for the partition to become available on the remaining nodes (E, F, G)
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
+
+        // Stop 2 more nodes (E, F)
+        stopNodes(2, 3);
+
+        // Wait for the partition to become available on the last node (G)
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1));
+
+        // Stop the last node (G)
+        stopNode(1);
+
+        // Start one node from phase 3 (E)
+        startNode(2);
+
+        //  Start one node from phase 2 (F)
+        startNode(3);
+
+        assertValuesNotPresentOnNodes(node0.clock().now(), table,  2, 3);
     }
 
     private void alterZoneSql(String filter, String zoneName) {
