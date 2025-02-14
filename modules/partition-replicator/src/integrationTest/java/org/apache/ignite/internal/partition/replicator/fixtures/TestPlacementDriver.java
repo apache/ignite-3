@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.fixtures;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -45,6 +46,9 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     private static final int DEFAULT_ZONE_ID = 0;
 
     private volatile ReplicaMeta primary;
+
+    // Pre-calculated assignments for each partition.
+    private volatile List<TokenizedAssignments> tokenizedAssignments;
 
     /**
      * Set the primary replica.
@@ -79,6 +83,15 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         setPrimary(node, HybridTimestamp.MIN_VALUE);
     }
 
+    /**
+     * Set pre-calculated assignments for each partition.
+     *
+     * @param tokenizedAssignments Pre-calculated assignments.
+     */
+    public void setAssignments(List<TokenizedAssignments> tokenizedAssignments) {
+        this.tokenizedAssignments = tokenizedAssignments;
+    }
+
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
@@ -105,7 +118,13 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             List<? extends ReplicationGroupId> replicationGroupIds,
             HybridTimestamp clusterTimeToAwait
     ) {
-        return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
+        List<TokenizedAssignments> assignments = tokenizedAssignments;
+
+        if (assignments == null) {
+            return failedFuture(new AssertionError("Pre-calculated assignments are not defined in test PlacementDriver yet."));
+        } else {
+            return completedFuture(assignments);
+        }
     }
 
     private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta(ReplicationGroupId replicationGroupId) {

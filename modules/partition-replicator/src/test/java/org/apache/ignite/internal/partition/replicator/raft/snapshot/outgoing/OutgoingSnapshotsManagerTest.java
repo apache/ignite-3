@@ -17,21 +17,25 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.singleton;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,16 +45,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     @InjectMocks
     private OutgoingSnapshotsManager manager;
 
     @Mock
-    private PartitionAccess partitionAccess;
+    private PartitionMvStorageAccess partitionAccess;
 
     @Mock
     private CatalogService catalogService;
 
-    private final PartitionKey partitionKey = new PartitionKey(1, 1);
+    private final PartitionKey partitionKey = new TablePartitionKey(TABLE_ID, 1);
 
     @SuppressWarnings("EmptyTryBlock")
     @Test
@@ -70,12 +76,18 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void startsSnapshot() {
-        when(partitionAccess.partitionKey()).thenReturn(partitionKey);
+        when(partitionAccess.tableId()).thenReturn(TABLE_ID);
         when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
-        OutgoingSnapshot snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
+        OutgoingSnapshot snapshot = new OutgoingSnapshot(
+                UUID.randomUUID(),
+                partitionKey,
+                singleton(TABLE_ID, partitionAccess),
+                mock(PartitionTxStateAccess.class),
+                catalogService
+        );
 
         assertDoesNotThrow(() -> manager.startOutgoingSnapshot(UUID.randomUUID(), snapshot));
     }
@@ -90,6 +102,7 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
     private UUID startSnapshot() {
         UUID snapshotId = UUID.randomUUID();
         OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
+        lenient().when(snapshot.id()).thenReturn(snapshotId);
         doReturn(partitionKey).when(snapshot).partitionKey();
 
         manager.startOutgoingSnapshot(snapshotId, snapshot);
@@ -100,7 +113,7 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
     void removesPartitionsCollection() {
         startSnapshot();
 
-        manager.removeSnapshots(partitionKey);
+        manager.cleanupOutgoingSnapshots(partitionKey);
 
         assertThat(manager.partitionSnapshots(partitionKey).ongoingSnapshots(), is(empty()));
     }

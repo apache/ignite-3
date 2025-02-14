@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.function.Predicate.not;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -68,10 +72,11 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Updat
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
@@ -151,6 +156,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private volatile HybridTimestamp lowWatermark;
 
     private volatile UUID localNodeId;
+
+    /* Feature flag for zone based collocation track */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove it.
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * Constructs catalog compaction runner.
@@ -403,10 +412,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return schemaSyncService.waitForMetadataCompleteness(nowTs)
                 .thenComposeAsync(ignore -> {
-                    Int2IntMap tablesWithPartitions =
-                            catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
+                    Int2IntMap idsWithPartitions = enabledColocationFeature
+                            ? catalogManagerFacade.collectZonesWithPartitionsBetween(txBeginTime, nowTs.longValue())
+                            : catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
 
-                    ObjectIterator<Entry> itr = tablesWithPartitions.int2IntEntrySet().iterator();
+                    ObjectIterator<Entry> itr = idsWithPartitions.int2IntEntrySet().iterator();
 
                     return invokeOnLocalReplicas(txBeginTime, localNodeId, itr);
                 }, executor);
@@ -586,22 +596,23 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, UUID localNodeId, ObjectIterator<Entry> tabTtr) {
-        if (!tabTtr.hasNext()) {
+    private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, UUID localNodeId, ObjectIterator<Entry> entryIterator) {
+        if (!entryIterator.hasNext()) {
             return CompletableFutures.nullCompletedFuture();
         }
 
-        Entry tableWithPartitions = tabTtr.next();
-        int tableId = tableWithPartitions.getIntKey();
-        int partitions = tableWithPartitions.getIntValue();
+        Entry idWithPartitions = entryIterator.next();
+        int id = idWithPartitions.getIntKey();
+        int partitions = idWithPartitions.getIntValue();
         List<CompletableFuture<?>> partFutures = new ArrayList<>(partitions);
         HybridTimestamp nowTs = clockService.now();
 
         for (int p = 0; p < partitions; p++) {
-            TablePartitionId tablePartitionId = new TablePartitionId(tableId, p);
+            ReplicationGroupId groupReplicationId = enabledColocationFeature
+                    ? new ZonePartitionId(id, p) : new TablePartitionId(id, p);
 
             CompletableFuture<?> fut = placementDriver
-                    .getPrimaryReplica(tablePartitionId, nowTs)
+                    .getPrimaryReplica(groupReplicationId, nowTs)
                     .thenCompose(meta -> {
                         // If primary is not elected yet - we'll update replication groups on next iteration.
                         if (meta == null || meta.getLeaseholderId() == null) {
@@ -614,14 +625,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             return CompletableFutures.nullCompletedFuture();
                         }
 
-                        TablePartitionIdMessage partIdMessage = ReplicaMessageUtils.toTablePartitionIdMessage(
-                                REPLICA_MESSAGES_FACTORY,
-                                tablePartitionId
-                        );
+                        ReplicationGroupIdMessage groupIdMessage = enabledColocationFeature
+                                ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (ZonePartitionId) groupReplicationId)
+                                : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (TablePartitionId) groupReplicationId);
 
                         UpdateMinimumActiveTxBeginTimeReplicaRequest msg = REPLICATION_MESSAGES_FACTORY
                                 .updateMinimumActiveTxBeginTimeReplicaRequest()
-                                .groupId(partIdMessage)
+                                .groupId(groupIdMessage)
                                 .timestamp(txBeginTime)
                                 .build();
 
@@ -632,7 +642,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
 
         return CompletableFutures.allOf(partFutures)
-                .thenComposeAsync(ignore -> invokeOnLocalReplicas(txBeginTime, localNodeId, tabTtr), executor);
+                .thenComposeAsync(ignore -> invokeOnLocalReplicas(txBeginTime, localNodeId, entryIterator), executor);
     }
 
     private class CatalogCompactionMessageHandler implements NetworkMessageHandler {

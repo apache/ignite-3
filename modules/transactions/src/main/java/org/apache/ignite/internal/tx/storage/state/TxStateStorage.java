@@ -57,13 +57,6 @@ public interface TxStateStorage extends ManuallyCloseable {
     void start();
 
     /**
-     * Stops the storage.
-     *
-     * @throws IgniteInternalException In case when the operation has failed.
-     */
-    void stop();
-
-    /**
      * Closes the storage.
      */
     @Override
