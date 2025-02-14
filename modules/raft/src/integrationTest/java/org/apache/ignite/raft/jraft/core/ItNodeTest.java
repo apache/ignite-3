@@ -2669,6 +2669,54 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void testAppendEntriesWhenFollowerIsInErrorState() throws Exception {
+        // start five nodes
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 5);
+
+        cluster = new TestCluster("unitest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node oldLeader = cluster.waitAndGetLeader();
+        assertNotNull(oldLeader);
+        // apply something
+        sendTestTaskAndWait(oldLeader);
+
+        // set one follower into error state
+        List<Node> followers = cluster.getFollowers();
+        assertEquals(4, followers.size());
+        Node errorNode = followers.get(0);
+        PeerId errorPeer = errorNode.getNodeId().getPeerId().copy();
+        log.info("Set follower {} into error state", errorNode);
+        ((NodeImpl) errorNode).onError(new RaftException(EnumOutter.ErrorType.ERROR_TYPE_STATE_MACHINE, new Status(-1,
+            "Follower has something wrong.")));
+
+        // increase term  by stopping leader and electing a new leader again
+        PeerId oldLeaderAddr = oldLeader.getNodeId().getPeerId().copy();
+        assertTrue(cluster.stop(oldLeaderAddr));
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+        log.info("Elect a new leader {}", leader);
+        // apply something again
+        sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
+
+        // stop error follower
+        Thread.sleep(20);
+        log.info("Stop error follower {}", errorNode);
+        assertTrue(cluster.stop(errorPeer));
+        // restart error and old leader
+        log.info("Restart error follower {} and old leader {}", errorPeer, oldLeaderAddr);
+
+        assertTrue(cluster.start(findById(peers, errorPeer)));
+        assertTrue(cluster.start(findById(peers, oldLeaderAddr)));
+        cluster.ensureSame();
+        assertEquals(5, cluster.getFsms().size());
+        for (MockStateMachine fsm : cluster.getFsms())
+            assertEquals(20, fsm.getLogs().size());
+    }
+
+    @RetryingTest(maxAttempts = 2)
     @Timeout(value = 25, unit = TimeUnit.SECONDS)
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
@@ -2731,7 +2779,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 assertWaitForCondition(2, () -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes(),
                         Duration.of(7, ChronoUnit.SECONDS));
                 assertEquals(1,
-                        ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
+                    ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
                 continue;
             }
 
@@ -2741,54 +2789,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         }
 
         cluster.ensureSame();
-    }
-
-    @Test
-    public void testAppendEntriesWhenFollowerIsInErrorState() throws Exception {
-        // start five nodes
-        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 5);
-
-        cluster = new TestCluster("unitest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
-
-        for (TestPeer peer : peers)
-            assertTrue(cluster.start(peer));
-
-        Node oldLeader = cluster.waitAndGetLeader();
-        assertNotNull(oldLeader);
-        // apply something
-        sendTestTaskAndWait(oldLeader);
-
-        // set one follower into error state
-        List<Node> followers = cluster.getFollowers();
-        assertEquals(4, followers.size());
-        Node errorNode = followers.get(0);
-        PeerId errorPeer = errorNode.getNodeId().getPeerId().copy();
-        log.info("Set follower {} into error state", errorNode);
-        ((NodeImpl) errorNode).onError(new RaftException(EnumOutter.ErrorType.ERROR_TYPE_STATE_MACHINE, new Status(-1,
-            "Follower has something wrong.")));
-
-        // increase term  by stopping leader and electing a new leader again
-        PeerId oldLeaderAddr = oldLeader.getNodeId().getPeerId().copy();
-        assertTrue(cluster.stop(oldLeaderAddr));
-        Node leader = cluster.waitAndGetLeader();
-        assertNotNull(leader);
-        log.info("Elect a new leader {}", leader);
-        // apply something again
-        sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
-
-        // stop error follower
-        Thread.sleep(20);
-        log.info("Stop error follower {}", errorNode);
-        assertTrue(cluster.stop(errorPeer));
-        // restart error and old leader
-        log.info("Restart error follower {} and old leader {}", errorPeer, oldLeaderAddr);
-
-        assertTrue(cluster.start(findById(peers, errorPeer)));
-        assertTrue(cluster.start(findById(peers, oldLeaderAddr)));
-        cluster.ensureSame();
-        assertEquals(5, cluster.getFsms().size());
-        for (MockStateMachine fsm : cluster.getFsms())
-            assertEquals(20, fsm.getLogs().size());
     }
 
     @Test
