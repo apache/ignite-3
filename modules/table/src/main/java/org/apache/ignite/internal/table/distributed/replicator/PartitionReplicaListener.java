@@ -526,6 +526,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, UUID senderId,
             @Nullable Long leaseStartTime) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24526
+        // Need to move the necessary part of request processing to ZonePartitionReplicaListener
+
         boolean hasSchemaVersion = request instanceof SchemaVersionAwareReplicaRequest;
 
         if (hasSchemaVersion) {

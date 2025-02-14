@@ -31,7 +31,11 @@ public class MinimumActiveTxTimeCommandHandler {
     /** Data storage to which the command will be applied. */
     private final PartitionDataStorage storage;
 
-    /** Table partition identifier. */
+    /**
+     * Table partition identifier.
+     * {@link TablePartitionId} is used here instead of {@link org.apache.ignite.internal.replicator.ZonePartitionId}
+     * intentionally because we are not going to re-work catalog compaction internals {@link MinimumRequiredTimeCollectorService}.
+     **/
     private final TablePartitionId tablePartitionId;
 
     /** Service that collects minimum required timestamp for each partition. */
