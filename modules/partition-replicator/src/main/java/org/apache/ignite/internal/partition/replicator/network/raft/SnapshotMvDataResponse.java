@@ -43,6 +43,9 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
     @SuppressWarnings("PublicInnerClass")
     @Transferable(PartitionReplicationMessageGroup.SNAPSHOT_MV_DATA_RESPONSE_ENTRY)
     interface ResponseEntry extends NetworkMessage {
+        /** Table ID of the table that this row belongs to. */
+        int tableId();
+
         /** Individual row id. */
         UUID rowId();
 

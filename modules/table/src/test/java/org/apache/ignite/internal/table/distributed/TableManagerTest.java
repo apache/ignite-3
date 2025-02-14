@@ -847,7 +847,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 scheduledExecutor,
                 scheduledExecutor,
                 new TestClockService(clock),
-                new OutgoingSnapshotsManager(clusterService.messagingService()),
+                new OutgoingSnapshotsManager(node.name(), clusterService.messagingService()),
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,

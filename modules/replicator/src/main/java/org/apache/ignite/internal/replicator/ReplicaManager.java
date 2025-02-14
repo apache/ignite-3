@@ -67,7 +67,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -697,6 +696,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
+            ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
             return startReplicaInternal(
                     replicaGrpId,
                     snapshotStorageFactory,
@@ -704,18 +705,28 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     raftGroupEventsListener,
                     isVolatileStorage,
-                    (raftClient) -> new ReplicaImpl(
-                            replicaGrpId,
-                            createListener.apply(raftClient),
-                            storageIndexTracker,
-                            clusterNetSvc.topologyService().localMember(),
-                            executor,
-                            placementDriver,
-                            clockService,
-                            replicaStateManager::reserveReplica,
-                            getPendingAssignmentsSupplier,
-                            failureManager
-                    )
+                    (raftClient) -> {
+                        var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
+                                replicaGrpId,
+                                localNode,
+                                placementDriver,
+                                clockService,
+                                replicaStateManager::reserveReplica,
+                                executor,
+                                storageIndexTracker,
+                                raftClient
+                        );
+
+                        return new ReplicaImpl(
+                                replicaGrpId,
+                                createListener.apply(raftClient),
+                                localNode,
+                                placementDriver,
+                                getPendingAssignmentsSupplier,
+                                failureManager,
+                                placementDriverMessageProcessor
+                        );
+                    }
             );
         } finally {
             leaveBusy();
@@ -731,7 +742,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGroupListener Raft group listener for the raft group being started.
      * @param raftGroupEventsListener Raft group events listener for raft group starting.
      * @param isVolatileStorage Whether partition storage is volatile for this partition.
-     * @param partitionResources Resources managed by this replica (they will be closed on replica shutdown).
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
      *         started.
@@ -744,7 +754,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             RaftGroupEventsListener raftGroupEventsListener,
             boolean isVolatileStorage,
-            ManuallyCloseable partitionResources,
             IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -759,11 +768,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     raftGroupEventsListener,
                     isVolatileStorage,
-                    (raftClient) -> new ZonePartitionReplicaImpl(
+                    raftClient -> new ZonePartitionReplicaImpl(
                             replicaGrpId,
                             listenerFactory.apply(raftClient),
-                            raftClient,
-                            partitionResources
+                            raftClient
                     )
             );
         } finally {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -111,9 +112,13 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -144,6 +149,7 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Class that manages per-zone replicas.
@@ -220,12 +226,15 @@ public class PartitionReplicaLifecycleManager extends
 
     private final SchemaManager schemaManager;
 
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
     /** A predicate that checks that the given assignment is corresponded to the local node. */
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
 
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
+    // TODO: move this map into ZoneResourcesManager, see https://issues.apache.org/jira/browse/IGNITE-24521
     private final ConcurrentMap<ZonePartitionId, Listeners> listenersByZonePartitionId = new ConcurrentHashMap<>();
 
     /** Holder class for Replica and Raft listeners. */
@@ -242,8 +251,11 @@ public class PartitionReplicaLifecycleManager extends
 
         final ZonePartitionRaftListener raftListener;
 
-        Listeners(ZonePartitionRaftListener raftListener) {
+        final PartitionSnapshotStorageFactory snapshotStorageFactory;
+
+        Listeners(ZonePartitionRaftListener raftListener, PartitionSnapshotStorageFactory snapshotStorageFactory) {
             this.raftListener = raftListener;
+            this.snapshotStorageFactory = snapshotStorageFactory;
         }
     }
 
@@ -284,7 +296,49 @@ public class PartitionReplicaLifecycleManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxStateRocksDbSharedStorage sharedTxStateStorage,
             TxManager txManager,
-            SchemaManager schemaManager
+            SchemaManager schemaManager,
+            OutgoingSnapshotsManager outgoingSnapshotsManager
+    ) {
+        this(
+                catalogService,
+                replicaMgr,
+                distributionZoneMgr,
+                metaStorageMgr,
+                topologyService,
+                lowWatermark,
+                ioExecutor,
+                rebalanceScheduler,
+                partitionOperationsExecutor,
+                clockService,
+                placementDriver,
+                schemaSyncService,
+                systemDistributedConfiguration,
+                txManager,
+                schemaManager,
+                outgoingSnapshotsManager,
+                new ZoneResourcesManager(sharedTxStateStorage)
+        );
+    }
+
+    @VisibleForTesting
+    PartitionReplicaLifecycleManager(
+            CatalogService catalogService,
+            ReplicaManager replicaMgr,
+            DistributionZoneManager distributionZoneMgr,
+            MetaStorageManager metaStorageMgr,
+            TopologyService topologyService,
+            LowWatermark lowWatermark,
+            ExecutorService ioExecutor,
+            ScheduledExecutorService rebalanceScheduler,
+            Executor partitionOperationsExecutor,
+            ClockService clockService,
+            PlacementDriver placementDriver,
+            SchemaSyncService schemaSyncService,
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            TxManager txManager,
+            SchemaManager schemaManager,
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            ZoneResourcesManager zoneResourcesManager
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
@@ -300,6 +354,8 @@ public class PartitionReplicaLifecycleManager extends
         this.placementDriver = placementDriver;
         this.txManager = txManager;
         this.schemaManager = schemaManager;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
+        this.zoneResourcesManager = zoneResourcesManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -308,8 +364,6 @@ public class PartitionReplicaLifecycleManager extends
                 DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT,
                 Integer::parseInt
         );
-
-        zoneResourcesManager = new ZoneResourcesManager(sharedTxStateStorage);
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -522,7 +576,6 @@ public class PartitionReplicaLifecycleManager extends
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 We need to integrate PartitionReplicatorNodeRecovery logic here when
         //  we in the recovery phase.
-
         Assignments forcedAssignments = stableAssignments.force() ? stableAssignments : null;
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
@@ -554,10 +607,20 @@ public class PartitionReplicaLifecycleManager extends
                     txStatePartitionStorage,
                     txManager,
                     safeTimeTracker,
-                    storageIndexTracker
+                    storageIndexTracker,
+                    outgoingSnapshotsManager
             );
 
-            var listeners = new Listeners(raftGroupListener);
+            var snapshotStorageFactory = new PartitionSnapshotStorageFactory(
+                    new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
+                    topologyService,
+                    outgoingSnapshotsManager,
+                    new PartitionTxStateAccessImpl(txStatePartitionStorage),
+                    catalogService,
+                    partitionOperationsExecutor
+            );
+
+            var listeners = new Listeners(raftGroupListener, snapshotStorageFactory);
 
             listenersByZonePartitionId.put(zonePartitionId, listeners);
 
@@ -582,13 +645,12 @@ public class PartitionReplicaLifecycleManager extends
 
                                         return replicaListener;
                                     },
-                                    new FailFastSnapshotStorageFactory(),
+                                    snapshotStorageFactory,
                                     stablePeersAndLearners,
                                     raftGroupListener,
                                     raftGroupEventsListener,
                                     // TODO: IGNITE-24371 - pass real isVolatile flag
                                     false,
-                                    txStatePartitionStorage,
                                     busyLock
                             );
                         } catch (NodeStoppingException e) {
@@ -1323,6 +1385,8 @@ public class PartitionReplicaLifecycleManager extends
                         return nullCompletedFuture();
                     }
 
+                    zoneResourcesManager.destroyZonePartitionResources(zonePartitionId.zoneId(), zonePartitionId.partitionId());
+
                     return fireEvent(
                             LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
                             new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
@@ -1406,7 +1470,8 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             TablePartitionId tablePartitionId,
             Function<RaftCommandRunner, ReplicaListener> tablePartitionReplicaListenerFactory,
-            RaftTableProcessor raftTableProcessor
+            RaftTableProcessor raftTableProcessor,
+            PartitionMvStorageAccess partitionMvStorageAccess
     ) {
         Listeners listeners = listenersByZonePartitionId.get(zonePartitionId);
 
@@ -1420,6 +1485,8 @@ public class PartitionReplicaLifecycleManager extends
         ));
 
         listeners.raftListener.addTableProcessor(tablePartitionId, raftTableProcessor);
+
+        listeners.snapshotStorageFactory.addMvPartition(tablePartitionId.tableId(), partitionMvStorageAccess);
     }
 
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {
@@ -1439,6 +1506,6 @@ public class PartitionReplicaLifecycleManager extends
 
     @TestOnly
     public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
-        return zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId);
+        return requireNonNull(zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId));
     }
 }

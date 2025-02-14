@@ -55,17 +55,12 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void stop() {
-        // No-op.
-    }
-
-    @Override
     public void destroy() {
         storages.clear();
     }
 
     @Override
     public void close() {
-        stop();
+        // No-op.
     }
 }

@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -40,7 +41,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,6 +75,7 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
@@ -376,8 +378,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     @ParameterizedTest(name = "truncateRaftLog={0}")
     @ValueSource(booleans = {false, true})
     void testDataRebalance(boolean truncateRaftLog) throws Exception {
-        assumeFalse(truncateRaftLog, "https://issues.apache.org/jira/browse/IGNITE-22416");
-
         startCluster(2);
 
         // Create a zone with a single partition on every node + one extra replica for the upcoming node.
@@ -424,7 +424,18 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
         // Not using "assertTrue" on purpose, the next line will produce a nicer error message.
         // TODO: remove this line after https://issues.apache.org/jira/browse/IGNITE-22620
-        waitForCondition(() -> kvView1.getAll(null, data1.keySet()).equals(data1), 10_000L);
+        waitForCondition(() -> {
+            try {
+                return kvView1.getAll(null, data1.keySet()).equals(data1);
+            } catch (IgniteException e) {
+                if (hasCauseOrSuppressed(e, StorageRebalanceException.class)) {
+                    // This is expected.
+                    return false;
+                } else {
+                    throw e;
+                }
+            }
+        }, 10_000L);
 
         assertThat(kvView1.getAll(null, data1.keySet()), is(data1));
         assertThat(kvView1.getAll(null, data2.keySet()), is(anEmptyMap()));

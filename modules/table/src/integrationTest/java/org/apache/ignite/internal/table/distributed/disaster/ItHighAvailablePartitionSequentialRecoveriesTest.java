@@ -17,7 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+
+import java.util.List;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -40,6 +46,14 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
 
         IgniteImpl node = igniteImpl(0);
 
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+
+        assertThat(errors, is(empty()));
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2, 3, 4);
+
         assertRecoveryKeyIsEmpty(node);
 
         stopNodes(2, 3, 4);
@@ -49,5 +63,7 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
         stopNode(1);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0);
     }
 }
