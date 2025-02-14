@@ -56,6 +56,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -66,8 +67,8 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
@@ -88,7 +89,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(ConfigurationExtension.class)
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 @WithSystemProperty(key = THREAD_ASSERTIONS_ENABLED, value = "false")
-class PartitionReplicaLifecycleManagerTest extends IgniteAbstractTest {
+class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     private MetaStorageManager metaStorageManager;
 
     private CatalogManager catalogManager;
@@ -126,7 +127,8 @@ class PartitionReplicaLifecycleManagerTest extends IgniteAbstractTest {
             @Mock ClusterManagementGroupManager cmgManager,
             @Mock FailureManager failureManager,
             @Mock TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            @Mock LogStorageFactoryCreator logStorageFactoryCreator
+            @Mock LogStorageFactoryCreator logStorageFactoryCreator,
+            @Mock OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         String nodeName = testNodeName(testInfo, 0);
 
@@ -178,6 +180,7 @@ class PartitionReplicaLifecycleManagerTest extends IgniteAbstractTest {
                 systemDistributedConfiguration,
                 txManager,
                 schemaManager,
+                outgoingSnapshotsManager,
                 zoneResourcesManager
         );
 

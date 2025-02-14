@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -45,6 +46,8 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Default number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
     private static final int DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS = 3000;
 
+    private final PartitionKey partitionKey;
+
     /** Topology service. */
     private final TopologyService topologyService;
 
@@ -57,8 +60,14 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Raft options. */
     private final RaftOptions raftOptions;
 
-    /** Instance of partition. */
-    private final PartitionAccess partition;
+    /**
+     * Partition storages grouped by table ID.
+     *
+     * <p>This map is modified externally by the {@link PartitionSnapshotStorageFactory}.
+     */
+    private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId;
+
+    private final PartitionTxStateAccess txState;
 
     private final CatalogService catalogService;
 
@@ -88,27 +97,31 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      * @param outgoingSnapshotsManager Outgoing snapshot manager.
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
-     * @param partition Partition.
+     * @param partitionsByTableId Partition storages by table IDs.
      * @param catalogService Catalog service.
      * @param startupSnapshotMeta Snapshot meta at startup. {@code null} if the storage is empty.
      * @param incomingSnapshotsExecutor Incoming snapshots executor.
      */
     public PartitionSnapshotStorage(
+            PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             String snapshotUri,
             RaftOptions raftOptions,
-            PartitionAccess partition,
+            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
+            PartitionTxStateAccess txState,
             CatalogService catalogService,
             @Nullable SnapshotMeta startupSnapshotMeta,
             Executor incomingSnapshotsExecutor
     ) {
         this(
+                partitionKey,
                 topologyService,
                 outgoingSnapshotsManager,
                 snapshotUri,
                 raftOptions,
-                partition,
+                partitionsByTableId,
+                txState,
                 catalogService,
                 startupSnapshotMeta,
                 incomingSnapshotsExecutor,
@@ -123,31 +136,39 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      * @param outgoingSnapshotsManager Outgoing snapshot manager.
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
-     * @param partition Partition.
+     * @param partitionsByTableId Partition storages by table IDs.
      * @param catalogService Catalog service.
      * @param startupSnapshotMeta Snapshot meta at startup. {@code null} if the storage is empty.
      * @param incomingSnapshotsExecutor Incoming snapshots executor.
      */
     public PartitionSnapshotStorage(
+            PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             String snapshotUri,
             RaftOptions raftOptions,
-            PartitionAccess partition,
+            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
+            PartitionTxStateAccess txState,
             CatalogService catalogService,
             @Nullable SnapshotMeta startupSnapshotMeta,
             Executor incomingSnapshotsExecutor,
             long waitForMetadataCatchupMs
     ) {
+        this.partitionKey = partitionKey;
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.snapshotUri = snapshotUri;
         this.raftOptions = raftOptions;
-        this.partition = partition;
+        this.partitionsByTableId = partitionsByTableId;
+        this.txState = txState;
         this.catalogService = catalogService;
         this.startupSnapshotMeta = startupSnapshotMeta;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
+    }
+
+    public PartitionKey partitionKey() {
+        return partitionKey;
     }
 
     /**
@@ -179,10 +200,17 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     }
 
     /**
-     * Returns a partition.
+     * Returns partitions by table ID.
      */
-    public PartitionAccess partition() {
-        return partition;
+    public Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId() {
+        return partitionsByTableId;
+    }
+
+    /**
+     * Returns the TX state storage.
+     */
+    public PartitionTxStateAccess txState() {
+        return txState;
     }
 
     /**

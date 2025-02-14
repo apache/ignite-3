@@ -28,8 +28,10 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
@@ -40,8 +42,10 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -59,8 +63,16 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     private static final BinaryRow ROW_1 = new BinaryRowImpl(0, ByteBuffer.wrap(new byte[]{1}));
     private static final BinaryRow ROW_2 = new BinaryRowImpl(0, ByteBuffer.wrap(new byte[]{2}));
 
+    private static final int TABLE_ID_1 = 1;
+    private static final int TABLE_ID_2 = 2;
+
+    private static final int PARTITION_ID = 1;
+
     @Mock
-    private PartitionAccess partitionAccess;
+    private PartitionMvStorageAccess partitionAccess1;
+
+    @Mock
+    private PartitionMvStorageAccess partitionAccess2;
 
     @Mock
     private CatalogService catalogService;
@@ -69,7 +81,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
     private final PartitionReplicationMessagesFactory messagesFactory = new PartitionReplicationMessagesFactory();
 
-    private final RowId lowestRowId = RowId.lowestRowId(1);
+    private final RowId lowestRowId = RowId.lowestRowId(PARTITION_ID);
     private final RowId rowId1 = Objects.requireNonNull(lowestRowId.increment());
     private final RowId rowId2 = Objects.requireNonNull(rowId1.increment());
     private final RowId rowId3 = Objects.requireNonNull(rowId2.increment());
@@ -81,13 +93,28 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     private final UUID transactionId = UUID.randomUUID();
     private final int commitTableId = 999;
 
-    private final PartitionKey partitionKey = new PartitionKey(1, 1);
+    private final PartitionKey partitionKey = new ZonePartitionKey(0, PARTITION_ID);
 
     @BeforeEach
     void createTestInstance() {
-        when(partitionAccess.partitionKey()).thenReturn(partitionKey);
+        lenient().when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
+        lenient().when(partitionAccess1.partitionId()).thenReturn(PARTITION_ID);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
+        lenient().when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
+        lenient().when(partitionAccess2.partitionId()).thenReturn(PARTITION_ID);
+
+        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionMvStorageAccess>();
+
+        partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
+        partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
+
+        snapshot = new OutgoingSnapshot(
+                UUID.randomUUID(),
+                partitionKey,
+                partitionsByTableId,
+                mock(PartitionTxStateAccess.class),
+                catalogService
+        );
     }
 
     @BeforeEach
@@ -133,9 +160,9 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     }
 
     private void configurePartitionAccessToHaveExactlyOneRowWith(List<ReadResult> versions) {
-        when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(versions);
-        lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(null);
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(versions);
+        lenient().when(partitionAccess1.closestRowId(rowId2)).thenReturn(null);
     }
 
     private SnapshotMvDataResponse getMvDataResponse(long batchSizeHint) {
@@ -183,11 +210,11 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId2, ROW_2, clock.now());
 
-        when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1));
-        when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
-        when(partitionAccess.getAllRowVersions(rowId2)).thenReturn(List.of(version2));
-        when(partitionAccess.closestRowId(rowId3)).thenReturn(null);
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version1));
+        when(partitionAccess1.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess1.getAllRowVersions(rowId2)).thenReturn(List.of(version2));
+        when(partitionAccess1.closestRowId(rowId3)).thenReturn(null);
 
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
 
@@ -200,6 +227,32 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void iteratesRowsInPartitionAndTable() {
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId2, ROW_2, clock.now());
+        ReadResult version3 = ReadResult.createFromCommitted(rowId3, ROW_1, clock.now());
+
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version1));
+        when(partitionAccess1.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess1.getAllRowVersions(rowId2)).thenReturn(List.of(version2));
+
+        when(partitionAccess2.closestRowId(lowestRowId)).thenReturn(rowId3);
+        when(partitionAccess2.getAllRowVersions(rowId3)).thenReturn(List.of(version3));
+
+        SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
+
+        assertThat(response.rows(), hasSize(3));
+
+        assertThat(response.rows().get(0).rowVersions(), hasSize(1));
+        assertThat(response.rows().get(0).rowVersions().get(0).asBinaryRow(), is(ROW_1));
+        assertThat(response.rows().get(1).rowVersions(), hasSize(1));
+        assertThat(response.rows().get(1).rowVersions().get(0).asBinaryRow(), is(ROW_2));
+        assertThat(response.rows().get(2).rowVersions(), hasSize(1));
+        assertThat(response.rows().get(2).rowVersions().get(0).asBinaryRow(), is(ROW_1));
+    }
+
+    @Test
     void rowsWithIdsToSkipAreIgnored() {
         snapshot.acquireMvLock();
 
@@ -209,8 +262,8 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
             snapshot.releaseMvLock();
         }
 
-        when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.closestRowId(rowId2)).thenReturn(null);
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.closestRowId(rowId2)).thenReturn(null);
 
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
 
@@ -229,12 +282,12 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 clock.now()
         );
 
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version2, version1));
+        when(partitionAccess1.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version2, version1));
 
         snapshot.acquireMvLock();
 
         try {
-            snapshot.enqueueForSending(rowIdOutOfOrder);
+            snapshot.enqueueForSending(TABLE_ID_1, rowIdOutOfOrder);
         } finally {
             snapshot.releaseMvLock();
         }
@@ -259,7 +312,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     }
 
     private void configureClosestRowIdToBeEmpty() {
-        lenient().when(partitionAccess.closestRowId(lowestRowId)).thenReturn(null);
+        lenient().when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(null);
     }
 
     @Test
@@ -267,12 +320,12 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowIdOutOfOrder, ROW_1, clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, ROW_2, clock.now());
 
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
+        when(partitionAccess1.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
 
         snapshot.acquireMvLock();
 
         try {
-            snapshot.enqueueForSending(rowIdOutOfOrder);
+            snapshot.enqueueForSending(TABLE_ID_1, rowIdOutOfOrder);
         } finally {
             snapshot.releaseMvLock();
         }
@@ -289,12 +342,12 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
     @Test
     void doesNotEnqueueMissingRows() {
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(emptyList());
+        when(partitionAccess1.getAllRowVersions(rowIdOutOfOrder)).thenReturn(emptyList());
 
         snapshot.acquireMvLock();
 
         try {
-            snapshot.enqueueForSending(rowIdOutOfOrder);
+            snapshot.enqueueForSending(TABLE_ID_1, rowIdOutOfOrder);
         } finally {
             snapshot.releaseMvLock();
         }
@@ -347,10 +400,10 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId2, ROW_2, clock.now());
 
-        when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1));
-        lenient().when(partitionAccess.closestRowId(rowId1)).thenReturn(rowId1);
-        lenient().when(partitionAccess.getAllRowVersions(rowId2)).thenReturn(List.of(version2));
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version1));
+        lenient().when(partitionAccess1.closestRowId(rowId1)).thenReturn(rowId1);
+        lenient().when(partitionAccess1.getAllRowVersions(rowId2)).thenReturn(List.of(version2));
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
 
@@ -362,19 +415,19 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowIdOutOfOrder, ROW_1, clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, ROW_2, clock.now());
 
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
+        when(partitionAccess1.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
 
         snapshot.acquireMvLock();
 
         try {
-            snapshot.enqueueForSending(rowIdOutOfOrder);
+            snapshot.enqueueForSending(TABLE_ID_1, rowIdOutOfOrder);
         } finally {
             snapshot.releaseMvLock();
         }
 
-        lenient().when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        lenient().when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version2));
-        lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(null);
+        lenient().when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        lenient().when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version2));
+        lenient().when(partitionAccess1.closestRowId(rowId2)).thenReturn(null);
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
 
@@ -386,9 +439,9 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, ROW_2, clock.now());
 
-        when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
-        lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
+        lenient().when(partitionAccess1.closestRowId(rowId2)).thenReturn(rowId2);
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
 
@@ -416,12 +469,12 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         ReadResult version = ReadResult.createFromCommitted(rowIdOutOfOrder, row, clock.now());
 
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version));
+        when(partitionAccess1.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version));
 
         snapshot.acquireMvLock();
 
         try {
-            snapshot.enqueueForSending(rowIdOutOfOrder);
+            snapshot.enqueueForSending(TABLE_ID_1, rowIdOutOfOrder);
         } finally {
             snapshot.releaseMvLock();
         }
@@ -440,7 +493,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.acquireMvLock();
 
         try {
-            assertFalse(snapshot.alreadyPassed(lowestRowId));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, lowestRowId));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -451,16 +504,16 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, ROW_2, clock.now());
 
-        when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
-        lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
+        lenient().when(partitionAccess1.closestRowId(rowId2)).thenReturn(rowId2);
 
         getMvDataResponse(1);
 
         snapshot.acquireMvLock();
 
         try {
-            assertTrue(snapshot.alreadyPassed(rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -471,16 +524,71 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, ROW_2, clock.now());
 
-        when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
-        lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
+        lenient().when(partitionAccess1.closestRowId(rowId2)).thenReturn(rowId2);
 
         getMvDataResponse(1);
 
         snapshot.acquireMvLock();
 
         try {
-            assertFalse(snapshot.alreadyPassed(rowId2));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+        } finally {
+            snapshot.releaseMvLock();
+        }
+    }
+
+    @Test
+    void notYetSentRowIdIsNotPassedAcrossMultipleTables() {
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, ROW_2, clock.now());
+
+        when(partitionAccess1.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess1.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
+        when(partitionAccess1.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess1.getAllRowVersions(rowId2)).thenReturn(List.of(version1));
+
+        when(partitionAccess2.closestRowId(lowestRowId)).thenReturn(rowId1);
+        when(partitionAccess2.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
+        when(partitionAccess2.closestRowId(rowId2)).thenReturn(rowId2);
+        when(partitionAccess2.getAllRowVersions(rowId2)).thenReturn(List.of(version1));
+
+        snapshot.acquireMvLock();
+
+        try {
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+
+            getMvDataResponse(1);
+
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+
+            getMvDataResponse(1);
+
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+
+            getMvDataResponse(1);
+
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+
+            getMvDataResponse(1);
+
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -498,7 +606,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         try {
             //noinspection ConstantConditions
-            assertTrue(snapshot.alreadyPassed(rowId3.increment().increment().increment()));
+            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId3.increment().increment().increment()));
         } finally {
             snapshot.releaseMvLock();
         }

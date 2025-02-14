@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft.snapshot;
-
 /**
- * Uniquely identifies a partition.
+ * This package contains replica request handlers that is used by
+ * {@link org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener} and table requests processor.
  */
-public interface PartitionKey {
-    int partitionId();
-}
+
+package org.apache.ignite.internal.partition.replicator.handlers;

@@ -112,9 +112,13 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -222,12 +226,15 @@ public class PartitionReplicaLifecycleManager extends
 
     private final SchemaManager schemaManager;
 
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
     /** A predicate that checks that the given assignment is corresponded to the local node. */
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
 
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
+    // TODO: move this map into ZoneResourcesManager, see https://issues.apache.org/jira/browse/IGNITE-24521
     private final ConcurrentMap<ZonePartitionId, Listeners> listenersByZonePartitionId = new ConcurrentHashMap<>();
 
     /** Holder class for Replica and Raft listeners. */
@@ -244,8 +251,11 @@ public class PartitionReplicaLifecycleManager extends
 
         final ZonePartitionRaftListener raftListener;
 
-        Listeners(ZonePartitionRaftListener raftListener) {
+        final PartitionSnapshotStorageFactory snapshotStorageFactory;
+
+        Listeners(ZonePartitionRaftListener raftListener, PartitionSnapshotStorageFactory snapshotStorageFactory) {
             this.raftListener = raftListener;
+            this.snapshotStorageFactory = snapshotStorageFactory;
         }
     }
 
@@ -286,7 +296,8 @@ public class PartitionReplicaLifecycleManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxStateRocksDbSharedStorage sharedTxStateStorage,
             TxManager txManager,
-            SchemaManager schemaManager
+            SchemaManager schemaManager,
+            OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         this(
                 catalogService,
@@ -304,6 +315,7 @@ public class PartitionReplicaLifecycleManager extends
                 systemDistributedConfiguration,
                 txManager,
                 schemaManager,
+                outgoingSnapshotsManager,
                 new ZoneResourcesManager(sharedTxStateStorage)
         );
     }
@@ -325,6 +337,7 @@ public class PartitionReplicaLifecycleManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxManager txManager,
             SchemaManager schemaManager,
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
             ZoneResourcesManager zoneResourcesManager
     ) {
         this.catalogService = catalogService;
@@ -341,6 +354,7 @@ public class PartitionReplicaLifecycleManager extends
         this.placementDriver = placementDriver;
         this.txManager = txManager;
         this.schemaManager = schemaManager;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.zoneResourcesManager = zoneResourcesManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -562,7 +576,6 @@ public class PartitionReplicaLifecycleManager extends
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 We need to integrate PartitionReplicatorNodeRecovery logic here when
         //  we in the recovery phase.
-
         Assignments forcedAssignments = stableAssignments.force() ? stableAssignments : null;
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
@@ -590,14 +603,24 @@ public class PartitionReplicaLifecycleManager extends
             );
 
             var raftGroupListener = new ZonePartitionRaftListener(
+                    zonePartitionId,
                     txStatePartitionStorage,
                     txManager,
                     safeTimeTracker,
                     storageIndexTracker,
-                    zonePartitionId
+                    outgoingSnapshotsManager
             );
 
-            var listeners = new Listeners(raftGroupListener);
+            var snapshotStorageFactory = new PartitionSnapshotStorageFactory(
+                    new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
+                    topologyService,
+                    outgoingSnapshotsManager,
+                    new PartitionTxStateAccessImpl(txStatePartitionStorage),
+                    catalogService,
+                    partitionOperationsExecutor
+            );
+
+            var listeners = new Listeners(raftGroupListener, snapshotStorageFactory);
 
             listenersByZonePartitionId.put(zonePartitionId, listeners);
 
@@ -622,7 +645,7 @@ public class PartitionReplicaLifecycleManager extends
 
                                         return replicaListener;
                                     },
-                                    new FailFastSnapshotStorageFactory(),
+                                    snapshotStorageFactory,
                                     stablePeersAndLearners,
                                     raftGroupListener,
                                     raftGroupEventsListener,
@@ -1447,7 +1470,8 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             TablePartitionId tablePartitionId,
             Function<RaftCommandRunner, ReplicaListener> tablePartitionReplicaListenerFactory,
-            RaftTableProcessor raftTableProcessor
+            RaftTableProcessor raftTableProcessor,
+            PartitionMvStorageAccess partitionMvStorageAccess
     ) {
         Listeners listeners = listenersByZonePartitionId.get(zonePartitionId);
 
@@ -1461,6 +1485,8 @@ public class PartitionReplicaLifecycleManager extends
         ));
 
         listeners.raftListener.addTableProcessor(tablePartitionId, raftTableProcessor);
+
+        listeners.snapshotStorageFactory.addMvPartition(tablePartitionId.tableId(), partitionMvStorageAccess);
     }
 
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {

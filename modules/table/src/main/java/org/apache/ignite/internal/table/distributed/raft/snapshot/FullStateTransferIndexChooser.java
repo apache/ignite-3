@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableSet;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
@@ -46,9 +45,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
@@ -102,7 +99,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     /**
-     * Collect indexes for {@link PartitionAccess#addWrite(RowId, BinaryRow, UUID, int, int, int)} (write intent).
+     * Collect indexes for {@link PartitionMvStorageAccess#addWrite} (write intent).
      *
      * <p>NOTE: When updating a low watermark, the index storages that were returned from the method may begin to be destroyed, such a
      * situation should be handled by the calling code.</p>
@@ -143,7 +140,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     /**
-     * Collect indexes for {@link PartitionAccess#addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)} (write committed only).
+     * Collect indexes for {@link PartitionMvStorageAccess#addWriteCommitted} (write committed only).
      *
      * <p>NOTE: When updating a low watermark, the index storages that were returned from the method may begin to be destroyed, such a
      * situation should be handled by the calling code.</p>

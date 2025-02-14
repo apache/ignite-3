@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft.snapshot;
-
 /**
- * Uniquely identifies a partition.
+ * This package contains RAFT command handlers that is used by
+ * {@link org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener} and
+ * {@link org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor}.
  */
-public interface PartitionKey {
-    int partitionId();
-}
+
+package org.apache.ignite.internal.partition.replicator.raft.handlers;

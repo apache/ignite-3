@@ -31,8 +31,13 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
+import org.apache.ignite.internal.catalog.commands.DropZoneCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,6 +53,7 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test.
     @Test
     void testCollectTablesWithPartitionsBetween() {
         CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
@@ -74,21 +80,24 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         assertThat(catalogManager.execute(dropTableCommandBuilder.tableName("test3").build()), willCompleteSuccessfully());
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from1,
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
+                    from1,
                     clockService.nowLong());
 
             assertThat(tablesWithParts.keySet(), hasSize(3));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from2,
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
+                    from2,
                     clockService.nowLong());
 
             assertThat(tablesWithParts.keySet(), hasSize(2));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from3,
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
+                    from3,
                     clockService.nowLong());
 
             assertThat(tablesWithParts.keySet(), hasSize(1));
@@ -97,10 +106,65 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         {
             Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
                     clockService.nowLong(),
-                    clockService.nowLong()
-            );
+                    clockService.nowLong());
 
             assertThat(tablesWithParts.keySet(), hasSize(0));
+        }
+    }
+
+    @Test
+    void testCollectZonesWithPartitionsBetween() {
+        CreateZoneCommandBuilder zoneCommandBuilder = CreateZoneCommand.builder()
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("ai-persist").build()))
+                .partitions(1);
+
+        DropZoneCommandBuilder dropZoneCommandBuilder = DropZoneCommand.builder();
+
+        long from1 = clockService.nowLong();
+
+        assertThat(catalogManager.execute(zoneCommandBuilder.zoneName("test1").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(dropZoneCommandBuilder.zoneName("test1").build()), willCompleteSuccessfully());
+
+        long from2 = clockService.nowLong();
+
+        assertThat(catalogManager.execute(zoneCommandBuilder.zoneName("test2").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(dropZoneCommandBuilder.zoneName("test2").build()), willCompleteSuccessfully());
+
+        long from3 = clockService.nowLong();
+        assertThat(catalogManager.execute(zoneCommandBuilder.zoneName("test3").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(dropZoneCommandBuilder.zoneName("test3").build()), willCompleteSuccessfully());
+
+        // Take into account that there is the default zone.
+        {
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
+                    from1,
+                    clockService.nowLong());
+
+            assertThat(tablesWithParts.keySet(), hasSize(4));
+        }
+
+        {
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
+                    from2,
+                    clockService.nowLong());
+
+            assertThat(tablesWithParts.keySet(), hasSize(3));
+        }
+
+        {
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
+                    from3,
+                    clockService.nowLong());
+
+            assertThat(tablesWithParts.keySet(), hasSize(2));
+        }
+
+        {
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
+                    clockService.nowLong(),
+                    clockService.nowLong());
+
+            assertThat(tablesWithParts.keySet(), hasSize(1));
         }
     }
 
