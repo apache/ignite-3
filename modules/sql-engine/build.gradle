@@ -58,7 +58,10 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
-    api libs.calcite.core
+    api(libs.calcite.core) {
+        exclude group: 'org.apache.calcite.avatica', module: 'avatica-metrics'
+        exclude group: 'org.apache.httpcomponents.core5', module: 'httpcore5'
+    }
     implementation libs.calcite.linq4j
     implementation libs.value.annotations
     implementation libs.janino.compiler
