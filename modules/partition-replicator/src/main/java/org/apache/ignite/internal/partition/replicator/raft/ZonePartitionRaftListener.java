@@ -29,6 +29,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
@@ -60,6 +62,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
+    /** Mapping table partition identifier to table request processor. */
     private final Map<TablePartitionId, RaftTableProcessor> tableProcessors = new ConcurrentHashMap<>();
 
     private final PartitionsSnapshots partitionsSnapshots;
@@ -75,31 +78,18 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final Object commitedConfigurationLock = new Object();
 
-    private static class CommittedConfiguration {
-        final RaftGroupConfiguration configuration;
-
-        final long lastAppliedIndex;
-
-        final long lastAppliedTerm;
-
-        CommittedConfiguration(RaftGroupConfiguration configuration, long lastAppliedIndex, long lastAppliedTerm) {
-            this.configuration = configuration;
-            this.lastAppliedIndex = lastAppliedIndex;
-            this.lastAppliedTerm = lastAppliedTerm;
-        }
-    }
-
+    // Raft command handlers.
     private final FinishTxCommandHandler finishTxCommandHandler;
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
     /** Constructor. */
     public ZonePartitionRaftListener(
+            ZonePartitionId zonePartitionId,
             TxStatePartitionStorage txStatePartitionStorage,
             TxManager txManager,
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            ZonePartitionId zonePartitionId,
             PartitionsSnapshots partitionsSnapshots
     ) {
         this.safeTimeTracker = safeTimeTracker;
@@ -107,6 +97,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.partitionsSnapshots = partitionsSnapshots;
         this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
+        // RAFT command handlers initialization.
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
                 // TODO: IGNITE-24343 - use ZonePartitionId here.
@@ -179,6 +170,16 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
 
                 result = processTableAwareCommand(tablePartitionId, command, commandIndex, commandTerm, safeTimestamp);
+            } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+                result = new IgniteBiTuple<>(null, false);
+
+                tableProcessors.values().forEach(processor -> {
+                    IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
+                    // Need to adjust the safe time if any of the table processors successfully handled the command.
+                    if (Boolean.TRUE.equals(r.get2())) {
+                        result.set2(Boolean.TRUE);
+                    }
+                });
             } else {
                 LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
 
@@ -276,5 +277,19 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private PartitionSnapshots partitionSnapshots() {
         return partitionsSnapshots.partitionSnapshots(partitionKey);
+    }
+
+    private static class CommittedConfiguration {
+        final RaftGroupConfiguration configuration;
+
+        final long lastAppliedIndex;
+
+        final long lastAppliedTerm;
+
+        CommittedConfiguration(RaftGroupConfiguration configuration, long lastAppliedIndex, long lastAppliedTerm) {
+            this.configuration = configuration;
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
+        }
     }
 }

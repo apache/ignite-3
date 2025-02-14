@@ -603,11 +603,11 @@ public class PartitionReplicaLifecycleManager extends
             );
 
             var raftGroupListener = new ZonePartitionRaftListener(
+                    zonePartitionId,
                     txStatePartitionStorage,
                     txManager,
                     safeTimeTracker,
                     storageIndexTracker,
-                    zonePartitionId,
                     outgoingSnapshotsManager
             );
 

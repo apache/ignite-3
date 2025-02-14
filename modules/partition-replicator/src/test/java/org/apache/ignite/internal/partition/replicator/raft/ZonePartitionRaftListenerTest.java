@@ -68,11 +68,11 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         listener = new ZonePartitionRaftListener(
+                new ZonePartitionId(ZONE_ID, PARTITION_ID),
                 txStatePartitionStorage,
                 txManager,
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
                 new PendingComparableValuesTracker<>(0L),
-                new ZonePartitionId(ZONE_ID, PARTITION_ID),
                 outgoingSnapshotsManager
         );
     }
