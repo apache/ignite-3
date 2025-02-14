@@ -122,21 +122,6 @@ public final class QualifiedName implements Serializable {
     }
 
     /**
-     * Return QualifiedName from a given schema and table normalized names.
-     *
-     * @param schemaName Normalized schema name or {@code null} for default schema.
-     * @param objectName Normalized object name.
-     * @return Qualified name.
-     */
-    public static QualifiedName fromNormalized(@Nullable String schemaName, String objectName) {
-        verifySchemaIdentifier(schemaName);
-        verifyObjectIdentifier(objectName);
-
-        return new QualifiedName(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName, objectName);
-    }
-
-
-    /**
      * Constructs a qualified name.
      *
      * @param schemaName Normalized schema name.
