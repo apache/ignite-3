@@ -4520,7 +4520,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
      * @throws TimeoutException when the duration is reached
      */
     private <T> void assertWaitForCondition(T expected, Supplier<T> actual, Duration timeout) throws TimeoutException {
-        long stop = System.currentTimeMillis() + timeout.toMillis();
         HashSet<Object> results = new HashSet<>();
 
         boolean success = waitForCondition(() -> {
