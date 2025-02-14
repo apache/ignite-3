@@ -447,7 +447,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
         if (localPartitionStateMessageByNode == null) {
-            return new HashSet<>();
+            return Set.of();
         }
 
         var partAssignments = new HashSet<Assignment>();
