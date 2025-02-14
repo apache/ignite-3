@@ -197,7 +197,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-24526
-        // Need to move the necessary part of PartitionReplicaListener request processing here
+        // Need to move the necessary part of PartitionReplicaListener#processRequest request processing here
         if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
