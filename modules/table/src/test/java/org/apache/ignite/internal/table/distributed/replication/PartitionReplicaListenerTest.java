@@ -67,6 +67,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -81,6 +82,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -116,6 +118,7 @@ import org.apache.ignite.distributed.replicator.action.RequestTypes;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -310,7 +313,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
 
     /** The storage stores partition data. */
-    private final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(PART_ID);
+    private final TestMvPartitionStorage testMvPartitionStorage = spy(new TestMvPartitionStorage(PART_ID));
 
     private final LockManager lockManager = lockManager();
 
@@ -1412,6 +1415,25 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         checkNoRowInIndex(row1);
 
         cleanup(txId);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testCleanupOnCompactedCatalogVersion(boolean commit) {
+        UUID txId = newTxId();
+
+        BinaryRow testRow = binaryRow(0);
+
+        assertThat(doSingleRowRequest(txId, testRow, RW_INSERT), willCompleteSuccessfully());
+
+        when(catalogService.activeCatalog(anyLong())).thenThrow(new CatalogNotFoundException("Catalog not found"));
+
+        assertDoesNotThrow(() -> cleanup(txId, commit));
+        if (commit) {
+            verify(testMvPartitionStorage, atLeastOnce()).commitWrite(any(), any());
+        } else {
+            verify(testMvPartitionStorage, atLeastOnce()).abortWrite(any());
+        }
     }
 
     private CompletableFuture<?> doSingleRowRequest(UUID txId, BinaryRow binaryRow, RequestType requestType) {
@@ -2903,6 +2925,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void cleanup(UUID txId) {
+        cleanup(txId, true);
+    }
+
+    private void cleanup(UUID txId, boolean commit) {
         HybridTimestamp commitTs = clock.now();
 
         txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID(), commitPartitionId, commitTs, null));
@@ -2910,13 +2936,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         WriteIntentSwitchReplicaRequest message = TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
                 .groupId(tablePartitionIdMessage(grpId))
                 .txId(txId)
-                .commit(true)
+                .commit(commit)
                 .commitTimestamp(commitTs)
                 .build();
 
         assertThat(partitionReplicaListener.invoke(message, localNode.id()), willCompleteSuccessfully());
 
-        txState = COMMITTED;
+        txState = commit ? COMMITTED : ABORTED;
     }
 
     private BinaryTupleMessage toIndexBound(int val) {
