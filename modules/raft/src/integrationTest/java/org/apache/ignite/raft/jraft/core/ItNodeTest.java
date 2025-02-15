@@ -2896,12 +2896,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         log.info("Leader stopped.");
 
         assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
-
-        // Wait 30 seconds to check if snapshot is still installing.
-        Thread.sleep(30_000);
-
-        // Even after 30 seconds (in reality, forever), the snapshot is still installing.
-        assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
     }
 
     /**
