@@ -678,10 +678,11 @@ public class InternalTableImpl implements InternalTable {
                 if (!transactionInflights.addInflight(tx.id(), false)) {
                     return failedFuture(
                             new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                                    "Transaction is already finished [tableName={}, partId={}, txState={}].",
+                                    "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
-                                    tx.state()
+                                    tx.state(),
+                                    tx.isTimeoutExceeded()
                             )));
                 }
 
@@ -2329,9 +2330,10 @@ public class InternalTableImpl implements InternalTable {
     private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                    "Transaction is already finished () [txId={}, readOnly={}].",
+                    "Transaction is already finished () [txId={}, readOnly={}, timeoutExceeded={}].",
                     transaction.id(),
-                    transaction.isReadOnly()
+                    transaction.isReadOnly(),
+                    transaction.isTimeoutExceeded()
             ));
         }
     }

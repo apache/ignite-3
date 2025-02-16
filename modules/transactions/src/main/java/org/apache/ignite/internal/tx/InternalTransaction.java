@@ -147,4 +147,8 @@ public interface InternalTransaction extends Transaction {
     default CompletableFuture<Void> rollbackTimeoutExceededAsync() {
         return rollbackAsync();
     }
+
+    default boolean isTimeoutExceeded() {
+        return false;
+    }
 }

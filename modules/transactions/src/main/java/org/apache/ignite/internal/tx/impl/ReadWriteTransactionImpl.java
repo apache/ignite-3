@@ -159,7 +159,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, null, false, true),
+                finish(false, null, false, true)
+                        .thenAccept(unused -> timeoutExceeded = true),
                 TX_ROLLBACK_ERR
         );
     }
@@ -213,6 +214,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     if (isComplete) {
                         finishFuture = nullCompletedFuture();
+                        this.timeoutExceeded = timeoutExceeded;
                     } else {
                         killed = true;
                     }
@@ -228,6 +230,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     if (isComplete) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+                        this.timeoutExceeded = timeoutExceeded;
                     } else {
                         killed = true;
                     }

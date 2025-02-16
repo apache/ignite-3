@@ -116,7 +116,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
             doPutOn(table, rwTx);
             return false;
         } catch (TransactionException ex) {
-            if (ex.getMessage().contains("timeout exceeded")) {
+            if (ex.getMessage().contains("timeoutExceeded=true")) {
                 return true;
             } else {
                 fail("Expected TX_TIMEOUT_EXCEEDED error code, but got: " + ex.code());

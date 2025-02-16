@@ -155,4 +155,9 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     public CompletableFuture<Void> kill() {
         return transaction.kill();
     }
+
+    @Override
+    public boolean isTimeoutExceeded() {
+        return transaction.isTimeoutExceeded();
+    }
 }
