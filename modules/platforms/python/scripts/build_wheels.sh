@@ -17,31 +17,35 @@
 set -e -u -x
 
 PACKAGE_NAME="pyignite_dbapi"
-PY_VERS="cp39 cp310 cp311 cp312 cp313"
+PY_VERS=$1
+
+# Converting input from '3.9,3.10...' to '39 310...'
+PREPARED_VERS=$(echo $PY_VERS | sed -r 's/\.//g' | tr ',' ' ')
+
 
 function repair_wheel {
     wheel="$1"
     if ! auditwheel show "$wheel"; then
         echo "Skipping non-platform wheel $wheel"
     else
-        auditwheel repair "$wheel" --plat "$PLAT" -w /wheels
+        auditwheel repair "$wheel" --plat "$PLAT" -w /dist
     fi
 }
 
-for PY_VER in $PY_VERS; do
+for PY_VER in $PREPARED_VERS; do
     for PYBIN in /opt/python/*/bin; do
-        if [[ $PYBIN =~ ^(.*)$PY_VER/(.*)$ ]]; then
+        if [[ $PYBIN =~ ^(.*)cp$PY_VER/(.*)$ ]]; then
             echo -e "\e[32m >>> \e[0m"
             echo -e "\e[32m >>> Preparing a wheel for Python $PY_VER ($PYBIN) \e[0m"
             echo -e "\e[32m >>> \e[0m"
 
             # Compile wheels
-            "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /wheels
+            "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /dist
 
             # Bundle external shared libraries into the wheels
-            for whl in /wheels/*.whl; do
-                if [[ $whl =~ ^(.*)$PY_VER-(.*)$ ]] && [[ ! $whl =~ ^(.*)manylinux(.*)$ ]]; then
-                    "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /wheels
+            for whl in /dist/*.whl; do
+                if [[ $whl =~ ^(.*)cp$PY_VER-(.*)$ ]] && [[ ! $whl =~ ^(.*)manylinux(.*)$ ]]; then
+                    "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /dist
                     repair_wheel "$whl"
                 fi
             done
@@ -49,13 +53,13 @@ for PY_VER in $PY_VERS; do
     done
 done
 
-for whl in /wheels/*.whl; do
+for whl in /dist/*.whl; do
     if [[ ! $whl =~ ^(.*)manylinux(.*)$ ]]; then
         rm "$whl"
     fi
 done
 
-chown -R `stat -c "%u:%g" /wheels` /wheels/*
+chown -R `stat -c "%u:%g" /$PACKAGE_NAME` /$PACKAGE_NAME
 
 rm -rf /$PACKAGE_NAME/*.egg-info
 rm -rf /$PACKAGE_NAME/.eggs
