@@ -86,7 +86,7 @@ public class DistributionZoneRebalanceEngine {
     // TODO: after switching to zone-based replication
     private final DistributionZoneRebalanceEngineV2 distributionZoneRebalanceEngineV2;
 
-    /* Feature flag for zone based collocation track */
+    /* Feature flag for zone based colocation track */
     // TODO IGNITE-22115 remove it
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 

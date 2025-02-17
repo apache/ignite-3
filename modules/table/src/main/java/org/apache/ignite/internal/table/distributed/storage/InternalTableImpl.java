@@ -163,7 +163,7 @@ public class InternalTableImpl implements InternalTable {
 
     public static final int DEFAULT_RW_TIMEOUT = 10_000;
 
-    /* Feature flag for zone based collocation track */
+    /* Feature flag for zone based colocation track */
     // TODO IGNITE-22115 remove it
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 

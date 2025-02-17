@@ -164,7 +164,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  */
 public class PartitionReplicaLifecycleManager extends
         AbstractEventProducer<LocalPartitionReplicaEvent, LocalPartitionReplicaEventParameters> implements IgniteComponent {
-    /* Feature flag for zone based collocation track */
+    /* Feature flag for zone based colocation track */
     // TODO IGNITE-22115 remove it
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 

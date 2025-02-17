@@ -163,6 +163,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.PublicApiThreadingIgniteTransactions;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -238,6 +239,9 @@ public class Node {
     public final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
+    /** Cleanup manager for tx resources. */
+    private final ResourceVacuumManager resourceVacuumManager;
 
     /** The future have to be complete after the node start and all Meta storage watches are deployd. */
     private CompletableFuture<Void> deployWatchesFut;
@@ -651,6 +655,16 @@ public class Node {
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                 .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
+        resourceVacuumManager = new ResourceVacuumManager(
+                name,
+                resourcesRegistry,
+                clusterService.topologyService(),
+                clusterService.messagingService(),
+                transactionInflights,
+                txManager,
+                lowWatermark
+        );
+
         tableManager = new TableManager(
                 name,
                 registry,
@@ -767,7 +781,8 @@ public class Node {
                 outgoingSnapshotsManager,
                 partitionReplicaLifecycleManager,
                 tableManager,
-                indexManager
+                indexManager,
+                resourceVacuumManager
         )).thenComposeAsync(componentFuts -> {
             CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                     .thenCompose(rev -> allOf(
@@ -851,5 +866,9 @@ public class Node {
 
     public DataStorageManager dataStorageManager() {
         return dataStorageMgr;
+    }
+
+    public TxManager txManager() {
+        return txManager;
     }
 }

@@ -265,7 +265,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Table messages factory. */
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
 
-    /* Feature flag for zone based collocation track */
+    /* Feature flag for zone based colocation track */
     // TODO IGNITE-22115 remove it
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 

@@ -286,7 +286,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(ConfigurationExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class PartitionReplicaListenerTest extends IgniteAbstractTest {
-    /* Feature flag for zone based collocation track */
+    /* Feature flag for zone based colocation track */
     // TODO IGNITE-22115 remove it
     private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 

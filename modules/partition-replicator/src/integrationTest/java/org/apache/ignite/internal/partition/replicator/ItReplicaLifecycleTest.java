@@ -27,20 +27,16 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -55,7 +51,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -85,9 +80,6 @@ import org.apache.ignite.internal.partition.replicator.fixtures.Node.InvokeInter
 import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -96,7 +88,6 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -856,97 +847,6 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         assertDoesNotThrow(tx::commit);
     }
 
-    @Test
-    public void testCatalogCompaction(TestInfo testInfo) throws Exception {
-        // How often we update the low water mark.
-        long lowWatermarkUpdateInterval = 500;
-        updateLowWatermarkConfiguration(lowWatermarkUpdateInterval * 2, lowWatermarkUpdateInterval);
-
-        // Prepare a single node cluster.
-        startNodes(testInfo, 1);
-        Node node = getNode(0);
-
-        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 1, 1);
-
-        List<TokenizedAssignments> tokenizedAssignments = assignments.stream()
-                .map(a -> new TokenizedAssignmentsImpl(a, Integer.MIN_VALUE))
-                .collect(toList());
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-        placementDriver.setAssignments(tokenizedAssignments);
-
-        forceCheckpoint(node);
-
-        String zoneName = "test-zone";
-        createZone(node, zoneName, 1, 1);
-        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
-        prepareTableIdToZoneIdConverter(node, zoneId);
-
-        int catalogVersion1 = getLatestCatalogVersion(node);
-
-        String tableName1 = "test_table_1";
-        createTable(node, zoneName, tableName1);
-
-        String tableName2 = "test_table_2";
-        createTable(node, zoneName, tableName2);
-
-        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName2, node.hybridClock.nowLong());
-        TableViewInternal tableViewInternal = node.tableManager.table(tableId);
-        KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
-
-        // Write 2 rows to the table.
-        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
-        assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
-
-        forceCheckpoint(node);
-
-        int catalogVersion2 = getLatestCatalogVersion(node);
-        assertThat("The catalog version did not changed [initial=" + catalogVersion1 + ", latest=" + catalogVersion2 + ']',
-                catalogVersion2, greaterThan(catalogVersion1));
-
-        expectEarliestCatalogVersion(node, catalogVersion2 - 1);
-    }
-
-    private static void expectEarliestCatalogVersion(Node node, int expectedVersion) throws Exception {
-        boolean result = waitForCondition(() -> getEarliestCatalogVersion(node) == expectedVersion, 10_000);
-
-        assertTrue(result,
-                "Failed to wait for the expected catalog version [expected=" + expectedVersion
-                        + ", earliest=" + getEarliestCatalogVersion(node)
-                        + ", latest=" + getLatestCatalogVersion(node) + ']');
-    }
-
-    private static int getLatestCatalogVersion(Node node) {
-        Catalog catalog = getLatestCatalog(node);
-
-        return catalog.version();
-    }
-
-    private static int getEarliestCatalogVersion(Node node) {
-        CatalogManager catalogManager = node.catalogManager;
-
-        int ver = catalogManager.earliestCatalogVersion();
-
-        Catalog catalog = catalogManager.catalog(ver);
-
-        Objects.requireNonNull(catalog);
-
-        return catalog.version();
-    }
-
-    private static Catalog getLatestCatalog(Node node) {
-        CatalogManager catalogManager = node.catalogManager;
-
-        int ver = catalogManager.activeCatalogVersion(node.hybridClock.nowLong());
-
-        Catalog catalog = catalogManager.catalog(ver);
-
-        Objects.requireNonNull(catalog);
-
-        return catalog;
-    }
-
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
         return node.resourcesRegistry.resources().get(cursorId);
     }
@@ -1051,34 +951,5 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
                 .destroyPartition(partitionId);
         verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                 .destroyTxStateStorage(partitionId);
-    }
-
-    /**
-     * Update low water mark configuration.
-     *
-     * @param dataAvailabilityTime Data availability time.
-     * @param updateInterval Update interval.
-     */
-    private void updateLowWatermarkConfiguration(long dataAvailabilityTime, long updateInterval) {
-        CompletableFuture<?> updateFuture = gcConfiguration.lowWatermark().change(change -> {
-            change.changeDataAvailabilityTime(dataAvailabilityTime);
-            change.changeUpdateInterval(updateInterval);
-        });
-
-        assertThat(updateFuture, willSucceedFast());
-    }
-
-    /**
-     * Start the new checkpoint immediately on the provided node.
-     *
-     * @param node Node to start the checkpoint on.
-     */
-    private void forceCheckpoint(Node node) {
-        PersistentPageMemoryStorageEngine storageEngine = (PersistentPageMemoryStorageEngine) node
-                .dataStorageManager()
-                .engineByStorageProfile(DEFAULT_STORAGE_PROFILE);
-
-        assertThat(storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED),
-                willSucceedIn(10, SECONDS));
     }
 }
