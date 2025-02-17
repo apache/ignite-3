@@ -27,16 +27,21 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -46,6 +51,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKe
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -53,6 +59,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -60,6 +67,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
+    private static final int ZONE_ID = 0;
+
     private static final BinaryRow ROW_1 = new BinaryRowImpl(0, ByteBuffer.wrap(new byte[]{1}));
     private static final BinaryRow ROW_2 = new BinaryRowImpl(0, ByteBuffer.wrap(new byte[]{2}));
 
@@ -73,6 +82,8 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
     @Mock
     private PartitionMvStorageAccess partitionAccess2;
+
+    private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId = new Int2ObjectOpenHashMap<>();
 
     @Mock
     private CatalogService catalogService;
@@ -93,17 +104,25 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     private final UUID transactionId = UUID.randomUUID();
     private final int commitTableId = 999;
 
-    private final PartitionKey partitionKey = new ZonePartitionKey(0, PARTITION_ID);
+    private final PartitionKey partitionKey = new ZonePartitionKey(ZONE_ID, PARTITION_ID);
 
     @BeforeEach
-    void createTestInstance() {
-        lenient().when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
+    void createTestInstance(
+            @Mock Catalog catalog,
+            @Mock CatalogTableDescriptor tableDescriptor,
+            @Mock RaftGroupConfiguration raftGroupConfiguration
+    ) {
+        when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
         lenient().when(partitionAccess1.partitionId()).thenReturn(PARTITION_ID);
+        when(partitionAccess1.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
 
-        lenient().when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
+        when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
         lenient().when(partitionAccess2.partitionId()).thenReturn(PARTITION_ID);
+        lenient().when(partitionAccess2.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
 
-        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionMvStorageAccess>();
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        when(catalog.table(anyInt())).thenReturn(tableDescriptor);
+        when(tableDescriptor.zoneId()).thenReturn(ZONE_ID);
 
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
@@ -115,6 +134,14 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 mock(PartitionTxStateAccess.class),
                 catalogService
         );
+
+        snapshot.acquireMvLock();
+
+        try {
+            snapshot.freezeScopeUnderMvLock();
+        } finally {
+            snapshot.releaseMvLock();
+        }
     }
 
     @BeforeEach
@@ -126,6 +153,31 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         }
 
         rowIdOutOfOrder = id;
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24517")
+    @Test
+    void sendsEmptyResponseForEmptyMvData() {
+        snapshot = new OutgoingSnapshot(
+                UUID.randomUUID(),
+                partitionKey,
+                Int2ObjectMaps.emptyMap(),
+                mock(PartitionTxStateAccess.class),
+                catalogService
+        );
+
+        snapshot.acquireMvLock();
+
+        try {
+            snapshot.freezeScopeUnderMvLock();
+        } finally {
+            snapshot.releaseMvLock();
+        }
+
+        SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
+
+        assertThat(response.rows(), is(emptyList()));
+        assertThat(response.finish(), is(true));
     }
 
     @Test
@@ -617,5 +669,46 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.close();
 
         assertThat(getNullableMvDataResponse(Long.MAX_VALUE), is(nullValue()));
+    }
+
+    @Test
+    void doesNotReturnRowsFromNewTables(
+            @Mock PartitionMvStorageAccess partitionAccess3,
+            @Mock PartitionMvStorageAccess partitionAccess4
+    ) {
+        partitionsByTableId.put(Integer.MIN_VALUE, partitionAccess3);
+        partitionsByTableId.put(Integer.MAX_VALUE, partitionAccess4);
+
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, ROW_1, clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, ROW_2, clock.now());
+
+        for (PartitionMvStorageAccess partitionAccess : List.of(partitionAccess1, partitionAccess2, partitionAccess3, partitionAccess4)) {
+            lenient().when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
+            lenient().when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
+            lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
+            lenient().when(partitionAccess.getAllRowVersions(rowId2)).thenReturn(List.of(version1));
+        }
+
+        snapshot.acquireMvLock();
+
+        try {
+            assertThat(snapshot.alreadyPassed(Integer.MIN_VALUE, rowId1), is(true));
+            assertThat(snapshot.alreadyPassed(Integer.MAX_VALUE, rowId1), is(true));
+        } finally {
+            snapshot.releaseMvLock();
+        }
+
+        SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
+
+        assertThat(response.rows(), hasSize(4));
+
+        snapshot.acquireMvLock();
+
+        try {
+            assertThat(snapshot.alreadyPassed(Integer.MIN_VALUE, rowId1), is(true));
+            assertThat(snapshot.alreadyPassed(Integer.MAX_VALUE, rowId1), is(true));
+        } finally {
+            snapshot.releaseMvLock();
+        }
     }
 }
