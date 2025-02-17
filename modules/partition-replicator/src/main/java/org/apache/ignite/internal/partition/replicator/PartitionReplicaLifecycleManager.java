@@ -67,7 +67,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -112,9 +111,10 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
-import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -140,8 +140,6 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -228,27 +226,6 @@ public class PartitionReplicaLifecycleManager extends
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
-    private final ConcurrentMap<ZonePartitionId, Listeners> listenersByZonePartitionId = new ConcurrentHashMap<>();
-
-    /** Holder class for Replica and Raft listeners. */
-    private static class Listeners {
-        /**
-         * Future that completes when the zone-wide replica listener is created.
-         *
-         * <p>This is needed, because on recovery tables are started before zone replicas and we need to postpone registering table-wide
-         * replica listeners until the zone replica is started.
-         *
-         * <p>During normal operations this future will be complete and table-wide listener registration will happen immediately.
-         */
-        final CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture = new CompletableFuture<>();
-
-        final ZonePartitionRaftListener raftListener;
-
-        Listeners(ZonePartitionRaftListener raftListener) {
-            this.raftListener = raftListener;
-        }
-    }
-
     private final ZoneResourcesManager zoneResourcesManager;
 
     /**
@@ -286,7 +263,8 @@ public class PartitionReplicaLifecycleManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxStateRocksDbSharedStorage sharedTxStateStorage,
             TxManager txManager,
-            SchemaManager schemaManager
+            SchemaManager schemaManager,
+            OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         this(
                 catalogService,
@@ -304,7 +282,14 @@ public class PartitionReplicaLifecycleManager extends
                 systemDistributedConfiguration,
                 txManager,
                 schemaManager,
-                new ZoneResourcesManager(sharedTxStateStorage)
+                new ZoneResourcesManager(
+                        sharedTxStateStorage,
+                        txManager,
+                        outgoingSnapshotsManager,
+                        topologyService,
+                        catalogService,
+                        partitionOperationsExecutor
+                )
         );
     }
 
@@ -562,7 +547,6 @@ public class PartitionReplicaLifecycleManager extends
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 We need to integrate PartitionReplicatorNodeRecovery logic here when
         //  we in the recovery phase.
-
         Assignments forcedAssignments = stableAssignments.force() ? stableAssignments : null;
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
@@ -577,29 +561,10 @@ public class PartitionReplicaLifecycleManager extends
                 rebalanceRetryDelayConfiguration
         );
 
-        var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
-        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
-
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision);
 
-            TxStatePartitionStorage txStatePartitionStorage = zoneResourcesManager.getOrCreatePartitionTxStateStorage(
-                    zonePartitionId.zoneId(),
-                    partitionCount,
-                    zonePartitionId.partitionId()
-            );
-
-            var raftGroupListener = new ZonePartitionRaftListener(
-                    txStatePartitionStorage,
-                    txManager,
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    zonePartitionId
-            );
-
-            var listeners = new Listeners(raftGroupListener);
-
-            listenersByZonePartitionId.put(zonePartitionId, listeners);
+            ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(zonePartitionId, partitionCount);
 
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
@@ -608,7 +573,7 @@ public class PartitionReplicaLifecycleManager extends
                                     zonePartitionId,
                                     raftClient -> {
                                         var replicaListener = new ZonePartitionReplicaListener(
-                                                txStatePartitionStorage,
+                                                zoneResources.txStatePartitionStorage(),
                                                 clockService,
                                                 txManager,
                                                 new CatalogValidationSchemasSource(catalogService, schemaManager),
@@ -618,13 +583,13 @@ public class PartitionReplicaLifecycleManager extends
                                                 zonePartitionId
                                         );
 
-                                        listeners.replicaListenerFuture.complete(replicaListener);
+                                        zoneResources.replicaListenerFuture().complete(replicaListener);
 
                                         return replicaListener;
                                     },
-                                    new FailFastSnapshotStorageFactory(),
+                                    zoneResources.snapshotStorageFactory(),
                                     stablePeersAndLearners,
-                                    raftGroupListener,
+                                    zoneResources.raftListener(),
                                     raftGroupEventsListener,
                                     // TODO: IGNITE-24371 - pass real isVolatile flag
                                     false,
@@ -641,7 +606,7 @@ public class PartitionReplicaLifecycleManager extends
                     }))
                     .whenComplete((v, e) -> {
                         if (e != null) {
-                            listenersByZonePartitionId.remove(zonePartitionId);
+                            zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
                         }
                     });
         };
@@ -1362,7 +1327,7 @@ public class PartitionReplicaLifecycleManager extends
                         return nullCompletedFuture();
                     }
 
-                    zoneResourcesManager.destroyZonePartitionResources(zonePartitionId.zoneId(), zonePartitionId.partitionId());
+                    zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
 
                     return fireEvent(
                             LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
@@ -1385,7 +1350,6 @@ public class PartitionReplicaLifecycleManager extends
                 return replicaMgr.stopReplica(zonePartitionId)
                         .thenApply((replicaWasStopped) -> {
                             if (replicaWasStopped) {
-                                listenersByZonePartitionId.remove(zonePartitionId);
                                 replicationGroupIds.remove(zonePartitionId);
                             }
 
@@ -1447,20 +1411,23 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             TablePartitionId tablePartitionId,
             Function<RaftCommandRunner, ReplicaListener> tablePartitionReplicaListenerFactory,
-            RaftTableProcessor raftTableProcessor
+            RaftTableProcessor raftTableProcessor,
+            PartitionMvStorageAccess partitionMvStorageAccess
     ) {
-        Listeners listeners = listenersByZonePartitionId.get(zonePartitionId);
+        ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
 
         // Register an intent to register a table-wide replica listener. On recovery this method is called before the replica is started,
         // so the listeners will be registered by the thread completing the "replicaListenerFuture". On normal operation (where there is
         // a HB relationship between zone and table creation) zone-wide replica must already be started, this future will always be
         // completed and the listeners will be registered immediately.
-        listeners.replicaListenerFuture.thenAccept(zoneReplicaListener -> zoneReplicaListener.addTableReplicaListener(
+        resources.replicaListenerFuture().thenAccept(zoneReplicaListener -> zoneReplicaListener.addTableReplicaListener(
                 tablePartitionId,
                 tablePartitionReplicaListenerFactory
         ));
 
-        listeners.raftListener.addTableProcessor(tablePartitionId, raftTableProcessor);
+        resources.raftListener().addTableProcessor(tablePartitionId, raftTableProcessor);
+
+        resources.snapshotStorageFactory().addMvPartition(tablePartitionId.tableId(), partitionMvStorageAccess);
     }
 
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {

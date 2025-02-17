@@ -1027,7 +1027,8 @@ public class IgniteImpl implements Ignite {
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
                 txManager,
-                schemaManager
+                schemaManager,
+                outgoingSnapshotsManager
         );
 
         systemViewManager.register(txManager);

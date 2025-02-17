@@ -20,21 +20,26 @@ package org.apache.ignite.internal.cli.ssl;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.NodeConfig;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for SSL connection with JDBC URL. */
-public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
+public class ItJdbcSslTest extends CliIntegrationTest {
+    @Override
+    protected String getNodeBootstrapConfigTemplate() {
+        return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
+    }
 
-    @BeforeEach
-    public void createTable() {
+    @BeforeAll
+    public static void createTable() {
         createAndPopulateTable();
     }
 
-    @AfterEach
-    public void dropTables() {
+    @AfterAll
+    public static void dropTables() {
         dropAllTables();
     }
 
@@ -81,8 +86,9 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Handshake error")
+                () -> assertErrOutputIs("Could not connect to node. Check SSL configuration" + System.lineSeparator()
+                        + "PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: "
+                        + "unable to find valid certification path to requested target" + System.lineSeparator())
         );
     }
 

@@ -25,7 +25,7 @@ import org.apache.ignite.internal.storage.engine.PrimitivePartitionMeta;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Partition metadata for {@link PartitionAccess}.
+ * Partition metadata for {@link PartitionMvStorageAccess}.
  */
 public class RaftSnapshotPartitionMeta extends PrimitivePartitionMeta {
     private final RaftGroupConfiguration raftGroupConfig;
