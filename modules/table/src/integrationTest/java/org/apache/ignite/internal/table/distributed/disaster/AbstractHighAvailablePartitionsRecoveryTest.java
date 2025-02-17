@@ -135,8 +135,12 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     static void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {
+        assertRecoveryRequestCount(node, 1);
+    }
+
+    static void assertRecoveryRequestCount(IgniteImpl node, int count) {
         assertEquals(
-                1,
+                count,
                 node
                         .metaStorageManager()
                         .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE).size()
@@ -361,13 +365,13 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         Arrays.stream(nodes).forEach(this::stopNode);
     }
 
-    static void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeout) {
+    static void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeoutSeconds) {
         CompletableFuture<Void> changeFuture = gatewayNode
                 .clusterConfiguration()
                 .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
                 .system().change(c0 -> c0.changeProperties()
                         .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
-                                c1 -> c1.changePropertyValue(String.valueOf(timeout)))
+                                c1 -> c1.changePropertyValue(String.valueOf(timeoutSeconds)))
                 );
 
         assertThat(changeFuture, willCompleteSuccessfully());
@@ -517,18 +521,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
         return ExceptionUtils.extractCodeFrom(cause) == Replicator.REPLICA_MISS_ERR;
-    }
-
-    void setDistributionResetTimeout(IgniteImpl node, long timeout) {
-        CompletableFuture<Void> changeFuture = node
-                .clusterConfiguration()
-                .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
-                .system().change(c0 -> c0.changeProperties()
-                        .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
-                                c1 -> c1.changePropertyValue(String.valueOf(timeout)))
-                );
-
-        assertThat(changeFuture, willCompleteSuccessfully());
     }
 
     void triggerManualReset(IgniteImpl node) {

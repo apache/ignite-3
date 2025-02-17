@@ -356,7 +356,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         IgniteImpl node = igniteImpl(0);
 
-        setDistributionResetTimeout(node, TimeUnit.MINUTES.toMillis(5));
+        changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, euNodes);
 
@@ -375,7 +375,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         alterZoneSql(globalFilter, HA_ZONE_NAME);
 
-        setDistributionResetTimeout(node, 0);
+        changePartitionDistributionTimeout(node, 0);
 
         Set<String> usNodes = nodeNames(3, 4, 5);
 
@@ -412,7 +412,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         IgniteImpl node = igniteImpl(0);
 
-        setDistributionResetTimeout(node, TimeUnit.MINUTES.toMillis(5));
+        changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodesWithAiProfile);
 
@@ -429,7 +429,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         alterZoneStorageProfiles(node, HA_ZONE_NAME, "lru_rocks");
 
-        setDistributionResetTimeout(node, 0);
+        changePartitionDistributionTimeout(node, 0);
 
         Set<String> usNodes = nodeNames(3, 4, 5);
 

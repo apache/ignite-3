@@ -47,6 +47,7 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.table.Table;
@@ -380,8 +381,8 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
      *   <li>Stop a majority of nodes (4 nodes A, B, C, D)</li>
      *   <li>Manually execute partition reset before 'partitionDistributionResetTimeout' expires</li>
      *   <li>Wait for the partition to become available (E, F, G), no new writes</li>
-     *   <li>Set 'partitionDistributionResetTimeout' to 0 to trigger automatic reset</li>
-     *   <li>Verify there is no second reset</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 1 sec to trigger automatic reset</li>
+     *   <li>Verify the second (automatic) reset triggered</li>
      *   <li>No data should be lost</li>
      * </ol>
      */
@@ -400,7 +401,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         List<Throwable> errors = insertValues(table, 0);
         assertThat(errors, is(empty()));
 
-        setDistributionResetTimeout(node, TimeUnit.MINUTES.toMillis(5));
+        changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
 
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
@@ -416,19 +417,24 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
 
-        setDistributionResetTimeout(node, TimeUnit.SECONDS.toMillis(0));
+        // This entry comes from the manual reset.
+        Entry manualResetTrigger = getRecoveryTriggerKey(node);
+        assertFalse(manualResetTrigger.empty());
 
-        // We expect automatic reset to be triggered.
-        assertFalse(
-                node
-                        .distributionZoneManager()
-                        .zonesState()
-                        .get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
-                        .partitionDistributionResetTask()
-                        .isDone()
-        );
+        long manualResetRev = manualResetTrigger.revision();
 
-        waitAndAssertRecoveryKeyIsNotEmpty(node);
+        changePartitionDistributionTimeout(node, 1);
+
+        assertTrue(waitForCondition(() -> {
+                    Entry recoveryTrigger = getRecoveryTriggerKey(node);
+
+                    return !recoveryTrigger.empty() && recoveryTrigger.revision() > manualResetRev;
+                },
+                5_000
+        ));
+
+        assertRecoveryRequestForHaZoneTable(node);
+        assertRecoveryRequestCount(node, 2);
 
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
     }
