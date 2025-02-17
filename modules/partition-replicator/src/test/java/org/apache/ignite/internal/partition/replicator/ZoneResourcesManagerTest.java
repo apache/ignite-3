@@ -25,19 +25,21 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
-import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,30 +49,32 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
-class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
+class ZoneResourcesManagerTest extends IgniteAbstractTest {
     private TxStateRocksDbSharedStorage sharedStorage;
-
-    @Mock
-    private LogSyncer logSyncer;
 
     private ZoneResourcesManager manager;
 
-    @WorkDirectory
-    private Path workDir;
-
-    @InjectExecutorService
-    private ScheduledExecutorService scheduler;
-
-    @InjectExecutorService
-    private ExecutorService executor;
-
     @BeforeEach
-    void init() {
+    void init(
+            @Mock LogSyncer logSyncer,
+            @Mock TxManager txManager,
+            @Mock OutgoingSnapshotsManager outgoingSnapshotsManager,
+            @Mock TopologyService topologyService,
+            @Mock CatalogService catalogService,
+            @InjectExecutorService ScheduledExecutorService scheduler,
+            @InjectExecutorService ExecutorService executor
+    ) {
         sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduler, executor, logSyncer, () -> 0);
 
-        manager = new ZoneResourcesManager(sharedStorage);
+        manager = new ZoneResourcesManager(
+                sharedStorage,
+                txManager,
+                outgoingSnapshotsManager,
+                topologyService,
+                catalogService,
+                executor
+        );
 
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
@@ -83,17 +87,20 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void createsTxStatePartitionStorage() {
-        TxStatePartitionStorage txStatePartitionStorage = getOrCreatePartitionTxStateStorage(1, 10, 1);
+    void allocatesResources() {
+        ZonePartitionResources resources = allocatePartitionResources(new ZonePartitionId(1, 1), 10);
 
-        assertThat(txStatePartitionStorage, is(notNullValue()));
+        assertThat(resources.txStatePartitionStorage(), is(notNullValue()));
+        assertThat(resources.raftListener(), is(notNullValue()));
+        assertThat(resources.snapshotStorageFactory(), is(notNullValue()));
+        assertThat(resources.replicaListenerFuture().isDone(), is(false));
     }
 
     @Test
     void closesResourcesOnShutdown() {
-        TxStatePartitionStorage zone1storage1 = getOrCreatePartitionTxStateStorage(1, 10, 1);
-        TxStatePartitionStorage zone1storage5 = getOrCreatePartitionTxStateStorage(1, 10, 5);
-        TxStatePartitionStorage zone2storage3 = getOrCreatePartitionTxStateStorage(2, 10, 3);
+        ZonePartitionResources zone1storage1 = allocatePartitionResources(new ZonePartitionId(1, 1), 10);
+        ZonePartitionResources zone1storage5 = allocatePartitionResources(new ZonePartitionId(1, 5), 10);
+        ZonePartitionResources zone2storage3 = allocatePartitionResources(new ZonePartitionId(2, 3), 10);
 
         manager.close();
 
@@ -106,28 +113,28 @@ class ZoneResourcesManagerTest extends BaseIgniteAbstractTest {
     void removesTxStatePartitionStorageOnDestroy() {
         int zoneId = 1;
 
-        getOrCreatePartitionTxStateStorage(zoneId, 10, 1);
-        getOrCreatePartitionTxStateStorage(zoneId, 10, 2);
+        allocatePartitionResources(new ZonePartitionId(zoneId, 1), 10);
+        allocatePartitionResources(new ZonePartitionId(zoneId, 2), 10);
 
         assertThat(manager.txStatePartitionStorage(zoneId, 1), is(notNullValue()));
         assertThat(manager.txStatePartitionStorage(zoneId, 2), is(notNullValue()));
 
-        bypassingThreadAssertions(() -> manager.destroyZonePartitionResources(zoneId, 1));
+        bypassingThreadAssertions(() -> manager.destroyZonePartitionResources(new ZonePartitionId(zoneId, 1)));
 
         assertThat(manager.txStatePartitionStorage(zoneId, 1), is(nullValue()));
         assertThat(manager.txStatePartitionStorage(zoneId, 2), is(notNullValue()));
     }
 
     @SuppressWarnings("ThrowableNotThrown")
-    private static void assertThatStorageIsStopped(TxStatePartitionStorage storage) {
+    private static void assertThatStorageIsStopped(ZonePartitionResources resources) {
         assertThrows(
                 IgniteInternalException.class,
-                () -> bypassingThreadAssertions(() -> storage.get(UUID.randomUUID())),
+                () -> bypassingThreadAssertions(() -> resources.txStatePartitionStorage().get(UUID.randomUUID())),
                 "Transaction state storage is stopped"
         );
     }
 
-    private TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionCount, int partitionId) {
-        return bypassingThreadAssertions(() -> manager.getOrCreatePartitionTxStateStorage(zoneId, partitionCount, partitionId));
+    private ZonePartitionResources allocatePartitionResources(ZonePartitionId zonePartitionId, int partitionCount) {
+        return bypassingThreadAssertions(() -> manager.allocateZonePartitionResources(zonePartitionId, partitionCount));
     }
 }

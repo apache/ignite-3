@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.table.Table;
@@ -372,6 +374,73 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), node.tables().table(HA_TABLE_NAME), 0, 1, 2, 3, 4);
+    }
+
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode (7 nodes, A, B, C, D, E, F, G)</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 5 minutes</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (4 nodes A, B, C, D)</li>
+     *   <li>Manually execute partition reset before 'partitionDistributionResetTimeout' expires</li>
+     *   <li>Wait for the partition to become available (E, F, G), no new writes</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 1 sec to trigger automatic reset</li>
+     *   <li>Verify the second (automatic) reset triggered</li>
+     *   <li>No data should be lost</li>
+     * </ol>
+     */
+    @Test
+    void testManualRecovery() throws InterruptedException {
+        startNode(3);
+        startNode(4);
+        startNode(5);
+        startNode(6);
+
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+
+        changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2, 3, 4, 5, 6);
+
+        stopNodes(3, 4, 5, 6);
+
+        triggerManualReset(node);
+
+        Set<String> threeNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+
+        // This entry comes from the manual reset.
+        Entry manualResetTrigger = getRecoveryTriggerKey(node);
+        assertFalse(manualResetTrigger.empty());
+
+        long manualResetRev = manualResetTrigger.revision();
+
+        changePartitionDistributionTimeout(node, 1);
+
+        assertTrue(waitForCondition(() -> {
+                    Entry recoveryTrigger = getRecoveryTriggerKey(node);
+
+                    return !recoveryTrigger.empty() && recoveryTrigger.revision() > manualResetRev;
+                },
+                5_000
+        ));
+
+        assertRecoveryRequestForHaZoneTable(node);
+        assertRecoveryRequestCount(node, 2);
+
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
     }
 
     @Test
