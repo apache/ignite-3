@@ -18,36 +18,29 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.util.Set;
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.tx.FinishingPartitionEnlistment;
 
 /**
- * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
- * or removes them (TxState.ABORTED).
+ * Message for {@link FinishingPartitionEnlistment}.
  */
-@Transferable(TxMessageGroup.WRITE_INTENT_SWITCH_REQUEST)
-public interface WriteIntentSwitchReplicaRequest extends ReplicaRequest, TimestampAware {
+@Transferable(TxMessageGroup.PARTITION_ENLISTMENT_MESSAGE)
+public interface PartitionEnlistmentMessage extends NetworkMessage {
     /**
-     * Returns transaction Id.
-     *
-     * @return Transaction id.
+     * Consistent ID of the primary node.
      */
-    UUID txId();
+    String primaryConsistentId();
 
     /**
-     * Returns {@code True} if a commit request.
-     *
-     * @return {@code True} to commit.
+     * IDs of tables for which the partition is enlisted.
      */
-    boolean commit();
-
-    /** Transaction commit timestamp. */
-    @Nullable HybridTimestamp commitTimestamp();
-
-    /** IDs of tables in which the partition in question had write intents. */
     Set<Integer> tableIds();
+
+    /**
+     * Converts this message to the corresponding {@link FinishingPartitionEnlistment}.
+     */
+    default FinishingPartitionEnlistment asPartition() {
+        return new FinishingPartitionEnlistment(primaryConsistentId(), tableIds());
+    }
 }

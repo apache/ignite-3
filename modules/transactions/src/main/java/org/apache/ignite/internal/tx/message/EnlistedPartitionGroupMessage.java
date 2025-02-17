@@ -18,36 +18,30 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.util.Set;
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 
 /**
- * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
- * or removes them (TxState.ABORTED).
+ * Message for {@link EnlistedPartitionGroup}.
  */
-@Transferable(TxMessageGroup.WRITE_INTENT_SWITCH_REQUEST)
-public interface WriteIntentSwitchReplicaRequest extends ReplicaRequest, TimestampAware {
+@Transferable(TxMessageGroup.ENLISTED_PARTITION_GROUP_MESSAGE)
+public interface EnlistedPartitionGroupMessage extends NetworkMessage {
     /**
-     * Returns transaction Id.
-     *
-     * @return Transaction id.
+     * Replication group ID of the partition.
      */
-    UUID txId();
+    ReplicationGroupIdMessage groupId();
 
     /**
-     * Returns {@code True} if a commit request.
-     *
-     * @return {@code True} to commit.
+     * IDs of tables for which the partition is enlisted.
      */
-    boolean commit();
-
-    /** Transaction commit timestamp. */
-    @Nullable HybridTimestamp commitTimestamp();
-
-    /** IDs of tables in which the partition in question had write intents. */
     Set<Integer> tableIds();
+
+    /**
+     * Converts this message to the corresponding {@link EnlistedPartitionGroup}.
+     */
+    default EnlistedPartitionGroup asPartitionInfo() {
+        return new EnlistedPartitionGroup(groupId().asReplicationGroupId(), tableIds());
+    }
 }

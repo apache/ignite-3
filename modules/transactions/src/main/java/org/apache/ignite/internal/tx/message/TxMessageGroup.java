@@ -108,4 +108,10 @@ public class TxMessageGroup {
 
     /** Message type for {@link CleanupReplicatedInfoMessage}. */
     public static final short CLEANUP_REPLICATED_INFO_MESSAGE = 18;
+
+    /** Message type for {@link PartitionEnlistmentMessage}. */
+    public static final short PARTITION_ENLISTMENT_MESSAGE = 19;
+
+    /** Message type for {@link EnlistedPartitionGroupMessage}. */
+    public static final short ENLISTED_PARTITION_GROUP_MESSAGE = 20;
 }

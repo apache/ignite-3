@@ -62,7 +62,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -107,6 +106,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -220,8 +220,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
                     boolean commitIntent,
-                    Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
-                    Set<Integer> enlistedTableIds,
+                    Map<ReplicationGroupId, MutablePartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();

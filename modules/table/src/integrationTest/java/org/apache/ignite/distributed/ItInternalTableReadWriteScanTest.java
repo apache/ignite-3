@@ -21,13 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -46,10 +46,10 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
             return internalTbl.scan(part, null);
         }
 
-        IgniteBiTuple<ClusterNode, Long> leaderWithConsistencyToken =
-                tx.enlistedNodeAndConsistencyToken(new TablePartitionId(internalTbl.tableId(), part));
+        MutablePartitionEnlistment enlistment =
+                tx.enlistedPartition(new TablePartitionId(internalTbl.tableId(), part));
 
-        PrimaryReplica recipient = new PrimaryReplica(leaderWithConsistencyToken.get1(), leaderWithConsistencyToken.get2());
+        PrimaryReplica recipient = new PrimaryReplica(enlistment.primaryNode(), enlistment.consistencyToken());
 
         return new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -82,7 +82,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
         ClusterNode primaryReplicaNode = getPrimaryReplica(tblPartId);
 
-        tx.enlist(tblPartId, internalTbl.tableId(), new IgniteBiTuple<>(primaryReplicaNode, term));
+        tx.enlist(tblPartId, internalTbl.tableId(), primaryReplicaNode, term);
 
         return tx;
     }

@@ -197,6 +197,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -725,9 +726,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                         // Tx recovery is executed on the commit partition.
                         replicationGroupId,
                         false,
-                        // Enlistment consistency token is not required for the rollback, so it is 0L.
-                        Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
-                        Set.of(replicationGroupId.tableId()),
+                        Map.of(
+                                replicationGroupId,
+                                // Enlistment consistency token is not required for the rollback, so it is 0L.
+                                new MutablePartitionEnlistment(clusterNodeResolver.getById(senderId), 0L, replicationGroupId.tableId())
+                        ),
                         txId
                 )
                 .whenComplete((v, ex) -> runCleanupOnNode(replicationGroupId, txId, senderId));
@@ -1709,6 +1712,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                     request.txId(),
                                                     request.commit(),
                                                     request.commitTimestamp(),
+                                                    request.tableIds(),
                                                     catalogVersion
                                             );
 
@@ -1764,22 +1768,31 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
+            Set<Integer> tableIds,
             int catalogVersion
     ) {
-        WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
-                .txId(transactionId)
-                .commit(commit)
-                .commitTimestamp(commitTimestamp)
-                .initiatorTime(clockService.now())
-                .requiredCatalogVersion(catalogVersion)
-                .build();
-
         storageUpdateHandler.switchWriteIntents(
                 transactionId,
                 commit,
                 commitTimestamp,
                 indexIdsAtRwTxBeginTsOrNull(transactionId)
         );
+
+        WriteIntentSwitchReplicatedInfo result = new WriteIntentSwitchReplicatedInfo(transactionId, replicationGroupId);
+
+        if (enabledColocationFeature) {
+            // We don't need to apply Raft command as zone replication listener will do it for us.
+            return completedFuture(result);
+        }
+
+        WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+                .txId(transactionId)
+                .commit(commit)
+                .commitTimestamp(commitTimestamp)
+                .initiatorTime(clockService.now())
+                .tableIds(tableIds)
+                .requiredCatalogVersion(catalogVersion)
+                .build();
 
         return applyCmdWithExceptionHandling(wiSwitchCmd)
                 .exceptionally(e -> {
@@ -1789,7 +1802,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return null;
                 })
-                .thenApply(res -> new WriteIntentSwitchReplicatedInfo(transactionId, replicationGroupId));
+                .thenApply(res -> result);
     }
 
     /**
