@@ -39,7 +39,7 @@ public class TestTupleBuilder implements Tuple {
     /** {@inheritDoc} */
     @Override
     public TestTupleBuilder set(String columnName, Object value) {
-        map.put(IgniteNameUtils.parseSimpleName(columnName), value);
+        map.put(IgniteNameUtils.parseIdentifier(columnName), value);
 
         return this;
     }
@@ -47,13 +47,13 @@ public class TestTupleBuilder implements Tuple {
     /** {@inheritDoc} */
     @Override
     public <T> T valueOrDefault(String columnName, T def) {
-        return (T) map.getOrDefault(IgniteNameUtils.parseSimpleName(columnName), def);
+        return (T) map.getOrDefault(IgniteNameUtils.parseIdentifier(columnName), def);
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T value(String columnName) {
-        return (T) map.get(IgniteNameUtils.parseSimpleName(columnName));
+        return (T) map.get(IgniteNameUtils.parseIdentifier(columnName));
     }
 
     /** {@inheritDoc} */

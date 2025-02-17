@@ -38,7 +38,7 @@ class ClientSqlProperties {
     private final @Nullable String timeZoneId;
 
     ClientSqlProperties(ClientMessageUnpacker in) {
-        schema = in.tryUnpackNil() ? null : IgniteNameUtils.parseSimpleName(in.unpackString());
+        schema = in.tryUnpackNil() ? null : IgniteNameUtils.parseIdentifier(in.unpackString());
         pageSize = in.tryUnpackNil() ? SqlCommon.DEFAULT_PAGE_SIZE : in.unpackInt();
         queryTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
         idleTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();

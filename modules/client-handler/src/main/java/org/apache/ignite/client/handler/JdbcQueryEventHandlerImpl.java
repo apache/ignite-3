@@ -196,7 +196,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 throw new AssertionError("Unexpected jdbc statement type: " + stmtType);
         }
 
-        String schemaNameInCanonicalForm = IgniteNameUtils.parseSimpleName(defaultSchemaName);
+        String schemaNameInCanonicalForm = IgniteNameUtils.parseIdentifier(defaultSchemaName);
 
         return SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)

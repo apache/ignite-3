@@ -422,7 +422,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         Catalog catalog = catalogService.catalog(latestVersion);
 
         assertThat(catalog, notNullValue());
-        assertThat(catalog.schema(IgniteNameUtils.parseSimpleName(name)), notNullValue());
+        assertThat(catalog.schema(IgniteNameUtils.parseIdentifier(name)), notNullValue());
     }
 
     private void assertTableExists(QualifiedName name) {

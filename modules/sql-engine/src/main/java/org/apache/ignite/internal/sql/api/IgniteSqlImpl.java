@@ -371,7 +371,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            String schemaName = IgniteNameUtils.parseSimpleName(statement.defaultSchema());
+            String schemaName = IgniteNameUtils.parseIdentifier(statement.defaultSchema());
 
             SqlProperties properties = toPropertiesBuilder(statement)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)

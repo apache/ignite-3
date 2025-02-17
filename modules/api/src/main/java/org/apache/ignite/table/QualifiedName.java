@@ -17,7 +17,7 @@
 
 package org.apache.ignite.table;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 
 import java.io.Serializable;
 import java.util.List;
@@ -115,8 +115,8 @@ public final class QualifiedName implements Serializable {
         verifyObjectIdentifier(objectName);
         verifySchemaIdentifier(schemaName);
 
-        String schemaIdentifier = parseSimpleName(schemaName);
-        String objectIdentifier = parseSimpleName(objectName);
+        String schemaIdentifier = parseIdentifier(schemaName);
+        String objectIdentifier = parseIdentifier(objectName);
 
         return new QualifiedName(schemaIdentifier, objectIdentifier);
     }

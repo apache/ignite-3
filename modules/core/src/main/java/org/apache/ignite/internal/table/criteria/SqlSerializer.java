@@ -235,7 +235,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
                     .append("SELECT");
 
             if (!nullOrBlank(indexName)) {
-                String normalizedIndexName = IgniteNameUtils.parseSimpleName(indexName);
+                String normalizedIndexName = IgniteNameUtils.parseIdentifier(indexName);
 
                 ser.append(" /*+ FORCE_INDEX(").append(quoteIfNeeded(normalizedIndexName)).append(") */");
             }

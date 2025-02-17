@@ -32,35 +32,35 @@ public final class IgniteNameUtils {
     }
 
     /**
-     * Parse simple name: unquote name or cast to upper case not-quoted name.
+     * Parses an SQL-compliant object identifier.
      *
-     * @param name String to parse object name.
-     * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
+     * @param identifier Object identifier.
+     * @return Unquoted identifier or identifier is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
      */
-    public static String parseSimpleName(String name) {
-        ensureNotNullAndNotEmpty(name, "name");
+    public static String parseIdentifier(String identifier) {
+        ensureNotNullAndNotEmpty(identifier, "name");
 
-        var tokenizer = new Tokenizer(name);
+        var tokenizer = new Tokenizer(identifier);
 
         String parsedName = tokenizer.nextToken();
 
         if (tokenizer.hasNext()) {
-            throw new IllegalArgumentException("Fully qualified name is not expected [name=" + name + "]");
+            throw new IllegalArgumentException("Fully qualified name is not expected [name=" + identifier + "]");
         }
 
         return parsedName;
     }
 
     /**
-     * Parses fully qualified name.
+     * Parses name in canonical form, that is, enclosing each part of the identifier chain in double quotes.
      *
-     * @param name Fully qualified name of the object in canonical form.
+     * @param name Full object name in canonical form.
      * @return List of identifiers, where each identifier within the full name chain will be either unquoted or converted to uppercase.
      */
     public static List<String> parseName(String name) {
         ensureNotNullAndNotEmpty(name, "name");
 
-        List<String> identifiers = new ArrayList<>();
+        List<String> identifiers = new ArrayList<>(2);
         Tokenizer tokenizer = new Tokenizer(name);
 
         do {
@@ -91,14 +91,16 @@ public final class IgniteNameUtils {
     public static String quoteIfNeeded(String identifier) {
         ensureNotNullAndNotEmpty(identifier, "identifier");
 
-        if (!identifierStart(identifier.codePointAt(0)) && !Character.isUpperCase(identifier.codePointAt(0))) {
+        int codePoint = identifier.codePointAt(0);
+
+        if (!(Character.isUpperCase(codePoint) && identifierStart(codePoint))) {
             return quote(identifier);
         }
 
-        for (int pos = 0; pos < identifier.length(); pos++) {
-            int codePoint = identifier.codePointAt(pos);
+        for (int pos = 1; pos < identifier.length(); pos++) {
+            codePoint = identifier.codePointAt(pos);
 
-            if (!identifierExtend(codePoint) && !Character.isUpperCase(codePoint)) {
+            if (!((Character.isUpperCase(codePoint) && identifierStart(codePoint)) || identifierExtend(codePoint))) {
                 return quote(identifier);
             }
         }

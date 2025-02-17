@@ -42,6 +42,7 @@ public class QualifiedNameTest {
                 Arguments.of("fOo", "FOO"),
                 Arguments.of("FOO", "FOO"),
                 Arguments.of("f23", "F23"),
+                Arguments.of("\"23f\"", "23f"),
                 Arguments.of("foo_", "FOO_"),
                 Arguments.of("foo_1", "FOO_1"),
 
@@ -58,6 +59,7 @@ public class QualifiedNameTest {
                 Arguments.of("\"@#$\"", "@#$"),
                 Arguments.of("\"f.f\"", "f.f"),
                 Arguments.of("\"   \"", "   "),
+                Arguments.of("\"😅\"", "😅"),
 
                 // Escaped
                 Arguments.of("\"f\"\"f\"", "f\"f"),
@@ -86,6 +88,8 @@ public class QualifiedNameTest {
                 Arguments.of("foo$"),
                 Arguments.of("foo%"),
                 Arguments.of("foo&"),
+                Arguments.of("f😅"),
+                Arguments.of("😅f"),
 
                 // Invalid escape sequences
                 Arguments.of("f\"f"),
