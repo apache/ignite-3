@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.singleton;
 import static java.util.Collections.emptyIterator;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -43,10 +44,12 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -61,7 +64,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     @Mock
-    private PartitionAccess partitionAccess;
+    private PartitionMvStorageAccess partitionAccess;
+
+    @Mock
+    private PartitionTxStateAccess txAccess;
 
     @Mock
     private CatalogService catalogService;
@@ -81,17 +87,21 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     private final TxMeta meta1 = new TxMeta(TxState.ABORTED, List.of(partition1Id), clock.now());
     private final TxMeta meta2 = new TxMeta(TxState.COMMITTED, List.of(partition1Id, partition2Id), clock.now());
 
-    private final PartitionKey partitionKey = new PartitionKey(1, 1);
+    private final PartitionKey partitionKey = new TablePartitionKey(1, 1);
 
     @BeforeEach
     void createTestInstance() {
-        when(partitionAccess.partitionKey()).thenReturn(partitionKey);
-
         lenient().when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         lenient().when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
+        snapshot = new OutgoingSnapshot(
+                UUID.randomUUID(),
+                partitionKey,
+                singleton(1, partitionAccess),
+                txAccess,
+                catalogService
+        );
     }
 
     @Test
@@ -118,7 +128,7 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     }
 
     private void configurePartitionAccessToHaveExactly(UUID txId1, TxMeta meta1, UUID txId2, TxMeta meta2) {
-        when(partitionAccess.getAllTxMeta()).thenReturn(Cursor.fromBareIterator(
+        when(txAccess.getAllTxMeta()).thenReturn(Cursor.fromBareIterator(
                 List.of(new IgniteBiTuple<>(txId1, meta1), new IgniteBiTuple<>(txId2, meta2)).iterator())
         );
 
@@ -144,7 +154,7 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     }
 
     private void configurePartitionAccessToBeEmpty() {
-        when(partitionAccess.getAllTxMeta()).thenReturn(Cursor.fromBareIterator(emptyIterator()));
+        when(txAccess.getAllTxMeta()).thenReturn(Cursor.fromBareIterator(emptyIterator()));
 
         snapshot.freezeScopeUnderMvLock();
     }
@@ -180,7 +190,7 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     void closesCursorWhenTxDataIsExhaustedInPartition() {
         Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = spy(Cursor.fromBareIterator(emptyIterator()));
 
-        when(partitionAccess.getAllTxMeta()).thenReturn(cursor);
+        when(txAccess.getAllTxMeta()).thenReturn(cursor);
         snapshot.freezeScopeUnderMvLock();
 
         getTxDataResponse(Integer.MAX_VALUE);

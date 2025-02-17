@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.startup.StartupPartitionSnapshotReader;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -57,11 +59,13 @@ class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
 
     private static PartitionSnapshotStorage storageForStartupMeta(@Nullable SnapshotMeta metaForCleanStorage) {
         return new PartitionSnapshotStorage(
+                new TablePartitionKey(1, 1),
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 "",
                 mock(RaftOptions.class),
-                mock(PartitionAccess.class),
+                emptyMap(),
+                mock(PartitionTxStateAccess.class),
                 mock(CatalogService.class),
                 metaForCleanStorage,
                 mock(Executor.class)

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator.raft;
 
 import java.io.Serializable;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -52,6 +53,28 @@ public interface RaftTableProcessor {
             long lastAppliedIndex,
             long lastAppliedTerm
     );
+
+    /**
+     * Returns the last applied Raft log index.
+     */
+    long lastAppliedIndex();
+
+    /**
+     * Returns the term of the last applied Raft index.
+     */
+    long lastAppliedTerm();
+
+    /**
+     * Sets the last applied Raft log index and term.
+     */
+    void lastApplied(long lastAppliedIndex, long lastAppliedTerm);
+
+    /**
+     * Issues a flush of the underlying storage.
+     *
+     * @return Future that will be completed when the flush is done.
+     */
+    CompletableFuture<Void> flushStorage();
 
     /**
      * Called when the processor is being shut down.

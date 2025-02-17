@@ -347,6 +347,28 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 logSyncer
         );
 
+        var outgoingSnapshotManager = new OutgoingSnapshotsManager(node.name(), clusterService.messagingService());
+
+        var partitionReplicaLifecycleListener = new PartitionReplicaLifecycleManager(
+                catalogManager,
+                replicaMgr,
+                distributionZoneManager,
+                metaStorageManager,
+                topologyService,
+                lowWatermark,
+                ForkJoinPool.commonPool(),
+                mock(ScheduledExecutorService.class),
+                partitionOperationsExecutor,
+                clockService,
+                placementDriver,
+                schemaSyncService,
+                systemDistributedConfiguration,
+                sharedTxStateStorage,
+                txManager,
+                sm,
+                outgoingSnapshotManager
+        );
+
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -369,7 +391,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 scheduledExecutor,
                 scheduledExecutor,
                 clockService,
-                new OutgoingSnapshotsManager(clusterService.messagingService()),
+                outgoingSnapshotManager,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
@@ -381,24 +403,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService),
                 indexMetaStorage,
                 logSyncer,
-                new PartitionReplicaLifecycleManager(
-                        catalogManager,
-                        replicaMgr,
-                        distributionZoneManager,
-                        metaStorageManager,
-                        topologyService,
-                        lowWatermark,
-                        ForkJoinPool.commonPool(),
-                        mock(ScheduledExecutorService.class),
-                        partitionOperationsExecutor,
-                        clockService,
-                        placementDriver,
-                        schemaSyncService,
-                        systemDistributedConfiguration,
-                        sharedTxStateStorage,
-                        txManager,
-                        sm
-                ),
+                partitionReplicaLifecycleListener,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         ) {

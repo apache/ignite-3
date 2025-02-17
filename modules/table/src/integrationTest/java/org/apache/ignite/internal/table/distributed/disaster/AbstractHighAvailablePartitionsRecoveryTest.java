@@ -54,6 +54,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -134,8 +135,12 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     static void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {
+        assertRecoveryRequestCount(node, 1);
+    }
+
+    static void assertRecoveryRequestCount(IgniteImpl node, int count) {
         assertEquals(
-                1,
+                count,
                 node
                         .metaStorageManager()
                         .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE).size()
@@ -360,13 +365,13 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         Arrays.stream(nodes).forEach(this::stopNode);
     }
 
-    static void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeout) {
+    static void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeoutSeconds) {
         CompletableFuture<Void> changeFuture = gatewayNode
                 .clusterConfiguration()
                 .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
                 .system().change(c0 -> c0.changeProperties()
                         .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
-                                c1 -> c1.changePropertyValue(String.valueOf(timeout)))
+                                c1 -> c1.changePropertyValue(String.valueOf(timeoutSeconds)))
                 );
 
         assertThat(changeFuture, willCompleteSuccessfully());
@@ -476,11 +481,22 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     void assertValuesPresentOnNodes(HybridTimestamp ts, Table table, Integer... indexes) {
         for (Integer index : indexes) {
-            assertValuesPresentOnNode(table, ts, index);
+            assertValuesOnNode(table, ts, index, fut -> fut.join() != null);
         }
     }
 
-    private void assertValuesPresentOnNode(Table table, HybridTimestamp ts, int targetNodeIndex) {
+    void assertValuesNotPresentOnNodes(HybridTimestamp ts, Table table, Integer... indexes) {
+        for (Integer index : indexes) {
+            assertValuesOnNode(table, ts, index, rowFut -> rowFut.join() == null);
+        }
+    }
+
+    private void assertValuesOnNode(
+            Table table,
+            HybridTimestamp ts,
+            int targetNodeIndex,
+            Predicate<CompletableFuture<BinaryRow>> dataCondition
+    ) {
         IgniteImpl targetNode = unwrapIgniteImpl(node(targetNodeIndex));
 
         TableImpl tableImpl = unwrapTableImpl(table);
@@ -491,7 +507,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                     internalTable.get(marshalKey(tableImpl, Tuple.create(of("id", i))), ts, targetNode.node());
             assertThat(fut, willCompleteSuccessfully());
 
-            assertNotNull(fut.join());
+            assertTrue(dataCondition.test(fut));
         }
     }
 
@@ -505,5 +521,17 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
         return ExceptionUtils.extractCodeFrom(cause) == Replicator.REPLICA_MISS_ERR;
+    }
+
+    void triggerManualReset(IgniteImpl node) {
+        CompletableFuture<?> updateFuture = node.disasterRecoveryManager().resetAllPartitions(
+                HA_ZONE_NAME,
+                SCHEMA_NAME,
+                HA_TABLE_NAME,
+                true,
+                -1
+        );
+
+        assertThat(updateFuture, willCompleteSuccessfully());
     }
 }

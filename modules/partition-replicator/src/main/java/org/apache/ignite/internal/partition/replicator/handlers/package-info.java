@@ -15,18 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
-
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.CliIntegrationTest;
-
 /**
- * Test base for SSL tests with client connector. The cluster is initialized with SSL enabled for clients.
+ * This package contains replica request handlers that is used by
+ * {@link org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener} and table requests processor.
  */
-public class CliSslClientConnectorIntegrationTestBase extends CliIntegrationTest {
 
-    @Override
-    protected String getNodeBootstrapConfigTemplate() {
-        return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
-    }
-}
+package org.apache.ignite.internal.partition.replicator.handlers;

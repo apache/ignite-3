@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -40,11 +41,11 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -67,10 +68,14 @@ import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDri
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.Member;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -83,8 +88,10 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
@@ -137,6 +144,9 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
     private static StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private static GcConfiguration gcConfiguration;
 
     @InjectExecutorService
     private static ScheduledExecutorService scheduledExecutorService;
@@ -197,8 +207,10 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         ));
     }
 
-    private Node addNodeToCluster() {
+    private Node addNodeToCluster(Function<ReplicaRequest, ReplicationGroupId> requestConverter) {
         Node node = newNode(new NetworkAddress("localhost", BASE_PORT + cluster.size()), nodeFinder);
+
+        node.setRequestConverter(requestConverter);
 
         cluster.add(node);
 
@@ -226,7 +238,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
-                null
+                null,
+                gcConfiguration
         );
     }
 
@@ -281,6 +294,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -363,8 +378,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     @ParameterizedTest(name = "truncateRaftLog={0}")
     @ValueSource(booleans = {false, true})
     void testDataRebalance(boolean truncateRaftLog) throws Exception {
-        assumeFalse(truncateRaftLog, "https://issues.apache.org/jira/browse/IGNITE-22416");
-
         startCluster(2);
 
         // Create a zone with a single partition on every node + one extra replica for the upcoming node.
@@ -375,7 +388,11 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
+        Function<ReplicaRequest, ReplicationGroupId> requestConverter =
+                requestConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
+
         cluster.forEach(node -> {
+            node.setRequestConverter(requestConverter);
             node.waitForMetadataCompletenessAtNow();
         });
 
@@ -396,7 +413,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
             truncateLogOnEveryNode(zonePartitionId);
         }
 
-        Node newNode = addNodeToCluster();
+        Node newNode = addNodeToCluster(requestConverter);
 
         // Wait for the rebalance to kick in.
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));
@@ -407,7 +424,18 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
         // Not using "assertTrue" on purpose, the next line will produce a nicer error message.
         // TODO: remove this line after https://issues.apache.org/jira/browse/IGNITE-22620
-        waitForCondition(() -> kvView1.getAll(null, data1.keySet()).equals(data1), 10_000L);
+        waitForCondition(() -> {
+            try {
+                return kvView1.getAll(null, data1.keySet()).equals(data1);
+            } catch (IgniteException e) {
+                if (hasCauseOrSuppressed(e, StorageRebalanceException.class)) {
+                    // This is expected.
+                    return false;
+                } else {
+                    throw e;
+                }
+            }
+        }, 10_000L);
 
         assertThat(kvView1.getAll(null, data1.keySet()), is(data1));
         assertThat(kvView1.getAll(null, data2.keySet()), is(anEmptyMap()));
@@ -431,7 +459,10 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
+        Function<ReplicaRequest, ReplicationGroupId> requestConverter = requestConverter(zonePartitionId, new TablePartitionId(tableId, 0));
+
         cluster.forEach(node -> {
+            node.setRequestConverter(requestConverter);
             node.waitForMetadataCompletenessAtNow();
         });
 
@@ -448,7 +479,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         cluster.remove(0);
 
-        node = addNodeToCluster();
+        node = addNodeToCluster(requestConverter);
 
         node.waitForMetadataCompletenessAtNow();
 
@@ -471,6 +502,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -555,6 +588,28 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         assertThat(txStatePartitionStorage, is(notNullValue()));
 
         return txStatePartitionStorage;
+    }
+
+    private void setupTableIdToZoneIdConverter(ZonePartitionId zonePartitionId, TablePartitionId... tablePartitionIds) {
+        Function<ReplicaRequest, ReplicationGroupId> requestConverter = requestConverter(zonePartitionId, tablePartitionIds);
+
+        cluster.forEach(node -> node.setRequestConverter(requestConverter));
+    }
+
+    private static Function<ReplicaRequest, ReplicationGroupId> requestConverter(
+            ZonePartitionId zonePartitionId, TablePartitionId... tablePartitionIds
+    ) {
+        Set<ReplicationGroupId> tablePartitionIdsSet = Set.of(tablePartitionIds);
+
+        return request ->  {
+            ReplicationGroupId replicationGroupId = request.groupId().asReplicationGroupId();
+
+            if (tablePartitionIdsSet.contains(replicationGroupId) && !(request instanceof WriteIntentSwitchReplicaRequest)) {
+                return zonePartitionId;
+            } else {
+                return replicationGroupId;
+            }
+        };
     }
 
     private void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {

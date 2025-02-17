@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -27,21 +27,23 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -49,18 +51,16 @@ import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -75,7 +75,6 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -86,15 +85,18 @@ import org.apache.ignite.internal.partition.replicator.fixtures.Node.InvokeInter
 import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -110,12 +112,9 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry.RemotelyTriggeredResource;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
-import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -140,8 +139,6 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 20_000;
 
     private static final int AWAIT_TIMEOUT_MILLIS = 10_000;
-
-    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
@@ -169,6 +166,9 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
     private static StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private GcConfiguration gcConfiguration;
 
     @InjectExecutorService
     private static ScheduledExecutorService scheduledExecutorService;
@@ -268,7 +268,8 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
-                invokeInterceptor
+                invokeInterceptor,
+                gcConfiguration
         );
 
         nodes.put(idx, node);
@@ -284,7 +285,6 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         nodes.remove(idx);
     }
 
-    // TODO sanpwc enable
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
     @Test
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
@@ -856,27 +856,117 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         assertDoesNotThrow(tx::commit);
     }
 
+    @Test
+    public void testCatalogCompaction(TestInfo testInfo) throws Exception {
+        // How often we update the low water mark.
+        long lowWatermarkUpdateInterval = 500;
+        updateLowWatermarkConfiguration(lowWatermarkUpdateInterval * 2, lowWatermarkUpdateInterval);
+
+        // Prepare a single node cluster.
+        startNodes(testInfo, 1);
+        Node node = getNode(0);
+
+        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
+                nodes.values().stream().map(n -> n.name).collect(toList()), 1, 1);
+
+        List<TokenizedAssignments> tokenizedAssignments = assignments.stream()
+                .map(a -> new TokenizedAssignmentsImpl(a, Integer.MIN_VALUE))
+                .collect(toList());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+        placementDriver.setAssignments(tokenizedAssignments);
+
+        forceCheckpoint(node);
+
+        String zoneName = "test-zone";
+        createZone(node, zoneName, 1, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        prepareTableIdToZoneIdConverter(node, zoneId);
+
+        int catalogVersion1 = getLatestCatalogVersion(node);
+
+        String tableName1 = "test_table_1";
+        createTable(node, zoneName, tableName1);
+
+        String tableName2 = "test_table_2";
+        createTable(node, zoneName, tableName2);
+
+        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName2, node.hybridClock.nowLong());
+        TableViewInternal tableViewInternal = node.tableManager.table(tableId);
+        KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
+
+        // Write 2 rows to the table.
+        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
+        assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
+
+        forceCheckpoint(node);
+
+        int catalogVersion2 = getLatestCatalogVersion(node);
+        assertThat("The catalog version did not changed [initial=" + catalogVersion1 + ", latest=" + catalogVersion2 + ']',
+                catalogVersion2, greaterThan(catalogVersion1));
+
+        expectEarliestCatalogVersion(node, catalogVersion2 - 1);
+    }
+
+    private static void expectEarliestCatalogVersion(Node node, int expectedVersion) throws Exception {
+        boolean result = waitForCondition(() -> getEarliestCatalogVersion(node) == expectedVersion, 10_000);
+
+        assertTrue(result,
+                "Failed to wait for the expected catalog version [expected=" + expectedVersion
+                        + ", earliest=" + getEarliestCatalogVersion(node)
+                        + ", latest=" + getLatestCatalogVersion(node) + ']');
+    }
+
+    private static int getLatestCatalogVersion(Node node) {
+        Catalog catalog = getLatestCatalog(node);
+
+        return catalog.version();
+    }
+
+    private static int getEarliestCatalogVersion(Node node) {
+        CatalogManager catalogManager = node.catalogManager;
+
+        int ver = catalogManager.earliestCatalogVersion();
+
+        Catalog catalog = catalogManager.catalog(ver);
+
+        Objects.requireNonNull(catalog);
+
+        return catalog.version();
+    }
+
+    private static Catalog getLatestCatalog(Node node) {
+        CatalogManager catalogManager = node.catalogManager;
+
+        int ver = catalogManager.activeCatalogVersion(node.hybridClock.nowLong());
+
+        Catalog catalog = catalogManager.catalog(ver);
+
+        Objects.requireNonNull(catalog);
+
+        return catalog;
+    }
+
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
         return node.resourcesRegistry.resources().get(cursorId);
     }
 
     private static void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
-//        node.setRequestConverter(request ->  {
-//            if (request instanceof WriteIntentSwitchReplicaRequest) {
-//                return request.groupId().asReplicationGroupId();
-//            }
-//
-//            boolean colocationAwareRequest = request.groupId().asReplicationGroupId() instanceof ZonePartitionId;
-//
-//            return request.groupId().asReplicationGroupId();
-////            if (colocationAwareRequest) {
-////                return request.groupId().asReplicationGroupId();
-////            } else {
-////                TablePartitionId tablePartId = (TablePartitionId) request.groupId().asReplicationGroupId();
-////
-////                return new ZonePartitionId(zoneId, tablePartId.partitionId());
-////            }
-//        });
+        node.setRequestConverter(request ->  {
+            if (request instanceof WriteIntentSwitchReplicaRequest) {
+                return request.groupId().asReplicationGroupId();
+            }
+
+            boolean colocationAwareRequest = request.groupId().asReplicationGroupId() instanceof ZonePartitionId;
+
+            if (colocationAwareRequest) {
+                return request.groupId().asReplicationGroupId();
+            } else {
+                TablePartitionId tablePartId = (TablePartitionId) request.groupId().asReplicationGroupId();
+
+                return new ZonePartitionId(zoneId, tablePartId.partitionId());
+            }
+        });
     }
 
     private Node getNode(int nodeIndex) {
@@ -929,7 +1019,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
                 return false;
             }
 
-            Replica replica = replicaFut.get(1, TimeUnit.SECONDS);
+            Replica replica = replicaFut.get(1, SECONDS);
 
             return replica != null && (((ZonePartitionReplicaListener) replica.listener()).tableReplicaListeners().size() == count);
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
@@ -963,138 +1053,32 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
                 .destroyTxStateStorage(partitionId);
     }
 
-    @Test
-    public void testKVOperations(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    /**
+     * Update low water mark configuration.
+     *
+     * @param dataAvailabilityTime Data availability time.
+     * @param updateInterval Update interval.
+     */
+    private void updateLowWatermarkConfiguration(long dataAvailabilityTime, long updateInterval) {
+        CompletableFuture<?> updateFuture = gcConfiguration.lowWatermark().change(change -> {
+            change.changeDataAvailabilityTime(dataAvailabilityTime);
+            change.changeUpdateInterval(updateInterval);
+        });
 
-        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
-
-        Node node = getNode(replicaAssignment.consistentId());
-
-        createZone(node, "test_zone", 1, 1);
-
-        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
-        createTable(node, "test_zone", "test_table");
-        int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
-
-        setPrimaryReplica(node, zonePartitionId);
-
-        KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
-
-        // put
-        Transaction transaction0 = node.transactions().begin();
-        assertDoesNotThrow(() -> keyValueView.put(transaction0, 0L, 0));
-        assertDoesNotThrow(() -> keyValueView.put(transaction0, 1L, 1));
-        transaction0.commit();
-
-        // contains
-        Transaction transaction1 = node.transactions().begin();
-        assertTrue(keyValueView.contains(transaction1, 0L));
-        assertTrue(keyValueView.contains(transaction1, 1L));
-        assertFalse(keyValueView.contains(transaction1, 3L));
-        transaction1.commit();
-
-        // putAll
-        Transaction transaction2 = node.transactions().begin();
-        Map<Long, Integer> valuesToPut = Map.of(2L, 2, 3L, 3, 30L, 30, 100L, 100, 200L, 200,
-                300L, 300, 400L, 400, 500L, 500, 600L, 600);
-        assertDoesNotThrow(() -> keyValueView.putAll(transaction2, valuesToPut));
-        transaction2.commit();
-
-        // containsAll
-        Transaction transaction3 = node.transactions().begin();
-        assertTrue(keyValueView.containsAll(transaction3, Arrays.asList(2L, 3L)));
-        assertFalse(keyValueView.containsAll(transaction3, Arrays.asList(3L, 4L)));
-        transaction3.commit();
-
-        // getAndPut
-        Transaction transaction4 = node.transactions().begin();
-        assertEquals(2, keyValueView.getAndPut(transaction4, 2L, 22));
-        transaction4.commit();
-
-        // getNullableAndPut
-        Transaction transaction5 = node.transactions().begin();
-        assertEquals(NullableValue.of(22), keyValueView.getNullableAndPut(transaction5, 2L, 33));
-        assertNull(keyValueView.getNullableAndPut(transaction5, 5L, 5));
-        transaction5.commit();
-
-        // putIfAbsent
-        Transaction transaction6 = node.transactions().begin();
-        assertFalse(keyValueView.putIfAbsent(transaction6, 0L, 0));
-        assertTrue(keyValueView.putIfAbsent(transaction6, 6L, 6));
-        transaction6.commit();
-
-        // remove
-        Transaction transaction7 = node.transactions().begin();
-        assertTrue(keyValueView.remove(transaction7, 6L));
-        assertFalse(keyValueView.remove(transaction7, 7L));
-        assertTrue(keyValueView.remove(transaction7, 0L, 0));
-        assertFalse(keyValueView.remove(transaction7, 1L, 2));
-        transaction7.commit();
-
-        // removeAll
-        Transaction transaction8 = node.transactions().begin();
-        Set<Long> keysToRemove = Set.of(30L, 50L);
-        assertEquals(singletonList(50L), keyValueView.removeAll(transaction8, keysToRemove));
-        transaction8.commit();
-
-        // getAndRemove
-        Transaction transaction9 = node.transactions().begin();
-        assertEquals(100, keyValueView.getAndRemove(transaction9, 100L));
-        assertNull(keyValueView.getAndRemove(transaction9, 1000L));
-        transaction9.commit();
-
-        // getNullableAndRemove
-        Transaction transaction10 = node.transactions().begin();
-        assertEquals(NullableValue.of(200), keyValueView.getNullableAndRemove(transaction10, 200L));
-        assertNull(keyValueView.getNullableAndRemove(transaction10, 1000L));
-        transaction10.commit();
-
-        // replace
-        Transaction transaction11 = node.transactions().begin();
-        assertTrue(keyValueView.replace(transaction11, 300L, 330));
-        assertFalse(keyValueView.replace(transaction11, 200L, 230));
-        assertTrue(keyValueView.replace(transaction11, 400L, 400, 450));
-        assertFalse(keyValueView.replace(transaction11, 500L, 510, 520));
-        transaction11.commit();
-
-        // getAndReplace
-        Transaction transaction12 = node.transactions().begin();
-        assertEquals(500, keyValueView.getAndReplace(transaction12, 500L, 600));
-        assertNull(keyValueView.getAndReplace(transaction12, 1000L, 230));
-        transaction12.commit();
-
-        // getNullableAndReplace
-        Transaction transaction13 = node.transactions().begin();
-        assertEquals(NullableValue.of(600), keyValueView.getNullableAndReplace(transaction13, 600L, 700));
-        assertNull(keyValueView.getNullableAndReplace(transaction13, 1000L, 230));
-        transaction13.commit();
-
-        // TODO sanpwc add get methods
+        assertThat(updateFuture, willSucceedFast());
     }
 
-    private void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {
-        ClusterNode newPrimaryReplicaNode = node.clusterService.topologyService().localMember();
+    /**
+     * Start the new checkpoint immediately on the provided node.
+     *
+     * @param node Node to start the checkpoint on.
+     */
+    private void forceCheckpoint(Node node) {
+        PersistentPageMemoryStorageEngine storageEngine = (PersistentPageMemoryStorageEngine) node
+                .dataStorageManager()
+                .engineByStorageProfile(DEFAULT_STORAGE_PROFILE);
 
-        HybridTimestamp leaseStartTime = node.hybridClock.now();
-
-        placementDriver.setPrimary(newPrimaryReplicaNode, leaseStartTime);
-
-        if (zonePartitionId != null) {
-            PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
-                    .primaryReplicaNodeId(newPrimaryReplicaNode.id())
-                    .primaryReplicaNodeName(newPrimaryReplicaNode.name())
-                    .leaseStartTime(leaseStartTime.longValue())
-                    .build();
-
-            CompletableFuture<Void> primaryReplicaChangeFuture = node.replicaManager
-                    .replica(zonePartitionId)
-                    .thenCompose(replica -> replica.raftClient().run(cmd));
-
-            assertThat(primaryReplicaChangeFuture, willCompleteSuccessfully());
-        }
+        assertThat(storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED),
+                willSucceedIn(10, SECONDS));
     }
 }
