@@ -52,7 +52,7 @@ public final class IgniteNameUtils {
     }
 
     /**
-     * Parses name in canonical form, that is, enclosing each part of the identifier chain in double quotes.
+     * Parses the canonical name of an object.
      *
      * @param name Full object name in canonical form.
      * @return List of identifiers, where each identifier within the full name chain will be either unquoted or converted to uppercase.
