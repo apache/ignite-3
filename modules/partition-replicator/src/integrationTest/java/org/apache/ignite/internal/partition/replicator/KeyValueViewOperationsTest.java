@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -184,7 +185,17 @@ public class KeyValueViewOperationsTest extends ItAbstractColocationTest {
                 }
         );
 
-        // TODO sanpwc add get methods
+        // Variety of get methods
+        assertOperationsWithinTransaction(
+                tx -> {
+                    assertEquals(700, keyValueView.get(tx, 600L));
+                    assertEquals(NullableValue.of(700), keyValueView.getNullable(tx, 600L));
+                    assertNull(keyValueView.getNullable(tx, 1000L));
+                    assertEquals(700, keyValueView.getOrDefault(tx, 600L, 1111));
+                    assertEquals(1111, keyValueView.getOrDefault(tx, 1000L, 1111));
+                    assertEquals(Map.of(600L, 700), keyValueView.getAll(tx, singletonList(600L)));
+                }
+        );
     }
 
     private void assertOperationsWithinTransaction(Consumer<Transaction> operationsToRun) {
