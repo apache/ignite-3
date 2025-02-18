@@ -18,7 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION_DEFAULT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -556,7 +556,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     private int partitionIndexFromReplicationGroupId(ReplicationGroupId replicationGroupId) {
-        if (ENABLED_COLOCATION_DEFAULT) {
+        if (ENABLED_COLOCATION) {
             return ((ZonePartitionId) replicationGroupId).partitionId();
         } else {
             return ((TablePartitionId) replicationGroupId).partitionId();

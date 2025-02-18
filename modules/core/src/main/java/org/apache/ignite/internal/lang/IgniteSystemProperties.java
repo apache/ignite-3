@@ -85,7 +85,7 @@ public final class IgniteSystemProperties {
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
     /* Feature flag for zone based collocation track */
-    public static volatile boolean ENABLED_COLOCATION_DEFAULT = getBoolean(COLOCATION_FEATURE_FLAG, false);
+    public static volatile boolean ENABLED_COLOCATION = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * Enforces singleton.

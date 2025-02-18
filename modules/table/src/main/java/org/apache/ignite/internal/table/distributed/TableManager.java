@@ -47,7 +47,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION_DEFAULT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -682,7 +682,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> beforeZoneReplicaStarted(LocalPartitionReplicaEventParameters parameters) {
-        if (!ENABLED_COLOCATION_DEFAULT) {
+        if (!ENABLED_COLOCATION) {
             return falseCompletedFuture();
         }
 
@@ -714,7 +714,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onZoneReplicaDestroyed(LocalPartitionReplicaEventParameters parameters) {
-        if (!ENABLED_COLOCATION_DEFAULT) {
+        if (!ENABLED_COLOCATION) {
             return falseCompletedFuture();
         }
 
@@ -746,7 +746,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
-        if (!ENABLED_COLOCATION_DEFAULT) {
+        if (!ENABLED_COLOCATION) {
             return falseCompletedFuture();
         }
 
@@ -1315,7 +1315,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         ) {
                             // Disable this method if the Colocation feature is enabled, actual configuration will be propagated
                             // manually by the Zone Raft Listener.
-                            if (!ENABLED_COLOCATION_DEFAULT) {
+                            if (!ENABLED_COLOCATION) {
                                 super.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm);
                             }
                         }
@@ -2972,7 +2972,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 CompletableFuture<?> startTableFuture;
 
-                if (ENABLED_COLOCATION_DEFAULT) {
+                if (ENABLED_COLOCATION) {
                     CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver);
                     CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver);
 

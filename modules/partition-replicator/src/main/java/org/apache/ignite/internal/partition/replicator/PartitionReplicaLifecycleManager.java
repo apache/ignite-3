@@ -42,7 +42,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION_DEFAULT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.assignmentListToString;
@@ -338,7 +338,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        if (!ENABLED_COLOCATION_DEFAULT) {
+        if (!ENABLED_COLOCATION) {
             return nullCompletedFuture();
         }
 
@@ -1294,7 +1294,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        if (!ENABLED_COLOCATION_DEFAULT) {
+        if (!ENABLED_COLOCATION) {
             return nullCompletedFuture();
         }
 
