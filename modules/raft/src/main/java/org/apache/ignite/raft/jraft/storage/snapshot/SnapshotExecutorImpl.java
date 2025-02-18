@@ -307,6 +307,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 // updated. But it's fine since we will do next snapshot saving in a
                 // predictable time.
                 doUnlock = false;
+                LOG.info(
+                        "Node {} skip creating snapshot because lastAppliedIndex={} index has not changed since the last "
+                        + "lastSnapshotIndex={}.",
+                        node.getNodeId(), fsmCaller.getLastAppliedIndex(), lastSnapshotIndex
+                );
                 this.lock.unlock();
                 this.logManager.clearBufferedLogs();
                 Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done);
