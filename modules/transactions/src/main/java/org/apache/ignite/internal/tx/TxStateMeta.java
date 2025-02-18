@@ -212,7 +212,6 @@ public class TxStateMeta implements TransactionMeta {
                 .commitTimestamp(commitTimestamp)
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
-                .isFinishedDueToTimeout(isFinishedDueToTimeout)
                 .build();
     }
 

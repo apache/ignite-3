@@ -754,7 +754,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             ));
 
             return nullCompletedFuture();
-        }).when(txManager).finish(any(), any(), anyBoolean(), any(), any(), any());
+        }).when(txManager).finish(any(), any(), anyBoolean(), any(), any(), any(), any());
 
         CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(tablePartitionIdMessage(grpId))
@@ -2254,7 +2254,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
 
         doAnswer(invocation -> nullCompletedFuture())
-                .when(txManager).finish(any(), any(), anyBoolean(), any(), any(), any());
+                .when(txManager).finish(any(), any(), anyBoolean(), any(), any(), any(), any());
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).cleanup(any(), anyString(), any());
     }
