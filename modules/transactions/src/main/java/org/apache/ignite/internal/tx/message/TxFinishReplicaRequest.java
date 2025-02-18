@@ -26,7 +26,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,7 +52,7 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
      *
      * @return Commit partition id.
      */
-    TablePartitionIdMessage commitPartitionId();
+    ReplicationGroupIdMessage commitPartitionId();
 
     /**
      * Returns {@code True} if a commit request.

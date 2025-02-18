@@ -30,6 +30,7 @@ import org.junit.jupiter.api.AfterEach;
 /**
  * Base test for MV partition storages.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
 public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 1;
 

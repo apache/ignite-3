@@ -149,7 +149,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowId1.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
-        assertThat(responseRow.commitTableId(), is(commitTableId));
+        assertThat(responseRow.commitTableOrZoneId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
@@ -301,7 +301,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowIdOutOfOrder.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
-        assertThat(responseRow.commitTableId(), is(commitTableId));
+        assertThat(responseRow.commitTableOrZoneId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -410,7 +411,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -452,7 +453,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,

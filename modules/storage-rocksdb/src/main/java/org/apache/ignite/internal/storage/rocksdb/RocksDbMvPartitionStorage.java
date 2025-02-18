@@ -448,7 +448,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
         return busy(() -> {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
@@ -496,7 +496,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     return previousRow;
                 } else {
-                    ByteBuffer txState = createTxState(rowId, txId, commitTableId, commitPartitionId, row == null);
+                    ByteBuffer txState = createTxState(rowId, txId, commitTableOrZoneId, commitPartitionId, row == null);
 
                     ByteBuffer dataId = readDataIdFromTxState(txState);
 

@@ -25,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@link MvPartitionStorage#read} result.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
 public class ReadResult {
     /** Unset commit partition id value. */
     public static final int UNDEFINED_COMMIT_PARTITION_ID = -1;
@@ -38,8 +39,8 @@ public class ReadResult {
     /** Transaction id. Not {@code null} iff this is a write-intent. */
     private final @Nullable UUID transactionId;
 
-    /** Commit table id. Not {@code null} iff this is a write-intent. */
-    private final @Nullable Integer commitTableId;
+    /** Commit table/zone id. Not {@code null} iff this is a write-intent. */
+    private final @Nullable Integer commitTableOrZoneId;
 
     /** Commit table id. If this is not a write-intent it is equal to {@link #UNDEFINED_COMMIT_PARTITION_ID}. */
     private final int commitPartitionId;
@@ -61,7 +62,7 @@ public class ReadResult {
             RowId rowId,
             @Nullable BinaryRow binaryRow,
             @Nullable UUID transactionId,
-            @Nullable Integer commitTableId,
+            @Nullable Integer commitTableOrZoneId,
             @Nullable HybridTimestamp commitTs,
             @Nullable HybridTimestamp newestCommitTs,
             int commitPartitionId
@@ -70,13 +71,13 @@ public class ReadResult {
         this.binaryRow = binaryRow;
 
         // If transaction is not null, then commitTableId and commitPartitionId should be defined.
-        assert (transactionId == null) || (commitTableId != null && commitPartitionId != -1);
+        assert (transactionId == null) || (commitTableOrZoneId != null && commitPartitionId != -1);
 
         // If transaction id is null, then commitTableId and commitPartitionId should not be defined.
-        assert (transactionId != null) || (commitTableId == null && commitPartitionId == -1);
+        assert (transactionId != null) || (commitTableOrZoneId == null && commitPartitionId == -1);
 
         this.transactionId = transactionId;
-        this.commitTableId = commitTableId;
+        this.commitTableOrZoneId = commitTableOrZoneId;
         this.commitTs = commitTs;
         this.newestCommitTs = newestCommitTs;
         this.commitPartitionId = commitPartitionId;
@@ -131,14 +132,14 @@ public class ReadResult {
     }
 
     /**
-     * Returns commit table id part of the transaction state if this is a write-intent,
+     * Returns commit table/zone id part of the transaction state if this is a write-intent,
      * {@code null} otherwise.
      *
-     * @return Commit table id part of the transaction state if this is a write-intent,
+     * @return Commit table/zone id part of the transaction state if this is a write-intent,
      *         {@code null} otherwise.
      */
-    public @Nullable Integer commitTableId() {
-        return commitTableId;
+    public @Nullable Integer commitTableOrZoneId() {
+        return commitTableOrZoneId;
     }
 
     /**

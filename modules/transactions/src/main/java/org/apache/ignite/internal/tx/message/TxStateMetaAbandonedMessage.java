@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.message;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 
@@ -30,11 +30,11 @@ public interface TxStateMetaAbandonedMessage extends TxStateMetaMessage {
 
     /** Converts to {@link TxStateMetaAbandoned}. */
     default TxStateMetaAbandoned asTxStateMetaAbandoned() {
-        TablePartitionIdMessage commitPartitionId = commitPartitionId();
+        ReplicationGroupIdMessage commitPartitionId = commitPartitionId();
 
         return new TxStateMetaAbandoned(
                 txCoordinatorId(),
-                commitPartitionId == null ? null : commitPartitionId.asTablePartitionId()
+                commitPartitionId == null ? null : commitPartitionId.asReplicationGroupId()
         );
     }
 
