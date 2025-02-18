@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
@@ -65,6 +67,9 @@ public class TxMessageSender {
     private final ClockService clockService;
 
     private final TransactionConfiguration transactionConfiguration;
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove it.
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * Constructor.
@@ -178,7 +183,12 @@ public class TxMessageSender {
                         .txId(txId)
                         .commitPartitionId(commitPartitionIdMessage)
                         .timestamp(clockService.now())
-                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
+                        // TODO Dirty hack within colocation track only. Remove after https://issues.apache.org/jira/browse/IGNITE-24343
+                        .groupId(enabledColocationFeature ?
+                                toReplicationGroupIdMessage(
+                                        REPLICA_MESSAGES_FACTORY,
+                                        replicationGroupIds.entrySet().iterator().next().getKey())
+                                : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toReplicationGroupIdMessages(replicationGroupIds))
                         .tableIds(enlistedTableIds)
                         .commit(commit)
