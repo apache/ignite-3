@@ -83,8 +83,16 @@ public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
     public void testData() {
         Ignite node = CLUSTER.aliveNode();
 
-        sql("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-        sql("INSERT INTO test VALUES (0, 0), (2, 2)");
+        // Need 3 different tables here, because near sql flow: INSERT -> UPDATE -> DELETE leads to dead lock
+        // if TableScan is used.
+        sql("CREATE TABLE test1 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO test1 VALUES (0, 0), (2, 2)");
+
+        sql("CREATE TABLE test2 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO test2 VALUES (0, 0), (2, 2)");
+
+        sql("CREATE TABLE test3 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO test3 VALUES (0, 0), (2, 2)");
 
         List<InternalTransaction> txs = List.of(
                 (InternalTransaction) node.transactions().begin(),
@@ -93,9 +101,9 @@ public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
         );
 
         try {
-            sql(txs.get(0), "INSERT INTO test VALUES (1, 1)");
-            sql(txs.get(1), "UPDATE test SET val = 1 WHERE id = 0");
-            sql(txs.get(2), "DELETE FROM test WHERE id = 2");
+            sql(txs.get(0), "INSERT INTO test1 VALUES (1, 1)");
+            sql(txs.get(1), "UPDATE test2 SET val = 1 WHERE id = 0");
+            sql(txs.get(2), "DELETE FROM test3 WHERE id = 2");
 
             for (InternalTransaction tx : txs) {
                 List<List<Object>> rows = sql("SELECT * FROM SYSTEM.LOCKS WHERE TX_ID=?", tx.id().toString());
