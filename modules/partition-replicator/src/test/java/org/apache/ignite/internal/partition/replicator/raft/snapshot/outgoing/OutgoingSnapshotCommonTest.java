@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
@@ -49,6 +50,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
+    private static final int ZONE_ID = 0;
     private static final int TABLE_ID_1 = 1;
     private static final int TABLE_ID_2 = 2;
 
@@ -65,13 +67,18 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     private final PartitionReplicationMessagesFactory messagesFactory = new PartitionReplicationMessagesFactory();
 
-    private final PartitionKey partitionKey = new ZonePartitionKey(0, 1);
+    private final PartitionKey partitionKey = new ZonePartitionKey(ZONE_ID, 1);
 
     private static final int REQUIRED_CATALOG_VERSION = 42;
 
     @BeforeEach
-    void createTestInstance() {
-        lenient().when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
+    void createTestInstance(
+            @Mock Catalog catalog,
+            @Mock CatalogTableDescriptor tableDescriptor
+    ) {
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        lenient().when(catalog.table(anyInt())).thenReturn(tableDescriptor);
+        lenient().when(tableDescriptor.zoneId()).thenReturn(ZONE_ID);
 
         var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionMvStorageAccess>();
 

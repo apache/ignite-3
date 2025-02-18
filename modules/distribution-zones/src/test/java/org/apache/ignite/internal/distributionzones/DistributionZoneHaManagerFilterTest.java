@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-apply plugin: 'java-test-fixtures'
+package org.apache.ignite.internal.distributionzones;
 
-dependencies {
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.impl
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 
-    testFixturesImplementation libs.jansi.core
-    testFixturesImplementation libs.log4j.api
-    testFixturesImplementation libs.log4j.core
-    testFixturesImplementation libs.log4j.bridge
-    testFixturesImplementation libs.slf4j.log4j
+/**
+ * Tests distribution zone manager interactions with data nodes filtering in an HA zone.
+ */
+public class DistributionZoneHaManagerFilterTest extends DistributionZoneManagerFilterTest {
+
+    @Override
+    protected ConsistencyMode consistencyMode() {
+        return ConsistencyMode.HIGH_AVAILABILITY;
+    }
 }
-
-pmdTestFixtures {
-    enabled = false
-}
-
-spotbugsTestFixtures {
-    enabled(false)
-}
-
-components.java.withVariantsFromConfiguration(configurations.testFixturesApiElements) { skip() }
-components.java.withVariantsFromConfiguration(configurations.testFixturesRuntimeElements) { skip() }
