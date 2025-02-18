@@ -660,6 +660,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24558")
     public void testCatalogCompaction(TestInfo testInfo) throws Exception {
         // How often we update the low water mark.
         long lowWatermarkUpdateInterval = 500;
