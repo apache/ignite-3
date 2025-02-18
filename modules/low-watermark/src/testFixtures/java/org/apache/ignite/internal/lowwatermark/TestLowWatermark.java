@@ -24,9 +24,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Collections;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -115,11 +113,6 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
         }
 
         lock.future().complete(null);
-    }
-
-    @Override
-    public Set<UUID> lockIds() {
-        return Collections.unmodifiableSet(locks.keySet());
     }
 
     /**

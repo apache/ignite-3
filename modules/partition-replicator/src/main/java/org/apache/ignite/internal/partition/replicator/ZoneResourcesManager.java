@@ -19,16 +19,33 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Manages resources of distribution zones; that is, allows creation of underlying storages and closes them on node stop.
@@ -36,35 +53,85 @@ import org.apache.ignite.internal.worker.ThreadAssertions;
 class ZoneResourcesManager implements ManuallyCloseable {
     private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
+    private final TxManager txManager;
+
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
+    private final TopologyService topologyService;
+
+    private final CatalogService catalogService;
+
+    private final Executor partitionOperationsExecutor;
+
     /** Map from zone IDs to their resource holders. */
     private final Map<Integer, ZoneResources> resourcesByZoneId = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    ZoneResourcesManager(TxStateRocksDbSharedStorage sharedTxStateStorage) {
+    ZoneResourcesManager(
+            TxStateRocksDbSharedStorage sharedTxStateStorage,
+            TxManager txManager,
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            TopologyService topologyService,
+            CatalogService catalogService,
+            Executor partitionOperationsExecutor
+    ) {
         this.sharedTxStateStorage = sharedTxStateStorage;
+        this.txManager = txManager;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
+        this.topologyService = topologyService;
+        this.catalogService = catalogService;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
-    /**
-     * Gets or creates a transaction state storage for a zone partition.
-     *
-     * @param zoneId ID of the zone.
-     * @param partitionCount Number of partitions in the zone.
-     * @param partitionId Partition ID.
-     */
-    TxStatePartitionStorage getOrCreatePartitionTxStateStorage(int zoneId, int partitionCount, int partitionId) {
-        return inBusyLock(busyLock, () -> {
-            ZoneResources zoneResources = resourcesByZoneId.computeIfAbsent(
-                    zoneId,
-                    id -> createZoneResources(id, partitionCount)
-            );
+    ZonePartitionResources allocateZonePartitionResources(ZonePartitionId zonePartitionId, int partitionCount) {
+        ZoneResources zoneResources = resourcesByZoneId.computeIfAbsent(
+                zonePartitionId.zoneId(),
+                zoneId -> new ZoneResources(createTxStateStorage(zoneId, partitionCount))
+        );
 
-            return zoneResources.txStateStorage.getOrCreatePartitionStorage(partitionId);
-        });
+        TxStatePartitionStorage txStatePartitionStorage = zoneResources.txStateStorage
+                .getOrCreatePartitionStorage(zonePartitionId.partitionId());
+
+        var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
+
+        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
+
+        var raftGroupListener = new ZonePartitionRaftListener(
+                zonePartitionId,
+                txStatePartitionStorage,
+                txManager,
+                safeTimeTracker,
+                storageIndexTracker,
+                outgoingSnapshotsManager
+        );
+
+        var snapshotStorageFactory = new PartitionSnapshotStorageFactory(
+                new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
+                topologyService,
+                outgoingSnapshotsManager,
+                new PartitionTxStateAccessImpl(txStatePartitionStorage),
+                catalogService,
+                partitionOperationsExecutor
+        );
+
+        var zonePartitionResources = new ZonePartitionResources(txStatePartitionStorage, raftGroupListener, snapshotStorageFactory);
+
+        zoneResources.resourcesByPartitionId.put(zonePartitionId.partitionId(), zonePartitionResources);
+
+        return zonePartitionResources;
     }
 
-    private ZoneResources createZoneResources(int zoneId, int partitionCount) {
-        return new ZoneResources(createTxStateStorage(zoneId, partitionCount));
+    ZonePartitionResources getZonePartitionResources(ZonePartitionId zonePartitionId) {
+        ZoneResources zoneResources = resourcesByZoneId.get(zonePartitionId.zoneId());
+
+        assert zoneResources != null : "Missing resources for zone " + zonePartitionId.zoneId();
+
+        ZonePartitionResources zonePartitionResources = zoneResources.resourcesByPartitionId.get(zonePartitionId.partitionId());
+
+        assert zonePartitionResources != null : "Missing resources for partition " + zonePartitionId;
+
+        return zonePartitionResources;
     }
 
     private TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
@@ -85,14 +152,85 @@ class ZoneResourcesManager implements ManuallyCloseable {
 
         for (ZoneResources zoneResources : resourcesByZoneId.values()) {
             zoneResources.txStateStorage.close();
+            zoneResources.resourcesByPartitionId.clear();
         }
+
+        resourcesByZoneId.clear();
+    }
+
+    void destroyZonePartitionResources(ZonePartitionId zonePartitionId) {
+        inBusyLock(busyLock, () -> {
+            ZoneResources resources = resourcesByZoneId.get(zonePartitionId.zoneId());
+
+            if (resources != null) {
+                resources.resourcesByPartitionId.remove(zonePartitionId.partitionId());
+
+                resources.txStateStorage.destroyTxStateStorage(zonePartitionId.partitionId());
+            }
+        });
+    }
+
+    @TestOnly
+    @Nullable
+    TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+        ZoneResources resources = resourcesByZoneId.get(zoneId);
+
+        if (resources == null) {
+            return null;
+        }
+
+        return resources.txStateStorage.getPartitionStorage(partitionId);
     }
 
     private static class ZoneResources {
-        private final TxStateStorage txStateStorage;
+        final TxStateStorage txStateStorage;
 
-        private ZoneResources(TxStateStorage txStateStorage) {
+        final Map<Integer, ZonePartitionResources> resourcesByPartitionId = new Int2ObjectOpenHashMap<>();
+
+        ZoneResources(TxStateStorage txStateStorage) {
             this.txStateStorage = txStateStorage;
+        }
+    }
+
+    static class ZonePartitionResources {
+        private final TxStatePartitionStorage txStatePartitionStorage;
+        private final ZonePartitionRaftListener raftListener;
+        private final PartitionSnapshotStorageFactory snapshotStorageFactory;
+
+        /**
+         * Future that completes when the zone-wide replica listener is created.
+         *
+         * <p>This is needed, because on recovery tables are started before zone replicas and we need to postpone registering table-wide
+         * replica listeners until the zone replica is started.
+         *
+         * <p>During normal operations this future will be complete and table-wide listener registration will happen immediately.
+         */
+        private final CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture = new CompletableFuture<>();
+
+        ZonePartitionResources(
+                TxStatePartitionStorage txStatePartitionStorage,
+                ZonePartitionRaftListener raftListener,
+                PartitionSnapshotStorageFactory snapshotStorageFactory
+        ) {
+            this.txStatePartitionStorage = txStatePartitionStorage;
+            this.raftListener = raftListener;
+            this.snapshotStorageFactory = snapshotStorageFactory;
+        }
+
+        TxStatePartitionStorage txStatePartitionStorage() {
+            return txStatePartitionStorage;
+        }
+
+        ZonePartitionRaftListener raftListener() {
+            return raftListener;
+        }
+
+        PartitionSnapshotStorageFactory snapshotStorageFactory() {
+            return snapshotStorageFactory;
+        }
+
+        CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
+            return replicaListenerFuture;
         }
     }
 }

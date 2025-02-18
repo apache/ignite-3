@@ -156,7 +156,11 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Chang
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
@@ -207,12 +211,11 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.CatalogValidationSchemasSource;
-import org.apache.ignite.internal.table.distributed.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -861,9 +864,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
             PartitionDataStorage partitionDataStorage = partitionDataStorage(
-                    partitionStorages.getMvPartitionStorage(),
-                    internalTbl,
-                    partId
+                    new ZonePartitionKey(zonePartitionId.zoneId(), partId),
+                    tableId,
+                    partitionStorages.getMvPartitionStorage()
             );
 
             storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
@@ -904,11 +907,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     minTimeCollectorService
             );
 
+            var partitionStorageAccess = new PartitionMvStorageAccessImpl(
+                    partId,
+                    table.internalTable().storage(),
+                    mvGc,
+                    partitionUpdateHandlers.indexUpdateHandler,
+                    partitionUpdateHandlers.gcUpdateHandler,
+                    fullStateTransferIndexChooser,
+                    schemaManager.schemaRegistry(tableId),
+                    lowWatermark
+            );
+
             partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
                     zonePartitionId,
                     tablePartitionId,
                     createListener,
-                    tablePartitionRaftListener
+                    tablePartitionRaftListener,
+                    partitionStorageAccess
             );
         });
     }
@@ -1262,8 +1277,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
-                    PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
-                            internalTbl, partId);
+                    var partitionKey = new TablePartitionKey(tableId, partId);
+
+                    PartitionDataStorage partitionDataStorage = partitionDataStorage(
+                            partitionKey,
+                            internalTbl.tableId(),
+                            partitionStorages.getMvPartitionStorage()
+                    );
 
                     storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
 
@@ -1506,16 +1526,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
+    private PartitionDataStorage partitionDataStorage(PartitionKey partitionKey, int tableId, MvPartitionStorage partitionStorage) {
         return new SnapshotAwarePartitionDataStorage(
+                tableId,
                 partitionStorage,
                 outgoingSnapshotsManager,
-                partitionKey(internalTbl, partId)
+                partitionKey
         );
-    }
-
-    private static PartitionKey partitionKey(InternalTable internalTbl, int partId) {
-        return new PartitionKey(internalTbl.tableId(), partId);
     }
 
     @Override
@@ -2494,25 +2511,33 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionUpdateHandlers partitionUpdateHandlers,
             InternalTable internalTable
     ) {
-        PartitionKey partitionKey = partitionKey(internalTable, replicaGrpId.partitionId());
+        int partitionId = replicaGrpId.partitionId();
 
-        return new PartitionSnapshotStorageFactory(
+        var partitionAccess = new PartitionMvStorageAccessImpl(
+                partitionId,
+                internalTable.storage(),
+                mvGc,
+                partitionUpdateHandlers.indexUpdateHandler,
+                partitionUpdateHandlers.gcUpdateHandler,
+                fullStateTransferIndexChooser,
+                schemaManager.schemaRegistry(replicaGrpId.tableId()),
+                lowWatermark
+        );
+
+        var txStateAccess = new PartitionTxStateAccessImpl(internalTable.txStateStorage().getPartitionStorage(partitionId));
+
+        var factory = new PartitionSnapshotStorageFactory(
+                new TablePartitionKey(replicaGrpId.tableId(), replicaGrpId.partitionId()),
                 topologyService,
                 outgoingSnapshotsManager,
-                new PartitionAccessImpl(
-                        partitionKey,
-                        internalTable.storage(),
-                        internalTable.txStateStorage(),
-                        mvGc,
-                        partitionUpdateHandlers.indexUpdateHandler,
-                        partitionUpdateHandlers.gcUpdateHandler,
-                        fullStateTransferIndexChooser,
-                        schemaManager.schemaRegistry(partitionKey.tableId()),
-                        lowWatermark
-                ),
+                txStateAccess,
                 catalogService,
                 incomingSnapshotsExecutor
         );
+
+        factory.addMvPartition(internalTable.tableId(), partitionAccess);
+
+        return factory;
     }
 
     /**

@@ -47,6 +47,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -739,12 +740,14 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl txCrdNode2 = unwrapIgniteImpl(node(0));
 
+        TablePartitionId commitPartition = ((InternalTransaction) rwTx1).commitPartition();
         CompletableFuture<Void> finish2 = txCrdNode2.txManager().finish(
                 HybridTimestampTracker.atomicTracker(null),
-                ((InternalTransaction) rwTx1).commitPartition(),
+                commitPartition,
                 false,
                 false,
-                Map.of(((InternalTransaction) rwTx1).commitPartition(), new IgniteBiTuple<>(txCrdNode2.node(), 0L)),
+                Map.of(commitPartition, new IgniteBiTuple<>(txCrdNode2.node(), 0L)),
+                Set.of(commitPartition.tableId()),
                 rwTx1Id
         );
 

@@ -44,16 +44,28 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_ID_1 = 1;
+    private static final int TABLE_ID_2 = 2;
+
     @Mock
-    private PartitionAccess partitionAccess;
+    private PartitionMvStorageAccess partitionAccess1;
+
+    @Mock
+    private PartitionMvStorageAccess partitionAccess2;
+
+    @Mock
+    private PartitionTxStateAccess txStateAccess;
 
     @Test
     void testForChoosingMinimumAppliedIndexForMeta() {
-        when(partitionAccess.minLastAppliedIndex()).thenReturn(5L);
+        when(partitionAccess1.lastAppliedIndex()).thenReturn(5L);
+        when(partitionAccess2.lastAppliedIndex()).thenReturn(3L);
+        when(txStateAccess.lastAppliedIndex()).thenReturn(10L);
 
-        when(partitionAccess.minLastAppliedTerm()).thenReturn(1L);
+        when(partitionAccess2.lastAppliedTerm()).thenReturn(1L);
+        when(txStateAccess.lastAppliedTerm()).thenReturn(10L);
 
-        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+        when(partitionAccess2.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         Catalog catalog = mock(Catalog.class);
         when(catalog.indexes(anyInt())).thenReturn(List.of());
@@ -61,28 +73,34 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
         CatalogService catalogService = mock(CatalogService.class);
         when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
-        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(1, 1));
+        when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
+        when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
 
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
+                new ZonePartitionKey(0, 0),
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
-                partitionAccess,
+                txStateAccess,
                 catalogService,
                 mock(Executor.class)
         );
 
+        partitionSnapshotStorageFactory.addMvPartition(TABLE_ID_1, partitionAccess1);
+        partitionSnapshotStorageFactory.addMvPartition(TABLE_ID_2, partitionAccess2);
+
         PartitionSnapshotStorage snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
 
-        assertEquals(5L, snapshotStorage.startupSnapshotMeta().lastIncludedIndex());
+        assertEquals(3L, snapshotStorage.startupSnapshotMeta().lastIncludedIndex());
         assertEquals(1L, snapshotStorage.startupSnapshotMeta().lastIncludedTerm());
     }
 
     @Test
     void storageThrowsOnAttemptToGetStartupMetaOnEmptyStorage() {
         var factory = new PartitionSnapshotStorageFactory(
+                new ZonePartitionKey(0, 0),
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
-                partitionAccess,
+                mock(PartitionTxStateAccess.class),
                 mock(CatalogService.class),
                 mock(Executor.class)
         );

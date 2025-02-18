@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -160,6 +162,7 @@ public interface TxManager extends IgniteComponent {
      * @param commit {@code true} if a commit requested.
      * @param timeoutExceeded {@code true} if a timeout exceeded.
      * @param enlistedGroups Enlisted partition groups with consistency tokens.
+     * @param enlistedTableIds IDs of the tables taking part in the transaction.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
@@ -167,7 +170,8 @@ public interface TxManager extends IgniteComponent {
             TablePartitionId commitPartition,
             boolean commit,
             boolean timeoutExceeded,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Set<Integer> enlistedTableIds,
             UUID txId
     );
 
@@ -184,8 +188,8 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
-            Map<TablePartitionId, String> enlistedPartitions,
+            ReplicationGroupId commitPartitionId,
+            Map<ReplicationGroupId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -205,7 +209,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             TablePartitionId commitPartitionId,
-            Collection<TablePartitionId> enlistedPartitions,
+            Collection<ReplicationGroupId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

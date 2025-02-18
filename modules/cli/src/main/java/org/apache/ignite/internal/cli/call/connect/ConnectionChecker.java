@@ -97,7 +97,12 @@ public class ConnectionChecker {
         ApiClient apiClient = ApiClientFactory.buildClient(apiClientSettings);
 
         NodeInfo nodeInfo = new NodeManagementApi(apiClient).nodeInfo();
-        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(apiClientSettings.basePath(), nodeInfo.getJdbcPort());
+        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(
+                apiClientSettings.basePath(),
+                nodeInfo.getJdbcPort(),
+                apiClientSettings.basicAuthenticationUsername(),
+                apiClientSettings.basicAuthenticationPassword()
+        );
         return SessionInfo.builder().nodeUrl(apiClientSettings.basePath())
                 .nodeName(nodeInfo.getName()).jdbcUrl(jdbcUrl).username(apiClientSettings.basicAuthenticationUsername()).build();
     }

@@ -26,6 +26,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -86,8 +87,8 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
-        return transaction.enlistedNodeAndConsistencyToken(tablePartitionId);
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId) {
+        return transaction.enlistedNodeAndConsistencyToken(replicationGroupId);
     }
 
     @Override
@@ -106,9 +107,12 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
-        return transaction.enlist(tablePartitionId, nodeAndConsistencyToken);
+    public IgniteBiTuple<ClusterNode, Long> enlist(
+            ReplicationGroupId replicationGroupId,
+            int tableId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    ) {
+        return transaction.enlist(replicationGroupId, tableId, nodeAndConsistencyToken);
     }
 
     @Override

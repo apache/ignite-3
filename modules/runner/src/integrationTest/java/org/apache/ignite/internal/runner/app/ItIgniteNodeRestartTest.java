@@ -720,6 +720,28 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionsLogStorageFactory
         );
 
+        var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
+
+        var partitionReplicaLifecycleListener = new PartitionReplicaLifecycleManager(
+                catalogManager,
+                replicaMgr,
+                distributionZoneManager,
+                metaStorageMgr,
+                clusterSvc.topologyService(),
+                lowWatermark,
+                threadPoolsManager.tableIoExecutor(),
+                rebalanceScheduler,
+                threadPoolsManager.partitionOperationsExecutor(),
+                clockService,
+                placementDriverManager.placementDriver(),
+                schemaSyncService,
+                systemDistributedConfiguration,
+                sharedTxStateStorage,
+                txManager,
+                schemaManager,
+                outgoingSnapshotManager
+        );
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -742,7 +764,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 rebalanceScheduler,
                 threadPoolsManager.commonScheduler(),
                 clockService,
-                new OutgoingSnapshotsManager(clusterSvc.messagingService()),
+                outgoingSnapshotManager,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
@@ -754,22 +776,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 transactionInflights,
                 indexMetaStorage,
                 partitionsLogStorageFactory,
-                new PartitionReplicaLifecycleManager(
-                        catalogManager,
-                        replicaMgr,
-                        distributionZoneManager,
-                        metaStorageMgr,
-                        clusterSvc.topologyService(),
-                        lowWatermark,
-                        threadPoolsManager.tableIoExecutor(),
-                        rebalanceScheduler,
-                        threadPoolsManager.partitionOperationsExecutor(),
-                        clockService,
-                        placementDriverManager.placementDriver(),
-                        schemaSyncService,
-                        systemDistributedConfiguration,
-                        sharedTxStateStorage
-                ),
+                partitionReplicaLifecycleListener,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         );

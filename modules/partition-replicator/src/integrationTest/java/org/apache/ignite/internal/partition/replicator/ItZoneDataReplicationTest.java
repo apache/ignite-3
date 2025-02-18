@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -28,19 +29,24 @@ import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -52,6 +58,8 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -66,24 +74,35 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -125,6 +144,9 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
     private static StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private static GcConfiguration gcConfiguration;
 
     @InjectExecutorService
     private static ScheduledExecutorService scheduledExecutorService;
@@ -216,7 +238,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
-                null
+                null,
+                gcConfiguration
         );
     }
 
@@ -355,8 +378,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
     @ParameterizedTest(name = "truncateRaftLog={0}")
     @ValueSource(booleans = {false, true})
     void testDataRebalance(boolean truncateRaftLog) throws Exception {
-        assumeFalse(truncateRaftLog, "https://issues.apache.org/jira/browse/IGNITE-22416");
-
         startCluster(2);
 
         // Create a zone with a single partition on every node + one extra replica for the upcoming node.
@@ -403,7 +424,18 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
         // Not using "assertTrue" on purpose, the next line will produce a nicer error message.
         // TODO: remove this line after https://issues.apache.org/jira/browse/IGNITE-22620
-        waitForCondition(() -> kvView1.getAll(null, data1.keySet()).equals(data1), 10_000L);
+        waitForCondition(() -> {
+            try {
+                return kvView1.getAll(null, data1.keySet()).equals(data1);
+            } catch (IgniteException e) {
+                if (hasCauseOrSuppressed(e, StorageRebalanceException.class)) {
+                    // This is expected.
+                    return false;
+                } else {
+                    throw e;
+                }
+            }
+        }, 10_000L);
 
         assertThat(kvView1.getAll(null, data1.keySet()), is(data1));
         assertThat(kvView1.getAll(null, data2.keySet()), is(anEmptyMap()));
@@ -456,6 +488,106 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
 
         assertThat(kvView.get(null, 42), is(42));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void txFinishCommandGetsReplicated(boolean commit) throws Exception {
+        startCluster(3);
+
+        // Create a zone with a single partition on every node.
+        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+
+        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
+
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
+
+        Node node = cluster.get(0);
+
+        setPrimaryReplica(node, zonePartitionId);
+
+        KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
+
+        Transaction transaction = node.transactions().begin();
+        kvView1.put(transaction, 42, 69);
+        kvView2.put(transaction, 142, 169);
+        if (commit) {
+            transaction.commit();
+        } else {
+            transaction.rollback();
+        }
+
+        for (Node currentNode : cluster) {
+            assertTrue(waitForCondition(
+                    () -> !txStatesInPartitionStorage(currentNode.txStatePartitionStorage(zoneId, 0)).isEmpty(),
+                    SECONDS.toMillis(10)
+            ));
+        }
+
+        List<Executable> assertions = new ArrayList<>();
+        for (int i = 0; i < cluster.size(); i++) {
+            int finalI = i;
+            Node currentNode = cluster.get(finalI);
+
+            assertions.add(() -> assertTxStateStorageAsExpected(
+                    "Node " + finalI + " zone",
+                    currentNode.txStatePartitionStorage(zoneId, 0),
+                    1,
+                    commit
+            ));
+            assertions.add(() -> assertTxStateStorageAsExpected(
+                    "Node " + finalI + " table1",
+                    tableTxStatePartitionStorage(currentNode, tableId1, 0),
+                    0,
+                    commit
+            ));
+            assertions.add(() -> assertTxStateStorageAsExpected(
+                    "Node " + finalI + " table2",
+                    tableTxStatePartitionStorage(currentNode, tableId2, 0),
+                    0,
+                    commit
+            ));
+        }
+
+        assertAll(assertions);
+    }
+
+    private static void assertTxStateStorageAsExpected(
+            String storageName,
+            TxStatePartitionStorage txStatePartitionStorage,
+            int expectedCount,
+            boolean commit
+    ) {
+        List<TxState> txStates = txStatesInPartitionStorage(txStatePartitionStorage);
+
+        assertThat("For " + storageName, txStates, hasSize(expectedCount));
+        assertThat(txStates, everyItem(is(commit ? TxState.COMMITTED : TxState.ABORTED)));
+    }
+
+    private static List<TxState> txStatesInPartitionStorage(TxStatePartitionStorage txStatePartitionStorage) {
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            try (Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = txStatePartitionStorage.scan()) {
+                return cursor.stream()
+                        .map(pair -> pair.get2().txState())
+                        .collect(toList());
+            }
+        });
+    }
+
+    private static TxStatePartitionStorage tableTxStatePartitionStorage(Node node, int tableId1, int partitionId)
+            throws NodeStoppingException {
+        InternalTable internalTable1 = node.tableManager.table(tableId1).internalTable();
+        TxStatePartitionStorage txStatePartitionStorage = internalTable1.txStateStorage().getPartitionStorage(partitionId);
+
+        assertThat(txStatePartitionStorage, is(notNullValue()));
+
+        return txStatePartitionStorage;
     }
 
     private void setupTableIdToZoneIdConverter(ZonePartitionId zonePartitionId, TablePartitionId... tablePartitionIds) {

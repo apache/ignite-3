@@ -62,11 +62,6 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void stop() {
-        tableStorage.stop();
-    }
-
-    @Override
     public void close() {
         tableStorage.close();
     }

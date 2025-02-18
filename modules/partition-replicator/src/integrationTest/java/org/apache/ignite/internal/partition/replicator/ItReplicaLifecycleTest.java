@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -26,15 +27,20 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -44,15 +50,17 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -77,21 +85,32 @@ import org.apache.ignite.internal.partition.replicator.fixtures.Node.InvokeInter
 import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds;
+import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry.RemotelyTriggeredResource;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
@@ -147,6 +166,9 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
     private static StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private GcConfiguration gcConfiguration;
 
     @InjectExecutorService
     private static ScheduledExecutorService scheduledExecutorService;
@@ -246,7 +268,8 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
-                invokeInterceptor
+                invokeInterceptor,
+                gcConfiguration
         );
 
         nodes.put(idx, node);
@@ -768,7 +791,167 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
         }
     }
 
-    private void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
+    @Test
+    public void testScanCloseReplicaRequest(TestInfo testInfo) throws Exception {
+        // Prepare a single node cluster.
+        startNodes(testInfo, 1);
+        Node node = getNode(0);
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        // Prepare a zone.
+        String zoneName = "test_zone";
+        createZone(node, zoneName, 1, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        prepareTableIdToZoneIdConverter(node, zoneId);
+
+        // Create a table to work with.
+        String tableName = "test_table";
+        createTable(node, zoneName, tableName);
+        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+        TableViewInternal tableViewInternal = node.tableManager.table(tableId);
+        KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
+
+        // Write 2 rows to the table.
+        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
+        assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
+
+        InternalTable table = tableViewInternal.internalTable();
+
+        // Be sure that the only partition identifier is 0.
+        assertEquals(1, table.partitions());
+        int partId = 0;
+
+        // We have to use explicit transaction to check scan close scenario.
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        // Prepare a subscription on table scan in explicit transaction.
+        List<BinaryRow> scannedRows = new ArrayList<>();
+        PartitionScanPublisher<BinaryRow> publisher = (PartitionScanPublisher<BinaryRow>) table.scan(partId, tx);
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+        // Let's request a row to be ensure later that rows could be read.
+        subscription.request(1);
+
+        // Waiting while request will be done.
+        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), AWAIT_TIMEOUT_MILLIS));
+
+        // By the cursor ID we can track if the cursor will be closed after subscription cancel.
+        FullyQualifiedResourceId cursorId = RemoteResourceIds.cursorId(tx.id(), publisher.scanId(subscription));
+
+        // Check that cursor is opened.
+        assertNotNull(getVersionedStorageCursor(node, cursorId));
+
+        // Check there that scanned rows count is equals to read ones.
+        assertEquals(1, scannedRows.size());
+
+        // Triggers scan close with the corresponding request.
+        assertDoesNotThrow(subscription::cancel);
+
+        // Wait while ScanCloseReplicaRequest will pass through all handlers and PartitionReplicaListener#processScanCloseAction will
+        // close the cursor and remove it from the registry.
+        assertTrue(waitForCondition(() -> getVersionedStorageCursor(node, cursorId) == null, AWAIT_TIMEOUT_MILLIS));
+
+        // Commit the open transaction.
+        assertDoesNotThrow(tx::commit);
+    }
+
+    @Test
+    public void testCatalogCompaction(TestInfo testInfo) throws Exception {
+        // How often we update the low water mark.
+        long lowWatermarkUpdateInterval = 500;
+        updateLowWatermarkConfiguration(lowWatermarkUpdateInterval * 2, lowWatermarkUpdateInterval);
+
+        // Prepare a single node cluster.
+        startNodes(testInfo, 1);
+        Node node = getNode(0);
+
+        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
+                nodes.values().stream().map(n -> n.name).collect(toList()), 1, 1);
+
+        List<TokenizedAssignments> tokenizedAssignments = assignments.stream()
+                .map(a -> new TokenizedAssignmentsImpl(a, Integer.MIN_VALUE))
+                .collect(toList());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+        placementDriver.setAssignments(tokenizedAssignments);
+
+        forceCheckpoint(node);
+
+        String zoneName = "test-zone";
+        createZone(node, zoneName, 1, 1);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        prepareTableIdToZoneIdConverter(node, zoneId);
+
+        int catalogVersion1 = getLatestCatalogVersion(node);
+
+        String tableName1 = "test_table_1";
+        createTable(node, zoneName, tableName1);
+
+        String tableName2 = "test_table_2";
+        createTable(node, zoneName, tableName2);
+
+        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName2, node.hybridClock.nowLong());
+        TableViewInternal tableViewInternal = node.tableManager.table(tableId);
+        KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
+
+        // Write 2 rows to the table.
+        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
+        assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
+
+        forceCheckpoint(node);
+
+        int catalogVersion2 = getLatestCatalogVersion(node);
+        assertThat("The catalog version did not changed [initial=" + catalogVersion1 + ", latest=" + catalogVersion2 + ']',
+                catalogVersion2, greaterThan(catalogVersion1));
+
+        expectEarliestCatalogVersion(node, catalogVersion2 - 1);
+    }
+
+    private static void expectEarliestCatalogVersion(Node node, int expectedVersion) throws Exception {
+        boolean result = waitForCondition(() -> getEarliestCatalogVersion(node) == expectedVersion, 10_000);
+
+        assertTrue(result,
+                "Failed to wait for the expected catalog version [expected=" + expectedVersion
+                        + ", earliest=" + getEarliestCatalogVersion(node)
+                        + ", latest=" + getLatestCatalogVersion(node) + ']');
+    }
+
+    private static int getLatestCatalogVersion(Node node) {
+        Catalog catalog = getLatestCatalog(node);
+
+        return catalog.version();
+    }
+
+    private static int getEarliestCatalogVersion(Node node) {
+        CatalogManager catalogManager = node.catalogManager;
+
+        int ver = catalogManager.earliestCatalogVersion();
+
+        Catalog catalog = catalogManager.catalog(ver);
+
+        Objects.requireNonNull(catalog);
+
+        return catalog.version();
+    }
+
+    private static Catalog getLatestCatalog(Node node) {
+        CatalogManager catalogManager = node.catalogManager;
+
+        int ver = catalogManager.activeCatalogVersion(node.hybridClock.nowLong());
+
+        Catalog catalog = catalogManager.catalog(ver);
+
+        Objects.requireNonNull(catalog);
+
+        return catalog;
+    }
+
+    private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
+        return node.resourcesRegistry.resources().get(cursorId);
+    }
+
+    private static void prepareTableIdToZoneIdConverter(Node node, int zoneId) {
         node.setRequestConverter(request ->  {
             if (request instanceof WriteIntentSwitchReplicaRequest) {
                 return request.groupId().asReplicationGroupId();
@@ -836,7 +1019,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
                 return false;
             }
 
-            Replica replica = replicaFut.get(1, TimeUnit.SECONDS);
+            Replica replica = replicaFut.get(1, SECONDS);
 
             return replica != null && (((ZonePartitionReplicaListener) replica.listener()).tableReplicaListeners().size() == count);
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
@@ -868,5 +1051,34 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
                 .destroyPartition(partitionId);
         verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                 .destroyTxStateStorage(partitionId);
+    }
+
+    /**
+     * Update low water mark configuration.
+     *
+     * @param dataAvailabilityTime Data availability time.
+     * @param updateInterval Update interval.
+     */
+    private void updateLowWatermarkConfiguration(long dataAvailabilityTime, long updateInterval) {
+        CompletableFuture<?> updateFuture = gcConfiguration.lowWatermark().change(change -> {
+            change.changeDataAvailabilityTime(dataAvailabilityTime);
+            change.changeUpdateInterval(updateInterval);
+        });
+
+        assertThat(updateFuture, willSucceedFast());
+    }
+
+    /**
+     * Start the new checkpoint immediately on the provided node.
+     *
+     * @param node Node to start the checkpoint on.
+     */
+    private void forceCheckpoint(Node node) {
+        PersistentPageMemoryStorageEngine storageEngine = (PersistentPageMemoryStorageEngine) node
+                .dataStorageManager()
+                .engineByStorageProfile(DEFAULT_STORAGE_PROFILE);
+
+        assertThat(storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED),
+                willSucceedIn(10, SECONDS));
     }
 }

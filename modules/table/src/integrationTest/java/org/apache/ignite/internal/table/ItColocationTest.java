@@ -221,7 +221,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     TablePartitionId commitPartition,
                     boolean commitIntent,
                     boolean timeoutExceeded,
-                    Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+                    Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+                    Set<Integer> enlistedTableIds,
                     UUID txId
             ) {
                 return nullCompletedFuture();

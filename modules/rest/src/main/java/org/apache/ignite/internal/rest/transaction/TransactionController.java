@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -36,9 +37,9 @@ import org.apache.ignite.internal.rest.transaction.exception.TransactionNotFound
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,16 +61,17 @@ public class TransactionController implements TransactionApi, ResourceHolder {
 
     @Override
     public CompletableFuture<Collection<TransactionInfo>> transactions() {
-        return completedFuture(transactionInfos());
+        return transactionInfos();
     }
 
     @Override
     public CompletableFuture<TransactionInfo> transaction(UUID transactionId) {
-        return completedFuture(transactionInfos(transactionId)).thenApply(transactionInfos -> {
-            if (transactionInfos.isEmpty()) {
-                throw new TransactionNotFoundException(transactionId.toString());
+        return transactionInfos(transactionId).thenApply(transactionInfos -> {
+            Iterator<TransactionInfo> iterator = transactionInfos.iterator();
+            if (iterator.hasNext()) {
+                return iterator.next();
             } else {
-                return transactionInfos.get(0);
+                throw new TransactionNotFoundException(transactionId.toString());
             }
         });
     }
@@ -100,30 +102,38 @@ public class TransactionController implements TransactionApi, ResourceHolder {
         killHandlerRegistry = null;
     }
 
-    private List<TransactionInfo> transactionInfos() {
+    private CompletableFuture<Collection<TransactionInfo>> transactionInfos() {
         return transactionInfos("SELECT * FROM SYSTEM.TRANSACTIONS ORDER BY START_TIME");
     }
 
-    private List<TransactionInfo> transactionInfos(UUID transactionId) {
+    private CompletableFuture<Collection<TransactionInfo>> transactionInfos(UUID transactionId) {
         return transactionInfos("SELECT * FROM SYSTEM.TRANSACTIONS WHERE ID='" + transactionId.toString() + "'");
     }
 
-    private List<TransactionInfo> transactionInfos(String query) {
+    private CompletableFuture<Collection<TransactionInfo>> transactionInfos(String query) {
         Statement transactionStmt = igniteSql.createStatement(query);
-        List<TransactionInfo> transactionInfos = new ArrayList<>();
-        try (ResultSet<SqlRow> resultSet = igniteSql.execute(null, transactionStmt)) {
-            while (resultSet.hasNext()) {
-                SqlRow row = resultSet.next();
+        return igniteSql.executeAsync(null, transactionStmt)
+                .thenCompose(resultSet -> iterate(resultSet, new ArrayList<>()));
+    }
 
-                transactionInfos.add(new TransactionInfo(
-                        UUID.fromString(row.stringValue("ID")),
-                        row.stringValue("COORDINATOR_NODE_ID"),
-                        row.stringValue("STATE"),
-                        row.stringValue("TYPE"),
-                        row.stringValue("PRIORITY"),
-                        row.timestampValue("START_TIME")));
-            }
+    private static CompletableFuture<Collection<TransactionInfo>> iterate(AsyncResultSet<SqlRow> resultSet, List<TransactionInfo> result) {
+        for (SqlRow row : resultSet.currentPage()) {
+            result.add(convert(row));
         }
-        return transactionInfos;
+        if (resultSet.hasMorePages()) {
+            return resultSet.fetchNextPage().thenCompose(nextPage -> iterate(nextPage, result));
+        } else {
+            return completedFuture(result);
+        }
+    }
+
+    private static TransactionInfo convert(SqlRow row) {
+        return new TransactionInfo(
+                UUID.fromString(row.stringValue("ID")),
+                row.stringValue("COORDINATOR_NODE_ID"),
+                row.stringValue("STATE"),
+                row.stringValue("TYPE"),
+                row.stringValue("PRIORITY"),
+                row.timestampValue("START_TIME"));
     }
 }

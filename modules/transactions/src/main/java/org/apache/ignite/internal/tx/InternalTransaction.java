@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
@@ -40,10 +41,10 @@ public interface InternalTransaction extends Transaction {
     /**
      * Returns enlisted primary replica node associated with given replication group.
      *
-     * @param tablePartitionId Table partition id.
+     * @param replicationGroupId Replication group ID.
      * @return Enlisted primary replica node and consistency token associated with given replication group.
      */
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId);
+    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId);
 
     /**
      * Returns a transaction state.
@@ -70,11 +71,16 @@ public interface InternalTransaction extends Transaction {
     /**
      * Enlists a partition group into a transaction.
      *
-     * @param tablePartitionId Table partition id to enlist.
+     * @param replicationGroupId Replication group id to enlist.
+     * @param tableId Table ID for enlistment.
      * @param nodeAndConsistencyToken Primary replica cluster node and consistency token to enlist for given replication group.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken);
+    IgniteBiTuple<ClusterNode, Long> enlist(
+            ReplicationGroupId replicationGroupId,
+            int tableId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    );
 
     /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.

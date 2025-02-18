@@ -38,7 +38,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
@@ -107,14 +106,11 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     DynamicCompleterFilter dynamicCompleterFilter;
 
     @Inject
-    Session session;
-
-    @Inject
     EventPublisher eventPublisher;
 
-    SystemCompleter completer;
+    private SystemCompleter completer;
 
-    LineReader lineReader;
+    private LineReader lineReader;
 
     @Override
     protected Class<?> getCommandClass() {

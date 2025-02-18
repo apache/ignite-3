@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.Collections.unmodifiableCollection;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMetaMessage;
@@ -41,7 +41,7 @@ public class TxMeta implements TransactionMeta {
     private final TxState txState;
 
     /** Collection of enlisted partition groups. */
-    private final Collection<TablePartitionId> enlistedPartitions;
+    private final Collection<ReplicationGroupId> enlistedPartitions;
 
     /** Commit timestamp. */
     private final @Nullable HybridTimestamp commitTimestamp;
@@ -53,7 +53,7 @@ public class TxMeta implements TransactionMeta {
      * @param enlistedPartitions Collection of enlisted partition groups.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, Collection<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
+    public TxMeta(TxState txState, Collection<ReplicationGroupId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
@@ -64,7 +64,7 @@ public class TxMeta implements TransactionMeta {
         return txState;
     }
 
-    public Collection<TablePartitionId> enlistedPartitions() {
+    public Collection<ReplicationGroupId> enlistedPartitions() {
         return unmodifiableCollection(enlistedPartitions);
     }
 
@@ -75,10 +75,10 @@ public class TxMeta implements TransactionMeta {
 
     @Override
     public TxMetaMessage toTransactionMetaMessage(ReplicaMessagesFactory replicaMessagesFactory, TxMessagesFactory txMessagesFactory) {
-        var enlistedPartitionMessages = new ArrayList<TablePartitionIdMessage>(enlistedPartitions.size());
+        var enlistedPartitionMessages = new ArrayList<ReplicationGroupIdMessage>(enlistedPartitions.size());
 
-        for (TablePartitionId enlistedPartition : enlistedPartitions) {
-            enlistedPartitionMessages.add(toTablePartitionIdMessage(replicaMessagesFactory, enlistedPartition));
+        for (ReplicationGroupId enlistedPartition : enlistedPartitions) {
+            enlistedPartitionMessages.add(toReplicationGroupIdMessage(replicaMessagesFactory, enlistedPartition));
         }
 
         return txMessagesFactory.txMetaMessage()

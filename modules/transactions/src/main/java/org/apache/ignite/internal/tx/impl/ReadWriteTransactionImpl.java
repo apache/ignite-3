@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +34,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
@@ -49,7 +51,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
 
     /** Enlisted partitions: partition id -> (primary replica node, enlistment consistency token). */
-    private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
+    private final Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
+
+    private final Set<Integer> enlistedTableIds = ConcurrentHashMap.newKeySet();
 
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
@@ -96,14 +100,15 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId partGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(
-            TablePartitionId tablePartitionId,
+            ReplicationGroupId replicationGroupId,
+            int tableId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
     ) {
         // No need to wait for lock if commit is in progress.
@@ -115,7 +120,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         try {
             checkEnlistPossibility();
 
-            return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndConsistencyToken);
+            enlistedTableIds.add(tableId);
+
+            return enlisted.computeIfAbsent(replicationGroupId, k -> nodeAndConsistencyToken);
         } finally {
             enlistPartitionLock.readLock().unlock();
         }
@@ -225,6 +232,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             commit,
                             timeoutExceeded,
                             enlisted,
+                            enlistedTableIds,
                             id()
                     );
 

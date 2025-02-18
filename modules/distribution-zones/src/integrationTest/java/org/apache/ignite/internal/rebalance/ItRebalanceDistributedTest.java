@@ -32,9 +32,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -1056,7 +1056,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, String tableName, int partNum) {
         return Optional.ofNullable(getTableId(node, tableName))
-                .map(tableId -> partitionAssignments(node.metaStorageManager, tableId, partNum).join())
+                .map(tableId -> stablePartitionAssignments(node.metaStorageManager, tableId, partNum).join())
                 .orElse(Set.of());
     }
 
@@ -1480,6 +1480,28 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logStorageFactory
             );
 
+            var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService());
+
+            var replicaLifecycleManager = new PartitionReplicaLifecycleManager(
+                    catalogManager,
+                    replicaManager,
+                    distributionZoneManager,
+                    metaStorageManager,
+                    clusterService.topologyService(),
+                    lowWatermark,
+                    threadPoolsManager.tableIoExecutor(),
+                    rebalanceScheduler,
+                    threadPoolsManager.partitionOperationsExecutor(),
+                    clockService,
+                    placementDriver,
+                    schemaSyncService,
+                    systemDistributedConfiguration,
+                    sharedTxStateStorage,
+                    txManager,
+                    schemaManager,
+                    outgoingSnapshotManager
+            );
+
             tableManager = new TableManager(
                     name,
                     registry,
@@ -1502,7 +1524,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     rebalanceScheduler,
                     threadPoolsManager.commonScheduler(),
                     clockService,
-                    new OutgoingSnapshotsManager(clusterService.messagingService()),
+                    outgoingSnapshotManager,
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
@@ -1514,22 +1536,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     transactionInflights,
                     indexMetaStorage,
                     logStorageFactory,
-                    new PartitionReplicaLifecycleManager(
-                            catalogManager,
-                            replicaManager,
-                            distributionZoneManager,
-                            metaStorageManager,
-                            clusterService.topologyService(),
-                            lowWatermark,
-                            threadPoolsManager.tableIoExecutor(),
-                            rebalanceScheduler,
-                            threadPoolsManager.partitionOperationsExecutor(),
-                            clockService,
-                            placementDriver,
-                            schemaSyncService,
-                            systemDistributedConfiguration,
-                            sharedTxStateStorage
-                    ),
+                    replicaLifecycleManager,
                     minTimeCollectorService,
                     systemDistributedConfiguration
             ) {

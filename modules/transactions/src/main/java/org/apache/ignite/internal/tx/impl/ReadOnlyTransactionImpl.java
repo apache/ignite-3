@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.network.ClusterNode;
 
@@ -86,14 +87,15 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(
-            TablePartitionId tablePartitionId,
+            ReplicationGroupId replicationGroupId,
+            int tableId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
     ) {
         return null;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId) {
         return null;
     }
 
