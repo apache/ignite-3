@@ -557,7 +557,8 @@ public class OutgoingSnapshot {
      * <p>Must be called under MV data snapshot lock.
      *
      * @param rowId RowId.
-     * @return {@code true} if the given RowId is already passed by the snapshot in normal rows sending order.
+     * @return {@code true} if the given RowId is already passed by the snapshot in normal rows sending order or if the RowId belongs to
+     *     a table that is not a part of this snapshot at all.
      */
     public boolean alreadyPassedOrIrrelevant(int tableId, RowId rowId) {
         assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
@@ -567,8 +568,14 @@ public class OutgoingSnapshot {
             return false;
         }
 
-        // First, check if all MV data is delivered, because it can also be empty.
-        if (mvPartitionDeliveryState.isExhausted() || !mvPartitionDeliveryState.isGoingToBeDelivered(tableId)) {
+        return !mvPartitionDeliveryState.isGoingToBeDelivered(tableId) || alreadyPassed(tableId, rowId);
+    }
+
+    private boolean alreadyPassed(int tableId, RowId rowId) {
+        assert mvPartitionDeliveryState != null;
+
+        if (mvPartitionDeliveryState.isExhausted()) {
+            // We have already finished delivering all data.
             return true;
         }
 
