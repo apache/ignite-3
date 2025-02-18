@@ -69,6 +69,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -848,12 +849,12 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         return expRev;
     }
 
-    private void publishAssignments(ByteArray assignmentsKey, Set<Assignment> assignments) {
+    private void publishAssignments(ByteArray assignmentsKey, byte[] assignmentsValue) {
         long timestampBeforeUpdate = clockService.nowLong();
 
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(assignmentsKey, Assignments.toBytes(assignments, assignmentsTimestamp)),
+                put(assignmentsKey, assignmentsValue),
                 noop()
         );
 
@@ -864,15 +865,21 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private void publishStableAssignments(Set<Assignment> assignments) {
-        publishAssignments(RebalanceUtil.stablePartAssignmentsKey(GROUP_1), assignments);
+        publishAssignments(RebalanceUtil.stablePartAssignmentsKey(GROUP_1),
+                Assignments.toBytes(assignments, assignmentsTimestamp)
+        );
     }
 
     private void publishPendingAssignments(Set<Assignment> assignments) {
-        publishAssignments(RebalanceUtil.pendingPartAssignmentsKey(GROUP_1), assignments);
+        publishAssignments(RebalanceUtil.pendingPartAssignmentsKey(GROUP_1),
+                AssignmentsQueue.toBytes(Assignments.of(assignments, assignmentsTimestamp))
+        );
     }
 
     private void publishPlannedAssignments(Set<Assignment> assignments) {
-        publishAssignments(RebalanceUtil.plannedPartAssignmentsKey(GROUP_1), assignments);
+        publishAssignments(RebalanceUtil.plannedPartAssignmentsKey(GROUP_1),
+                Assignments.toBytes(assignments, assignmentsTimestamp)
+        );
     }
 
     private CompletableFuture<PrimaryReplicaEventParameters> listenAnyReplicaBecomePrimaryEvent() {
