@@ -41,11 +41,11 @@ public class ItSchemasSystemViewTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT * FROM system.schemas")
                 .columnMetadata(
                         new MetadataMatcher()
-                                .name("ID")
+                                .name("SCHEMA_ID")
                                 .type(ColumnType.INT32)
                                 .nullable(true),
                         new MetadataMatcher()
-                                .name("SCHEMA")
+                                .name("SCHEMA_NAME")
                                 .type(ColumnType.STRING)
                                 .precision(CatalogUtils.MAX_VARLEN_LENGTH)
                                 .nullable(true)
@@ -68,7 +68,7 @@ public class ItSchemasSystemViewTest extends BaseSqlIntegrationTest {
 
         // Initial state
 
-        assertQuery("SELECT id, \"SCHEMA\" FROM system.schemas ORDER BY \"SCHEMA\"")
+        assertQuery("SELECT schema_id, schema_name FROM system.schemas ORDER BY schema_name")
                 .returns(publicSchemaId, "PUBLIC")
                 .returns(systemSchemaId, "SYSTEM")
                 .check();
@@ -80,7 +80,7 @@ public class ItSchemasSystemViewTest extends BaseSqlIntegrationTest {
         CatalogSchemaDescriptor newSchema = catalogManager.catalog(catalogManager.latestCatalogVersion()).schema("TEST_SCHEMA");
         assertNotNull(newSchema);
 
-        assertQuery("SELECT id, \"SCHEMA\" FROM system.schemas ORDER BY \"SCHEMA\"")
+        assertQuery("SELECT schema_id, schema_name FROM system.schemas ORDER BY schema_name")
                 .returns(publicSchemaId, "PUBLIC")
                 .returns(systemSchemaId, "SYSTEM")
                 .returns(newSchema.id(), "TEST_SCHEMA")
@@ -89,7 +89,7 @@ public class ItSchemasSystemViewTest extends BaseSqlIntegrationTest {
         // Drop new schema
         sql("DROP SCHEMA TEST_SCHEMA");
 
-        assertQuery("SELECT id, \"SCHEMA\" FROM system.schemas ORDER BY \"SCHEMA\"")
+        assertQuery("SELECT schema_id, schema_name FROM system.schemas ORDER BY schema_name")
                 .returns(publicSchemaId, "PUBLIC")
                 .returns(systemSchemaId, "SYSTEM")
                 .check();
