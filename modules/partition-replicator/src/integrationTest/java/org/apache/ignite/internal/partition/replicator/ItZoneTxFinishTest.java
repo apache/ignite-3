@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -162,8 +164,8 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
         // Create a zone with a single partition on every node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
 
-        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
@@ -233,5 +235,43 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
         try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
             return cursor.stream().collect(toList());
         }
+    }
+
+    @Test
+    void zoneIdIsWrittenAsCommitZoneIdToWriteIntents() throws Exception {
+        startCluster(3);
+
+        // Create a zone with a single partition on every node.
+        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
+
+        Node node = cluster.get(0);
+
+        setPrimaryReplica(node, zonePartitionId);
+
+        KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
+
+        Transaction transaction = node.transactions().begin();
+
+        kvView1.put(transaction, 42, 69);
+        waitTillOneWriteIntentAppearsOnAllNodesWithCommitZoneId(TEST_TABLE_NAME1, zoneId);
+
+        kvView2.put(transaction, 142, 169);
+        waitTillOneWriteIntentAppearsOnAllNodesWithCommitZoneId(TEST_TABLE_NAME2, zoneId);
+    }
+
+    private void waitTillOneWriteIntentAppearsOnAllNodesWithCommitZoneId(String tableName, int commitZoneId) throws InterruptedException {
+        waitOnAllNodes("A write intent should appear on every node with expected commitZoneId", tableName, storage -> {
+            List<ReadResult> readResults = readAll(storage);
+            return readResults.size() == 1
+                    && readResults.stream().allMatch(version -> Objects.equals(version.commitTableOrZoneId(), commitZoneId));
+        });
     }
 }

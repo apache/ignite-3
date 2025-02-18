@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -42,7 +42,7 @@ public class TxStateMeta implements TransactionMeta {
     private final @Nullable UUID txCoordinatorId;
 
     /** ID of the replication group that manages a transaction state. */
-    private final @Nullable TablePartitionId commitPartitionId;
+    private final @Nullable ReplicationGroupId commitPartitionId;
 
     private final @Nullable HybridTimestamp commitTimestamp;
 
@@ -69,7 +69,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable UUID txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable InternalTransaction tx
     ) {
@@ -89,7 +89,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable UUID txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable InternalTransaction tx,
             @Nullable Long initialVacuumObservationTimestamp
@@ -111,7 +111,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable UUID txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable InternalTransaction tx,
             @Nullable Long initialVacuumObservationTimestamp,
@@ -164,7 +164,7 @@ public class TxStateMeta implements TransactionMeta {
         return txCoordinatorId;
     }
 
-    public @Nullable TablePartitionId commitPartitionId() {
+    public @Nullable ReplicationGroupId commitPartitionId() {
         return commitPartitionId;
     }
 
@@ -189,7 +189,9 @@ public class TxStateMeta implements TransactionMeta {
         return txMessagesFactory.txStateMetaMessage()
                 .txState(txState)
                 .txCoordinatorId(txCoordinatorId)
-                .commitPartitionId(commitPartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, commitPartitionId))
+                .commitPartitionId(
+                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
+                )
                 .commitTimestamp(commitTimestamp)
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
