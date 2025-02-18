@@ -224,81 +224,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private volatile String localNodeConsistentId;
 
-    /* Temporary converter to support the zone based partitions in tests. **/
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
-    private volatile Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
-
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
     private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
-
-    /**
-     * Constructor for a replica service.
-     *
-     * @param nodeName Node name.
-     * @param clusterNetSvc Cluster network service.
-     * @param cmgMgr Cluster group manager.
-     * @param clockService Clock service.
-     * @param messageGroupsToHandle Message handlers.
-     * @param placementDriver A placement driver.
-     * @param requestsExecutor Executor that will be used to execute requests by replicas.
-     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
-     * @param failureManager Failure processor.
-     * @param raftCommandsMarshaller Command marshaller for raft groups creation.
-     * @param raftGroupServiceFactory A factory for raft-clients creation.
-     * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
-     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
-     *      volatile tables.
-     * @param groupIdConverter Temporary converter to support the zone based partitions in tests.
-     * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
-     */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method
-    @TestOnly
-    public ReplicaManager(
-            String nodeName,
-            ClusterService clusterNetSvc,
-            ClusterManagementGroupManager cmgMgr,
-            ClockService clockService,
-            Set<Class<?>> messageGroupsToHandle,
-            PlacementDriver placementDriver,
-            Executor requestsExecutor,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            FailureManager failureManager,
-            Marshaller raftCommandsMarshaller,
-            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
-            RaftManager raftManager,
-            RaftGroupOptionsConfigurer partitionRaftConfigurer,
-            LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            Executor replicaStartStopExecutor,
-            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
-    ) {
-        this(
-                nodeName,
-                clusterNetSvc,
-                cmgMgr,
-                clockService,
-                messageGroupsToHandle,
-                placementDriver,
-                requestsExecutor,
-                idleSafeTimePropagationPeriodMsSupplier,
-                failureManager,
-                raftCommandsMarshaller,
-                raftGroupServiceFactory,
-                raftManager,
-                partitionRaftConfigurer,
-                volatileLogStorageFactoryCreator,
-                replicaStartStopExecutor,
-                getPendingAssignmentsSupplier
-        );
-
-        this.groupIdConverter = groupIdConverter;
-    }
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method.
-    public void groupIdConverter(Function<ReplicaRequest, ReplicationGroupId> converter) {
-        groupIdConverter = converter;
-    }
 
     /**
      * Constructor for a replica service.
@@ -419,7 +347,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        ReplicationGroupId groupId = groupIdConverter.apply(request);
+        ReplicationGroupId groupId = request.groupId().asReplicationGroupId();
 
         String senderConsistentId = sender.name();
 
