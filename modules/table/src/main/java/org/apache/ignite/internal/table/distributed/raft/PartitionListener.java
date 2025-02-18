@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
@@ -128,9 +130,13 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
-    // Raft command handlers.
-    private final RaftTxFinishMarker txFinisher;
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
+    private final RaftTxFinishMarker txFinishMarker;
+
+    // Raft command handlers.
     private final FinishTxCommandHandler finishTxCommandHandler;
 
     private final MinimumActiveTxTimeCommandHandler minimumActiveTxTimeCommandHandler;
@@ -164,7 +170,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
-        txFinisher = new RaftTxFinishMarker(txManager);
+        txFinishMarker = new RaftTxFinishMarker(txManager);
+
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
                 tablePartitionId,
@@ -417,7 +424,11 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         UUID txId = cmd.txId();
 
-        txFinisher.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
+        if (!enabledColocationFeature) {
+            // When colocation feature is enabled, this object merely serves as a table processor invoked by zone-aware raft listener,
+            // which has already marked the transaction finished.
+            txFinishMarker.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
+        }
 
         storageUpdateHandler.switchWriteIntents(
                 txId,

@@ -25,11 +25,11 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -45,7 +45,7 @@ public final class NoOpTransaction implements InternalTransaction {
     private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1)
             .addPhysicalTime(System.currentTimeMillis());
 
-    private final IgniteBiTuple<ClusterNode, Long> tuple;
+    private final MutablePartitionEnlistment enlistment;
 
     private final TablePartitionId groupId = new TablePartitionId(1, 0);
 
@@ -85,14 +85,14 @@ public final class NoOpTransaction implements InternalTransaction {
      */
     public NoOpTransaction(String name, boolean implicit, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        this.tuple = new IgniteBiTuple<>(new ClusterNodeImpl(randomUUID(), name, networkAddress), 1L);
+        this.enlistment = new MutablePartitionEnlistment(new ClusterNodeImpl(randomUUID(), name, networkAddress), 1L, groupId.tableId());
         this.implicit = implicit;
         this.readOnly = readOnly;
     }
 
     /** Node at which this transaction was start. */
     public ClusterNode clusterNode() {
-        return tuple.get1();
+        return enlistment.primaryNode();
     }
 
     @Override
@@ -144,8 +144,8 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId tablePartitionId) {
-        return tuple;
+    public MutablePartitionEnlistment enlistedPartition(ReplicationGroupId tablePartitionId) {
+        return enlistment;
     }
 
     @Override
@@ -188,12 +188,13 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(
+    public void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+            ClusterNode primaryNode,
+            long consistencyToken
     ) {
-        return nodeAndConsistencyToken;
+        // No-op.
     }
 
     @Override

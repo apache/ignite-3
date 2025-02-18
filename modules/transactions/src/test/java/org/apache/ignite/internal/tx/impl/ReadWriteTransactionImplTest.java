@@ -98,8 +98,8 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private void startTxAndTryToEnlist(boolean commit) {
         HashSet<UUID> finishedTxs = new HashSet<>();
 
-        Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), any(), any())).thenAnswer(invocation -> {
-            finishedTxs.add(invocation.getArgument(5));
+        Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), any())).thenAnswer(invocation -> {
+            finishedTxs.add(invocation.getArgument(4));
 
             return nullCompletedFuture();
         });
@@ -122,8 +122,8 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         tx.assignCommitPartition(TX_COMMIT_PART);
 
-        tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, NODE_AND_TOKEN);
-        tx.enlist(new ZonePartitionId(ZONE_ID, 2), TABLE_ID, NODE_AND_TOKEN);
+        tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE, 0L);
+        tx.enlist(new ZonePartitionId(ZONE_ID, 2), TABLE_ID, CLUSTER_NODE, 0L);
 
         if (commit) {
             if (txState == null) {
@@ -140,11 +140,11 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         }
 
         TransactionException ex = assertThrows(TransactionException.class,
-                () -> tx.enlist(new ZonePartitionId(ZONE_ID, 5), TABLE_ID, NODE_AND_TOKEN));
+                () -> tx.enlist(new ZonePartitionId(ZONE_ID, 5), TABLE_ID, CLUSTER_NODE, 0L));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
 
-        ex = assertThrows(TransactionException.class, () -> tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, NODE_AND_TOKEN));
+        ex = assertThrows(TransactionException.class, () -> tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE, 0L));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
     }

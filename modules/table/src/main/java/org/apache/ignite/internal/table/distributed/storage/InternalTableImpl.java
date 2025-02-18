@@ -86,7 +86,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
@@ -129,6 +128,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -356,19 +356,21 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = actualTx.enlistedNodeAndConsistencyToken(partGroupId);
+        MutablePartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
 
         CompletableFuture<R> fut;
 
-        if (primaryReplicaAndConsistencyToken != null) {
+        if (enlistment != null) {
             assert !actualTx.implicit();
+
+            enlistment.addTableId(tableId);
 
             fut = trackingInvoke(
                     actualTx,
                     partId,
                     enlistmentConsistencyToken -> fac.apply(actualTx, partGroupId, enlistmentConsistencyToken),
                     false,
-                    primaryReplicaAndConsistencyToken,
+                    enlistment,
                     noWriteChecker,
                     attemptsObtainLock
             );
@@ -470,12 +472,14 @@ public class InternalTableImpl implements InternalTable {
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
 
-            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = actualTx.enlistedNodeAndConsistencyToken(partGroupId);
+            MutablePartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
 
             CompletableFuture<T> fut;
 
-            if (primaryReplicaAndConsistencyToken != null) {
+            if (enlistment != null) {
                 assert !actualTx.implicit();
+
+                enlistment.addTableId(tableId);
 
                 fut = trackingInvoke(
                         actualTx,
@@ -483,7 +487,7 @@ public class InternalTableImpl implements InternalTable {
                         enlistmentConsistencyToken ->
                                 fac.apply(rowBatch.requestedRows, actualTx, partGroupId, enlistmentConsistencyToken, false),
                         false,
-                        primaryReplicaAndConsistencyToken,
+                        enlistment,
                         noOpChecker,
                         attemptsObtainLock
                 );
@@ -559,7 +563,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = tx.enlistedNodeAndConsistencyToken(partGroupId);
+        MutablePartitionEnlistment enlistment = tx.enlistedPartition(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
@@ -583,8 +587,10 @@ public class InternalTableImpl implements InternalTable {
                         .coordinatorId(tx.coordinatorId())
                         .build();
 
-        if (primaryReplicaAndConsistencyToken != null) {
-            fut = replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), mapFunc.apply(primaryReplicaAndConsistencyToken.get2()));
+        if (enlistment != null) {
+            enlistment.addTableId(tableId);
+
+            fut = replicaSvc.invoke(enlistment.primaryNode(), mapFunc.apply(enlistment.consistencyToken()));
         } else {
             fut = enlistAndInvoke(tx, partId, mapFunc, false, null);
         }
@@ -636,7 +642,7 @@ public class InternalTableImpl implements InternalTable {
      * @param partId Partition id.
      * @param mapFunc Request factory.
      * @param full {@code True} for a full transaction.
-     * @param primaryReplicaAndConsistencyToken Replica and enlistment consistency token.
+     * @param enlistment Enlisted partition.
      * @param noWriteChecker Used to handle operations producing no updates.
      * @param retryOnLockConflict {@code True} to retry on lock conflics.
      * @return The future.
@@ -646,13 +652,13 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             Function<Long, ReplicaRequest> mapFunc,
             boolean full,
-            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken,
+            MutablePartitionEnlistment enlistment,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
             int retryOnLockConflict
     ) {
         assert !tx.isReadOnly() : format("Tracking invoke is available only for read-write transactions [tx={}].", tx);
 
-        ReplicaRequest request = mapFunc.apply(primaryReplicaAndConsistencyToken.get2());
+        ReplicaRequest request = mapFunc.apply(enlistment.consistencyToken());
 
         boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
                 || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
@@ -661,7 +667,7 @@ public class InternalTableImpl implements InternalTable {
                 || request instanceof SwapRowReplicaRequest;
 
         if (full) { // Full transaction retries are handled in postEnlist.
-            return replicaSvc.invokeRaw(primaryReplicaAndConsistencyToken.get1(), request).handle((r, e) -> {
+            return replicaSvc.invokeRaw(enlistment.primaryNode(), request).handle((r, e) -> {
                 boolean hasError = e != null;
                 assert hasError || r instanceof TimestampAware;
 
@@ -686,7 +692,7 @@ public class InternalTableImpl implements InternalTable {
                             )));
                 }
 
-                return replicaSvc.<R>invoke(primaryReplicaAndConsistencyToken.get1(), request).thenApply(res -> {
+                return replicaSvc.<R>invoke(enlistment.primaryNode(), request).thenApply(res -> {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
@@ -705,7 +711,7 @@ public class InternalTableImpl implements InternalTable {
                                     partId,
                                     ignored -> request,
                                     false,
-                                    primaryReplicaAndConsistencyToken,
+                                    enlistment,
                                     noWriteChecker,
                                     retryOnLockConflict - 1
                             );
@@ -717,7 +723,7 @@ public class InternalTableImpl implements InternalTable {
                     return completedFuture(r);
                 }).thenCompose(identity());
             } else { // Explicit reads should be retried too.
-                return replicaSvc.<R>invoke(primaryReplicaAndConsistencyToken.get1(), request).handle((r, e) -> {
+                return replicaSvc.<R>invoke(enlistment.primaryNode(), request).handle((r, e) -> {
                     if (e != null) {
                         if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
                             return trackingInvoke(
@@ -725,7 +731,7 @@ public class InternalTableImpl implements InternalTable {
                                     partId,
                                     ignored -> request,
                                     false,
-                                    primaryReplicaAndConsistencyToken,
+                                    enlistment,
                                     noWriteChecker,
                                     retryOnLockConflict - 1
                             );
@@ -1740,12 +1746,12 @@ public class InternalTableImpl implements InternalTable {
                     } else {
                         var replicationGrpId = new TablePartitionId(tableId, partId);
 
-                    opFut = tx.enlistedNodeAndConsistencyToken(replicationGrpId) != null ? completeScan(
+                    opFut = tx.enlistedPartition(replicationGrpId) != null ? completeScan(
                             tx.id(),
                             replicationGrpId,
                             scanId,
                             th,
-                            tx.enlistedNodeAndConsistencyToken(replicationGrpId).get1(),
+                            tx.enlistedPartition(replicationGrpId).primaryNode(),
                             intentionallyClose
                     ) : completedOrFailedFuture(null, th);
                 }
@@ -1999,7 +2005,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @return The enlist future (then will a leader become known).
      */
-    protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
+    protected CompletableFuture<MutablePartitionEnlistment> enlist(int partId, InternalTransaction tx) {
         HybridTimestamp now = tx.startTimestamp();
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
@@ -2007,15 +2013,12 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(tablePartitionId, now);
 
-        Function<ReplicaMeta, IgniteBiTuple<ClusterNode, Long>> enlistClo = replicaMeta -> {
+        Function<ReplicaMeta, MutablePartitionEnlistment> enlistClo = replicaMeta -> {
             ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
 
-            IgniteBiTuple<ClusterNode, Long> enlistState = new IgniteBiTuple<>(getClusterNode(replicaMeta),
-                    enlistmentConsistencyToken(replicaMeta));
+            tx.enlist(partGroupId, tableId, getClusterNode(replicaMeta), enlistmentConsistencyToken(replicaMeta));
 
-            tx.enlist(partGroupId, tableId, enlistState);
-
-            return enlistState;
+            return tx.enlistedPartition(partGroupId);
         };
 
         if (meta != null && clusterNodeResolver.getById(meta.getLeaseholderId()) != null) {

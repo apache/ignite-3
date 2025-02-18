@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
@@ -330,7 +332,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,
-                asList(new TablePartitionId(tableImpl.tableId(), 0)),
+                asList(new EnlistedPartitionGroup(new TablePartitionId(tableImpl.tableId(), 0), Set.of(tableImpl.tableId()))),
                 null
         );
         bypassingThreadAssertions(() -> storage.putForRebalance(tx.id(), txMetaToSet));

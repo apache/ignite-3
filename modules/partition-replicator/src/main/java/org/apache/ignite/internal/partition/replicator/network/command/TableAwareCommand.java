@@ -25,4 +25,8 @@ import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
  */
 public interface TableAwareCommand extends NetworkMessage {
     TablePartitionIdMessage tablePartitionId();
+
+    default int tableId() {
+        return tablePartitionId().tableId();
+    }
 }
