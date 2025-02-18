@@ -370,8 +370,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Update failCase;
 
             byte[] stableFromRaftByteArray = newStableAssignments.toBytes();
-            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition, catalogTimestamp);
-            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction, catalogTimestamp);
+            byte[] additionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingAddition, catalogTimestamp));
+            byte[] reductionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingReduction, catalogTimestamp));
             byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce, catalogTimestamp);
             byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend, catalogTimestamp);
 
@@ -401,7 +401,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
                     successCase = ops(
                             put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                            put(pendingPartAssignmentsKey, plannedEntry.value()),
+                            put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
                             remove(plannedPartAssignmentsKey),
                             assignmentChainChangeOp
                     ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
