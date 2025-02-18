@@ -19,7 +19,7 @@ plugins {
     id 'signing'
     alias(libs.plugins.checksum)
     alias(libs.plugins.cmake)
-    id 'com.bmuschko.docker-remote-api' version '9.4.0'
+    alias(libs.plugins.dockerRemoteApi)
 }
 
 import dev.welbyseely.CMakeBuildTask
