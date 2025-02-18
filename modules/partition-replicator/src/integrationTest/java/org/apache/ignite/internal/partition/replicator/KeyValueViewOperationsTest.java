@@ -49,7 +49,7 @@ public class KeyValueViewOperationsTest extends ItAbstractColocationTest {
     private Node node;
 
     @Test
-    public void testKVOperations(TestInfo testInfo) throws Exception {
+    public void testKvOperations(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
