@@ -31,7 +31,7 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -202,7 +202,7 @@ public class ReplicaImpl implements Replica {
                 return nullCompletedFuture();
             }
 
-            PeersAndLearners newConfiguration = fromAssignments(Assignments.fromBytes(pendingsBytes).nodes());
+            PeersAndLearners newConfiguration = fromAssignments(AssignmentsQueue.fromBytes(pendingsBytes).poll().nodes());
 
             LOG.info(
                     "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",

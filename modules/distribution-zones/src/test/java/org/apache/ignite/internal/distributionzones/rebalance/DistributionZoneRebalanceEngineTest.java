@@ -98,6 +98,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -306,7 +307,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any(), any());
     }
@@ -329,7 +330,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
@@ -365,7 +366,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
@@ -399,7 +400,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
@@ -407,7 +408,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         watchListenerOnUpdate(zoneId, nodes2, 1);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         TablePartitionId partId = new TablePartitionId(getTableId(TABLE_NAME), 0);
 
@@ -498,6 +499,14 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     }
 
     private void checkAssignments(Map<Integer, Set<String>> zoneNodes, Function<TablePartitionId, ByteArray> assignmentFunction) {
+        checkAssignments(zoneNodes, assignmentFunction, Assignments::fromBytes);
+    }
+
+    private void checkAssignments(
+            Map<Integer, Set<String>> zoneNodes,
+            Function<TablePartitionId, ByteArray> assignmentFunction,
+            Function<byte[], Assignments> assignmentsFromBytesFunction
+    ) {
         Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
         catalog.tables().forEach(tableDescriptor -> {
@@ -521,7 +530,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
                     assertNotNull(actualAssignmentsBytes);
 
-                    Set<String> actualAssignments = Assignments.fromBytes(actualAssignmentsBytes).nodes()
+                    Set<String> actualAssignments = assignmentsFromBytesFunction.apply(actualAssignmentsBytes).nodes()
                             .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertTrue(expectedAssignments.containsAll(actualAssignments));

@@ -64,6 +64,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -196,7 +197,13 @@ public class ZoneRebalanceUtil {
 
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments, assignmentsTimestamp);
+        Assignments partAssignmentsPlanned = Assignments.of(partAssignments, assignmentsTimestamp);
+        AssignmentsQueue partAssignmentsPending = new AssignmentsQueue(partAssignmentsPlanned);
+
+        assert partAssignmentsPlanned.equals(partAssignmentsPending.peekLast());
+
+        byte[] partAssignmentsPlannedBytes = partAssignmentsPlanned.toBytes();
+        byte[] partAssignmentsBytes = partAssignmentsPending.toBytes();
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -221,7 +228,8 @@ public class ZoneRebalanceUtil {
         //    else:
         //        skip
 
-        Condition newAssignmentsCondition = exists(partAssignmentsStableKey).and(value(partAssignmentsStableKey).ne(partAssignmentsBytes));
+        Condition newAssignmentsCondition = exists(partAssignmentsStableKey)
+                .and(value(partAssignmentsStableKey).ne(partAssignmentsPlannedBytes));
 
         if (isNewAssignments) {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
@@ -237,7 +245,7 @@ public class ZoneRebalanceUtil {
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
                                 ops(
-                                        put(partAssignmentsPlannedKey, partAssignmentsBytes),
+                                        put(partAssignmentsPlannedKey, partAssignmentsPlannedBytes),
                                         put(partChangeTriggerKey, revisionBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
@@ -688,6 +696,6 @@ public class ZoneRebalanceUtil {
     ) {
         Entry entry = metaStorageManager.getLocally(pendingPartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)), revision);
 
-        return entry != null ? Assignments.fromBytes(entry.value()) : null;
+        return entry != null ? AssignmentsQueue.fromBytes(entry.value()).poll() : null;
     }
 }

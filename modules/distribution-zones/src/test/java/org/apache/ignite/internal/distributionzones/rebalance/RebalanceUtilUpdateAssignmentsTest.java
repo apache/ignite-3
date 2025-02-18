@@ -68,6 +68,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -287,7 +288,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         if (currentPendingAssignments != null) {
             keyValueStorage.put(
                     RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(),
-                    toBytes(currentPendingAssignments, assignmentsTimestamp),
+                    AssignmentsQueue.toBytes(Assignments.of(currentPendingAssignments, assignmentsTimestamp)),
                     KV_UPDATE_CONTEXT
             );
         }
@@ -332,7 +333,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {
-            actualPendingAssignments = Assignments.fromBytes(actualPendingBytes).nodes();
+            actualPendingAssignments = AssignmentsQueue.fromBytes(actualPendingBytes).poll().nodes();
         }
 
         byte[] actualPlannedBytes = keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes()).value();

@@ -72,6 +72,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.tostring.S;
@@ -338,7 +339,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         Iif invokeClosure = prepareMsInvokeClosure(
                 partId,
                 longToBytesKeepingOrder(revision),
-                Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
+                new AssignmentsQueue(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp)).toBytes(),
                 // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                 isProposedPendingEqualsProposedPlanned
                         ? null

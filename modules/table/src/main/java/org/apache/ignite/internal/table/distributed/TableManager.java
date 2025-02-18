@@ -164,6 +164,7 @@ import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSc
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -2224,7 +2225,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         AssignmentsChain assignmentsChain = assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
 
-        Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
 
         return tablesVv.get(revision)
                 .thenApply(ignore -> {
@@ -2705,7 +2706,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             Assignments pendingAssignments = pendingAssignmentsFromMetaStorage == null
                     ? Assignments.EMPTY
-                    : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
+                    : AssignmentsQueue.fromBytes(pendingAssignmentsFromMetaStorage).poll();
 
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
