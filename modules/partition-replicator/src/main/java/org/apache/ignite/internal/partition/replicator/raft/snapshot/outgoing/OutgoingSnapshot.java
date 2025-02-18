@@ -191,7 +191,7 @@ public class OutgoingSnapshot {
 
             txDataCursor = txState.getAllTxMeta();
 
-            // Write the flag to publish the TX cursor.
+            // Write the flag to publish the TX cursor (in the memory model sense).
             finishedTxData = false;
 
             mvPartitionDeliveryState = new MvPartitionDeliveryState(partitionStorages);
@@ -568,7 +568,7 @@ public class OutgoingSnapshot {
         }
 
         // First, check if all MV data is delivered, because it can also be empty.
-        if (mvPartitionDeliveryState.isExhausted() || !mvPartitionDeliveryState.containsTableId(tableId)) {
+        if (mvPartitionDeliveryState.isExhausted() || !mvPartitionDeliveryState.isGoingToBeDelivered(tableId)) {
             return true;
         }
 

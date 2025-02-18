@@ -75,7 +75,7 @@ class MvPartitionDeliveryState {
     /**
      * Returns {@code true} if the given table ID is in the range of tables that this state iterates over.
      */
-    boolean containsTableId(int tableId) {
+    boolean isGoingToBeDelivered(int tableId) {
         return tableIds.contains(tableId);
     }
 
