@@ -15,29 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.replication;
+package org.apache.ignite.internal.tx.message;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import java.util.Set;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 
-/** Read-write replica request. */
-public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    UUID transactionId();
+/**
+ * Message for {@link EnlistedPartitionGroup}.
+ */
+@Transferable(TxMessageGroup.ENLISTED_PARTITION_GROUP_MESSAGE)
+public interface EnlistedPartitionGroupMessage extends NetworkMessage {
+    /**
+     * Replication group ID of the partition.
+     */
+    ReplicationGroupIdMessage groupId();
 
     /**
-     * Get the transaction coordinator inconsistent ID.
-     *
-     * @return Transaction coordinator inconsistent ID.
+     * IDs of tables for which the partition is enlisted.
      */
-    UUID coordinatorId();
+    Set<Integer> tableIds();
 
     /**
-     * Return {@code true} if this is a full transaction.
+     * Converts this message to the corresponding {@link EnlistedPartitionGroup}.
      */
-    boolean full();
-
-    /** Commit partition ID. */
-    ReplicationGroupIdMessage commitPartitionId();
+    default EnlistedPartitionGroup asPartitionInfo() {
+        return new EnlistedPartitionGroup(groupId().asReplicationGroupId(), tableIds());
+    }
 }

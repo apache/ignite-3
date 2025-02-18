@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import static java.util.stream.Collectors.toSet;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -24,7 +26,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,7 +52,7 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
      *
      * @return Commit partition id.
      */
-    TablePartitionIdMessage commitPartitionId();
+    ReplicationGroupIdMessage commitPartitionId();
 
     /**
      * Returns {@code True} if a commit request.
@@ -64,8 +65,12 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
     @Nullable HybridTimestamp commitTimestamp();
 
     /** Enlisted partition groups aggregated by expected primary replica nodes. */
-    Map<ReplicationGroupIdMessage, String> groups();
+    Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> groups();
 
     /** IDs of tables enlisted in the transaction. */
-    Set<Integer> tableIds();
+    default Set<Integer> tableIds() {
+        return groups().values().stream()
+                .flatMap(partition -> partition.tableIds().stream())
+                .collect(toSet());
+    }
 }

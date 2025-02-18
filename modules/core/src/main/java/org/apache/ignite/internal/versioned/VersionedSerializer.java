@@ -135,4 +135,23 @@ public abstract class VersionedSerializer<T> {
 
         return result;
     }
+
+    protected static void writeVarIntSet(Set<Integer> partitionIds, IgniteDataOutput out) throws IOException {
+        out.writeVarInt(partitionIds.size());
+
+        for (int partitionId : partitionIds) {
+            out.writeVarInt(partitionId);
+        }
+    }
+
+    protected static Set<Integer> readVarIntSet(IgniteDataInput in) throws IOException {
+        int length = in.readVarIntAsInt();
+
+        Set<Integer> set = new HashSet<>(IgniteUtils.capacity(length));
+        for (int i = 0; i < length; i++) {
+            set.add(in.readVarIntAsInt());
+        }
+
+        return set;
+    }
 }

@@ -56,7 +56,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
@@ -869,9 +869,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        IgniteBiTuple<ClusterNode, Long> primaryReplica = tx.enlistedNodeAndConsistencyToken(new TablePartitionId(table.tableId(), partId));
+        MutablePartitionEnlistment enlistment = tx.enlistedPartition(new TablePartitionId(table.tableId(), partId));
 
-        return new PrimaryReplica(primaryReplica.get1(), primaryReplica.get2());
+        return new PrimaryReplica(enlistment.primaryNode(), enlistment.consistencyToken());
     }
 
     /**
@@ -1045,11 +1045,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         tx.enlist(
                 tblPartId,
                 tblPartId.tableId(),
-                new IgniteBiTuple<>(
-                        ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
-                                .findFirst().orElseThrow(),
-                        primaryReplica.getStartTime().longValue()
-                )
+                ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
+                        .findFirst().orElseThrow(),
+                primaryReplica.getStartTime().longValue()
         );
 
         tx.assignCommitPartition(tblPartId);
