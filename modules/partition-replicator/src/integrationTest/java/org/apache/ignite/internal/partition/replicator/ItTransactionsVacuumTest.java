@@ -49,7 +49,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "500")
 @Timeout(60)
-public class TransactionsVacuumTest extends AbstractZoneReplicationTest {
+public class ItTransactionsVacuumTest extends AbstractZoneReplicationTest {
     @Test
     public void testTransactionsVacuum(TestInfo info) throws Exception {
         updateTxnResourceTtl(50L);

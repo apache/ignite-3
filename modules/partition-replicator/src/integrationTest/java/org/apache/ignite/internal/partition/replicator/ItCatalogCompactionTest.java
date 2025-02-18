@@ -52,7 +52,7 @@ import org.junit.jupiter.api.Timeout;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 @Timeout(60)
-public class CatalogCompactionTest extends AbstractZoneReplicationTest {
+public class ItCatalogCompactionTest extends AbstractZoneReplicationTest {
     @Test
     public void testCatalogCompaction(TestInfo testInfo) throws Exception {
         // How often we update the low water mark.
