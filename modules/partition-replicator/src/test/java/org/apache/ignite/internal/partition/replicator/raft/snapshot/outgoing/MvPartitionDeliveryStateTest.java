@@ -42,6 +42,7 @@ class MvPartitionDeliveryStateTest extends BaseIgniteAbstractTest {
     void emptyStateIsExhausted() {
         var state = new MvPartitionDeliveryState(List.of());
 
+        assertThat(state.hasIterationStarted(), is(false));
         assertThat(state.isExhausted(), is(true));
     }
 
@@ -74,29 +75,35 @@ class MvPartitionDeliveryStateTest extends BaseIgniteAbstractTest {
 
         var state = new MvPartitionDeliveryState(storages);
 
-        for (int i = 0; i < storages.size(); i++) {
-            assertThat(state.isExhausted(), is(false));
+        assertThat(state.hasIterationStarted(), is(false));
+        assertThat(state.isExhausted(), is(false));
 
+        for (int i = 0; i < storages.size(); i++) {
+            state.advance();
+
+            assertThat(state.hasIterationStarted(), is(true));
+            assertThat(state.isExhausted(), is(false));
             assertThat(state.currentTableId(), is(i));
             assertThat(state.currentRowId(), is(rowIdsByTable.get(i).get(0)));
 
             state.advance();
 
+            assertThat(state.hasIterationStarted(), is(true));
             assertThat(state.isExhausted(), is(false));
-
             assertThat(state.currentTableId(), is(i));
             assertThat(state.currentRowId(), is(rowIdsByTable.get(i).get(1)));
 
             state.advance();
 
+            assertThat(state.hasIterationStarted(), is(true));
             assertThat(state.isExhausted(), is(false));
-
             assertThat(state.currentTableId(), is(i));
             assertThat(state.currentRowId(), is(rowIdsByTable.get(i).get(2)));
-
-            state.advance();
         }
 
+        state.advance();
+
+        assertThat(state.hasIterationStarted(), is(true));
         assertThat(state.isExhausted(), is(true));
     }
 
@@ -122,20 +129,29 @@ class MvPartitionDeliveryStateTest extends BaseIgniteAbstractTest {
 
         var state = new MvPartitionDeliveryState(List.of(storage1, storage2));
 
+        assertThat(state.hasIterationStarted(), is(false));
+        assertThat(state.isExhausted(), is(false));
+
         IntStream.rangeClosed(1, 2).forEach(i -> {
+            state.advance();
+
+            assertThat(state.hasIterationStarted(), is(true));
             assertThat(state.isExhausted(), is(false));
+
             assertThat(state.currentTableId(), is(i));
             assertThat(state.currentRowId(), is(lowestRowId));
 
             state.advance();
 
+            assertThat(state.hasIterationStarted(), is(true));
             assertThat(state.isExhausted(), is(false));
             assertThat(state.currentTableId(), is(i));
             assertThat(state.currentRowId(), is(highestRowId));
-
-            state.advance();
         });
 
+        state.advance();
+
+        assertThat(state.hasIterationStarted(), is(true));
         assertThat(state.isExhausted(), is(true));
     }
 
