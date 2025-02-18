@@ -38,6 +38,7 @@ class CatalogManagerCompactionFacade {
         this.catalogManager = catalogManager;
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this method.
     /**
      * Scans catalog versions in a given time interval (including interval boundaries).
      * Extracts all tables contained in these catalog versions and creates a mapping
@@ -48,25 +49,53 @@ class CatalogManagerCompactionFacade {
      * @return Mapping tableId to number of partitions in this table.
      */
     Int2IntMap collectTablesWithPartitionsBetween(long minTsInclusive, long maxTsInclusive) {
-        Int2IntMap tablesWithPartitions = new Int2IntOpenHashMap();
+        Int2IntMap tableIdsWithPartitions = new Int2IntOpenHashMap();
         int curVer = catalogManager.activeCatalogVersion(minTsInclusive);
         int lastVer = catalogManager.activeCatalogVersion(maxTsInclusive);
 
         do {
             Catalog catalog = catalogManager.catalog(curVer);
 
-            assert catalog != null : "ver=" + curVer + ", last=" + lastVer;
+            assert catalog != null : "Failed to find a catalog for the given version [version=" + curVer + ", lastVersion=" + lastVer + ']';
 
             for (CatalogTableDescriptor table : catalog.tables()) {
                 CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
-                assert zone != null : table.zoneId();
+                assert zone != null :
+                        "Failed to find a zone for the given catalog version [version=" + curVer + ", tableId=" + table.id() + ']';
 
-                tablesWithPartitions.put(table.id(), zone.partitions());
+                tableIdsWithPartitions.put(table.id(), zone.partitions());
             }
         } while (++curVer <= lastVer);
 
-        return tablesWithPartitions;
+        return tableIdsWithPartitions;
+    }
+
+    /**
+     * Scans catalog versions in a given time interval (including interval boundaries).
+     * Extracts all zones contained in these catalog versions and creates a mapping
+     * zoneId -> number of partitions in this table.
+     *
+     * @param minTsInclusive Lower timestamp (inclusive).
+     * @param maxTsInclusive Upper timestamp (inclusive).
+     * @return Mapping zoneId to number of partitions in this zone.
+     */
+    Int2IntMap collectZonesWithPartitionsBetween(long minTsInclusive, long maxTsInclusive) {
+        Int2IntMap zoneIdsWithPartitions = new Int2IntOpenHashMap();
+        int curVer = catalogManager.activeCatalogVersion(minTsInclusive);
+        int lastVer = catalogManager.activeCatalogVersion(maxTsInclusive);
+
+        do {
+            Catalog catalog = catalogManager.catalog(curVer);
+
+            assert catalog != null : "Failed to find a catalog for the given version [version=" + curVer + ", lastVersion=" + lastVer + ']';
+
+            for (CatalogZoneDescriptor zone : catalog.zones()) {
+                zoneIdsWithPartitions.put(zone.id(), zone.partitions());
+            }
+        } while (++curVer <= lastVer);
+
+        return zoneIdsWithPartitions;
     }
 
     /**

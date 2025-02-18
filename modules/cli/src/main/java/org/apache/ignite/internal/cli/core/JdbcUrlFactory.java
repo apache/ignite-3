@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_SSL_ENABLED;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PATH;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
@@ -36,7 +37,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
-import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Ignite JDBC URL factory. */
@@ -58,15 +58,28 @@ public class JdbcUrlFactory {
      */
     @Nullable
     public String constructJdbcUrl(String nodeUrl, int port) {
+        return constructJdbcUrl(nodeUrl, port, null, null);
+    }
+
+    /**
+     * Constructs JDBC URL from node URL and port, SSL and basic authentication properties from the config. If {@code username} and
+     * {@code password} are non-null and non-blank, they override basic authentication properties from the config.
+     *
+     * @param nodeUrl Node URL.
+     * @param port client port.
+     * @return JDBC URL.
+     */
+    @Nullable
+    public String constructJdbcUrl(String nodeUrl, int port, @Nullable String username, @Nullable String password) {
         try {
             String host = new URL(nodeUrl).getHost();
-            return applyConfig("jdbc:ignite:thin://" + host + ":" + port);
+            return applyConfig("jdbc:ignite:thin://" + host + ":" + port, username, password);
         } catch (MalformedURLException ignored) {
             return null;
         }
     }
 
-    private String applyConfig(String jdbcUrl) {
+    private String applyConfig(String jdbcUrl, String username, String password) {
         List<String> queryParams = new ArrayList<>();
         addIfSet(queryParams, JDBC_TRUST_STORE_PATH, "trustStorePath");
         addIfSet(queryParams, JDBC_TRUST_STORE_PASSWORD, "trustStorePassword");
@@ -75,8 +88,8 @@ public class JdbcUrlFactory {
         addIfSet(queryParams, JDBC_CLIENT_AUTH, "clientAuth");
         addIfSet(queryParams, JDBC_CIPHERS, "ciphers");
         addSslEnabledIfNeeded(queryParams);
-        addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "username");
-        addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "password");
+        addIfSetOrOverride(queryParams, BASIC_AUTHENTICATION_USERNAME, "username", username);
+        addIfSetOrOverride(queryParams, BASIC_AUTHENTICATION_PASSWORD, "password", password);
         if (!queryParams.isEmpty()) {
             String query = queryParams.stream()
                     .collect(Collectors.joining("&", "?", ""));
@@ -95,11 +108,23 @@ public class JdbcUrlFactory {
         }
     }
 
+    private void addIfSetOrOverride(List<String> queryParams, CliConfigKeys key, String property, @Nullable String value) {
+        if (!nullOrBlank(value)) {
+            addParam(queryParams, property, value);
+        } else {
+            addIfSet(queryParams, key, property);
+        }
+    }
+
     private void addIfSet(List<String> queryParams, CliConfigKeys key, String property) {
         ConfigManager configManager = configManagerProvider.get();
         String value = configManager.getCurrentProperty(key.value());
-        if (!StringUtils.nullOrBlank(value)) {
-            queryParams.add(property + "=" + value);
+        if (!nullOrBlank(value)) {
+            addParam(queryParams, property, value);
         }
+    }
+
+    private static void addParam(List<String> queryParams, String property, String value) {
+        queryParams.add(property + "=" + value);
     }
 }

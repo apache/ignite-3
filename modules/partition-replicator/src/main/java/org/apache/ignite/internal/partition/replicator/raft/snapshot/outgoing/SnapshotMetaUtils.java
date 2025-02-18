@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -29,7 +30,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMetaBuilder;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -39,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
  * Utils to build {@link SnapshotMeta} instances.
  */
 public class SnapshotMetaUtils {
+    private static final PartitionReplicationMessagesFactory MESSAGE_FACTORY = new PartitionReplicationMessagesFactory();
+
     /**
      * Builds a {@link SnapshotMeta} corresponding to RAFT state (term, configuration) at the given log index.
      *
@@ -63,7 +66,7 @@ public class SnapshotMetaUtils {
             @Nullable UUID primaryReplicaNodeId,
             @Nullable String primaryReplicaNodeName
     ) {
-        PartitionSnapshotMetaBuilder metaBuilder = new PartitionReplicationMessagesFactory().partitionSnapshotMeta()
+        PartitionSnapshotMetaBuilder metaBuilder = MESSAGE_FACTORY.partitionSnapshotMeta()
                 .cfgIndex(config.index())
                 .cfgTerm(config.term())
                 .lastIncludedIndex(logIndex)
@@ -77,7 +80,6 @@ public class SnapshotMetaUtils {
                 .primaryReplicaNodeName(primaryReplicaNodeName);
 
         if (!config.isStable()) {
-            //noinspection ConstantConditions
             metaBuilder
                     .oldPeersList(config.oldPeers())
                     .oldLearnersList(config.oldLearners());
@@ -87,27 +89,31 @@ public class SnapshotMetaUtils {
     }
 
     /**
-     * Collects the row ID for which the index needs to be built per building index ID at the time the snapshot meta was created.
+     * Collects row IDs for which indexes need to be built per building index ID at the time the snapshot meta was created.
      *
      * @param catalogService Catalog service.
-     * @param partitionAccess Partition access.
+     * @param mvPartitions Partitions access.
      * @param catalogVersion Catalog version of interest.
      */
     public static Map<Integer, UUID> collectNextRowIdToBuildIndexes(
             CatalogService catalogService,
-            PartitionAccess partitionAccess,
+            Collection<PartitionMvStorageAccess> mvPartitions,
             int catalogVersion
     ) {
         var nextRowIdToBuildByIndexId = new HashMap<Integer, UUID>();
 
         Catalog catalog = catalogService.catalog(catalogVersion);
-        int tableId = partitionAccess.partitionKey().tableId();
-        for (CatalogIndexDescriptor index : catalog.indexes(tableId)) {
-            if (index.status() == BUILDING) {
-                RowId nextRowIdToBuild = partitionAccess.getNextRowIdToBuildIndex(index.id());
 
-                if (nextRowIdToBuild != null) {
-                    nextRowIdToBuildByIndexId.put(index.id(), nextRowIdToBuild.uuid());
+        for (PartitionMvStorageAccess mvPartition : mvPartitions) {
+            int tableId = mvPartition.tableId();
+
+            for (CatalogIndexDescriptor index : catalog.indexes(tableId)) {
+                if (index.status() == BUILDING) {
+                    RowId nextRowIdToBuild = mvPartition.getNextRowIdToBuildIndex(index.id());
+
+                    if (nextRowIdToBuild != null) {
+                        nextRowIdToBuildByIndexId.put(index.id(), nextRowIdToBuild.uuid());
+                    }
                 }
             }
         }

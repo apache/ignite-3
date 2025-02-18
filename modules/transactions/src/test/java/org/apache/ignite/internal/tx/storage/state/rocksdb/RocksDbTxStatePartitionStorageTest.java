@@ -101,7 +101,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
 
         assertThat(storage.flush(), willCompleteSuccessfully());
 
-        tableStorage.stop();
+        tableStorage.close();
 
         tableStorage = createTableStorage();
 

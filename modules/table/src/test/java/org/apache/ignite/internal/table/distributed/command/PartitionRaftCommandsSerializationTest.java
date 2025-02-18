@@ -41,6 +41,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.WriteInte
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -112,7 +113,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testRemoveCommand() throws Exception {
+    public void testRemoveCommand() {
         TablePartitionIdMessage tablePartitionIdMessage = REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
                 .tableId(1)
                 .partitionId(1)
@@ -182,7 +183,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testRemoveAllCommand() throws Exception {
+    public void testRemoveAllCommand() {
         Map<UUID, TimedBinaryRowMessage> rowsToRemove = new HashMap<>();
 
         for (int i = 0; i < 10; i++) {
@@ -215,7 +216,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testTxCleanupCommand() throws Exception {
+    public void testTxCleanupCommand() {
         HybridClock clock = new HybridClockImpl();
 
         WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
@@ -233,9 +234,9 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testFinishTxCommand() throws Exception {
+    public void testFinishTxCommand() {
         HybridClock clock = new HybridClockImpl();
-        ArrayList<TablePartitionIdMessage> grps = new ArrayList<>(10);
+        ArrayList<ReplicationGroupIdMessage> grps = new ArrayList<>(10);
 
         for (int i = 0; i < 10; i++) {
             grps.add(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
@@ -311,7 +312,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         }
     }
 
-    private BinaryRowMessage binaryRowMessage(int id) throws Exception {
+    private BinaryRowMessage binaryRowMessage(int id) {
         Row row = kvMarshaller.marshal(
                 new TestKey(id, String.valueOf(id)),
                 new TestValue(id, String.valueOf(id))

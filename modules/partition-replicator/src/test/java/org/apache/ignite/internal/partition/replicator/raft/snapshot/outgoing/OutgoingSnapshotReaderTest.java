@@ -21,34 +21,58 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.io.IOException;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * For {@link OutgoingSnapshotReader} testing.
  */
+@ExtendWith(MockitoExtension.class)
 public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
+    private static final int ZONE_ID = 0;
+    private static final int TABLE_ID_1 = 1;
+    private static final int TABLE_ID_2 = 2;
+
     @Test
-    void testForChoosingMaximumAppliedIndexForMeta() {
-        PartitionAccess partitionAccess = mock(PartitionAccess.class);
+    void testForChoosingMaximumAppliedIndexForMeta(
+            @Mock CatalogService catalogService,
+            @Mock Catalog catalog,
+            @Mock CatalogTableDescriptor tableDescriptor,
+            @Mock RaftGroupConfiguration raftGroupConfiguration,
+            @Mock PartitionMvStorageAccess partitionAccess1,
+            @Mock PartitionMvStorageAccess partitionAccess2,
+            @Mock OutgoingSnapshotsManager outgoingSnapshotsManager,
+            @Mock PartitionTxStateAccess txStateAccess
+    ) throws IOException {
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        when(catalog.table(anyInt())).thenReturn(tableDescriptor);
+        when(tableDescriptor.zoneId()).thenReturn(ZONE_ID);
 
-        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(1, 0));
-        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+        when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
+        when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
+        when(partitionAccess2.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
 
-        OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
         doAnswer(invocation -> {
             OutgoingSnapshot snapshot = invocation.getArgument(1);
 
@@ -57,28 +81,36 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
             return null;
         }).when(outgoingSnapshotsManager).startOutgoingSnapshot(any(), any());
 
-        CatalogService catalogService = mock(CatalogService.class);
-        when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
+        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionMvStorageAccess>();
+
+        partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
+        partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
 
         PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
+                new ZonePartitionKey(0, 0),
                 mock(TopologyService.class),
                 outgoingSnapshotsManager,
                 "",
                 mock(RaftOptions.class),
-                partitionAccess,
+                partitionsByTableId,
+                txStateAccess,
                 catalogService,
                 mock(SnapshotMeta.class),
                 mock(Executor.class)
         );
 
-        when(partitionAccess.minLastAppliedIndex()).thenReturn(5L);
-        when(partitionAccess.maxLastAppliedIndex()).thenReturn(10L);
+        when(partitionAccess1.lastAppliedIndex()).thenReturn(5L);
+        when(partitionAccess2.lastAppliedIndex()).thenReturn(6L);
+        when(txStateAccess.lastAppliedIndex()).thenReturn(10L);
 
-        when(partitionAccess.minLastAppliedTerm()).thenReturn(1L);
-        when(partitionAccess.maxLastAppliedTerm()).thenReturn(2L);
+        when(txStateAccess.lastAppliedTerm()).thenReturn(1L);
+        lenient().when(partitionAccess1.lastAppliedTerm()).thenReturn(2L);
+        when(partitionAccess2.lastAppliedTerm()).thenReturn(3L);
 
-        SnapshotMeta meta = new OutgoingSnapshotReader(snapshotStorage).load();
-        assertEquals(10L, meta.lastIncludedIndex());
-        assertEquals(2L, meta.lastIncludedTerm());
+        try (var reader = new OutgoingSnapshotReader(snapshotStorage)) {
+            SnapshotMeta meta = reader.load();
+            assertEquals(10L, meta.lastIncludedIndex());
+            assertEquals(3L, meta.lastIncludedTerm());
+        }
     }
 }

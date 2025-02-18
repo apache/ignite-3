@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
+import static java.lang.Math.min;
+import static java.util.Comparator.comparingLong;
 import static org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
 import static org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -46,84 +51,101 @@ import org.jetbrains.annotations.Nullable;
  * {@code true}, and {@link SnapshotWriter#addFile(String)} throws an exception.
  */
 public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
+    private final PartitionKey partitionKey;
+
     /** Topology service. */
     private final TopologyService topologyService;
 
     /** Snapshot manager. */
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
-    /** Partition storage. */
-    private final PartitionAccess partition;
+    /**
+     * Partition storages grouped by table ID.
+     */
+    private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId = synchronize(new Int2ObjectOpenHashMap<>());
+
+    private final PartitionTxStateAccess txStateStorage;
 
     private final CatalogService catalogService;
-
-    private final @Nullable SnapshotMeta startupSnapshotMeta;
 
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
 
-    /**
-     * Constructor.
-     *
-     * @param topologyService Topology service.
-     * @param outgoingSnapshotsManager Snapshot manager.
-     * @param partition MV partition storage.
-     * @param catalogService Access to the Catalog.
-     * @param incomingSnapshotsExecutor Incoming snapshots executor.
-     * @see SnapshotMeta
-     */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
+    /** Constructor. */
     public PartitionSnapshotStorageFactory(
+            PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
-            PartitionAccess partition,
+            PartitionTxStateAccess txStateStorage,
             CatalogService catalogService,
             Executor incomingSnapshotsExecutor
     ) {
+        this.partitionKey = partitionKey;
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
-        this.partition = partition;
+        this.txStateStorage = txStateStorage;
         this.catalogService = catalogService;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
+    }
 
-        // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
-        // lowest applied index and thus no data loss occurs.
-        long lastIncludedRaftIndex = partition.minLastAppliedIndex();
-        long lastIncludedRaftTerm = partition.minLastAppliedTerm();
+    /**
+     * Adds a given table partition storage to the snapshot storage, managed by this factory.
+     */
+    public void addMvPartition(int tableId, PartitionMvStorageAccess partition) {
+        PartitionMvStorageAccess prev = partitionsByTableId.put(tableId, partition);
 
-        int lastCatalogVersionAtStart = catalogService.latestCatalogVersion();
+        assert prev == null : "Partition storage for table ID " + tableId + " already exists.";
+    }
 
-        if (lastIncludedRaftIndex == 0) {
-            startupSnapshotMeta = null;
-        } else {
-            startupSnapshotMeta = snapshotMetaAt(
-                    lastIncludedRaftIndex,
-                    lastIncludedRaftTerm,
-                    Objects.requireNonNull(partition.committedGroupConfiguration()),
-                    lastCatalogVersionAtStart,
-                    collectNextRowIdToBuildIndexesAtStart(lastCatalogVersionAtStart),
-                    partition.leaseStartTime(),
-                    partition.primaryReplicaNodeId(),
-                    partition.primaryReplicaNodeName()
-            );
-        }
+    public void removeMvPartition(int tableId) {
+        partitionsByTableId.remove(tableId);
     }
 
     @Override
     public @Nullable PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         return new PartitionSnapshotStorage(
+                partitionKey,
                 topologyService,
                 outgoingSnapshotsManager,
                 uri,
                 raftOptions,
-                partition,
+                partitionsByTableId,
+                txStateStorage,
                 catalogService,
-                startupSnapshotMeta,
+                createStartupSnapshotMeta(),
                 incomingSnapshotsExecutor
         );
     }
 
+    private @Nullable SnapshotMeta createStartupSnapshotMeta() {
+        // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
+        // lowest applied index and thus no data loss occurs.
+        return partitionsByTableId.values().stream()
+                .min(comparingLong(PartitionMvStorageAccess::lastAppliedIndex))
+                .map(storageWithMinLastAppliedIndex -> {
+                    long minLastAppliedIndex = min(storageWithMinLastAppliedIndex.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+
+                    if (minLastAppliedIndex == 0) {
+                        return null;
+                    }
+
+                    int lastCatalogVersionAtStart = catalogService.latestCatalogVersion();
+
+                    return snapshotMetaAt(
+                            minLastAppliedIndex,
+                            min(storageWithMinLastAppliedIndex.lastAppliedTerm(), txStateStorage.lastAppliedTerm()),
+                            Objects.requireNonNull(storageWithMinLastAppliedIndex.committedGroupConfiguration()),
+                            lastCatalogVersionAtStart,
+                            collectNextRowIdToBuildIndexesAtStart(lastCatalogVersionAtStart),
+                            storageWithMinLastAppliedIndex.leaseStartTime(),
+                            storageWithMinLastAppliedIndex.primaryReplicaNodeId(),
+                            storageWithMinLastAppliedIndex.primaryReplicaNodeName()
+                    );
+                })
+                .orElse(null);
+    }
+
     private Map<Integer, UUID> collectNextRowIdToBuildIndexesAtStart(int lastCatalogVersionAtStart) {
-        return collectNextRowIdToBuildIndexes(catalogService, partition, lastCatalogVersionAtStart);
+        return collectNextRowIdToBuildIndexes(catalogService, partitionsByTableId.values(), lastCatalogVersionAtStart);
     }
 }

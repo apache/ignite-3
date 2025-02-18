@@ -344,6 +344,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
                     .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                             .defaultSchema(createRootSchema(List.of(schema)).getSubSchema(schema.getName()))
                             .build())
+                    .defaultSchemaName(schema.getName())
                     .query(sqlStmt)
                     .build();
 

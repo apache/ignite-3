@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.schemacompat;
 
-import static java.util.stream.Collectors.toSet;
-
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -34,7 +31,6 @@ import org.apache.ignite.internal.partition.replicator.schema.ColumnDefinitionDi
 import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.jetbrains.annotations.Nullable;
@@ -74,20 +70,16 @@ public class SchemaCompatibilityValidator {
      * (identified by the commit timestamp).
      *
      * @param txId ID of the transaction that gets validated.
-     * @param enlistedGroupIds IDs of the partitions that are enlisted with the transaction.
+     * @param enlistedTableIds IDs of the tables that are enlisted with the transaction.
      * @param commitTimestamp Commit timestamp.
      * @return Future of validation result.
      */
     public CompletableFuture<CompatValidationResult> validateCommit(
             UUID txId,
-            Collection<TablePartitionId> enlistedGroupIds,
+            Set<Integer> enlistedTableIds,
             HybridTimestamp commitTimestamp
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
-
-        Set<Integer> tableIds = enlistedGroupIds.stream()
-                .map(TablePartitionId::tableId)
-                .collect(toSet());
 
         // Using compareTo() instead of after()/begin() because the latter methods take clock skew into account
         // which only makes sense when comparing 'unrelated' timestamps. beginTs and commitTs have a causal relationship,
@@ -95,7 +87,7 @@ public class SchemaCompatibilityValidator {
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
         return schemaSyncService.waitForMetadataCompleteness(commitTimestamp)
-                .thenApply(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp));
+                .thenApply(ignored -> validateCommit(enlistedTableIds, commitTimestamp, beginTimestamp));
     }
 
     private CompatValidationResult validateCommit(Set<Integer> tableIds, HybridTimestamp commitTimestamp, HybridTimestamp beginTimestamp) {

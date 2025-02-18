@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshot;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
@@ -45,6 +46,7 @@ import org.jetbrains.annotations.TestOnly;
  * snapshots to make sure that the writes do not interfere with the snapshots.
  */
 public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
+    private final int tableId;
     private final MvPartitionStorage partitionStorage;
     private final PartitionsSnapshots partitionsSnapshots;
     private final PartitionKey partitionKey;
@@ -55,10 +57,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
      * Creates a new instance.
      */
     public SnapshotAwarePartitionDataStorage(
+            int tableId,
             MvPartitionStorage partitionStorage,
             PartitionsSnapshots partitionsSnapshots,
             PartitionKey partitionKey
     ) {
+        this.tableId = tableId;
         this.partitionStorage = partitionStorage;
         this.partitionsSnapshots = partitionsSnapshots;
         this.partitionKey = partitionKey;
@@ -66,7 +70,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public int tableId() {
-        return partitionKey.tableId();
+        return tableId;
     }
 
     @Override
@@ -171,7 +175,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
             snapshot.acquireMvLock();
 
             try {
-                if (snapshot.alreadyPassed(rowId)) {
+                if (snapshot.alreadyPassedOrIrrelevant(tableId, rowId)) {
                     // Row already sent.
                     continue;
                 }
@@ -182,7 +186,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                 }
 
                 // Collect all versions of row and schedule the send operation.
-                snapshot.enqueueForSending(rowId);
+                snapshot.enqueueForSending(tableId, rowId);
             } finally {
                 snapshot.releaseMvLock();
             }
@@ -191,21 +195,14 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public void close() {
-        cleanupSnapshots();
-    }
-
-    private void cleanupSnapshots() {
-        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
-
-        partitionSnapshots.acquireReadLock();
-
-        try {
-            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
-
-            partitionsSnapshots.removeSnapshots(partitionKey);
-        } finally {
-            partitionSnapshots.releaseReadLock();
+        if (partitionKey instanceof ZonePartitionKey) {
+            // FIXME: This is a hack for the colocation feature, for zone-based partitions snapshots are cleaned up for a bunch of storages
+            //  at once and this is done in a separate place. Should be removed as a part of
+            //  https://issues.apache.org/jira/browse/IGNITE-22522
+            return;
         }
+
+        partitionsSnapshots.cleanupOutgoingSnapshots(partitionKey);
     }
 
     @Override
