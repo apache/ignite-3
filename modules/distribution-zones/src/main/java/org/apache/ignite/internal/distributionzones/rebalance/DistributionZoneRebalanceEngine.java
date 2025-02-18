@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -145,7 +145,7 @@ public class DistributionZoneRebalanceEngine {
                 return nullCompletedFuture();
             }
 
-            if (ENABLED_COLOCATION) {
+            if (enabledColocation()) {
                 return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)
                         .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
             } else {
@@ -189,7 +189,7 @@ public class DistributionZoneRebalanceEngine {
             return;
         }
 
-        if (ENABLED_COLOCATION) {
+        if (enabledColocation()) {
             distributionZoneRebalanceEngineV2.stop();
         }
 

@@ -83,16 +83,18 @@ public final class IgniteSystemProperties {
     /** Enables zone based replication (aka colocation) feature. */
     public static final String COLOCATION_FEATURE_FLAG = "IGNITE_ZONE_BASED_REPLICATION";
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
-    /* Feature flag for zone based collocation track */
-    public static volatile boolean ENABLED_COLOCATION = getBoolean(COLOCATION_FEATURE_FLAG, false);
-
     /**
      * Enforces singleton.
      */
     private IgniteSystemProperties() {
         // No-op.
     }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    /* Feature flag for zone based collocation track */
+    public static boolean enabledColocation() {
+        return getBoolean(COLOCATION_FEATURE_FLAG, false);
+    };
 
     /**
      * Gets either system property or environment variable with given name and convert to enum of given class.

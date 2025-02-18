@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -77,7 +77,7 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     }
 
     private static ReplicationGroupId replicationGroupId(int objectId, int partitionId) {
-        if (ENABLED_COLOCATION) {
+        if (enabledColocation()) {
             return new ZonePartitionId(objectId, partitionId);
         } else {
             return new TablePartitionId(objectId, partitionId);

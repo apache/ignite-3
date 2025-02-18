@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.function.Predicate.not;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -407,7 +407,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return schemaSyncService.waitForMetadataCompleteness(nowTs)
                 .thenComposeAsync(ignore -> {
-                    Int2IntMap idsWithPartitions = ENABLED_COLOCATION
+                    Int2IntMap idsWithPartitions = enabledColocation()
                             ? catalogManagerFacade.collectZonesWithPartitionsBetween(txBeginTime, nowTs.longValue())
                             : catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
 
@@ -603,7 +603,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp nowTs = clockService.now();
 
         for (int p = 0; p < partitions; p++) {
-            ReplicationGroupId groupReplicationId = ENABLED_COLOCATION
+            ReplicationGroupId groupReplicationId = enabledColocation()
                     ? new ZonePartitionId(id, p) : new TablePartitionId(id, p);
 
             CompletableFuture<?> fut = placementDriver
@@ -620,7 +620,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             return CompletableFutures.nullCompletedFuture();
                         }
 
-                        ReplicationGroupIdMessage groupIdMessage = ENABLED_COLOCATION
+                        ReplicationGroupIdMessage groupIdMessage = enabledColocation()
                                 ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (ZonePartitionId) groupReplicationId)
                                 : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (TablePartitionId) groupReplicationId);
 

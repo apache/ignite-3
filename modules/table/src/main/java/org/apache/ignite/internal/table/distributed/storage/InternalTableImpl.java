@@ -24,7 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -1819,7 +1819,7 @@ public class InternalTableImpl implements InternalTable {
             // I don't use the new colocation aware method for the ID because we pass TablePartitionId object there. I can't change the
             // method's signature right now because the id object is created outside of the method and is used in several places more than
             // just the method's call.
-            ReplicationGroupId colocationAwareReplicationGroupId = ENABLED_COLOCATION
+            ReplicationGroupId colocationAwareReplicationGroupId = enabledColocation()
                     ? new ZonePartitionId(zoneId, partitionIndexFromReplicationGroupId(replicaGrpId))
                     : replicaGrpId;
 
@@ -2182,7 +2182,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private ReplicationGroupId targetReplicationGroupId(int partId) {
-        if (ENABLED_COLOCATION) {
+        if (enabledColocation()) {
             return new ZonePartitionId(zoneId, partId);
         } else {
             return new TablePartitionId(tableId, partId);
@@ -2190,7 +2190,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private int partitionIndexFromReplicationGroupId(ReplicationGroupId replicationGroupId) {
-        if (ENABLED_COLOCATION) {
+        if (enabledColocation()) {
             return ((ZonePartitionId) replicationGroupId).partitionId();
         } else {
             return ((TablePartitionId) replicationGroupId).partitionId();

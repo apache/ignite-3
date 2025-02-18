@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -35,6 +37,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
@@ -823,5 +826,14 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         assertThat(storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED),
                 willSucceedIn(10, SECONDS));
+    }
+
+    @Test
+    public void enabledColocationTest() {
+        assertTrue(enabledColocation());
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.FALSE.toString());
+        assertFalse(enabledColocation());
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString());
+        assertTrue(enabledColocation());
     }
 }
