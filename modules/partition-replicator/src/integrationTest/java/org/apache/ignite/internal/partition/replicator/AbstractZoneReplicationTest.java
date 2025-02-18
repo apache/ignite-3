@@ -69,6 +69,10 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
+
+/**
+ * Base class for tests that require a cluster with zone replication.
+ */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(SystemPropertiesExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
@@ -100,7 +104,6 @@ public class AbstractZoneReplicationTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected GcConfiguration gcConfiguration;
 
-    //"mock.txnResourceTtl=50"
     @InjectConfiguration
     protected TransactionConfiguration txConfiguration;
 

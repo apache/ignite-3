@@ -41,17 +41,25 @@ import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
+
+/**
+ * Tests transactions vacuum for colocation track.
+ */
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "500")
 @Timeout(60)
 public class ItTransactionsVacuumTest extends AbstractZoneReplicationTest {
+    /**
+     * Tests transactions vacuum.
+     *
+     * @throws Exception If failed.
+     */
     @Test
-    public void testTransactionsVacuum(TestInfo info) throws Exception {
+    public void testTransactionsVacuum() throws Exception {
         updateTxnResourceTtl(50L);
 
         startCluster(1);
@@ -99,16 +107,32 @@ public class ItTransactionsVacuumTest extends AbstractZoneReplicationTest {
         assertThat(updateFuture, willSucceedFast());
     }
 
+    /**
+     * Returns transaction's meta from volatile storage.
+     *
+     * @param node Node.
+     * @param txId Transaction id.
+     * @return Transaction meta.
+     */
     private static TransactionMeta volatileTxState(Node node, UUID txId) {
         return node.txManager().stateMeta(txId);
     }
 
+    /**
+     * Returns transaction's meta from persistent storage.
+     *
+     * @param node Node.
+     * @param zoneId Zone id.
+     * @param partId Partition id.
+     * @param txId Transaction id.
+     * @return Transaction meta.
+     */
     private static TransactionMeta persistentTxState(Node node, int zoneId, int partId, UUID txId) {
         return IgniteTestUtils.bypassingThreadAssertions(() -> node.txStatePartitionStorage(zoneId, partId).get(txId));
     }
 
     /**
-     * Transaction id.
+     * Returns transaction identifier for the given transaction.
      *
      * @param tx Transaction.
      * @return Transaction id.

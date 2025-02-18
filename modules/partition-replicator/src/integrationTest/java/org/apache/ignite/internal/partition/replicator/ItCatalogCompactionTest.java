@@ -47,14 +47,21 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
+/**
+ * Tests catalog compaction fro colocation track
+ */
 @Timeout(60)
 public class ItCatalogCompactionTest extends AbstractZoneReplicationTest {
+    /**
+     * Tests catalog compaction.
+     *
+     * @throws Exception If failed.
+     */
     @Test
-    public void testCatalogCompaction(TestInfo testInfo) throws Exception {
+    public void testCatalogCompaction() throws Exception {
         // How often we update the low water mark.
         long lowWatermarkUpdateInterval = 500;
         updateLowWatermarkConfiguration(lowWatermarkUpdateInterval * 2, lowWatermarkUpdateInterval);
