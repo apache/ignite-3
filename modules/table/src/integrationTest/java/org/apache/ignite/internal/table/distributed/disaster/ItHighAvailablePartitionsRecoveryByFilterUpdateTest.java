@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.table.Table;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
@@ -36,6 +41,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
             nodeConfig("{region = EU, zone = global}", "{segmented_aipersist.engine = aipersist}");
 
     private static final String EU_ONLY_NODES_CONFIG = nodeConfig("{region = EU}", null);
+
+    private static final String US_ONLY_NODES_CONFIG = nodeConfig("{region = US}", null);
 
     private static final String GLOBAL_NODES_CONFIG = nodeConfig("{zone = global}", null);
 
@@ -317,6 +324,126 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
     private void alterZoneSql(String filter, String zoneName) {
         executeSql(String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", zoneName, filter));
+    }
+
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode (node filter allows A, B, C)</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 5 minutes</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (B, C)</li>
+     *   <li>Change filter to allow (D, E, F) before 'partitionDistributionResetTimeout' expires</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 0 to trigger automatic reset</li>
+     *   <li>Verify the partition is on D,E,F</li>
+     *   <li>No data should be lost</li>
+     * </ol>
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
+    @Test
+    void testResetAfterChangeFilters() throws InterruptedException {
+        startNode(1, EU_ONLY_NODES_CONFIG);
+        startNode(2, EU_ONLY_NODES_CONFIG);
+        startNode(3, US_ONLY_NODES_CONFIG);
+        startNode(4, US_ONLY_NODES_CONFIG);
+        startNode(5, US_ONLY_NODES_CONFIG);
+
+        String euFilter = "$[?(@.region == \"EU\")]";
+
+        Set<String> euNodes = nodeNames(0, 1, 2);
+
+        createHaZoneWithTable(euFilter, euNodes);
+
+        IgniteImpl node = igniteImpl(0);
+
+        changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, euNodes);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
+
+        stopNodes(1, 2);
+
+        String globalFilter = "$[?(@.region == \"US\")]";
+
+        alterZoneSql(globalFilter, HA_ZONE_NAME);
+
+        changePartitionDistributionTimeout(node, 0);
+
+        Set<String> usNodes = nodeNames(3, 4, 5);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, usNodes);
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 3, 4, 5);
+    }
+
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode (profile filter allows A, B, C)</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 5 minutes</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (B, C)</li>
+     *   <li>Change filter to allow (D, E, F) before 'partitionDistributionResetTimeout' expires</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 0 to trigger automatic reset</li>
+     *   <li>Verify the partition is on D,E,F</li>
+     *   <li>No data should be lost</li>
+     * </ol>
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
+    @Test
+    void testResetAfterChangeStorageProfiles() throws InterruptedException {
+        startNode(1, AIPERSIST_NODES_CONFIG);
+        startNode(2, AIPERSIST_NODES_CONFIG);
+        startNode(3, ROCKS_NODES_CONFIG);
+        startNode(4, ROCKS_NODES_CONFIG);
+        startNode(5, ROCKS_NODES_CONFIG);
+
+        Set<String> nodesWithAiProfile = nodeNames(0, 1, 2);
+
+        createHaZoneWithTableWithStorageProfile(2, "segmented_aipersist", nodesWithAiProfile);
+
+        IgniteImpl node = igniteImpl(0);
+
+        changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodesWithAiProfile);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
+
+        stopNodes(1, 2);
+
+        alterZoneStorageProfiles(node, HA_ZONE_NAME, "lru_rocks");
+
+        changePartitionDistributionTimeout(node, 0);
+
+        Set<String> usNodes = nodeNames(3, 4, 5);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, usNodes);
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 3, 4, 5);
+    }
+
+    private void alterZoneStorageProfiles(IgniteImpl node, String zoneName, String storageProfile) {
+        AlterZoneCommandBuilder builder = AlterZoneCommand.builder().zoneName(zoneName);
+
+        builder.storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(storageProfile).build()));
+
+        assertThat(node.catalogManager().execute(builder.build()), willCompleteSuccessfully());
     }
 
     private static String nodeConfig(
