@@ -101,7 +101,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false);
+        return finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, false);
     }
 
     @Override
@@ -111,7 +111,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false);
+        return finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, false);
     }
 
     @Override
@@ -168,7 +168,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
         CompletableFuture<Void> fut = commit ? commitFut : rollbackFut;
 
         fut.complete(null);

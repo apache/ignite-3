@@ -98,7 +98,16 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable Long initialVacuumObservationTimestamp,
             @Nullable Boolean isFinishedDueToTimeout
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, initialVacuumObservationTimestamp, null, isFinishedDueToTimeout);
+        this(
+                txState,
+                txCoordinatorId,
+                commitPartitionId,
+                commitTimestamp,
+                tx,
+                initialVacuumObservationTimestamp,
+                null,
+                isFinishedDueToTimeout
+        );
     }
 
     /**
