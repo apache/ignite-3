@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.function.Predicate.not;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION_DEFAULT;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -156,10 +155,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private volatile HybridTimestamp lowWatermark;
 
     private volatile UUID localNodeId;
-
-    /* Feature flag for zone based collocation track */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove it.
-    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * Constructs catalog compaction runner.
@@ -412,7 +407,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return schemaSyncService.waitForMetadataCompleteness(nowTs)
                 .thenComposeAsync(ignore -> {
-                    Int2IntMap idsWithPartitions = enabledColocationFeature
+                    Int2IntMap idsWithPartitions = ENABLED_COLOCATION_DEFAULT
                             ? catalogManagerFacade.collectZonesWithPartitionsBetween(txBeginTime, nowTs.longValue())
                             : catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
 
@@ -608,7 +603,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp nowTs = clockService.now();
 
         for (int p = 0; p < partitions; p++) {
-            ReplicationGroupId groupReplicationId = enabledColocationFeature
+            ReplicationGroupId groupReplicationId = ENABLED_COLOCATION_DEFAULT
                     ? new ZonePartitionId(id, p) : new TablePartitionId(id, p);
 
             CompletableFuture<?> fut = placementDriver
@@ -625,7 +620,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             return CompletableFutures.nullCompletedFuture();
                         }
 
-                        ReplicationGroupIdMessage groupIdMessage = enabledColocationFeature
+                        ReplicationGroupIdMessage groupIdMessage = ENABLED_COLOCATION_DEFAULT
                                 ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (ZonePartitionId) groupReplicationId)
                                 : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (TablePartitionId) groupReplicationId);
 

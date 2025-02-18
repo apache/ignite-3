@@ -79,9 +79,13 @@ public final class IgniteSystemProperties {
     /** Skip storage update in a benchmark. */
     public static final String IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK = "IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK";
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22115 Remove this feature flag.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this feature flag.
     /** Enables zone based replication (aka colocation) feature. */
     public static final String COLOCATION_FEATURE_FLAG = "IGNITE_ZONE_BASED_REPLICATION";
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    /* Feature flag for zone based collocation track */
+    public static volatile boolean ENABLED_COLOCATION_DEFAULT = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * Enforces singleton.

@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION_DEFAULT;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,9 +37,6 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     /** Serializer instance. */
     public static final TxMetaSerializer INSTANCE = new TxMetaSerializer();
-
-    // TODO IGNITE-22115 remove it
-    private static final boolean ENABLED_COLOCATION_FEATURE = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     @Override
     protected void writeExternalData(TxMeta meta, IgniteDataOutput out) throws IOException {
@@ -81,7 +77,7 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     }
 
     private static ReplicationGroupId replicationGroupId(int objectId, int partitionId) {
-        if (ENABLED_COLOCATION_FEATURE) {
+        if (ENABLED_COLOCATION_DEFAULT) {
             return new ZonePartitionId(objectId, partitionId);
         } else {
             return new TablePartitionId(objectId, partitionId);

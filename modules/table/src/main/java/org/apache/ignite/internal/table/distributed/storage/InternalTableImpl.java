@@ -24,8 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION_DEFAULT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -160,10 +159,6 @@ public class InternalTableImpl implements InternalTable {
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     public static final int DEFAULT_RW_TIMEOUT = 10_000;
-
-    /* Feature flag for zone based collocation track */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove it.
-    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /** Partitions. */
     private final int partitions;
@@ -1824,7 +1819,7 @@ public class InternalTableImpl implements InternalTable {
             // I don't use the new colocation aware method for the ID because we pass TablePartitionId object there. I can't change the
             // method's signature right now because the id object is created outside of the method and is used in several places more than
             // just the method's call.
-            ReplicationGroupId colocationAwareReplicationGroupId = enabledColocationFeature
+            ReplicationGroupId colocationAwareReplicationGroupId = ENABLED_COLOCATION_DEFAULT
                     ? new ZonePartitionId(zoneId, partitionIndexFromReplicationGroupId(replicaGrpId))
                     : replicaGrpId;
 
@@ -2001,7 +1996,6 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
-        // TODO sanpwc ?
         tx.assignCommitPartition(new TablePartitionId(tableId, partId));
 
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
@@ -2188,7 +2182,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private ReplicationGroupId targetReplicationGroupId(int partId) {
-        if (enabledColocationFeature) {
+        if (ENABLED_COLOCATION_DEFAULT) {
             return new ZonePartitionId(zoneId, partId);
         } else {
             return new TablePartitionId(tableId, partId);
@@ -2196,7 +2190,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private int partitionIndexFromReplicationGroupId(ReplicationGroupId replicationGroupId) {
-        if (enabledColocationFeature) {
+        if (ENABLED_COLOCATION_DEFAULT) {
             return ((ZonePartitionId) replicationGroupId).partitionId();
         } else {
             return ((TablePartitionId) replicationGroupId).partitionId();

@@ -18,8 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.ENABLED_COLOCATION_DEFAULT;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -91,10 +90,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
     /** Data access listener. */
     private BiConsumer<String, Object> dataAccessListener;
-
-    /* Feature flag for zone based collocation track */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove it.
-    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /**
      * The constructor.
@@ -561,7 +556,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     private int partitionIndexFromReplicationGroupId(ReplicationGroupId replicationGroupId) {
-        if (enabledColocationFeature) {
+        if (ENABLED_COLOCATION_DEFAULT) {
             return ((ZonePartitionId) replicationGroupId).partitionId();
         } else {
             return ((TablePartitionId) replicationGroupId).partitionId();
