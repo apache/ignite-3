@@ -37,7 +37,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.FinishingPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -161,17 +160,14 @@ public class TxMessageSender {
      */
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             Map<ReplicationGroupId, FinishingPartitionEnlistment> enlistedPartitions,
             UUID txId,
             Long consistencyToken,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        TablePartitionIdMessage commitPartitionIdMessage = REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
-                .partitionId(commitPartition.partitionId())
-                .tableId(commitPartition.tableId())
-                .build();
+        ReplicationGroupIdMessage commitPartitionIdMessage = toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition);
 
         return replicaService.invoke(
                 primaryConsistentId,
@@ -179,7 +175,7 @@ public class TxMessageSender {
                         .txId(txId)
                         .commitPartitionId(commitPartitionIdMessage)
                         .timestamp(clockService.now())
-                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
+                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toEnlistedPartitionMessagesByGroupId(enlistedPartitions))
                         .commit(commit)
                         .commitTimestamp(commitTimestamp)

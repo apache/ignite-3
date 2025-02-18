@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -55,17 +54,17 @@ public interface InternalTransaction extends Transaction {
     /**
      * Assigns a partition id to store the transaction state.
      *
-     * @param tablePartitionId Commit partition group id.
+     * @param commitPartitionId Commit partition group id.
      * @return True if the partition was assigned as committed, false otherwise.
      */
-    boolean assignCommitPartition(TablePartitionId tablePartitionId);
+    boolean assignCommitPartition(ReplicationGroupId commitPartitionId);
 
     /**
      * Gets a partition id that stores the transaction state.
      *
      * @return Partition id.
      */
-    TablePartitionId commitPartition();
+    ReplicationGroupId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.

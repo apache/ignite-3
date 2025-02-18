@@ -19,7 +19,7 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 
 /** Read-write replica request. */
@@ -39,5 +39,5 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
     boolean full();
 
     /** Commit partition ID. */
-    TablePartitionIdMessage commitPartitionId();
+    ReplicationGroupIdMessage commitPartitionId();
 }

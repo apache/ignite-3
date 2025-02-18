@@ -105,7 +105,7 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+        public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
             return false;
         }
 

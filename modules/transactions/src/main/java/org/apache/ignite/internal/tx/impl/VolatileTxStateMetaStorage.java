@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -144,7 +144,7 @@ public class VolatileTxStateMetaStorage {
     public CompletableFuture<Void> vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            Function<Map<TablePartitionId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
+            Function<Map<ReplicationGroupId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
     ) {
         LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
@@ -153,7 +153,7 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
-        Map<TablePartitionId, Set<VacuumizableTx>> txIds = new HashMap<>();
+        Map<ReplicationGroupId, Set<VacuumizableTx>> txIds = new HashMap<>();
         Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
 
         txStateMap.forEach((txId, meta) -> {
