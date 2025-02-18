@@ -91,7 +91,7 @@ public class ItTransactionsVacuumTest extends AbstractZoneReplicationTest {
         // Check that volatile tx state is removed.
         assertTrue(waitForCondition(() -> volatileTxState(node, txId) == null, 10_000));
 
-        // // TODO https://issues.apache.org/jira/browse/IGNITE-24343 Enable this assertion.
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24343 Enable this assertion.
         // Check that persistent tx state is removed.
         // assertTrue(waitForCondition(() -> persistentTxState(node, zoneId, 0, txId) == null, 10_000));
     }
