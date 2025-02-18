@@ -119,6 +119,7 @@ import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationS
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
@@ -934,7 +935,7 @@ public class PartitionReplicaLifecycleManager extends
 
             Assignments pendingAssignments = pendingAssignmentsFromMetaStorage == null
                     ? Assignments.EMPTY
-                    : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
+                    : AssignmentsQueue.fromBytes(pendingAssignmentsFromMetaStorage).poll();
 
             return stopAndDestroyPartitionAndUpdateClients(
                     zonePartitionId,
@@ -1003,7 +1004,7 @@ public class PartitionReplicaLifecycleManager extends
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
-        Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
 
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
