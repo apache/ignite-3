@@ -47,8 +47,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -264,10 +263,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Table messages factory. */
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
-
-    /* Feature flag for zone based collocation track */
-    // TODO IGNITE-22115 remove it
-    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     private final TopologyService topologyService;
 
@@ -687,7 +682,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> beforeZoneReplicaStarted(LocalPartitionReplicaEventParameters parameters) {
-        if (!enabledColocationFeature) {
+        if (!enabledColocation()) {
             return falseCompletedFuture();
         }
 
@@ -719,7 +714,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onZoneReplicaDestroyed(LocalPartitionReplicaEventParameters parameters) {
-        if (!enabledColocationFeature) {
+        if (!enabledColocation()) {
             return falseCompletedFuture();
         }
 
@@ -751,7 +746,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
-        if (!enabledColocationFeature) {
+        if (!enabledColocation()) {
             return falseCompletedFuture();
         }
 
@@ -1320,7 +1315,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         ) {
                             // Disable this method if the Colocation feature is enabled, actual configuration will be propagated
                             // manually by the Zone Raft Listener.
-                            if (!enabledColocationFeature) {
+                            if (!enabledColocation()) {
                                 super.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm);
                             }
                         }
@@ -2977,7 +2972,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 CompletableFuture<?> startTableFuture;
 
-                if (enabledColocationFeature) {
+                if (enabledColocation()) {
                     CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver);
                     CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver);
 
