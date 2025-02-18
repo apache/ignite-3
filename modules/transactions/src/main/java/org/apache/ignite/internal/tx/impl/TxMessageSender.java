@@ -184,10 +184,9 @@ public class TxMessageSender {
                         .commitPartitionId(commitPartitionIdMessage)
                         .timestamp(clockService.now())
                         // TODO Dirty hack within colocation track only. Remove after https://issues.apache.org/jira/browse/IGNITE-24343
-                        .groupId(enabledColocationFeature ?
-                                toReplicationGroupIdMessage(
-                                        REPLICA_MESSAGES_FACTORY,
-                                        replicationGroupIds.entrySet().iterator().next().getKey())
+                        .groupId(enabledColocationFeature
+                                ? toReplicationGroupIdMessage(
+                                REPLICA_MESSAGES_FACTORY, replicationGroupIds.entrySet().iterator().next().getKey())
                                 : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toReplicationGroupIdMessages(replicationGroupIds))
                         .tableIds(enlistedTableIds)
