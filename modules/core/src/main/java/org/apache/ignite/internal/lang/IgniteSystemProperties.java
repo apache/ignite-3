@@ -94,7 +94,7 @@ public final class IgniteSystemProperties {
     /* Feature flag for zone based collocation track */
     public static boolean enabledColocation() {
         return getBoolean(COLOCATION_FEATURE_FLAG, false);
-    };
+    }
 
     /**
      * Gets either system property or environment variable with given name and convert to enum of given class.
