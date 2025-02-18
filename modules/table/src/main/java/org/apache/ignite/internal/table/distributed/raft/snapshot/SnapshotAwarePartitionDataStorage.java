@@ -175,7 +175,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
             snapshot.acquireMvLock();
 
             try {
-                if (snapshot.alreadyPassed(tableId, rowId)) {
+                if (snapshot.alreadyPassedOrIrrelevant(tableId, rowId)) {
                     // Row already sent.
                     continue;
                 }

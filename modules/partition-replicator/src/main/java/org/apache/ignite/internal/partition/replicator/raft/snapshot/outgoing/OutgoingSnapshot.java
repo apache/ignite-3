@@ -559,7 +559,7 @@ public class OutgoingSnapshot {
      * @param rowId RowId.
      * @return {@code true} if the given RowId is already passed by the snapshot in normal rows sending order.
      */
-    public boolean alreadyPassed(int tableId, RowId rowId) {
+    public boolean alreadyPassedOrIrrelevant(int tableId, RowId rowId) {
         assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
         if (mvPartitionDeliveryState == null) {

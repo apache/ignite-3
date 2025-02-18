@@ -545,7 +545,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.acquireMvLock();
 
         try {
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, lowestRowId));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, lowestRowId));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -565,7 +565,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.acquireMvLock();
 
         try {
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId1));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -585,7 +585,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.acquireMvLock();
 
         try {
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId2));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -609,38 +609,38 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.acquireMvLock();
 
         try {
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId1));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId2));
 
             getMvDataResponse(1);
 
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId1));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId2));
 
             getMvDataResponse(1);
 
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId2));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId2));
 
             getMvDataResponse(1);
 
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
-            assertFalse(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId2));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId1));
+            assertFalse(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId2));
 
             getMvDataResponse(1);
 
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId1));
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId2));
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId1));
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_2, rowId2));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId1));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId2));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId1));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_2, rowId2));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -658,7 +658,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         try {
             //noinspection ConstantConditions
-            assertTrue(snapshot.alreadyPassed(TABLE_ID_1, rowId3.increment().increment().increment()));
+            assertTrue(snapshot.alreadyPassedOrIrrelevant(TABLE_ID_1, rowId3.increment().increment().increment()));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -692,8 +692,8 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.acquireMvLock();
 
         try {
-            assertThat(snapshot.alreadyPassed(Integer.MIN_VALUE, rowId1), is(true));
-            assertThat(snapshot.alreadyPassed(Integer.MAX_VALUE, rowId1), is(true));
+            assertThat(snapshot.alreadyPassedOrIrrelevant(Integer.MIN_VALUE, rowId1), is(true));
+            assertThat(snapshot.alreadyPassedOrIrrelevant(Integer.MAX_VALUE, rowId1), is(true));
         } finally {
             snapshot.releaseMvLock();
         }
@@ -705,8 +705,8 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.acquireMvLock();
 
         try {
-            assertThat(snapshot.alreadyPassed(Integer.MIN_VALUE, rowId1), is(true));
-            assertThat(snapshot.alreadyPassed(Integer.MAX_VALUE, rowId1), is(true));
+            assertThat(snapshot.alreadyPassedOrIrrelevant(Integer.MIN_VALUE, rowId1), is(true));
+            assertThat(snapshot.alreadyPassedOrIrrelevant(Integer.MAX_VALUE, rowId1), is(true));
         } finally {
             snapshot.releaseMvLock();
         }
