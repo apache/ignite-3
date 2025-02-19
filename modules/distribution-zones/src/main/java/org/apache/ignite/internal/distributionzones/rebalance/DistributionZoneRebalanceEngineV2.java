@@ -126,7 +126,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            return rebalanceTriggersRecovery(recoveryRevision);
+            return recoveryRebalanceTrigger(recoveryRevision);
         });
     }
 
@@ -284,7 +284,7 @@ public class DistributionZoneRebalanceEngineV2 {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21058 At the moment this method produce many metastore multi-invokes
     // TODO: which can be avoided by the local logic, which mirror the logic of metastore invokes.
     // TODO: And then run the remote invoke, only if needed.
-    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
+    private CompletableFuture<Void> recoveryRebalanceTrigger(long recoveryRevision) {
         if (recoveryRevision > 0) {
             Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 

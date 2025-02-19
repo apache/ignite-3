@@ -217,7 +217,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void notYetPassedRowIsEnqueued(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).alreadyPassed(eq(TABLE_ID), any());
+        doReturn(false).when(snapshot).alreadyPassedOrIrrelevant(eq(TABLE_ID), any());
         doReturn(true).when(snapshot).addRowIdToSkip(any());
 
         writeAction.executeOn(testedStorage, rowId);
@@ -230,7 +230,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void notYetPassedRowNotEnqueuedSecondTime(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).alreadyPassed(eq(TABLE_ID), any());
+        doReturn(false).when(snapshot).alreadyPassedOrIrrelevant(eq(TABLE_ID), any());
         doReturn(false).when(snapshot).addRowIdToSkip(any());
 
         writeAction.executeOn(testedStorage, rowId);
@@ -243,7 +243,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void alreadyPassedRowNotEnqueued(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(true).when(snapshot).alreadyPassed(eq(TABLE_ID), any());
+        doReturn(true).when(snapshot).alreadyPassedOrIrrelevant(eq(TABLE_ID), any());
 
         writeAction.executeOn(testedStorage, rowId);
 
@@ -263,7 +263,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     }
 
     private static void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
-        doReturn(false).when(snapshotToConfigure).alreadyPassed(eq(TABLE_ID), any());
+        doReturn(false).when(snapshotToConfigure).alreadyPassedOrIrrelevant(eq(TABLE_ID), any());
         doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
 

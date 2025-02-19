@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.AfterEach;
@@ -421,7 +422,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         Catalog catalog = catalogService.catalog(latestVersion);
 
         assertThat(catalog, notNullValue());
-        assertThat(catalog.schema(QualifiedName.fromSimple(name).objectName()), notNullValue());
+        assertThat(catalog.schema(IgniteNameUtils.parseIdentifier(name)), notNullValue());
     }
 
     private void assertTableExists(QualifiedName name) {

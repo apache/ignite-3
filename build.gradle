@@ -25,14 +25,13 @@ plugins {
     alias(libs.plugins.spotbugs) apply false
     alias(libs.plugins.jmh) apply false
     alias(libs.plugins.jmhReport) apply false
+    alias(libs.plugins.dockerRemoteApi) apply false
 }
 
 apply from: "$rootDir/buildscripts/javadoc.gradle"
 
 repositories {
-    maven {
-        url = uri('https://repo.maven.apache.org/maven2/')
-    }
+    mavenCentral()
 }
 
 ext {

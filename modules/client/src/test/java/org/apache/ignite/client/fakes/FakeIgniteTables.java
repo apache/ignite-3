@@ -367,8 +367,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @return Schema descriptor.
      */
     private SchemaDescriptor getColocationKeySchema(Integer v) {
-        Column colocationCol1 = new Column("COLO-1", NativeTypes.STRING, false);
-        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, false);
+        Column colocationCol1 = new Column("COLO1", NativeTypes.STRING, false);
+        Column colocationCol2 = new Column("COLO2", NativeTypes.INT64, false);
 
         return new SchemaDescriptor(
                 v,

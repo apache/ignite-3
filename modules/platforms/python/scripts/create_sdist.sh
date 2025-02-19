@@ -17,6 +17,10 @@
 set -e -u -x
 
 PACKAGE_NAME="pyignite_dbapi"
+PY_VERS=$1
+
+# Converting input from '3.9,3.10...' to '39 310...'
+PREPARED_VERS=$(echo $PY_VERS | sed -r 's/\.//g' | tr ',' ' ')
 
 # Copying cpp directory.
 cp -r ../cpp /$PACKAGE_NAME/cpp
@@ -24,15 +28,17 @@ rm -rf /$PACKAGE_NAME/cpp/cmake-build-*
 rm -rf /$PACKAGE_NAME/cpp/.idea
 
 # Create source dist.
-for PYBIN in /opt/python/*/bin; do
-    if [[ $PYBIN =~ ^(.*)cp39(.*)$ ]] || [[ $PYBIN =~ ^(.*)cp31[0123](.*)$ ]]; then
-        cd $PACKAGE_NAME
-        "${PYBIN}/python" setup.py sdist --formats=gztar,zip --dist-dir /dist
-        break;
-    fi
+for PY_VER in $PREPARED_VERS; do
+    for PYBIN in /opt/python/*/bin; do
+        if [[ $PYBIN =~ ^(.*)cp$PY_VER/(.*)$ ]]; then
+            cd /$PACKAGE_NAME
+            "${PYBIN}/python" setup.py sdist --formats=gztar,zip --dist-dir /dist
+            break 2;
+        fi
+    done
 done
 
-chown -R `stat -c "%u:%g" /dist/` /dist/*
+chown -R `stat -c "%u:%g" /$PACKAGE_NAME` /$PACKAGE_NAME
 
 rm -rf /$PACKAGE_NAME/cpp
 rm -rf /$PACKAGE_NAME/*.egg-info

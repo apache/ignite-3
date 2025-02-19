@@ -67,7 +67,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -196,9 +196,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 throw new AssertionError("Unexpected jdbc statement type: " + stmtType);
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-24021
-        //  Replace this with using correct implementation of `IgniteNameUtils.parseSimpleName`, when it will be fixed.
-        String schemaNameInCanonicalForm = QualifiedName.fromSimple(defaultSchemaName).objectName();
+        String schemaNameInCanonicalForm = IgniteNameUtils.parseIdentifier(defaultSchemaName);
 
         return SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)

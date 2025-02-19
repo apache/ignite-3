@@ -1,75 +1,75 @@
 Sort
     collation: [REVENUE DESC]
-    est. row count: 42009
+    est. row count: 69944
   ColocatedHashAggregate
       group: [N_NAME]
       aggs: [SUM($f1)]
-      est. row count: 42009
+      est. row count: 69944
     Project
         fields: [N_NAME, $f1]
         exprs: [N_NAME, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
-        est. row count: 210043
+        est. row count: 349721
       HashJoin
-          condition: AND(=(C_NATIONKEY, S_NATIONKEY), =(C_CUSTKEY, O_CUSTKEY))
+          condition: AND(=(C_NATIONKEY, S_NATIONKEY), =(L_SUPPKEY, S_SUPPKEY))
           joinType: inner
-          est. row count: 210043
+          est. row count: 349721
         HashJoin
             condition: =(L_ORDERKEY, O_ORDERKEY)
             joinType: inner
-            est. row count: 300061
-          HashJoin
-              condition: =(L_SUPPKEY, S_SUPPKEY)
-              joinType: inner
-              est. row count: 1200243
-            Exchange
-                distribution: single
-                est. row count: 6001215
-              TableScan
-                  table: [PUBLIC, LINEITEM]
-                  fields: [L_ORDERKEY, L_SUPPKEY, L_EXTENDEDPRICE, L_DISCOUNT]
-                  est. row count: 6001215
-            HashJoin
-                condition: =(S_NATIONKEY, N_NATIONKEY)
-                joinType: inner
-                est. row count: 2000
-              Exchange
-                  distribution: single
-                  est. row count: 10000
-                TableScan
-                    table: [PUBLIC, SUPPLIER]
-                    fields: [S_SUPPKEY, S_NATIONKEY]
-                    est. row count: 10000
-              NestedLoopJoin
-                  condition: =(N_REGIONKEY, R_REGIONKEY)
-                  joinType: inner
-                  est. row count: 5
-                Exchange
-                    distribution: single
-                    est. row count: 25
-                  TableScan
-                      table: [PUBLIC, NATION]
-                      fields: [N_NATIONKEY, N_NAME, N_REGIONKEY]
-                      est. row count: 25
-                Exchange
-                    distribution: single
-                    est. row count: 1
-                  TableScan
-                      table: [PUBLIC, REGION]
-                      filters: =(R_NAME, _UTF-8'ASIA')
-                      fields: [R_REGIONKEY, R_NAME]
-                      est. row count: 1
+            est. row count: 1500304
           Exchange
               distribution: single
-              est. row count: 375000
+              est. row count: 6001215
             TableScan
-                table: [PUBLIC, ORDERS]
-                filters: AND(>=(O_ORDERDATE, 1994-01-01), <(O_ORDERDATE, +(1994-01-01, 12:INTERVAL YEAR)))
-                fields: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE]
+                table: [PUBLIC, LINEITEM]
+                fields: [L_ORDERKEY, L_SUPPKEY, L_EXTENDEDPRICE, L_DISCOUNT]
+                est. row count: 6001215
+          HashJoin
+              condition: =(C_CUSTKEY, O_CUSTKEY)
+              joinType: inner
+              est. row count: 375000
+            Exchange
+                distribution: single
                 est. row count: 375000
-        Exchange
-            distribution: single
-            est. row count: 150000
-          TableScan
-              table: [PUBLIC, CUSTOMER]
-              fields: [C_CUSTKEY, C_NATIONKEY]
-              est. row count: 150000
+              TableScan
+                  table: [PUBLIC, ORDERS]
+                  filters: AND(>=(O_ORDERDATE, 1994-01-01), <(O_ORDERDATE, +(1994-01-01, 12:INTERVAL YEAR)))
+                  fields: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE]
+                  est. row count: 375000
+            Exchange
+                distribution: single
+                est. row count: 150000
+              TableScan
+                  table: [PUBLIC, CUSTOMER]
+                  fields: [C_CUSTKEY, C_NATIONKEY]
+                  est. row count: 150000
+        HashJoin
+            condition: =(S_NATIONKEY, N_NATIONKEY)
+            joinType: inner
+            est. row count: 3330
+          Exchange
+              distribution: single
+              est. row count: 10000
+            TableScan
+                table: [PUBLIC, SUPPLIER]
+                fields: [S_SUPPKEY, S_NATIONKEY]
+                est. row count: 10000
+          NestedLoopJoin
+              condition: =(N_REGIONKEY, R_REGIONKEY)
+              joinType: inner
+              est. row count: 8
+            Exchange
+                distribution: single
+                est. row count: 25
+              TableScan
+                  table: [PUBLIC, NATION]
+                  fields: [N_NATIONKEY, N_NAME, N_REGIONKEY]
+                  est. row count: 25
+            Exchange
+                distribution: single
+                est. row count: 2
+              TableScan
+                  table: [PUBLIC, REGION]
+                  filters: =(R_NAME, _UTF-8'ASIA')
+                  fields: [R_REGIONKEY, R_NAME]
+                  est. row count: 2

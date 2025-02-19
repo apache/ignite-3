@@ -79,7 +79,7 @@ public class CustomTuple implements Tuple {
     /** {@inheritDoc} */
     @Override
     public int columnIndex(String columnName) {
-        switch (IgniteNameUtils.parseSimpleName(columnName)) {
+        switch (IgniteNameUtils.parseIdentifier(columnName)) {
             case "ID":
                 return 0;
             case "NAME":
@@ -94,7 +94,7 @@ public class CustomTuple implements Tuple {
     /** {@inheritDoc} */
     @Override
     public <T> T valueOrDefault(String columnName, T def) {
-        switch (IgniteNameUtils.parseSimpleName(columnName)) {
+        switch (IgniteNameUtils.parseIdentifier(columnName)) {
             case "ID":
                 return (T) id;
             case "NAME":

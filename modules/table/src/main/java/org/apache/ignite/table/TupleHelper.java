@@ -28,11 +28,11 @@ public final class TupleHelper {
      * Returns value from a given tuple which corresponds to a specified column.
      * 
      * <p>Given name is expected to be normalized, thus it's up to caller to invoke 
-     * {@link IgniteNameUtils#parseSimpleName(String)} prior passing the name to this method.
+     * {@link IgniteNameUtils#parseIdentifier(String)} prior passing the name to this method.
      *
      * @param tuple A tuple to get value from.
      * @param normalizedName A column name that is considered to be normalized 
-     *      (e.g result of {@link IgniteNameUtils#parseSimpleName(String)}).
+     *      (e.g result of {@link IgniteNameUtils#parseIdentifier(String)}).
      * @param defaultValue A value to return in case tuple doesn't have column with given name.
      * @param <T> A type of the returned value.
      * @return A value from a tuple.
@@ -42,7 +42,7 @@ public final class TupleHelper {
             return ((TupleImpl) tuple).valueOrDefaultSkipNormalization(normalizedName, defaultValue);
         }
 
-        return tuple.valueOrDefault(IgniteNameUtils.quote(normalizedName), defaultValue);
+        return tuple.valueOrDefault(IgniteNameUtils.quoteIfNeeded(normalizedName), defaultValue);
     }
 
     private TupleHelper() {
