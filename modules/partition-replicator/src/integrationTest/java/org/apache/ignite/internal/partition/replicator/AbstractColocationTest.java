@@ -227,7 +227,7 @@ public class AbstractColocationTest extends IgniteAbstractTest {
             NodeFinder nodeFinder,
             @Nullable Node.InvokeInterceptor invokeInterceptor,
             NodeAttributesConfiguration nodeAttributesConfiguration
-            ) {
+    ) {
         return new Node(
                 testInfo,
                 address,
