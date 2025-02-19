@@ -49,7 +49,7 @@ public class ItHighAvailablePartitionsRecoveryNoStaleRecoveriesTest extends Abst
 
         stopNodes(2, 3);
 
-        long updateRevision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node0, HA_ZONE_NAME, Set.of(lastStoppedNode));
+        long updateRevision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node0, HA_ZONE_NAME, Set.of(lastStoppedNode));
 
         waitForCondition(() -> node0.metaStorageManager().appliedRevision() >= updateRevision, 10_000);
         waitForCondition(() -> node1.metaStorageManager().appliedRevision() >= updateRevision, 10_000);

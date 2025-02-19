@@ -29,6 +29,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -417,5 +419,62 @@ public interface IgniteDataInput extends DataInput {
          * @return the materialized object
          */
         T materialize(byte[] buffer, int offset, int length);
+    }
+
+    /**
+     * Reads a collection.
+     *
+     * @param collection Collection instance, should be empty.
+     * @param elementReader Function to read an element.
+     * @return Collection.
+     */
+    default <T, C extends Collection<T>> C readCollection(
+            C collection,
+            ObjectReader<T> elementReader
+    ) throws IOException {
+        assert collection.isEmpty() : collection;
+
+        int size = readVarIntAsInt();
+
+        for (int i = 0; i < size; i++) {
+            collection.add(elementReader.read(this));
+        }
+
+        return collection;
+    }
+
+    /**
+     * Reads a map.
+     *
+     * @param map Map instance, should be empty.
+     * @param keyReader Function to read a key.
+     * @param valueReader Function to read a value.
+     * @return Map.
+     */
+    default <K, C, V extends C, M extends Map<K, V>> M readMap(
+            M map,
+            ObjectReader<K> keyReader,
+            ObjectReader<V> valueReader
+    ) throws IOException {
+        assert map.isEmpty() : map;
+
+        int size = readVarIntAsInt();
+
+        for (int i = 0; i < size; i++) {
+            K key = keyReader.read(this);
+            V value = valueReader.read(this);
+
+            map.put(key, value);
+        }
+
+        return map;
+    }
+
+    /**
+     * Object reader interface.
+     */
+    @FunctionalInterface
+    interface ObjectReader<T> {
+        T read(IgniteDataInput in) throws IOException;
     }
 }

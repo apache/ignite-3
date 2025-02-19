@@ -22,8 +22,9 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.logicalNodeFromNode;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,7 +43,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
     private static final String NEW_ZONE_NAME = "zone2";
 
-    private static final LogicalNode NODE_1 = new LogicalNode(randomUUID(), "node1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = logicalNodeFromNode(new Node("node1", randomUUID()));
 
     private static final Set<LogicalNode> nodes = Set.of(NODE_1);
 
@@ -82,7 +82,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
         dropZone(ZONE_NAME);
 
-        assertZonesKeysInMetaStorage(zoneId, null);
+        // Data nodes should be removed from meta storage
+        assertZonesKeysInMetaStorage(zoneId, null, false);
     }
 
     @ParameterizedTest
@@ -100,19 +101,26 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
     }
 
     private void assertZonesKeysInMetaStorage(int zoneId, @Nullable Set<LogicalNode> clusterNodes) throws InterruptedException {
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes, keyValueStorage);
+        assertZonesKeysInMetaStorage(zoneId, clusterNodes, true);
+    }
+
+    private void assertZonesKeysInMetaStorage(int zoneId, @Nullable Set<LogicalNode> clusterNodes, boolean checkNodes)
+            throws InterruptedException {
+        if (checkNodes) {
+            assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes, keyValueStorage);
+        }
 
         if (clusterNodes != null) {
-            assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value() != null, 5000));
-            assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value() != null, 5000));
+            assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleUpTimerKey(zoneId).bytes()).value() != null, 5000));
+            assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleDownTimerKey(zoneId).bytes()).value() != null, 5000));
         } else {
-            assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value() == null, 5000));
-            assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value() == null, 5000));
+            assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleUpTimerKey(zoneId).bytes()).value() == null, 5000));
+            assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleDownTimerKey(zoneId).bytes()).value() == null, 5000));
         }
 
         assertArrayEquals(
-                keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value(),
-                keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value()
+                keyValueStorage.get(zoneScaleUpTimerKey(zoneId).bytes()).value(),
+                keyValueStorage.get(zoneScaleDownTimerKey(zoneId).bytes()).value()
         );
     }
 
