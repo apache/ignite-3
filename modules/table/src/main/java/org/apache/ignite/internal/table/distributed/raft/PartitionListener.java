@@ -253,7 +253,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         } else if (command instanceof UpdateAllCommand) {
             result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof FinishTxCommand) {
-            result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
+            result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof WriteIntentSwitchCommand) {
             result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
         } else if (command instanceof SafeTimeSyncCommand) {
