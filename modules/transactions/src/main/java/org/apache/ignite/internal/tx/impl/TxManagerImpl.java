@@ -682,14 +682,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         (unused, throwable) -> {
                             boolean verifiedCommit = throwable == null && commit;
 
-                            Map<ReplicationGroupId, PartitionEnlistment> groupSnapshots = enlistedGroups.entrySet().stream()
+                            Map<ReplicationGroupId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
                                     .collect(toMap(Entry::getKey, Entry::getValue));
 
                             return durableFinish(
                                     observableTimestampTracker,
                                     commitPartition,
                                     verifiedCommit,
-                                    groupSnapshots,
+                                    groups,
                                     txId,
                                     commitTimestamp,
                                     txFinishFuture);
@@ -959,7 +959,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId) {
+    public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
         return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
     }
 
