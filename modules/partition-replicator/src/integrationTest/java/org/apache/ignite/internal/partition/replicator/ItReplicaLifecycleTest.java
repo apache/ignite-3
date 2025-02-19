@@ -775,7 +775,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             });
 
             // Read the key from another transaction to trigger write intent resolution, and so incrementing the estimated size.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24384 Perhaps, it should be reworked some way
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24360 Perhaps, it should be reworked some way
             // when the write intent resolution will be 're-implemented' using colocation feature.
             node.transactions().runInTransaction(tx -> {
                 keyValueView1.getAll(tx, kv1.keySet());
