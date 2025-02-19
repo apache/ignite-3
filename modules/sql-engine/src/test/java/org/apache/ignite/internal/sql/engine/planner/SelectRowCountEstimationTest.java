@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCou
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
@@ -35,7 +36,9 @@ import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to check row count estimation for select relation.
@@ -70,111 +73,63 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
         CLUSTER.stop();
     }
 
-    @Test
-    void testConditionWithPk() {
+    @ParameterizedTest
+    @MethodSource("pkSelectivity")
+    void testConditionWithPk(String sql, double selectivityFactor) {
         // partial pk
-        double selectivityFactor = EQ_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1")
+        assertQuery(NODE, sql)
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        // full pk, eq operations
-        selectivityFactor = 1.0 / TABLE_REAL_SIZE;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1")
                 .disableRules("TableScanToKeyValueGetRule", "LogicalIndexScanConverterRule")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
+    }
 
-        // full pk, comp operations
-        selectivityFactor = EQ_SELECTIVITY * COMPARISON_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER > 1")
-                .disableRules("TableScanToKeyValueGetRule", "LogicalIndexScanConverterRule")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
+    private static Stream<Arguments> pkSelectivity() {
+        return Stream.of(
+                // partial pk
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1", EQ_SELECTIVITY),
+                // full pk, eq operations
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1", 1.0 / TABLE_REAL_SIZE),
+                // full pk, comp operations
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER > 1",
+                        EQ_SELECTIVITY * COMPARISON_SELECTIVITY),
+                // full pk with OR
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE (CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1) OR CS_ORDER_NUMBER = 2"
+                        , EQ_SELECTIVITY),
+                // full pk or full pk
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE (CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1) "
+                        + "OR (CS_ITEM_SK = 3 AND CS_ORDER_NUMBER = 3)", 1.0 / TABLE_REAL_SIZE),
+                // full pk with computation, not covered by now
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ORDER_NUMBER + CS_ITEM_SK = 1", EQ_SELECTIVITY)
+        );
+    }
 
-        // full pk with OR
-        selectivityFactor = EQ_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE (CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1) OR CS_ORDER_NUMBER = 2")
-                .disableRules("TableScanToKeyValueGetRule", "LogicalIndexScanConverterRule")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        // full pk or full pk
-        selectivityFactor = 1.0 / TABLE_REAL_SIZE;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE (CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1) "
-                + "OR (CS_ITEM_SK = 3 AND CS_ORDER_NUMBER = 3)")
-                .disableRules("TableScanToKeyValueGetRule", "LogicalIndexScanConverterRule")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        // full pk with computation, not covered by now
-        selectivityFactor = EQ_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_ORDER_NUMBER + CS_ITEM_SK = 1")
+    @ParameterizedTest
+    @MethodSource("predicateSelectivity")
+    void testPredicatesSelectivity(String sql, double selectivityFactor) {
+        assertQuery(NODE, sql)
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .check();
     }
 
-    @Test
-    void testPredicatesSelectivity() {
-        double selectivityFactor = COMPARISON_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK < 5")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE)))
-                .check();
-
-        String query = appendEqConditions(2);
-        selectivityFactor = 0.56;
-        assertQuery(NODE, query)
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        query = appendEqConditions(3);
-        selectivityFactor = 0.76;
-        assertQuery(NODE, query)
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        query = appendEqConditions(20);
-        selectivityFactor = 1.0;
-        assertQuery(NODE, query)
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        selectivityFactor = COMPARISON_SELECTIVITY * COMPARISON_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
-                + "(CS_SOLD_DATE_SK > 0 and CS_SOLD_DATE_SK < 5)")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        selectivityFactor = EQ_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
-                + "(CS_SOLD_DATE_SK = 0)")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        selectivityFactor = COMPARISON_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE SQRT(CS_SOLD_DATE_SK) > 10")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        selectivityFactor = IS_NOT_NULL_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK IS NOT NULL")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        selectivityFactor = EQ_SELECTIVITY;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK = 10 OR LENGTH('12') = 2")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
-
-        // IS NOT NULL over NOT NULL column
-        selectivityFactor = 1;
-        assertQuery(NODE, "SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK IS NOT NULL")
-                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
-                .check();
+    private static Stream<Arguments> predicateSelectivity() {
+        return Stream.of(
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10", COMPARISON_SELECTIVITY),
+                Arguments.of(appendEqConditions(2), 0.56),
+                Arguments.of(appendEqConditions(3), 0.76),
+                Arguments.of(appendEqConditions(20), 1.0),
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK < 5",
+                        COMPARISON_SELECTIVITY + COMPARISON_SELECTIVITY),
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
+                        + "(CS_SOLD_DATE_SK > 0 and CS_SOLD_DATE_SK < 5)", COMPARISON_SELECTIVITY * COMPARISON_SELECTIVITY),
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE (CS_SOLD_DATE_SK > 10 AND CS_SOLD_DATE_SK < 20) OR "
+                        + "(CS_SOLD_DATE_SK = 0)", EQ_SELECTIVITY),
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE SQRT(CS_SOLD_DATE_SK) > 10", COMPARISON_SELECTIVITY),
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK > 10 OR CS_SOLD_DATE_SK IS NOT NULL",
+                        IS_NOT_NULL_SELECTIVITY),
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_SOLD_DATE_SK = 10 OR LENGTH('12') = 2", EQ_SELECTIVITY),
+                // IS NOT NULL over NOT NULL column
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK IS NOT NULL", 1.0)
+        );
     }
 
     private static String appendEqConditions(int count) {
