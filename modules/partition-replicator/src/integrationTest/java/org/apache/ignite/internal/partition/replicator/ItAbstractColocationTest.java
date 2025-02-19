@@ -31,8 +31,9 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
@@ -43,15 +44,17 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
-import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -61,93 +64,111 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-
-/**
- * Base class for tests that require a cluster with zone replication.
- */
 @ExtendWith(ConfigurationExtension.class)
-@ExtendWith(SystemPropertiesExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
+@ExtendWith(SystemPropertiesExtension.class)
+// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
-public class AbstractZoneReplicationTest extends IgniteAbstractTest {
-    protected static final int BASE_PORT = 20_000;
+abstract class ItAbstractColocationTest extends IgniteAbstractTest {
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final int NODE_COUNT = 3;
+
+    private static final int BASE_PORT = 20_000;
+
+    private static final String HOST = "localhost";
+
+    private static final List<NetworkAddress> NODE_ADDRESSES = IntStream.range(0, NODE_COUNT)
+            .mapToObj(i -> new NetworkAddress(HOST, BASE_PORT + i))
+            .collect(toList());
+
+    private static final StaticNodeFinder NODE_FINDER = new StaticNodeFinder(NODE_ADDRESSES);
+
+    static final int AWAIT_TIMEOUT_MILLIS = 10_000;
+
+    @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes1;
+
+    @InjectConfiguration("mock.nodeAttributes: {region = EU, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes2;
+
+    @InjectConfiguration("mock.nodeAttributes: {region = UK, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes3;
 
     @InjectConfiguration
-    protected SystemLocalConfiguration systemConfiguration;
+    private static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    protected RaftConfiguration raftConfiguration;
+    private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    protected NodeAttributesConfiguration nodeAttributesConfiguration;
+    private static SystemLocalConfiguration systemConfiguration;
+
+    @InjectConfiguration
+    private static ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
-    protected StorageConfiguration storageConfiguration;
+    private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    protected MetaStorageConfiguration metaStorageConfiguration;
-
-    @InjectConfiguration
-    protected ReplicationConfiguration replicationConfiguration;
+    GcConfiguration gcConfiguration;
 
     @InjectExecutorService
-    protected ScheduledExecutorService scheduledExecutorService;
+    private static ScheduledExecutorService scheduledExecutorService;
 
-    @InjectConfiguration
-    protected GcConfiguration gcConfiguration;
+    private static List<NodeAttributesConfiguration> nodeAttributesConfigurations;
 
-    @InjectConfiguration
-    protected TransactionConfiguration txConfiguration;
+    final Map<Integer, Node> nodes = new HashMap<>();
 
-    protected final List<Node> cluster = new ArrayList<>();
+    // TODO Remove https://issues.apache.org/jira/browse/IGNITE-24375
+    final TestPlacementDriver placementDriver = new TestPlacementDriver();
 
-    protected final TestPlacementDriver placementDriver = new TestPlacementDriver();
-
-    protected NodeFinder nodeFinder;
-
-    private TestInfo testInfo;
-
-    @BeforeEach
-    void setUp(TestInfo testInfo) {
-        this.testInfo = testInfo;
+    @BeforeAll
+    static void beforeAll() {
+        nodeAttributesConfigurations = List.of(nodeAttributes1, nodeAttributes2, nodeAttributes3);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        closeAll(cluster.parallelStream().map(node -> node::stop));
+    void after() throws Exception {
+        closeAll(nodes.values().parallelStream().map(node -> node::stop));
     }
 
-    protected void startCluster(int size) throws Exception {
-        List<NetworkAddress> addresses = IntStream.range(0, size)
-                .mapToObj(i -> new NetworkAddress("localhost", BASE_PORT + i))
-                .collect(toList());
+    void startNodes(TestInfo testInfo, int amount) throws NodeStoppingException, InterruptedException {
+        startNodes(testInfo, amount, null);
+    }
 
-        nodeFinder = new StaticNodeFinder(addresses);
+    void startNodes(
+            TestInfo testInfo,
+            int amount,
+            @Nullable Node.InvokeInterceptor invokeInterceptor
+    ) throws NodeStoppingException, InterruptedException {
+        IntStream.range(0, amount).forEach(i -> newNode(testInfo, i, invokeInterceptor));
 
-        IntStream.range(0, size)
-                .mapToObj(i -> newNode(addresses.get(i), nodeFinder))
-                .forEach(cluster::add);
+        assert nodes.size() == amount : "Not all amount of nodes were created.";
 
-        cluster.parallelStream().forEach(Node::start);
+        nodes.values().stream().parallel().forEach(Node::start);
 
-        Node node0 = cluster.get(0);
+        Node node0 = getNode(0);
 
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
         placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
 
-        cluster.forEach(Node::waitWatches);
+        nodes.values().forEach(Node::waitWatches);
 
         assertThat(
-                allOf(cluster.stream().map(n -> n.cmgManager.onJoinReady()).toArray(CompletableFuture[]::new)),
+                allOf(nodes.values().stream().map(n -> n.cmgManager.onJoinReady()).toArray(CompletableFuture[]::new)),
                 willCompleteSuccessfully()
         );
 
@@ -157,37 +178,74 @@ public class AbstractZoneReplicationTest extends IgniteAbstractTest {
 
                     assertThat(logicalTopologyFuture, willCompleteSuccessfully());
 
-                    return logicalTopologyFuture.join().nodes().size() == cluster.size();
+                    return logicalTopologyFuture.join().nodes().size() == amount;
                 },
-                30_000
+                AWAIT_TIMEOUT_MILLIS
         ));
     }
 
-    protected Node newNode(NetworkAddress address, NodeFinder nodeFinder) {
-        return new Node(
+
+    Node startNode(TestInfo testInfo, int idx) {
+        return startNode(testInfo, idx, null);
+    }
+
+    private Node startNode(TestInfo testInfo, int idx, @Nullable Node.InvokeInterceptor invokeInterceptor) {
+        Node node = newNode(testInfo, idx, invokeInterceptor);
+
+        node.start();
+
+        node.waitWatches();
+
+        assertThat(node.cmgManager.onJoinReady(), willCompleteSuccessfully());
+
+        return node;
+    }
+
+    void stopNode(int idx) {
+        Node node = getNode(idx);
+
+        node.stop();
+
+        nodes.remove(idx);
+    }
+
+    private Node newNode(TestInfo testInfo, int idx, @Nullable Node.InvokeInterceptor invokeInterceptor) {
+        var node = new Node(
                 testInfo,
-                address,
-                nodeFinder,
+                NODE_ADDRESSES.get(idx),
+                NODE_FINDER,
                 workDir,
                 placementDriver,
                 systemConfiguration,
                 raftConfiguration,
-                nodeAttributesConfiguration,
+                nodeAttributesConfigurations.get(idx),
                 storageConfiguration,
                 metaStorageConfiguration,
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
-                null,
+                invokeInterceptor,
                 gcConfiguration
         );
+
+        nodes.put(idx, node);
+
+        return node;
+    }
+
+    Node getNode(int nodeIndex) {
+        return nodes.get(nodeIndex);
+    }
+
+    Node getNode(String nodeName) {
+        return nodes.values().stream().filter(n -> n.name.equals(nodeName)).findFirst().orElseThrow();
     }
 
     static void createZone(Node node, String zoneName, int partitions, int replicas) {
         createZone(node, zoneName, partitions, replicas, false);
     }
 
-    static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
+    private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
         DistributionZonesTestUtil.createZoneWithStorageProfile(
                 node.catalogManager,
                 zoneName,
@@ -211,5 +269,27 @@ public class AbstractZoneReplicationTest extends IgniteAbstractTest {
                 ),
                 List.of("key")
         );
+    }
+
+    void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {
+        ClusterNode newPrimaryReplicaNode = node.clusterService.topologyService().localMember();
+
+        HybridTimestamp leaseStartTime = node.hybridClock.now();
+
+        placementDriver.setPrimary(newPrimaryReplicaNode, leaseStartTime);
+
+        if (zonePartitionId != null) {
+            PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                    .primaryReplicaNodeId(newPrimaryReplicaNode.id())
+                    .primaryReplicaNodeName(newPrimaryReplicaNode.name())
+                    .leaseStartTime(leaseStartTime.longValue())
+                    .build();
+
+            CompletableFuture<Void> primaryReplicaChangeFuture = node.replicaManager
+                    .replica(zonePartitionId)
+                    .thenCompose(replica -> replica.raftClient().run(cmd));
+
+            assertThat(primaryReplicaChangeFuture, willCompleteSuccessfully());
+        }
     }
 }

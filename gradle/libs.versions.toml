@@ -38,7 +38,7 @@ okhttp = "4.12.0"
 gson = "2.12.1"
 gsonFire = "1.9.0"
 threetenbp = "1.7.0"
-micronaut = "3.10.3"
+micronaut = "3.10.4"
 micronautPicocli = "4.4.0"
 micronautJunit5 = "3.9.2"
 micronautSecurity="3.11.1"
@@ -47,7 +47,7 @@ mockito = "5.15.2"
 picocli = "4.7.5"
 slf4j = "2.0.16"
 log4j = "2.24.3"
-spoon = "10.4.3-beta-20"
+spoon = "10.4.3-beta-21"
 swagger = "2.2.28"
 swaggerLegacy = "1.6.15"
 typesafe = "1.4.3"
@@ -100,11 +100,12 @@ shadow = "io.github.goooler.shadow:8.1.8"
 cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
 nebula = "com.netflix.nebula.ospackage:11.11.1"
 docker = "com.palantir.docker:0.36.0"
+dockerRemoteApi = "com.bmuschko.docker-remote-api:9.4.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.10"
-spotbugs = "com.github.spotbugs:6.1.4"
+spotbugs = "com.github.spotbugs:6.1.5"
 jmh = 'me.champeau.jmh:0.7.3'
 jmhReport = 'io.morethan.jmhreport:0.9.6'
 
@@ -112,7 +113,6 @@ jmhReport = 'io.morethan.jmhreport:0.9.6'
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 
-bouncycastle-bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 bouncycastle-bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrainsAnnotations" }

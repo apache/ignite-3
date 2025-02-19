@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -61,6 +61,7 @@ public class ItCatalogCompactionTest extends AbstractZoneReplicationTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24558")
     public void testCatalogCompaction() throws Exception {
         // How often we update the low water mark.
         long lowWatermarkUpdateInterval = 500;
@@ -84,8 +85,6 @@ public class ItCatalogCompactionTest extends AbstractZoneReplicationTest {
 
         String zoneName = "test-zone";
         createZone(node, zoneName, 1, 1);
-        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
-        prepareTableIdToZoneIdConverter(node, zoneId);
 
         int catalogVersion1 = getLatestCatalogVersion(node);
 

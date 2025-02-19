@@ -68,7 +68,6 @@ public class ItTransactionsVacuumTest extends AbstractZoneReplicationTest {
         String zoneName = "test-zone";
         createZone(node, zoneName, 1, 1);
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
-        prepareTableIdToZoneIdConverter(node, zoneId);
 
         String tableName = "test_table_1";
         createTable(node, zoneName, tableName);

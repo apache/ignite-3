@@ -18,14 +18,27 @@
 package org.apache.ignite.internal.cli.commands.sql;
 
 import jakarta.inject.Inject;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
 /** Base class for testing CLI REPL sql command in the connected state. */
-public class CliSqlConnectCommandTestBase extends CliSqlCommandTestBase {
+class CliSqlConnectCommandTestBase extends CliIntegrationTest {
     @Inject
     private SessionDefaultValueProvider defaultValueProvider;
+
+    @BeforeAll
+    public static void createTable() {
+        createAndPopulateTable();
+    }
+
+    @AfterAll
+    public static void dropTables() {
+        dropAllTables();
+    }
 
     @BeforeEach
     public void setDefaultValueProvider() {
@@ -36,5 +49,4 @@ public class CliSqlConnectCommandTestBase extends CliSqlCommandTestBase {
     protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
     }
-
 }

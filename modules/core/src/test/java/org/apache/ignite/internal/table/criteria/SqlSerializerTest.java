@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.apache.ignite.table.QualifiedName.fromSimple;
 import static org.apache.ignite.table.criteria.Criteria.and;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
@@ -203,10 +203,10 @@ class SqlSerializerTest {
         SqlSerializer ser = new SqlSerializer.Builder()
                 .tableName(QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "Test"))
                 .columns(Set.of("Aa"))
-                .where(columnValue(quote("Aa"), equalTo(1)))
+                .where(columnValue(quoteIfNeeded("Aa"), equalTo(1)))
                 .build();
 
-        assertThat(ser.toString(), endsWith(format("FROM PUBLIC.\"Test\" WHERE {} = ?", quote("Aa"))));
+        assertThat(ser.toString(), endsWith(format("FROM PUBLIC.\"Test\" WHERE {} = ?", quoteIfNeeded("Aa"))));
         assertArrayEquals(new Object[]{1}, ser.getArguments());
     }
 
@@ -216,33 +216,35 @@ class SqlSerializerTest {
                 .tableName(fromSimple("test"))
                 .indexName("idx_a")
                 .columns(Set.of("a"))
-                .where(columnValue(quote("a"), equalTo(1)))
+                .where(columnValue(quoteIfNeeded("a"), equalTo(1)))
                 .build();
 
-        assertThat(ser.toString(), startsWith("SELECT /*+ FORCE_INDEX(\"IDX_A\") */ * FROM"));
-        assertArrayEquals(new Object[]{1}, ser.getArguments());
-
-        ser = new SqlSerializer.Builder()
-                .tableName(fromSimple("test"))
-                .indexName("PUBLIC.idx_a")
-                .columns(Set.of("a"))
-                .where(columnValue(quote("a"), equalTo(1)))
-                .build();
-
-        assertThat(ser.toString(), startsWith("SELECT /*+ FORCE_INDEX(\"PUBLIC.IDX_A\") */ * FROM"));
+        assertThat(ser.toString(), startsWith("SELECT /*+ FORCE_INDEX(IDX_A) */ * FROM"));
         assertArrayEquals(new Object[]{1}, ser.getArguments());
 
         IllegalArgumentException iae = assertThrows(
                 IllegalArgumentException.class,
                 () -> new SqlSerializer.Builder()
                         .tableName(fromSimple("test"))
-                        .indexName("'idx_a'")
+                        .indexName("PUBLIC.idx_a")
                         .columns(Set.of("a"))
-                        .where(columnValue(quote("a"), equalTo(1)))
+                        .where(columnValue(quoteIfNeeded("a"), equalTo(1)))
                         .build()
         );
 
-        assertThat(iae.getMessage(), containsString("Index name must be alphanumeric with underscore and start with letter. Was: 'idx_a'"));
+        assertThat(iae.getMessage(), containsString("Fully qualified name is not expected [name=PUBLIC.idx_a]"));
+
+        iae = assertThrows(
+                IllegalArgumentException.class,
+                () -> new SqlSerializer.Builder()
+                        .tableName(fromSimple("test"))
+                        .indexName("'idx_a'")
+                        .columns(Set.of("a"))
+                        .where(columnValue(quoteIfNeeded("a"), equalTo(1)))
+                        .build()
+        );
+
+        assertThat(iae.getMessage(), containsString("Malformed identifier [identifier='idx_a', pos=0]"));
 
         iae = assertThrows(
                 IllegalArgumentException.class,
@@ -250,10 +252,10 @@ class SqlSerializerTest {
                         .tableName(fromSimple("test"))
                         .indexName("1idx_a")
                         .columns(Set.of("a"))
-                        .where(columnValue(quote("a"), equalTo(1)))
+                        .where(columnValue(quoteIfNeeded("a"), equalTo(1)))
                         .build()
         );
 
-        assertThat(iae.getMessage(), containsString("Index name must be alphanumeric with underscore and start with letter. Was: 1idx_a"));
+        assertThat(iae.getMessage(), containsString("Malformed identifier [identifier=1idx_a, pos=0]"));
     }
 }

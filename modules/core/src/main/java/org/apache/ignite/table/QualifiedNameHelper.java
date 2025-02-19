@@ -29,7 +29,7 @@ public final class QualifiedNameHelper {
      * Return QualifiedName from a given schema and table names.
      *
      * <p>Given names are expected to be normalized, thus it's up to caller to invoke
-     * {@link IgniteNameUtils#parseSimpleName(String)} prior passing the names to this method.
+     * {@link IgniteNameUtils#parseIdentifier(String)} prior passing the names to this method.
      *
      * @param schemaName Normalized schema name.
      * @param tableName Normalized table name.

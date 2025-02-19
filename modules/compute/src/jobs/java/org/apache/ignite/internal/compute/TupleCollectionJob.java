@@ -34,7 +34,7 @@ public class TupleCollectionJob implements ComputeJob<Collection<Tuple>, Collect
     @Override
     public CompletableFuture<Collection<Tuple>> executeAsync(JobExecutionContext jobExecutionContext, Collection<Tuple> arg) {
         List<Tuple> res = new ArrayList<>(arg);
-        res.add(Tuple.create().set("job-result", "done"));
+        res.add(Tuple.create().set("job_result", "done"));
 
         return completedFuture(res);
     }

@@ -27,9 +27,6 @@ import java.util.List;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -119,31 +116,6 @@ public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
 
         // Start the cluster and initialize it.
         super.nodeSetUp();
-
-        // Patch replica manager to propagate table replication messages to zone replication groups.
-        if (colocationFeatureEnabled) {
-            int catalogVersion = igniteImpl
-                    .catalogManager()
-                    .latestCatalogVersion();
-
-            int zoneId = igniteImpl
-                    .catalogManager()
-                    .catalog(catalogVersion)
-                    .zone(SHARED_ZONE_NAME.toUpperCase())
-                    .id();
-
-            igniteImpl.replicaManager().groupIdConverter(request -> {
-                if (!(request instanceof WriteIntentSwitchReplicaRequest)) {
-                    if (request.groupId().asReplicationGroupId() instanceof TablePartitionId) {
-                        TablePartitionId tablePartitionId = (TablePartitionId) request.groupId().asReplicationGroupId();
-
-                        return new ZonePartitionId(zoneId, tablePartitionId.partitionId());
-                    }
-                }
-
-                return request.groupId().asReplicationGroupId();
-            });
-        }
     }
 
     protected boolean enableColocationFeature() {
