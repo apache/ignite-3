@@ -118,9 +118,10 @@ public interface InternalTransaction extends Transaction {
      * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node. The parameter
      *         is not used for read-write transactions.
      * @param full Full state transaction marker.
+     * @param timeoutExceeded Timeout exceeded marker.
      * @return The future.
      */
-    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full);
+    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded);
 
     /**
      * Checks if the transaction is finishing or finished. If {@code true}, no more operations can be performed on the transaction.
@@ -143,4 +144,17 @@ public interface InternalTransaction extends Transaction {
      * @return The future.
      */
     CompletableFuture<Void> kill();
+
+    /**
+     * Rolls back the transaction if the timeout is exceeded.
+     *
+     * @return The future.
+     */
+    default CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        return rollbackAsync();
+    }
+
+    default boolean isTimeoutExceeded() {
+        return false;
+    }
 }

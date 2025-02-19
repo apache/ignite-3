@@ -745,6 +745,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 HybridTimestampTracker.atomicTracker(null),
                 commitPartition,
                 false,
+                false,
                 Map.of(commitPartition, new IgniteBiTuple<>(txCrdNode2.node(), 0L)),
                 Set.of(commitPartition.tableId()),
                 rwTx1Id

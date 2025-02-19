@@ -58,7 +58,8 @@ public class RaftTxFinishMarker {
                 commit ? commitTimestamp : null,
                 old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
-                old == null ? null : old.cleanupCompletionTimestamp()
+                old == null ? null : old.cleanupCompletionTimestamp(),
+                old == null ? null : old.isFinishedDueToTimeout()
         ));
     }
 }

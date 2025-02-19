@@ -660,7 +660,7 @@ public class InternalTableImpl implements InternalTable {
                 assert hasError || r instanceof TimestampAware;
 
                 // Timestamp is set to commit timestamp for full transactions.
-                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true);
+                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, false);
 
                 if (e != null) {
                     sneakyThrow(e);
@@ -673,10 +673,11 @@ public class InternalTableImpl implements InternalTable {
                 if (!transactionInflights.addInflight(tx.id(), false)) {
                     return failedFuture(
                             new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                                    "Transaction is already finished [tableName={}, partId={}, txState={}].",
+                                    "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
-                                    tx.state()
+                                    tx.state(),
+                                    tx.isTimeoutExceeded()
                             )));
                 }
 
@@ -875,7 +876,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> postEvaluate(CompletableFuture<R> fut, InternalTransaction tx) {
         return fut.handle((BiFunction<R, Throwable, CompletableFuture<R>>) (r, e) -> {
             if (e != null) {
-                return tx.finish(false, clockService.current(), false)
+                return tx.finish(false, clockService.current(), false, false)
                         .handle((ignored, err) -> {
                             if (err != null) {
                                 e.addSuppressed(err);
@@ -886,7 +887,7 @@ public class InternalTableImpl implements InternalTable {
                         }); // Preserve failed state.
             }
 
-            return tx.finish(true, clockService.current(), false).thenApply(ignored -> r);
+            return tx.finish(true, clockService.current(), false, false).thenApply(ignored -> r);
         }).thenCompose(identity());
     }
 
@@ -2343,9 +2344,10 @@ public class InternalTableImpl implements InternalTable {
     private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                    "Transaction is already finished () [txId={}, readOnly={}].",
+                    "Transaction is already finished () [txId={}, readOnly={}, timeoutExceeded={}].",
                     transaction.id(),
-                    transaction.isReadOnly()
+                    transaction.isReadOnly(),
+                    transaction.isTimeoutExceeded()
             ));
         }
     }

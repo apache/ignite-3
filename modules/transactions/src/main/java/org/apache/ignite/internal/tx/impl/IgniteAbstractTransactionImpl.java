@@ -58,6 +58,8 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** Transaction timeout. */
     protected final long timeout;
 
+    protected boolean timeoutExceeded;
+
     /**
      * The constructor.
      *
@@ -156,5 +158,11 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Override
     public long timeout() {
         return timeout;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isTimeoutExceeded() {
+        return timeoutExceeded;
     }
 }

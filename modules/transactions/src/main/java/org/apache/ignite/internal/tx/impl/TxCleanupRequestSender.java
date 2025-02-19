@@ -124,7 +124,8 @@ public class TxCleanupRequestSender {
                             oldMeta == null ? null : oldMeta.commitTimestamp(),
                             oldMeta == null ? null : oldMeta.tx(),
                             oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
-                            cleanupCompletionTimestamp
+                            cleanupCompletionTimestamp,
+                            oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
                     )
             );
         }
