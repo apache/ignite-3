@@ -85,7 +85,7 @@ public class DistributionZonesUtil {
 
     /** Key prefix for zone's scale up timer, in {@link ByteArray} representation. */
     public static final ByteArray DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES =
-            new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
+            new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX);
 
     /** Key prefix for zone's scale down timer. */
     public static final String DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownTimer.";

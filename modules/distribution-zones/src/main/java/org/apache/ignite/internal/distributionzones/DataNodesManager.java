@@ -236,9 +236,13 @@ public class DataNodesManager {
                         }
 
                         if (missingEntry(scaleUpEntry) || missingEntry(scaleDownEntry) || missingEntry(partitionResetEntry)) {
-                            throw new AssertionError(format("Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, "
-                                    + "scaleDownEntry={}, partitionResetEntry={}", zone.id(), zone.name(), scaleUpEntry,
-                                    scaleDownEntry, partitionResetEntry));
+                            //throw new AssertionError(format("Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, "
+                            //        + "scaleDownEntry={}, partitionResetEntry={}", zone.id(), zone.name(), scaleUpEntry,
+                            //        scaleDownEntry, partitionResetEntry));
+                            LOG.error("Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, scaleDownEntry={}, "
+                                    + "partitionResetEntry={}", zone.id(), zone.name(), scaleUpEntry, scaleDownEntry, partitionResetEntry);
+
+                            continue;
                         }
 
                         DataNodesHistory history = DataNodesHistorySerializer.deserialize(historyEntry.value());
