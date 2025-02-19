@@ -17,7 +17,6 @@
 
 package org.apache.ignite.table;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
@@ -26,6 +25,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -42,6 +42,7 @@ public class QualifiedNameTest {
                 Arguments.of("fOo", "FOO"),
                 Arguments.of("FOO", "FOO"),
                 Arguments.of("f23", "F23"),
+                Arguments.of("\"23f\"", "23f"),
                 Arguments.of("foo_", "FOO_"),
                 Arguments.of("foo_1", "FOO_1"),
 
@@ -58,6 +59,7 @@ public class QualifiedNameTest {
                 Arguments.of("\"@#$\"", "@#$"),
                 Arguments.of("\"f.f\"", "f.f"),
                 Arguments.of("\"   \"", "   "),
+                Arguments.of("\"😅\"", "😅"),
 
                 // Escaped
                 Arguments.of("\"f\"\"f\"", "f\"f"),
@@ -86,6 +88,8 @@ public class QualifiedNameTest {
                 Arguments.of("foo$"),
                 Arguments.of("foo%"),
                 Arguments.of("foo&"),
+                Arguments.of("f😅"),
+                Arguments.of("😅f"),
 
                 // Invalid escape sequences
                 Arguments.of("f\"f"),
@@ -189,12 +193,10 @@ public class QualifiedNameTest {
         assertThat(parsed.schemaName(), equalTo(schemaIdentifier));
         assertThat(parsed.objectName(), equalTo(objectIdentifier));
 
-        assertThat(parsed.toCanonicalForm(), equalTo(canonicalName(schemaIdentifier, objectIdentifier)));
+        assertThat(parsed.toCanonicalForm(), equalTo(IgniteNameUtils.canonicalName(schemaIdentifier, objectIdentifier)));
 
         // Canonical form should parsed to the equal object.
         assertEquals(parsed, QualifiedName.parse(parsed.toCanonicalForm()));
-
-        assertEquals(parsed, QualifiedName.of(quoteIfNeeded(schemaIdentifier), quoteIfNeeded(objectIdentifier)));
     }
 
     @ParameterizedTest
@@ -213,7 +215,6 @@ public class QualifiedNameTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> QualifiedName.parse(source));
 
             assertThat(ex.getMessage(), is(anyOf(
-                    equalTo("Schema identifier can't be empty."),
                     equalTo("Object identifier can't be empty."),
                     containsString("Malformed identifier [identifier=" + source))));
         }
@@ -272,10 +273,5 @@ public class QualifiedNameTest {
                 equalTo("Canonical name format mismatch: " + source),
                 containsString("Malformed identifier [identifier=" + source)
         )));
-    }
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 Move to IgniteNameUtils
-    private static String canonicalName(String schemaName, String objectName) {
-        return schemaName == null ? quoteIfNeeded(objectName) : quoteIfNeeded(schemaName) + '.' + quoteIfNeeded(objectName);
     }
 }

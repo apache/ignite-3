@@ -63,7 +63,7 @@ public class ClientTableGetRequest {
             }
 
             if (!Character.isUpperCase(ch)) {
-                return IgniteNameUtils.quote(name);
+                return IgniteNameUtils.quoteIfNeeded(name);
             }
         }
 
