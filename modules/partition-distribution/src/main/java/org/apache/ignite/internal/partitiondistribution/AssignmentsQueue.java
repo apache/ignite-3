@@ -27,7 +27,6 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -109,7 +108,7 @@ public class AssignmentsQueue implements Iterable<Assignments> {
      * @return an iterator over the elements in this queue in proper sequence
      */
     @Override
-    public @NotNull Iterator<Assignments> iterator() {
+    public Iterator<Assignments> iterator() {
         return queue.iterator();
     }
 
