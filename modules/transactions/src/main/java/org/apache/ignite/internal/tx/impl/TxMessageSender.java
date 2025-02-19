@@ -196,16 +196,17 @@ public class TxMessageSender {
     public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
             String primaryConsistentId,
             UUID txId,
-            TablePartitionId commitGrpId,
+            ReplicationGroupId commitGrpId,
             Long consistencyToken
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
-                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
+                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
                         .txId(txId)
                         .enlistmentConsistencyToken(consistencyToken)
-                        .build());
+                        .build()
+        );
     }
 
     /**

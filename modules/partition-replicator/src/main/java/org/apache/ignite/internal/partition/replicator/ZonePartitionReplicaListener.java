@@ -29,11 +29,14 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -44,10 +47,13 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -71,6 +77,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
     private final WriteIntentSwitchRequestHandler writeIntentSwitchRequestHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
+    private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
 
     /**
      * The constructor.
@@ -86,7 +93,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ValidationSchemasSource validationSchemasSource,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
+            LeasePlacementDriver placementDriver,
+            ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
+            ClusterNode localNode,
             ZonePartitionId replicationGroupId
     ) {
         this.raftClient = raftClient;
@@ -121,6 +131,28 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 clockService,
                 raftCommandApplicator
         );
+
+        txStateCommitPartitionReplicaRequestHandler = new TxStateCommitPartitionReplicaRequestHandler(
+                txStatePartitionStorage,
+                placementDriver,
+                txManager,
+                clockService,
+                clusterNodeResolver,
+                replicationGroupId,
+                localNode,
+                new TxRecovery(
+                        txManager,
+                        clusterNodeResolver,
+                        replicationGroupId,
+                        ZonePartitionReplicaListener::createAbandonedTxRecoveryEnlistment
+                )
+        );
+    }
+
+    private static MutablePartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
+        // Enlistment consistency token is not required for the rollback, so it is 0L.
+        // TODO: IGNITE-24360 - pass 'allTables' flag here.
+        return new MutablePartitionEnlistment(node, 0L);
     }
 
     @Override
@@ -153,6 +185,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                     .thenApply(res -> new ReplicaResult(res, null));
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
             return writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
+        } else if (request instanceof TxStateCommitPartitionRequest) {
+            return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request);
         }
 
         return processZoneReplicaRequest(request, isPrimary, senderId, leaseStartTime);
