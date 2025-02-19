@@ -45,7 +45,7 @@ public abstract class AbstractCliRequestProcessorTest<T extends Message> extends
     private final String groupId = "test";
     private final String peerIdStr = "localhost:8081";
     protected MockAsyncContext asyncContext;
-    protected NodeManager nodeManager = new NodeManager();
+    protected NodeManager nodeManager = new NodeManager(null);
     protected RaftMessagesFactory msgFactory = new RaftMessagesFactory();
 
     public abstract T createRequest(String groupId, PeerId peerId);
