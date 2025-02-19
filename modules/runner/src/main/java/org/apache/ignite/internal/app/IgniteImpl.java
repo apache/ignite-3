@@ -1207,7 +1207,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                id -> killCommandHandler.handler(CancellableOperationType.QUERY).cancelAsync(id)
         );
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());

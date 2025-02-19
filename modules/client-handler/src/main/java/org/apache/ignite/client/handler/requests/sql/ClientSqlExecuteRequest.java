@@ -22,10 +22,12 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
+import org.apache.ignite.client.handler.ClientQueryIdGenerator;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -39,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -69,7 +72,8 @@ public class ClientSqlExecuteRequest {
             ClientMessagePacker out,
             QueryProcessor sql,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics
+            ClientHandlerMetricSource metrics,
+            ClientQueryIdGenerator queryIdGenerator
     ) {
         InternalTransaction tx = readTx(in, out, resources);
         ClientSqlProperties props = new ClientSqlProperties(in);
@@ -83,9 +87,14 @@ public class ClientSqlExecuteRequest {
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
+        // TODO Feature check
+        int queryNum = in.unpackInt();
+
+        UUID queryId = queryIdGenerator.generate(queryNum);
+
         HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
 
-        return executeAsync(tx, sql, tsUpdater, statement, props.pageSize(), props.toSqlProps(), arguments)
+        return executeAsync(tx, sql, tsUpdater, queryId, statement, props.pageSize(), props.toSqlProps(), arguments)
                 .thenCompose(asyncResultSet -> {
                     out.meta(tsUpdater.get());
 
@@ -155,13 +164,20 @@ public class ClientSqlExecuteRequest {
             @Nullable Transaction transaction,
             QueryProcessor qryProc,
             HybridTimestampTracker timestampTracker,
+            @Nullable UUID queryId,
             String query,
             int pageSize,
             SqlProperties props,
             @Nullable Object... arguments
     ) {
         try {
-            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
+            Builder builder = SqlPropertiesHelper.builderFromProperties(props);
+
+            if (queryId != null) {
+                builder.set(QueryProperty.QUERY_ID, queryId);
+            }
+
+            SqlProperties properties = builder
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                     .build();
 

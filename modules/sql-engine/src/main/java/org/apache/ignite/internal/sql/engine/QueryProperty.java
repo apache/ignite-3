@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper
 import java.time.ZoneId;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,6 +35,9 @@ public final class QueryProperty {
             new Property<>("allowed_query_types", cast(Set.class));
     public static final Property<String> DEFAULT_SCHEMA = new Property<>("default_schema", String.class);
     public static final Property<ZoneId> TIME_ZONE_ID = new Property<>("time_zone_id", ZoneId.class);
+
+    /** Externally generated query identifier. */
+    public static final Property<UUID> QUERY_ID = new Property<>("query_id", cast(UUID.class));
 
     private static final Map<String, Property<?>> propsByName = createPropsByNameMap(QueryProperty.class);
 

@@ -41,6 +41,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -130,6 +131,8 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final Executor partitionOperationsExecutor;
 
+    private final Function<String, CompletableFuture<Boolean>> sqlKillHandler;
+
     @TestOnly
     @SuppressWarnings("unused")
     private volatile ClientInboundMessageHandler handler;
@@ -168,7 +171,8 @@ public class ClientHandlerModule implements IgniteComponent {
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            Function<String, CompletableFuture<Boolean>> sqlKillHandler
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -205,6 +209,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 lowWatermark);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.sqlKillHandler = sqlKillHandler;
     }
 
     /** {@inheritDoc} */
@@ -407,7 +412,8 @@ public class ClientHandlerModule implements IgniteComponent {
                 primaryReplicaTracker,
                 partitionOperationsExecutor,
                 HandshakeUtils.EMPTY_FEATURES,
-                Map.of()
+                Map.of(),
+                sqlKillHandler
         );
     }
 

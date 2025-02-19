@@ -48,6 +48,7 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
@@ -129,9 +130,11 @@ public class TestServer {
 
         assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
+        String localNodeName = "consistent-id";
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(new UUID(0, 0));
-        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
+        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(localNodeName);
+        Mockito.when(clusterService.nodeName()).thenReturn(localNodeName);
 
         ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "Test Server");
 
@@ -152,7 +155,8 @@ public class TestServer {
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
                 new TestLowWatermark(),
-                Runnable::run
+                Runnable::run,
+                id -> CompletableFutures.falseCompletedFuture()
         );
 
         module.startAsync(componentContext).join();

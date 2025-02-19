@@ -58,7 +58,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Test
-    public void cancelQueryString() throws InterruptedException {
+    public void cancelStatement() throws InterruptedException {
         IgniteSql sql = igniteSql();
         String query = "SELECT * FROM system_range(0, 10000000000)";
 
@@ -94,7 +94,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Test
-    public void cancelStatement() throws InterruptedException {
+    public void cancelQueryString() throws InterruptedException {
         IgniteSql sql = igniteSql();
         String query = "SELECT * FROM system_range(0, 10000000000)";
 

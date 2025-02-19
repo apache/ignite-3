@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -63,6 +64,7 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetada
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCancelRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
@@ -220,6 +222,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final Map<HandshakeExtension, Object> extensions;
 
+    private final ClientQueryIdGenerator queryIdGenerator;
+
+    private final Function<String, CompletableFuture<Boolean>> sqlKillHandler;
+
     /**
      * Constructor.
      *
@@ -257,7 +263,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientPrimaryReplicaTracker primaryReplicaTracker,
             Executor partitionOperationsExecutor,
             BitSet features,
-            Map<HandshakeExtension, Object> extensions
+            Map<HandshakeExtension, Object> extensions,
+            Function<String, CompletableFuture<Boolean>> sqlKillHandler
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -304,6 +311,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         this.features = features;
         this.extensions = extensions;
+
+        this.queryIdGenerator = new ClientQueryIdGenerator(clusterService.nodeName(), connectionId);
+        this.sqlKillHandler = sqlKillHandler;
     }
 
     @Override
@@ -817,7 +827,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics);
+                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics, queryIdGenerator);
+
+            case ClientOp.SQL_CANCEL:
+                return ClientSqlCancelRequest.process(in, out, sqlKillHandler, queryIdGenerator);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, out, resources);
@@ -832,7 +845,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
-                return ClientSqlExecuteScriptRequest.process(in, out, queryProcessor);
+                return ClientSqlExecuteScriptRequest.process(in, out, queryProcessor, queryIdGenerator);
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);

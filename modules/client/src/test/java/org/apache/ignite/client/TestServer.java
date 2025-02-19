@@ -76,6 +76,7 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -208,6 +209,7 @@ public class TestServer implements AutoCloseable {
         this.ignite = ignite;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.nodeName()).thenReturn(nodeName);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(getNodeId(nodeName));
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName);
         Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName));
@@ -274,7 +276,8 @@ public class TestServer implements AutoCloseable {
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark(),
-                        Runnable::run
+                        Runnable::run,
+                        id -> CompletableFutures.falseCompletedFuture()
                 );
 
         module.startAsync(componentContext).join();

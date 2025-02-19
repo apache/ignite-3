@@ -63,6 +63,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -243,7 +244,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         ),
                                         Runnable::run,
                                         BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()}),
-                                        randomExtensions()
+                                        randomExtensions(),
+                                        id -> CompletableFutures.falseCompletedFuture()
                                 )
                         );
                     }

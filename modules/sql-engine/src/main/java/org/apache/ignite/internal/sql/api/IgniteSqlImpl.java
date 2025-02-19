@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -592,6 +594,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     busyLock::enterBusy,
                     busyLock::leaveBusy,
                     query,
+                    null,
                     cancellationToken,
                     arguments,
                     properties);
@@ -619,13 +622,19 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Supplier<Boolean> enterBusy,
             Runnable leaveBusy,
             String query,
+            @Nullable UUID queryId,
             @Nullable CancellationToken cancellationToken,
             @Nullable Object[] arguments,
             SqlProperties properties) {
 
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build());
+        Builder propertiesBuilder = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL);
+
+        if (queryId != null) {
+            propertiesBuilder.set(QueryProperty.QUERY_ID, queryId);
+        }
+
+        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, propertiesBuilder.build());
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f = queryProcessor.queryAsync(
                 properties0,
