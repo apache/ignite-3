@@ -175,10 +175,14 @@ public class QueryExecutor implements LifecycleAware {
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, defaultProperties);
 
+        UUID queryId = properties0.hasProperty(QueryProperty.QUERY_ID)
+                ? properties0.get(QueryProperty.QUERY_ID)
+                : idGenerator.next();
+
         Query query = new Query(
                 Instant.ofEpochMilli(clockService.now().getPhysical()),
                 this,
-                idGenerator.next(),
+                queryId,
                 sql,
                 properties0,
                 txContext,

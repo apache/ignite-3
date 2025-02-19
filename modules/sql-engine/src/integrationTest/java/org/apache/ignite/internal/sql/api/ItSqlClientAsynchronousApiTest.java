@@ -43,14 +43,12 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
     @Override
     public void cancelQueryString() throws InterruptedException {
         super.cancelQueryString();
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
     @Override
     public void cancelStatement() throws InterruptedException {
         super.cancelStatement();
@@ -64,7 +62,6 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
     @Override
     public void cancelLongRunningStatement() throws InterruptedException {
         super.cancelLongRunningStatement();

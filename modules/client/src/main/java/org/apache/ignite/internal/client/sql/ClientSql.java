@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.PayloadReader;
@@ -41,7 +42,9 @@ import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -66,6 +69,8 @@ public class ClientSql implements IgniteSql {
 
     /** Marshallers provider. */
     private final MarshallersProvider marshallers;
+
+    private static final AtomicInteger sqlRequestCounter = new AtomicInteger();
 
     /**
      * Constructor.
@@ -261,6 +266,28 @@ public class ClientSql implements IgniteSql {
             w.out().packObjectArrayAsBinaryTuple(arguments);
 
             w.out().packLong(ch.observableTimestamp());
+
+            int queryRequestNumber = sqlRequestCounter.getAndIncrement();
+
+            // TODO feature check
+            w.out().packInt(queryRequestNumber);
+
+            if (cancellationToken != null) {
+                CompletableFuture<Boolean> cancelFuture = new CompletableFuture<>();
+
+                // TODO sync properly, clean resources
+                if (CancelHandleHelper.isCancelled(cancellationToken)) {
+                    throw new SqlException(Sql.EXECUTION_CANCELLED_ERR, "The query was cancelled while executing.");
+                }
+
+                CancelHandleHelper.addCancelAction(cancellationToken, () -> cancelQuery(queryRequestNumber).whenComplete((r, e) -> {
+                    if (e != null) {
+                        cancelFuture.completeExceptionally(e);
+                    } else {
+                        cancelFuture.complete(r);
+                    }
+                }), cancelFuture);
+            }
         };
 
         PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), marshallers, r.in(), mapper);
@@ -348,6 +375,20 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Support cancellation token.
         throw new UnsupportedOperationException();
+    }
+
+    private CompletableFuture<Boolean> cancelQuery(int queryNum) {
+        PayloadWriter payloadWriter = w -> {
+            w.out().packInt(queryNum);
+        };
+
+        PayloadReader<Boolean> payloadReader = r -> {
+            ClientMessageUnpacker unpacker = r.in();
+
+            return unpacker.unpackBoolean();
+        };
+
+        return ch.serviceAsync(ClientOp.SQL_CANCEL, payloadWriter, payloadReader);
     }
 
     private static void packProperties(
