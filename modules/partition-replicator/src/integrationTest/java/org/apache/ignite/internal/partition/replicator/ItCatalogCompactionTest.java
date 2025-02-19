@@ -54,7 +54,7 @@ import org.junit.jupiter.api.Timeout;
  * Tests catalog compaction for colocation track.
  */
 @Timeout(60)
-public class ItCatalogCompactionTest extends AbstractZoneReplicationTest {
+public class ItCatalogCompactionTest extends AbstractColocationTest {
     /**
      * Tests catalog compaction.
      *
@@ -69,7 +69,7 @@ public class ItCatalogCompactionTest extends AbstractZoneReplicationTest {
 
         // Prepare a single node cluster.
         startCluster(1);
-        Node node = cluster.get(0);
+        Node node = getNode(0);
 
         List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
                 cluster.stream().map(n -> n.name).collect(toList()), 1, 1);

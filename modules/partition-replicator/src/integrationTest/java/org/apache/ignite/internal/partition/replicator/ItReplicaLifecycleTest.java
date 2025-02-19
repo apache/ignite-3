@@ -55,6 +55,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -76,7 +78,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 
 /**
@@ -84,21 +85,29 @@ import org.junit.jupiter.api.Timeout;
  */
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
+public class ItReplicaLifecycleTest extends AbstractColocationTest {
+    @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes1;
+
+    @InjectConfiguration("mock.nodeAttributes: {region = EU, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes2;
+
+    @InjectConfiguration("mock.nodeAttributes: {region = UK, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes3;
+
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
     @Test
-    public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    public void testZoneReplicaListener() throws Exception {
+        startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         createZone(node, "test_zone", 1, 1);
-        DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
         long key = 1;
 
@@ -139,8 +148,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testAlterReplicaTrigger() throws Exception {
+        startCluster(3);
 
         Node node = getNode(0);
 
@@ -157,7 +166,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -176,8 +185,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testAlterReplicaTriggerDefaultZone(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testAlterReplicaTriggerDefaultZone() throws Exception {
+        startCluster(3);
 
         Node node = getNode(0);
 
@@ -213,8 +222,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testAlterReplicaExtensionTrigger(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testAlterReplicaExtensionTrigger() throws Exception {
+        startCluster(3);
 
         Node node = getNode(0);
 
@@ -248,14 +257,15 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
     }
 
     @Test
-    void testAlterFilterTrigger(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testAlterFilterTrigger() throws Exception {
+        List<NodeAttributesConfiguration> nodeAttributesConfigurations = List.of(nodeAttributes1, nodeAttributes2, nodeAttributes3);
+        startCluster(3, nodeAttributesConfigurations);
 
         Node node = getNode(0);
 
@@ -274,7 +284,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -289,17 +299,17 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                Set.of(nodes.get(0).name),
+                Set.of(cluster.get(0).name),
                 20_000L
         );
     }
 
     @Test
-    void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testTableReplicaListenersCreationAfterRebalance() throws Exception {
+        startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -324,14 +334,14 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testTableReplicaListenersRemoveAfterRebalance(TestInfo testInfo) throws Exception {
+    void testTableReplicaListenersRemoveAfterRebalance() throws Exception {
         String zoneName = "TEST_ZONE";
         String tableName = "TEST_TABLE";
 
-        startNodes(testInfo, 3);
+        startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 3).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -355,18 +365,18 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 30_000L
         ));
 
-        nodes.values().forEach(n -> checkNoDestroyPartitionStoragesInvokes(n, tableName, 0));
+        cluster.forEach(n -> checkNoDestroyPartitionStoragesInvokes(n, tableName, 0));
 
         alterZone(node.catalogManager, zoneName, 1);
 
-        nodes.values().stream().filter(n -> !replicaAssignment.consistentId().equals(n.name)).forEach(
+        cluster.stream().filter(n -> !replicaAssignment.consistentId().equals(n.name)).forEach(
                 n -> checkDestroyPartitionStoragesInvokes(n, tableName, 0));
 
     }
 
     @Test
-    void testReplicaIsStartedOnNodeStart(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testReplicaIsStartedOnNodeStart() throws Exception {
+        startCluster(3);
 
         Node node0 = getNode(0);
 
@@ -383,20 +393,20 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
         stopNode(2);
 
-        Node node2 = startNode(testInfo, 2);
+        Node node2 = addNodeToCluster(2);
 
         assertTrue(waitForCondition(() -> node2.replicaManager.isReplicaStarted(partId), 10_000L));
     }
 
     @Test
-    void testStableAreWrittenAfterRestart(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 1);
+    void testStableAreWrittenAfterRestart() throws Exception {
+        startCluster(1);
 
         Node node0 = getNode(0);
 
@@ -432,7 +442,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         stopNode(0);
 
-        startNodes(testInfo, 1);
+        startCluster(1);
 
         node0 = getNode(0);
 
@@ -443,7 +453,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -451,8 +461,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testStableAreWrittenAfterRestartAndConcurrentStableUpdate(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 1);
+    void testStableAreWrittenAfterRestartAndConcurrentStableUpdate() throws Exception {
+        startCluster(1);
 
         Node node0 = getNode(0);
 
@@ -490,11 +500,11 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         stopNode(0);
 
-        startNodes(testInfo, 1, (condition, success, failure) -> {
+        startCluster(1, (condition, success, failure) -> {
             if (skipMetaStorageInvoke(success, stablePartAssignmentsKey(partId).toString())) {
                 reached.set(true);
 
-                Node node = nodes.get(0);
+                Node node = cluster.get(0);
 
                 int catalogVersion = node.catalogManager.latestCatalogVersion();
                 long timestamp = node.catalogManager.catalog(catalogVersion).time();
@@ -506,7 +516,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
             }
 
             return null;
-        });
+        }, null);
 
         node0 = getNode(0);
 
@@ -519,7 +529,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -527,18 +537,17 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    public void testTableEstimatedSize(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 1);
+    public void testTableEstimatedSize() throws Exception {
+        startCluster(1);
 
         Assignment replicaAssignment1 = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 2, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 2, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment1.consistentId());
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         createZone(node, "test_zone", 2, 1);
-        DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
         {
             createTable(node, "test_zone", "test_table_1");
@@ -585,16 +594,15 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    public void testScanCloseReplicaRequest(TestInfo testInfo) throws Exception {
+    public void testScanCloseReplicaRequest() throws Exception {
         // Prepare a single node cluster.
-        startNodes(testInfo, 1);
+        startCluster(1);
         Node node = getNode(0);
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         // Prepare a zone.
         String zoneName = "test_zone";
         createZone(node, zoneName, 1, 1);
-        DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
 
         // Create a table to work with.
         String tableName = "test_table";
