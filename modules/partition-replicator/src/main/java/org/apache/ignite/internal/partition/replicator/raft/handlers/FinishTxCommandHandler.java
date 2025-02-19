@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -40,11 +41,12 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Handler for {@link FinishTxCommand}.
  */
-public class FinishTxCommandHandler {
+public class FinishTxCommandHandler extends AbstractRaftCommandHandler<FinishTxCommand> {
     private static final IgniteLogger LOG = Loggers.forClass(FinishTxCommandHandler.class);
 
     private final TxStatePartitionStorage txStatePartitionStorage;
@@ -73,8 +75,13 @@ public class FinishTxCommandHandler {
      * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    public IgniteBiTuple<Serializable, Boolean> handle(FinishTxCommand cmd, long commandIndex, long commandTerm)
-            throws IgniteInternalException {
+    @Override
+    protected IgniteBiTuple<Serializable, Boolean> handleInternally(
+            FinishTxCommand cmd,
+            long commandIndex,
+            long commandTerm,
+            @Nullable HybridTimestamp safeTimestamp
+    ) throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {
             return new IgniteBiTuple<>(null, false);

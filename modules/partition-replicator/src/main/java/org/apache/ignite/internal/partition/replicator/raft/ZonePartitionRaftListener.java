@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.raft;
 
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,9 +28,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractRaftCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
@@ -79,7 +81,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private final Object commitedConfigurationLock = new Object();
 
     // Raft command handlers.
-    private final FinishTxCommandHandler finishTxCommandHandler;
+    Map<Short, AbstractRaftCommandHandler<? extends WriteCommand>> handlers = new HashMap<>();
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
@@ -98,12 +100,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
         // RAFT command handlers initialization.
-        finishTxCommandHandler = new FinishTxCommandHandler(
+        FinishTxCommandHandler finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
                 // TODO: IGNITE-24343 - use ZonePartitionId here.
                 new TablePartitionId(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 txManager
         );
+
+        handlers.put(PartitionReplicationMessageGroup.Commands.FINISH_TX, finishTxCommandHandler);
 
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
     }
@@ -158,8 +162,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         partitionSnapshots().acquireReadLock();
 
         try {
-            if (command instanceof FinishTxCommand) {
-                result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
+            AbstractRaftCommandHandler<? extends WriteCommand> handler = handlers.get(command.messageType());
+            if (handler != null) {
+                result = handler.handle(command, commandIndex, commandTerm, safeTimestamp);
             } else if (command instanceof PrimaryReplicaChangeCommand) {
                 // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
                 // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
