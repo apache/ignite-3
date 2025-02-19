@@ -74,6 +74,7 @@ import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -280,6 +281,32 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
 
         return result;
+    }
+
+    @Override
+    public void initialize(
+            @Nullable RaftGroupConfiguration config,
+            @Nullable LeaseInfo leaseInfo,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
+        if (lastAppliedIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        storage.runConsistently(locker -> {
+            if (config != null) {
+                storage.committedGroupConfiguration(config);
+            }
+
+            if (leaseInfo != null) {
+                storage.updateLease(leaseInfo.leaseStartTime(), leaseInfo.primaryReplicaNodeId(), leaseInfo.primaryReplicaNodeName());
+            }
+
+            storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+
+            return null;
+        });
     }
 
     /**
@@ -492,7 +519,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        onSnapshotSaveHandler.onSnapshotSave(List.of(this))
+        onSnapshotSaveHandler.onSnapshotSave(0, 0, List.of(this))
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 

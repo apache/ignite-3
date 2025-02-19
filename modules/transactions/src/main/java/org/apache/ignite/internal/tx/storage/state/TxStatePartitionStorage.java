@@ -23,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -221,4 +223,15 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
      *      another reason.
      */
     CompletableFuture<Void> clear();
+
+    /**
+     * Called when a new Raft configuration is committed.
+     */
+    void onConfigurationCommitted(RaftGroupConfiguration config, long index, long term);
+
+    @Nullable RaftGroupConfiguration configuration();
+
+    void updateLease(LeaseInfo leaseInfo, long index, long term);
+
+    @Nullable LeaseInfo leaseInfo();
 }

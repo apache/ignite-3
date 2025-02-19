@@ -28,6 +28,7 @@ dependencies {
     annotationProcessor libs.auto.service
 
     api project(':ignite-configuration-system')
+    api project(':ignite-storage-api')
 
     implementation project(':ignite-api')
     implementation project(':ignite-core')

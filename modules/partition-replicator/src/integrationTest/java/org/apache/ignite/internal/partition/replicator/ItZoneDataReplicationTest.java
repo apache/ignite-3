@@ -25,10 +25,13 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneWithStorageProfile;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -74,6 +77,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -473,6 +477,71 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
 
         assertThat(kvView.get(null, 42), is(42));
+    }
+
+    @Test
+    void testNodeRestart() throws Exception {
+        startCluster(1);
+
+        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+
+        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        Function<ReplicaRequest, ReplicationGroupId> requestConverter = requestConverter(zonePartitionId, new TablePartitionId(tableId, 0));
+
+        cluster.forEach(node -> {
+            node.setRequestConverter(requestConverter);
+            node.waitForMetadataCompletenessAtNow();
+        });
+
+        Node node = cluster.get(0);
+
+        setPrimaryReplica(node, zonePartitionId);
+
+        KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+
+        Transaction transaction = node.transactions().begin();
+        kvView.put(transaction, 42, 69);
+        transaction.commit();
+
+        for (Node currentNode : cluster) {
+            assertTrue(waitForCondition(
+                    () -> !txStatesInPartitionStorage(currentNode.txStatePartitionStorage(zoneId, 0)).isEmpty(),
+                    SECONDS.toMillis(10)
+            ));
+        }
+
+        forceCheckpoint(node);
+
+        Node finalNode = node;
+
+        bypassingThreadAssertions(() -> finalNode.txStatePartitionStorage(zoneId, 0).flush().join());
+
+        // Restart the node.
+        node.stop();
+
+        cluster.remove(0);
+
+        node = addNodeToCluster(requestConverter);
+
+        node.waitForMetadataCompletenessAtNow();
+
+        setPrimaryReplica(node, zonePartitionId);
+
+        kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+
+        assertThat(kvView.get(null, 42), is(42));
+    }
+
+    private void forceCheckpoint(Node node) {
+        PersistentPageMemoryStorageEngine storageEngine = (PersistentPageMemoryStorageEngine) node
+                .dataStorageManager()
+                .engineByStorageProfile(DEFAULT_STORAGE_PROFILE);
+
+        assertThat(storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED),
+                willSucceedIn(10, SECONDS));
     }
 
     @ParameterizedTest

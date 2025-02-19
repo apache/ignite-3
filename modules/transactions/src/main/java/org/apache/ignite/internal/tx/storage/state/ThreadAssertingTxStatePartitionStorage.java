@@ -26,6 +26,8 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -150,5 +152,29 @@ public class ThreadAssertingTxStatePartitionStorage implements TxStatePartitionS
         assertThreadAllowsToWrite();
 
         return storage.clear();
+    }
+
+    @Override
+    public @Nullable RaftGroupConfiguration configuration() {
+        return storage.configuration();
+    }
+
+    @Override
+    public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
+        assertThreadAllowsToWrite();
+
+        storage.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm);
+    }
+
+    @Override
+    public @Nullable LeaseInfo leaseInfo() {
+        return storage.leaseInfo();
+    }
+
+    @Override
+    public void updateLease(LeaseInfo leaseInfo, long index, long term) {
+        assertThreadAllowsToWrite();
+
+        storage.updateLease(leaseInfo, index, term);
     }
 }

@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
@@ -39,8 +38,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxMetaSerializer;
 import org.apache.ignite.internal.tx.TxState;
@@ -68,8 +70,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     /** Partition id. */
     private final int partitionId;
 
-    /** Transaction state table storage. */
-    private final TxStateRocksDbStorage tableStorage;
+    private final TxStateMetaRocksDbPartitionStorage metaStorage;
 
     /** Collection of opened RocksDB iterators. */
     private final Set<RocksIterator> iterators = ConcurrentHashMap.newKeySet();
@@ -77,23 +78,16 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Database key for the last applied index+term. */
-    private final byte[] lastAppliedIndexAndTermKey;
-
     /** Shared TX state storage. */
     private final TxStateRocksDbSharedStorage sharedStorage;
 
     /** Table ID. */
     private final int tableId;
 
-    /** On-heap-cached last applied index value. */
-    private volatile long lastAppliedIndex;
-
-    /** On-heap-cached last applied term value. */
-    private volatile long lastAppliedTerm;
-
     /** Current state of the storage. */
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
+
+    private final ColumnFamily dataColumnFamily;
 
     /**
      * The constructor.
@@ -101,18 +95,17 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
      * @param partitionId Partition id.
      * @param tableStorage Table storage.
      */
-    TxStateRocksDbPartitionStorage(
-            int partitionId,
-            TxStateRocksDbStorage tableStorage
-    ) {
+    TxStateRocksDbPartitionStorage(int partitionId, TxStateRocksDbStorage tableStorage) {
         this.partitionId = partitionId;
-        this.tableStorage = tableStorage;
         this.sharedStorage = tableStorage.sharedStorage;
         this.tableId = tableStorage.id;
-        this.lastAppliedIndexAndTermKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
-                .putInt(tableId)
-                .putShort(shortPartitionId(partitionId))
-                .array();
+        this.dataColumnFamily = tableStorage.sharedStorage.txStateColumnFamily();
+
+        this.metaStorage = new TxStateMetaRocksDbPartitionStorage(
+                tableStorage.sharedStorage.txStateMetaColumnFamily(),
+                tableId,
+                partitionId
+        );
     }
 
     private static short shortPartitionId(int intValue) {
@@ -127,11 +120,23 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
      */
     public void start() {
         busy(() -> {
-            byte[] indexAndTermBytes = readLastAppliedIndexAndTerm(sharedStorage.readOptions);
+            try {
+                byte[] indexAndTermBytes = readLastAppliedIndexAndTerm();
 
-            if (indexAndTermBytes != null) {
-                lastAppliedIndex = bytesToLong(indexAndTermBytes);
-                lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
+                if (indexAndTermBytes == null) {
+                    metaStorage.start();
+                } else {
+                    long lastAppliedIndex = bytesToLong(indexAndTermBytes);
+                    long lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
+
+                    metaStorage.startInCompatibilityMode(lastAppliedIndex, lastAppliedTerm);
+                }
+            } catch (RocksDBException e) {
+                throw new IgniteInternalException(
+                        TX_STATE_STORAGE_ERR,
+                        format("Failed to start storage: [{}]", createStorageInfo()),
+                        e
+                );
             }
 
             return null;
@@ -144,7 +149,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
             try {
                 throwExceptionIfStorageInProgressOfRebalance();
 
-                byte[] txMetaBytes = sharedStorage.db().get(txIdToKey(txId));
+                byte[] txMetaBytes = dataColumnFamily.get(txIdToKey(txId));
 
                 return txMetaBytes == null ? null : deserializeTxMeta(txMetaBytes);
             } catch (RocksDBException e) {
@@ -165,7 +170,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     public void putForRebalance(UUID txId, TxMeta txMeta) {
         busy(() -> {
             try {
-                sharedStorage.db().put(txIdToKey(txId), serializeTxMeta(txMeta));
+                dataColumnFamily.put(txIdToKey(txId), serializeTxMeta(txMeta));
 
                 return null;
             } catch (RocksDBException e) {
@@ -187,7 +192,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         return updateData(writeBatch -> {
             byte[] txIdBytes = txIdToKey(txId);
 
-            byte[] txMetaExistingBytes = sharedStorage.db().get(sharedStorage.readOptions, txIdToKey(txId));
+            byte[] txMetaExistingBytes = dataColumnFamily.get(txIdToKey(txId));
 
             boolean result;
 
@@ -219,8 +224,6 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     @Override
     public void remove(UUID txId, long commandIndex, long commandTerm) {
         updateData(writeBatch -> {
-            throwExceptionIfStorageInProgressOfRebalance();
-
             writeBatch.delete(txIdToKey(txId));
 
             return null;
@@ -232,8 +235,6 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         requireNonNull(txIds, "Collection of the transaction IDs intended for removal cannot be null.");
 
         updateData(writeBatch -> {
-            throwExceptionIfStorageInProgressOfRebalance();
-
             for (UUID txId : txIds) {
                 writeBatch.delete(txIdToKey(txId));
             }
@@ -244,6 +245,8 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     private <T> T updateData(WriteClosure<?> writeClosure, long commandIndex, long commandTerm) {
         return (T) busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance();
+
             try (WriteBatch writeBatch = new WriteBatch()) {
                 Object result = writeClosure.apply(writeBatch);
 
@@ -282,7 +285,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
             ReadOptions readOptions = new ReadOptions().setIterateUpperBound(new Slice(upperBound));
 
-            RocksIterator rocksIterator = sharedStorage.db().newIterator(readOptions);
+            RocksIterator rocksIterator = dataColumnFamily.newIterator(readOptions);
 
             iterators.add(rocksIterator);
 
@@ -343,55 +346,26 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public long lastAppliedIndex() {
-        return lastAppliedIndex;
+        return metaStorage.lastAppliedIndex();
     }
 
     @Override
     public long lastAppliedTerm() {
-        return lastAppliedTerm;
+        return metaStorage.lastAppliedTerm();
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
-        busy(() -> {
-            try {
-                throwExceptionIfStorageInProgressOfRebalance();
-
-                sharedStorage.db().put(lastAppliedIndexAndTermKey, indexAndTermToBytes(lastAppliedIndex, lastAppliedTerm));
-
-                this.lastAppliedIndex = lastAppliedIndex;
-                this.lastAppliedTerm = lastAppliedTerm;
-
-                return null;
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException(
-                        TX_STATE_STORAGE_ERR,
-                        format("Failed to write applied index value to storage: [{}]", createStorageInfo()),
-                        e
-                );
-            }
-        });
+        updateData(writeBatch -> null, lastAppliedIndex, lastAppliedTerm);
     }
 
-    private static byte[] indexAndTermToBytes(long lastAppliedIndex, long lastAppliedTerm) {
-        byte[] bytes = new byte[2 * Long.BYTES];
+    private byte @Nullable [] readLastAppliedIndexAndTerm() throws RocksDBException {
+        byte[] lastAppliedIndexAndTermKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
+                .putInt(tableId)
+                .putShort(shortPartitionId(partitionId))
+                .array();
 
-        putLongToBytes(lastAppliedIndex, bytes, 0);
-        putLongToBytes(lastAppliedTerm, bytes, Long.BYTES);
-
-        return bytes;
-    }
-
-    private byte @Nullable [] readLastAppliedIndexAndTerm(ReadOptions readOptions) {
-        try {
-            return sharedStorage.db().get(readOptions, lastAppliedIndexAndTermKey);
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException(
-                    TX_STATE_STORAGE_ERR,
-                    format("Failed to read applied term value from storage: [{}]", createStorageInfo()),
-                    e
-            );
-        }
+        return dataColumnFamily.get(lastAppliedIndexAndTermKey);
     }
 
     @Override
@@ -402,8 +376,6 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
         try (WriteBatch writeBatch = new WriteBatch()) {
             clearStorageData(writeBatch);
-
-            writeBatch.delete(lastAppliedIndexAndTermKey);
 
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
         } catch (Exception e) {
@@ -482,12 +454,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         try (WriteBatch writeBatch = new WriteBatch()) {
             clearStorageData(writeBatch);
 
-            writeBatch.delete(lastAppliedIndexAndTermKey);
-
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
-
-            lastAppliedIndex = 0;
-            lastAppliedTerm = 0;
 
             state.set(StorageState.RUNNABLE);
         } catch (Exception e) {
@@ -557,15 +524,44 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         }
     }
 
+    @Override
+    public void onConfigurationCommitted(RaftGroupConfiguration config, long index, long term) {
+        updateData(writeBatch -> {
+            metaStorage.updateConfiguration(writeBatch, config);
+            metaStorage.updateLastApplied(writeBatch, index, term);
+
+            return null;
+        }, index, term);
+    }
+
+    @Override
+    public void updateLease(LeaseInfo leaseInfo, long index, long term) {
+        updateData(writeBatch -> {
+            metaStorage.updateLease(writeBatch, leaseInfo);
+            metaStorage.updateLastApplied(writeBatch, index, term);
+
+            return null;
+        }, index, term);
+    }
+
+    @Override
+    public RaftGroupConfiguration configuration() {
+        return metaStorage.configuration();
+    }
+
+    @Override
+    public LeaseInfo leaseInfo() {
+        return metaStorage.leaseInfo();
+    }
+
     private void clearStorageData(WriteBatch writeBatch) throws RocksDBException {
         writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+
+        metaStorage.clearData(writeBatch);
     }
 
     private void updateLastApplied(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
-        writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(lastAppliedIndex, lastAppliedTerm));
-
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.lastAppliedTerm = lastAppliedTerm;
+        metaStorage.updateLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
     }
 
     /**
@@ -629,7 +625,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     }
 
     private String createStorageInfo() {
-        return "table=" + tableStorage.id + ", partitionId=" + partitionId;
+        return "table=" + tableId + ", partitionId=" + partitionId;
     }
 
     private <V> V busy(Supplier<V> supplier) {
