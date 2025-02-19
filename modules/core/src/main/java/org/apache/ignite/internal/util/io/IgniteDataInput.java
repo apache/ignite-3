@@ -32,7 +32,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 /**
  * Extended data input.
@@ -425,17 +424,17 @@ public interface IgniteDataInput extends DataInput {
     /**
      * Reads a collection.
      *
-     * @param collectionSupplier Supplier to create a collection.
+     * @param collection Collection instance, should be empty.
      * @param elementReader Function to read an element.
      * @return Collection.
      */
     default <T, C extends Collection<T>> C readCollection(
-            Supplier<C> collectionSupplier,
+            C collection,
             ObjectReader<T> elementReader
     ) throws IOException {
-        int size = readVarIntAsInt();
+        assert collection.isEmpty() : collection;
 
-        C collection = collectionSupplier.get();
+        int size = readVarIntAsInt();
 
         for (int i = 0; i < size; i++) {
             collection.add(elementReader.read(this));
@@ -447,19 +446,19 @@ public interface IgniteDataInput extends DataInput {
     /**
      * Reads a map.
      *
-     * @param mapSupplier Supplier to create a map.
+     * @param map Map instance, should be empty.
      * @param keyReader Function to read a key.
      * @param valueReader Function to read a value.
      * @return Map.
      */
     default <K, C, V extends C, M extends Map<K, V>> M readMap(
-            Supplier<M> mapSupplier,
+            M map,
             ObjectReader<K> keyReader,
             ObjectReader<V> valueReader
     ) throws IOException {
-        int size = readVarIntAsInt();
+        assert map.isEmpty() : map;
 
-        M map = mapSupplier.get();
+        int size = readVarIntAsInt();
 
         for (int i = 0; i < size; i++) {
             K key = keyReader.read(this);

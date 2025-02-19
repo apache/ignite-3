@@ -258,8 +258,7 @@ public interface IgniteDataOutput extends DataOutput {
      * @param keyWriter Key writer.
      * @param valWriter Value writer.
      */
-    default <K, V> void writeMap(Map<K, V> map, ObjectWriter<K> keyWriter, ObjectWriter<V> valWriter)
-            throws IOException {
+    default <K, V> void writeMap(Map<K, V> map, ObjectWriter<K> keyWriter, ObjectWriter<V> valWriter) throws IOException {
         writeVarInt(map.size());
 
         for (Map.Entry<K, V> e : map.entrySet()) {
@@ -268,7 +267,7 @@ public interface IgniteDataOutput extends DataOutput {
         }
     }
 
-    /**'
+    /**
      * Object writer interface.
      */
     @FunctionalInterface

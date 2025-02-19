@@ -113,7 +113,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  * <br>
  * It is used by {@link DistributionZoneManager} to calculate data nodes, see {@link #dataNodes(int, HybridTimestamp)}.
  * Data nodes are stored in meta storage as {@link DataNodesHistory} for each zone, also for each zone there are scale up and
- * scale down timer, stored as {@link DistributionZoneTimer}. Partition reset timer is calculated on the node recovery according
+ * scale down timers, stored as {@link DistributionZoneTimer}. Partition reset timer is calculated on the node recovery according
  * to the scale down timer state, see {@link #restorePartitionResetTimer(int, DistributionZoneTimer, long)}.
  * <br>
  * Data nodes history is appended on topology changes, on zone filter changes and on zone auto adjust alterations (i.e. alterations of
@@ -211,14 +211,11 @@ public class DataNodesManager {
         Map<Integer, CatalogZoneDescriptor> descriptors = new HashMap<>();
 
         for (CatalogZoneDescriptor zone : knownZones) {
-            List<ByteArray> zoneKeys = List.of(
-                    zoneDataNodesHistoryKey(zone.id()),
-                    zoneScaleUpTimerKey(zone.id()),
-                    zoneScaleDownTimerKey(zone.id()),
-                    zonePartitionResetTimerKey(zone.id())
-            );
+            allKeys.add(zoneDataNodesHistoryKey(zone.id()));
+            allKeys.add(zoneScaleUpTimerKey(zone.id()));
+            allKeys.add(zoneScaleDownTimerKey(zone.id()));
+            allKeys.add(zonePartitionResetTimerKey(zone.id()));
 
-            allKeys.addAll(zoneKeys);
             descriptors.put(zone.id(), zone);
         }
 
@@ -405,6 +402,21 @@ public class DataNodesManager {
         }, zoneDescriptor);
     }
 
+    /**
+     * This is called on topology change, when some nodes may be added or removed, and therefore scale up or scale down timers can be
+     * created. By this moment there can be already some timers in meta storage, so we need to merge them with new topology changes, that
+     * is done by this method. The create time of the new timer is set to current timestamp, and sets of nodes in two timers are unified,
+     * with consideration of the logical topology: if the node is absent in topology, it is excluded from scale up timer, and if it is
+     * present, it is excluded from scale down timer.
+     *
+     * @param zoneDescriptor Zone descriptor.
+     * @param timestamp Current timestamp.
+     * @param currentTimer Current timer, that is taken from meta storage.
+     * @param nodes Set of nodes that are added or removed, depending on the timer, this is defined by {@code scaleUp} parameter.
+     * @param logicalTopology Current logical topology.
+     * @param scaleUp If true, the timer is scale up, otherwise it is scale down.
+     * @return Merged timer.
+     */
     private static DistributionZoneTimer mergeTimerOnTopologyChange(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
@@ -413,8 +425,6 @@ public class DataNodesManager {
             Set<NodeWithAttributes> logicalTopology,
             boolean scaleUp
     ) {
-        DistributionZoneTimer timer;
-
         // Filter the current timer's nodes according to the current topology, if it is newer than the timer's timestamp.
         Set<NodeWithAttributes> currentTimerFilteredNodes = currentTimer.nodes().stream()
                 .filter(n -> {
@@ -427,7 +437,7 @@ public class DataNodesManager {
                 .collect(toSet());
 
         if (nodes.isEmpty()) {
-            timer = new DistributionZoneTimer(
+            return new DistributionZoneTimer(
                     currentTimer.createTimestamp(),
                     currentTimer.timeToWaitInSeconds(),
                     currentTimerFilteredNodes
@@ -437,14 +447,12 @@ public class DataNodesManager {
                     ? zoneDescriptor.dataNodesAutoAdjustScaleUp()
                     : zoneDescriptor.dataNodesAutoAdjustScaleDown();
 
-            timer = new DistributionZoneTimer(
+            return new DistributionZoneTimer(
                     timestamp,
                     autoAdjustWaitInSeconds,
                     union(nodes, currentTimerFilteredNodes)
             );
         }
-
-        return timer;
     }
 
     /**
@@ -604,6 +612,22 @@ public class DataNodesManager {
                 scaleUpTimer, scaleDownTimer, false);
     }
 
+    /**
+     * Forms a message for the log record about the history entry update. It also specifies whether the new history entry was
+     * actually added; it is added if the history is empty, the nodes are different from the latest history entry or the
+     * {@code addMandatoryEntry} parameter is true.
+     *
+     * @param zoneId Zone id.
+     * @param operation Operation (topology change, auto adjust alteration, etc.).
+     * @param currentHistory Current data nodes history.
+     * @param currentTimestamp Current timestamp.
+     * @param historyEntryTimestamp Timestamp of the new history entry. It can be different from the current timestamp.
+     * @param nodes Data nodes of the new history entry.
+     * @param scaleUpTimer Scale up timer.
+     * @param scaleDownTimer Scale down timer.
+     * @param addMandatoryEntry If true, the history entry is always added.
+     * @return Log message.
+     */
     private static String updateHistoryLogRecord(
             int zoneId,
             String operation,
@@ -786,20 +810,20 @@ public class DataNodesManager {
 
         Set<NodeWithAttributes> dataNodes = new HashSet<>(currentDataNodesEntry.getSecond());
 
-        long sutt = scaleUpTimer.timeToTrigger().longValue();
-        long sdtt = scaleDownTimer.timeToTrigger().longValue();
+        long scaleUpTriggerTime = scaleUpTimer.timeToTrigger().longValue();
+        long scaleDownTriggerTime = scaleDownTimer.timeToTrigger().longValue();
         long timestampLong = timestamp.longValue();
         HybridTimestamp newTimestamp = timestamp;
 
-        if (sutt <= timestampLong) {
+        if (scaleUpTriggerTime <= timestampLong) {
             newTimestamp = scaleUpTimer.timeToTrigger();
             dataNodes.addAll(filterDataNodes(scaleUpTimer.nodes(), zoneDescriptor));
         }
 
-        if (sdtt <= timestampLong) {
+        if (scaleDownTriggerTime <= timestampLong) {
             dataNodes.removeAll(scaleDownTimer.nodes());
 
-            if (sdtt > sutt) {
+            if (scaleDownTriggerTime > scaleUpTriggerTime) {
                 newTimestamp = scaleDownTimer.timeToTrigger();
             }
         }
@@ -905,6 +929,17 @@ public class DataNodesManager {
         return addNewEntryToDataNodesHistory(zoneId, history, timestamp, nodes, false);
     }
 
+    /**
+     * Meta storage operation that adds new entry to data nodes history.
+     * If the new entry is the same as the latest one {@code addMandatoryEntry} is {@code false}, then no new entry is added.
+     *
+     * @param zoneId Zone id.
+     * @param history Current data nodes history.
+     * @param timestamp Timestamp of the new entry.
+     * @param nodes Data nodes for the new entry.
+     * @param addMandatoryEntry If {@code true}, then the new entry is added even if it is the same as the latest one.
+     * @return Operation that adds new entry to data nodes history.
+     */
     private Operation addNewEntryToDataNodesHistory(
             int zoneId,
             DataNodesHistory history,
@@ -1013,7 +1048,7 @@ public class DataNodesManager {
                         return null;
                     }
                 })
-                .thenCompose(c -> nullCompletedFuture());
+                .thenApply(c -> null);
     }
 
     /**

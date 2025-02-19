@@ -168,7 +168,7 @@ public interface MetaStorageManager extends IgniteComponent {
     List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
-     * Returns an entry for the given key locally. See also {@link #getLocally(ByteArray, long)}.
+     * Returns a latest entry for the given key locally. See also {@link #getLocally(ByteArray, long)}.
      *
      * @param key Key.
      * @return Entry.
@@ -252,11 +252,9 @@ public interface MetaStorageManager extends IgniteComponent {
     Cursor<Entry> getLocally(ByteArray startKey, @Nullable ByteArray endKey, long revUpperBound);
 
     /**
-     * Returns a future of getting entries corresponding to the given keys from the metastorage locally.
+     * Returns a future of getting latest entries corresponding to the given keys from the metastorage locally.
      *
      * <p>Never completes with a {@link CompactedException}.</p>
-     *
-     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
      *
      * @param keys List of keys (must not be empty).
      */

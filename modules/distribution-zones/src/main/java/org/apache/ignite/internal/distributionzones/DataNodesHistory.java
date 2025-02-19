@@ -44,7 +44,7 @@ public class DataNodesHistory {
         this(new TreeMap<>());
     }
 
-    public DataNodesHistory(NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> history) {
+    private DataNodesHistory(NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> history) {
         this.history = history;
     }
 
@@ -136,10 +136,10 @@ public class DataNodesHistory {
         @Override
         protected DataNodesHistory readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
             NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> history = in.readMap(
-                    TreeMap::new,
+                    new TreeMap<>(),
                     in0 -> HybridTimestamp.hybridTimestamp(in0.readLong()),
                     in0 -> in0.readCollection(
-                            HashSet::new,
+                            new HashSet<>(),
                             NodeWithAttributesSerializer.INSTANCE::readExternal
                     )
             );

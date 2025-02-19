@@ -133,7 +133,7 @@ public class DistributionZoneManager extends
     /** Executor for scheduling tasks for scale up and scale down processes. */
     private final StripedScheduledThreadPoolExecutor executor;
 
-    private DataNodesManager dataNodesManager;
+    private final DataNodesManager dataNodesManager;
 
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new DistributionZoneManagerLogicalTopologyEventListener();
@@ -254,7 +254,7 @@ public class DistributionZoneManager extends
             int catalogVersion = catalogManager.latestCatalogVersion();
 
             return allOf(
-                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision),
+                    restoreLogicalTopologyChangeEvent(recoveryRevision),
                     dataNodesManager.startAsync(catalogManager.catalog(catalogVersion).zones(), recoveryRevision)
             ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
         });
@@ -601,17 +601,14 @@ public class DistributionZoneManager extends
             long revision,
             Set<NodeWithAttributes> newLogicalTopology
     ) {
-        // TODO
-        Operation[] puts = new Operation[3];
-
-        puts[0] = put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes()));
-
-        puts[1] = put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision));
-
-        puts[2] = put(
-                zonesLastHandledTopology(),
-                LogicalTopologySetSerializer.serialize(newLogicalTopology)
-        );
+        Operation[] puts = {
+                put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes())),
+                put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision)),
+                put(
+                        zonesLastHandledTopology(),
+                        LogicalTopologySetSerializer.serialize(newLogicalTopology)
+                )
+        };
 
         Iif iif = iif(
                 conditionForRecoverableStateChanges(revision),
@@ -712,12 +709,11 @@ public class DistributionZoneManager extends
 
     /**
      * Restore the event of the updating the logical topology from Meta Storage, that has not been completed before restart.
-     * Also start scale up/scale down timers.
      *
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
      * @return Future that represents the pending completion of the operations.
      */
-    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision) {
+    private CompletableFuture<Void> restoreLogicalTopologyChangeEvent(long recoveryRevision) {
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
 
         if (topologyEntry.value() != null) {

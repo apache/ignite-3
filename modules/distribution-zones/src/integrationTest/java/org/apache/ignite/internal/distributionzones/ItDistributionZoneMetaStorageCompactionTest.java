@@ -104,6 +104,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
 
         long revisionAfterCreateZone = ignite.metaStorageManager().appliedRevision();
 
+        // Put some data to increment revision once more.
         ignite.metaStorageManager().put(new ByteArray("dummy_key"), "dummy_value".getBytes());
 
         assertTrue(waitForCondition(() -> ignite.metaStorageManager().appliedRevision() > revisionAfterCreateZone, 1000));

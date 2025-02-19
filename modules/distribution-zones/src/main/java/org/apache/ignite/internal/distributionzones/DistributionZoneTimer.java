@@ -48,7 +48,7 @@ public class DistributionZoneTimer {
     /**
      * Constructor.
      *
-     * @param createTimestamp Timestamp when the timer will be applied.
+     * @param createTimestamp Timestamp when the timer was created.
      * @param timeToWaitInSeconds Time to wait in seconds. {@link CatalogUtils#INFINITE_TIMER_VALUE} is acceptable here.
      * @param nodes Nodes that will be affected by the timer. This is a set of added nodes (for scale up timer) or removed node
      *     (for scale down timer).
@@ -162,7 +162,7 @@ public class DistributionZoneTimer {
         protected DistributionZoneTimer readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
             HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(in.readVarInt());
             int timeToWaitInSeconds = in.readVarIntAsInt();
-            Set<NodeWithAttributes> nodes = in.readCollection(HashSet::new, NodeWithAttributesSerializer.INSTANCE::readExternal);
+            Set<NodeWithAttributes> nodes = in.readCollection(new HashSet<>(), NodeWithAttributesSerializer.INSTANCE::readExternal);
 
             return new DistributionZoneTimer(timestamp, timeToWaitInSeconds, nodes);
         }
