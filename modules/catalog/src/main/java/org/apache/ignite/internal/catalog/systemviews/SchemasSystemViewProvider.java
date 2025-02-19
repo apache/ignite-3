@@ -56,7 +56,7 @@ public class SchemasSystemViewProvider implements CatalogSystemViewProvider {
 
         return SystemViews.<CatalogSchemaDescriptor>clusterViewBuilder()
                 .name("SCHEMAS")
-                .addColumn("SCHEMA_D", INT32, CatalogSchemaDescriptor::id)
+                .addColumn("SCHEMA_ID", INT32, CatalogSchemaDescriptor::id)
                 .addColumn("SCHEMA_NAME", STRING, CatalogObjectDescriptor::name)
                 .dataProvider(viewDataPublisher)
                 .build();
