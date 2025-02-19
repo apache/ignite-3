@@ -93,8 +93,8 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER > 1",
                         EQ_SELECTIVITY * COMPARISON_SELECTIVITY),
                 // full pk with OR
-                Arguments.of("SELECT * FROM CATALOG_SALES WHERE (CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1) OR CS_ORDER_NUMBER = 2"
-                        , EQ_SELECTIVITY),
+                Arguments.of("SELECT * FROM CATALOG_SALES WHERE (CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1) OR CS_ORDER_NUMBER = 2",
+                        EQ_SELECTIVITY),
                 // full pk or full pk
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE (CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1) "
                         + "OR (CS_ITEM_SK = 3 AND CS_ORDER_NUMBER = 3)", 1.0 / TABLE_REAL_SIZE),
