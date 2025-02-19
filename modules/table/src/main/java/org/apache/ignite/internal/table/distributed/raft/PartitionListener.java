@@ -19,8 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
@@ -99,10 +98,6 @@ import org.jetbrains.annotations.TestOnly;
 public class PartitionListener implements RaftGroupListener, RaftTableProcessor {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
-
-    /* Feature flag for zone based colocation track */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove it.
-    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -272,7 +267,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
         } else if (command instanceof VacuumTxStatesCommand) {
-            if (!enabledColocationFeature) {
+            if (!enabledColocation()) {
                 result = vacuumTxStatesCommandHandler.handle((VacuumTxStatesCommand) command, commandIndex, commandTerm);
             }
         } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
