@@ -1,30 +1,30 @@
 Sort
     collation: [O_YEAR ASC]
-    est. row count: 4501
+    est. row count: 16635
   Project
       fields: [O_YEAR, MKT_SHARE]
       exprs: [O_YEAR, /($f1, $f2)]
-      est. row count: 4501
+      est. row count: 16635
     ColocatedHashAggregate
         group: [O_YEAR]
         aggs: [SUM($f1), SUM(VOLUME)]
-        est. row count: 4501
+        est. row count: 16635
       Project
           fields: [O_YEAR, $f1, VOLUME]
           exprs: [EXTRACT(FLAG(YEAR), O_ORDERDATE), CASE(=(N_NAME, _UTF-8'BRAZIL'), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), 0.0000:DECIMAL(31, 4)), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
-          est. row count: 45009
+          est. row count: 166367
         HashJoin
             condition: =(S_SUPPKEY, L_SUPPKEY)
             joinType: inner
-            est. row count: 45009
+            est. row count: 166367
           HashJoin
               condition: =(P_PARTKEY, L_PARTKEY)
               joinType: inner
-              est. row count: 45009
+              est. row count: 166367
             HashJoin
                 condition: =(L_ORDERKEY, O_ORDERKEY)
                 joinType: inner
-                est. row count: 300061
+                est. row count: 499601
               Exchange
                   distribution: single
                   est. row count: 6001215
@@ -35,7 +35,7 @@ Sort
               HashJoin
                   condition: =(O_CUSTKEY, C_CUSTKEY)
                   joinType: inner
-                  est. row count: 75000
+                  est. row count: 124875
                 Exchange
                     distribution: single
                     est. row count: 375000
@@ -47,7 +47,7 @@ Sort
                 HashJoin
                     condition: =(C_NATIONKEY, N_NATIONKEY)
                     joinType: inner
-                    est. row count: 30000
+                    est. row count: 49950
                   Exchange
                       distribution: single
                       est. row count: 150000
@@ -58,7 +58,7 @@ Sort
                   NestedLoopJoin
                       condition: =(N_REGIONKEY, R_REGIONKEY)
                       joinType: inner
-                      est. row count: 5
+                      est. row count: 8
                     Exchange
                         distribution: single
                         est. row count: 25
@@ -68,20 +68,20 @@ Sort
                           est. row count: 25
                     Exchange
                         distribution: single
-                        est. row count: 1
+                        est. row count: 2
                       TableScan
                           table: [PUBLIC, REGION]
                           filters: =(R_NAME, _UTF-8'AMERICA')
                           fields: [R_REGIONKEY, R_NAME]
-                          est. row count: 1
+                          est. row count: 2
             Exchange
                 distribution: single
-                est. row count: 30000
+                est. row count: 66600
               TableScan
                   table: [PUBLIC, PART]
                   filters: =(P_TYPE, _UTF-8'ECONOMY ANODIZED STEEL')
                   fields: [P_PARTKEY, P_TYPE]
-                  est. row count: 30000
+                  est. row count: 66600
           HashJoin
               condition: =(S_NATIONKEY, N_NATIONKEY)
               joinType: inner
