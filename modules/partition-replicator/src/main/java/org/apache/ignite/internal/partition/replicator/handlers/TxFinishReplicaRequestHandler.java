@@ -314,7 +314,7 @@ public class TxFinishReplicaRequestHandler {
             finishTxCmdBldr.commitTimestamp(commitTimestamp);
         }
 
-        return raftCommandApplicator.applyCmdWithExceptionHandling(finishTxCmdBldr.build());
+        return raftCommandApplicator.applyCommandWithExceptionHandling(finishTxCmdBldr.build());
     }
 
     private static List<ReplicationGroupIdMessage> toPartitionIdMessage(Collection<ReplicationGroupId> partitionIds) {

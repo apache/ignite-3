@@ -47,13 +47,14 @@ public class ReplicationRaftCommandApplicator {
      *     The original exception is set as cause.</li>
      * </ul>
      *
-     * @param cmd Raft command.
+     * @param command Raft command.
      * @return Raft future or raft decorated future with command that was processed.
      */
-    public CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd) {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Perhaps, this method is not needed and can be removed in the future
+    public CompletableFuture<Object> applyCommandWithExceptionHandling(Command command) {
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-        raftCommandRunner.run(cmd).whenComplete((res, ex) -> {
+        raftCommandRunner.run(command).whenComplete((res, ex) -> {
             if (ex != null) {
                 resultFuture.completeExceptionally(ex);
             } else {
@@ -70,5 +71,15 @@ public class ReplicationRaftCommandApplicator {
                 throw new ReplicationException(replicationGroupId, throwable);
             }
         });
+    }
+
+    /**
+     * Executes the given {@code command} on the corresponding replication group.
+     *
+     * @param command The command to be executed.
+     * @return A future with the execution result.
+     */
+    public CompletableFuture<?> applyCommand(Command command) {
+        return raftCommandRunner.run(command);
     }
 }

@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -144,7 +144,9 @@ public class VolatileTxStateMetaStorage {
     public CompletableFuture<Void> vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            Function<Map<TablePartitionId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+            // Should be changed to ZonePartitionId.
+            Function<Map<ReplicationGroupId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
     ) {
         LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
@@ -153,7 +155,9 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
-        Map<TablePartitionId, Set<VacuumizableTx>> txIds = new HashMap<>();
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+        // Should be changed to ZonePartitionId.
+        Map<ReplicationGroupId, Set<VacuumizableTx>> txIds = new HashMap<>();
         Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
 
         txStateMap.forEach((txId, meta) -> {
@@ -183,6 +187,8 @@ public class VolatileTxStateMetaStorage {
 
                                 return null;
                             } else {
+                                // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+                                // Should be changed to ZonePartitionId.
                                 Set<VacuumizableTx> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
                                 ids.add(new VacuumizableTx(txId, cleanupCompletionTimestamp));
 

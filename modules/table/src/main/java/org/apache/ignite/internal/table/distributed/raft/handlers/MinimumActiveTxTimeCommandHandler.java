@@ -61,17 +61,17 @@ public class MinimumActiveTxTimeCommandHandler {
     /**
      * Handles {@link UpdateMinimumActiveTxBeginTimeCommand} command.
      *
-     * @param cmd Command to be processed.
+     * @param command Command to be processed.
      * @param commandIndex Command index.
      * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
      */
-    public IgniteBiTuple<Serializable, Boolean> handle(UpdateMinimumActiveTxBeginTimeCommand cmd, long commandIndex) {
+    public IgniteBiTuple<Serializable, Boolean> handle(UpdateMinimumActiveTxBeginTimeCommand command, long commandIndex) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return new IgniteBiTuple<>(null, false);
         }
 
-        long timestamp = cmd.timestamp();
+        long timestamp = command.timestamp();
 
         storage.flush(false)
                 .whenComplete((r, t) -> {

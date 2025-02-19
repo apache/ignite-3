@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -38,7 +38,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -90,7 +90,11 @@ public class PersistentTxStateVacuumizer {
      * @param txIds Transaction ids to vacuum; map of commit partition ids to sets of {@link VacuumizableTx}.
      * @return A future, result is the set of successfully processed txn states and count of persistent states that were vacuumized.
      */
-    public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(Map<TablePartitionId, Set<VacuumizableTx>> txIds) {
+    public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+            // Should be changed to ZonePartitionId.
+            Map<ReplicationGroupId, Set<VacuumizableTx>> txIds
+    ) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<?>> futures = new ArrayList<>();
         AtomicInteger vacuumizedPersistentTxnStatesCount = new AtomicInteger();
@@ -117,9 +121,16 @@ public class PersistentTxStateVacuumizer {
                                 }
                             }
 
+                            if (filteredTxIds.isEmpty()) {
+                                // There is no need to send a request if there are no transaction metas to vacuum.
+                                return nullCompletedFuture();
+                            }
+
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                    .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
+                                    // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+                                    // Should be changed to ZonePartitionId.
+                                    .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                                     .transactionIds(filteredTxIds)
                                     .build();
 
