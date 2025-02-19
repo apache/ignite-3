@@ -130,9 +130,11 @@ public class TestServer {
 
         assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
+        String localNodeName = "consistent-id";
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(new UUID(0, 0));
-        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
+        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(localNodeName);
+        Mockito.when(clusterService.nodeName()).thenReturn(localNodeName);
 
         ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "Test Server");
 

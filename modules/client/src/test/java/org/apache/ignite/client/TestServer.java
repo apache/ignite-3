@@ -209,6 +209,7 @@ public class TestServer implements AutoCloseable {
         this.ignite = ignite;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.nodeName()).thenReturn(nodeName);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(getNodeId(nodeName));
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName);
         Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName));

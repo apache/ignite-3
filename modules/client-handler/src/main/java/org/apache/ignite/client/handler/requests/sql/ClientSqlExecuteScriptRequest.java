@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientQueryIdGenerator;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -40,7 +42,8 @@ public class ClientSqlExecuteScriptRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            QueryProcessor sql
+            QueryProcessor sql,
+            ClientQueryIdGenerator queryIdGenerator
     ) {
         ClientSqlProperties props = new ClientSqlProperties(in);
         String script = in.unpackString();
@@ -54,9 +57,12 @@ public class ClientSqlExecuteScriptRequest {
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Pass cancellation token to the query processor.
+        // TODO Feature check.
+        int queryRequestNumber = in.unpackInt();
+        UUID queryId = queryIdGenerator.generate(queryRequestNumber);
+
         return IgniteSqlImpl.executeScriptCore(
-                sql, tsUpdater, () -> true, () -> {}, script, null, arguments, props.toSqlProps()
+                sql, tsUpdater, () -> true, () -> {}, script, queryId, null, arguments, props.toSqlProps()
         ).whenComplete((none, error) -> {
             // Unconditionally update observable time because script may be applied partially.
             out.meta(tsUpdater.get());

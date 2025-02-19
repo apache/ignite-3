@@ -184,20 +184,19 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public void executeScript(String query, @Nullable Object... arguments) {
-        Objects.requireNonNull(query);
-
-        try {
-            executeScriptAsync(query, arguments).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        executeScript(null, query, arguments);
     }
 
     /** {@inheritDoc} */
     @Override
     public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Support cancellation token.
-        throw new UnsupportedOperationException();
+        Objects.requireNonNull(query);
+
+        try {
+            executeScriptAsync(cancellationToken, query, arguments).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /** {@inheritDoc} */
@@ -273,20 +272,7 @@ public class ClientSql implements IgniteSql {
             w.out().packInt(queryRequestNumber);
 
             if (cancellationToken != null) {
-                CompletableFuture<Boolean> cancelFuture = new CompletableFuture<>();
-
-                // TODO sync properly, clean resources
-                if (CancelHandleHelper.isCancelled(cancellationToken)) {
-                    throw new SqlException(Sql.EXECUTION_CANCELLED_ERR, "The query was cancelled while executing.");
-                }
-
-                CancelHandleHelper.addCancelAction(cancellationToken, () -> cancelQuery(queryRequestNumber).whenComplete((r, e) -> {
-                    if (e != null) {
-                        cancelFuture.completeExceptionally(e);
-                    } else {
-                        cancelFuture.complete(r);
-                    }
-                }), cancelFuture);
+                handleCancellationToken(cancellationToken, queryRequestNumber);
             }
         };
 
@@ -304,6 +290,23 @@ public class ClientSql implements IgniteSql {
         }
 
         return ch.serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+    }
+
+    private void handleCancellationToken(CancellationToken cancellationToken, int queryRequestNumber) {
+        CompletableFuture<Boolean> cancelFuture = new CompletableFuture<>();
+
+        // TODO sync properly, clean resources
+        if (CancelHandleHelper.isCancelled(cancellationToken)) {
+            throw new SqlException(Sql.EXECUTION_CANCELLED_ERR, "The query was cancelled while executing.");
+        }
+
+        CancelHandleHelper.addCancelAction(cancellationToken, () -> cancelQuery(queryRequestNumber).whenComplete((r, e) -> {
+            if (e != null) {
+                cancelFuture.completeExceptionally(e);
+            } else {
+                cancelFuture.complete(r);
+            }
+        }), cancelFuture);
     }
 
     /** {@inheritDoc} */
@@ -350,6 +353,13 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
+        return executeScriptAsync(null, query, arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> executeScriptAsync(@Nullable CancellationToken cancellationToken, String query,
+            @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
         PayloadWriter payloadWriter = w -> {
@@ -364,17 +374,17 @@ public class ClientSql implements IgniteSql {
             w.out().packString(query);
             w.out().packObjectArrayAsBinaryTuple(arguments);
             w.out().packLong(ch.observableTimestamp());
+
+            // TODO Feature check.
+            int requestNumber = sqlRequestCounter.getAndIncrement();
+            w.out().packInt(requestNumber);
+
+            if (cancellationToken != null) {
+                handleCancellationToken(cancellationToken, requestNumber);
+            }
         };
 
         return ch.serviceAsync(ClientOp.SQL_EXEC_SCRIPT, payloadWriter, null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> executeScriptAsync(@Nullable CancellationToken cancellationToken, String query,
-            @Nullable Object... arguments) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Support cancellation token.
-        throw new UnsupportedOperationException();
     }
 
     private CompletableFuture<Boolean> cancelQuery(int queryNum) {
