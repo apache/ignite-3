@@ -179,6 +179,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
@@ -764,7 +765,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             int catalogVersion = node.catalogManager.latestCatalogVersion();
             long timestamp = node.catalogManager.catalog(catalogVersion).time();
 
-            byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment, timestamp);
+            byte[] bytesPendingAssignments = AssignmentsQueue.toBytes(Assignments.of(newAssignment, timestamp));
 
             node.metaStorageManager
                     .put(partAssignmentsPendingKey, bytesPendingAssignments)
@@ -837,7 +838,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         int catalogVersion = node.catalogManager.latestCatalogVersion();
         long timestamp = node.catalogManager.catalog(catalogVersion).time();
 
-        byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment, timestamp);
+        byte[] bytesPendingAssignments = AssignmentsQueue.toBytes(Assignments.of(newAssignment, timestamp));
 
         AtomicBoolean dropMessages = new AtomicBoolean(true);
 
@@ -952,7 +953,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         int catalogVersion = node0.catalogManager.latestCatalogVersion();
         long timestamp = node0.catalogManager.catalog(catalogVersion).time();
 
-        byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments, timestamp);
+        byte[] bytesPendingAssignments = AssignmentsQueue.toBytes(Assignments.of(pendingAssignments, timestamp));
         byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments, timestamp);
 
         TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
@@ -1079,7 +1080,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     ) {
         return metaStorageManager
                 .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+                .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
     }
 
     private static CompletableFuture<Set<Assignment>> partitionPlannedAssignments(

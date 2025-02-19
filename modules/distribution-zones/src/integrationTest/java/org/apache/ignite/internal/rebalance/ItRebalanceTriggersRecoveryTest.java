@@ -38,7 +38,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -246,7 +246,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     ) {
         return metaStorageManager
                 .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+                .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
     }
 
     private static boolean containsPartition(Ignite node) {

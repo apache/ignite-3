@@ -62,6 +62,7 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -178,7 +179,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(zonePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
-                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
+                        Set<Assignment> pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsBytes).poll().nodes();
 
                         var peers = new HashSet<String>();
                         var learners = new HashSet<String>();
@@ -349,7 +350,9 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
-            Assignments pendingAssignments = readAssignments(pendingEntry);
+            Assignments pendingAssignments = pendingEntry.value() == null
+                    ? Assignments.EMPTY
+                    : AssignmentsQueue.fromBytes(pendingEntry.value()).poll();
             Set<Assignment> retrievedPending = pendingAssignments.nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
@@ -404,8 +407,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             long catalogTimestamp = pendingAssignments.timestamp();
 
             byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft, catalogTimestamp);
-            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition, catalogTimestamp);
-            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction, catalogTimestamp);
+            byte[] additionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingAddition, catalogTimestamp));
+            byte[] reductionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingReduction, catalogTimestamp));
             byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce, catalogTimestamp);
             byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend, catalogTimestamp);
 
@@ -433,7 +436,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                     successCase = ops(
                             put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                            put(pendingPartAssignmentsKey, plannedEntry.value()),
+                            put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
                             remove(plannedPartAssignmentsKey)
                     ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
 
@@ -588,7 +591,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments, assignmentsTimestamp);
+        byte[] pendingByteArray = AssignmentsQueue.toBytes(Assignments.of(pendingAssignments, assignmentsTimestamp));
         byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = ZoneRebalanceUtil.pendingChangeTriggerKey(partId);

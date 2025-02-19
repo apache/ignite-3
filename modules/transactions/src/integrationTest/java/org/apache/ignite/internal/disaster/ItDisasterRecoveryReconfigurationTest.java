@@ -95,6 +95,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsLink;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.RendezvousDistributionFunction;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
@@ -2007,7 +2008,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         Entry pending = pendingFut.join();
 
-        return pending.empty() ? null : Assignments.fromBytes(pending.value());
+        return pending.empty() ? null : AssignmentsQueue.fromBytes(pending.value()).poll();
     }
 
     private @Nullable Assignments getStableAssignments(IgniteImpl node, int partId) {

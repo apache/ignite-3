@@ -73,6 +73,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -233,7 +234,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                             boolean isPlannedEmpty = results.get(plannedKey).value() == null;
 
                             stableNodes.set(assignmentsFromEntry(results.get(stableKey)));
-                            pendingNodes.set(assignmentsFromEntry(results.get(pendingKey)));
+                            pendingNodes.set(assignmentsFromPendingEntry(results.get(pendingKey)));
                             plannedNodes.set(assignmentsFromEntry(results.get(plannedKey)));
 
                             return isStableAsExpected && isPendingEmpty && isPlannedEmpty;
@@ -254,6 +255,15 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private static Set<String> assignmentsFromEntry(Entry entry) {
         return (entry.value() != null)
                 ? Assignments.fromBytes(entry.value()).nodes()
+                        .stream()
+                        .map(Assignment::consistentId)
+                        .collect(Collectors.toUnmodifiableSet())
+                : emptySet();
+    }
+
+    private static Set<String> assignmentsFromPendingEntry(Entry entry) {
+        return (entry.value() != null)
+                ? AssignmentsQueue.fromBytes(entry.value()).poll().nodes()
                         .stream()
                         .map(Assignment::consistentId)
                         .collect(Collectors.toUnmodifiableSet())

@@ -69,6 +69,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -133,7 +134,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         Entry pendingEntry = new EntryImpl(
                 pendingPartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
-                Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(pendingNode.name())).toBytes(),
+                AssignmentsQueue.toBytes(Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(pendingNode.name()))),
                 1,
                 clock.now()
         );
