@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
-import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.IntFunction;
@@ -30,6 +33,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
@@ -40,9 +44,13 @@ import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.jetbrains.annotations.Nullable;
@@ -55,6 +63,10 @@ public class WriteIntentSwitchRequestHandler {
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final IntFunction<ReplicaListener> replicaListenerByTableId;
 
@@ -101,42 +113,79 @@ public class WriteIntentSwitchRequestHandler {
     public CompletableFuture<ReplicaResult> handle(WriteIntentSwitchReplicaRequest request, UUID senderId) {
         txFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
-        @SuppressWarnings("rawtypes")
-        CompletableFuture[] futures = request.tableIds().stream()
-                .map(tableId -> replicaListener(tableId).invoke(request, senderId))
-                .toArray(CompletableFuture[]::new);
-
-        @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
+        List<CompletableFuture<ReplicaResult>> futures = request.tableIds().stream()
+                .map(tableId -> invokeTableWriteIntentSwitchReplicaRequest(tableId, request, senderId))
+                .collect(toList());
 
         // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
         // or txBeginTs [if it's an abort]). But there seems to be no guarantee that the compactor will not remove this version.
         // TODO: IGNITE-24574 Introduce a mechanism to save the chosen catalog version from being compacted too early.
+        @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
         HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
         HybridTimestamp finalCommandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
 
         return allOf(futures)
-                .thenCompose(unused -> reliableCatalogVersions.reliableCatalogVersionFor(finalCommandTimestamp))
-                .thenApply(catalogVersion -> {
-                    WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
-                            .txId(request.txId())
-                            .commit(request.commit())
-                            .commitTimestamp(request.commitTimestamp())
-                            .initiatorTime(clockService.current())
-                            .tableIds(request.tableIds())
-                            .requiredCatalogVersion(catalogVersion)
-                            .build();
+                .thenCompose(unused -> {
+                    boolean shouldApplyWiOnAnyTable = futures.stream()
+                            .map(CompletableFuture::join)
+                            .map(ReplicaResult::result)
+                            .map(FuturesCleanupResult.class::cast)
+                            .anyMatch(FuturesCleanupResult::shouldApplyWriteIntent);
 
-                    CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture = raftCommandApplicator
-                            .applyCmdWithExceptionHandling(wiSwitchCmd)
-                            .whenComplete((res, ex) -> {
-                                if (ex != null) {
-                                    LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', ex);
-                                }
-                            })
-                            .thenApply(res -> new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId));
+                    if (!shouldApplyWiOnAnyTable) {
+                        return completedFuture(new ReplicaResult(writeIntentSwitchReplicationInfoFor(request), null));
+                    }
 
-                    return new ReplicaResult(null, new CommandApplicationResult(null, commandReplicatedFuture));
+                    return reliableCatalogVersions.reliableCatalogVersionFor(finalCommandTimestamp)
+                            .thenApply(catalogVersion -> {
+                                CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture =
+                                        applyCommandToGroup(request, catalogVersion)
+                                                .thenApply(unused2 -> writeIntentSwitchReplicationInfoFor(request));
+
+                                return new ReplicaResult(null, new CommandApplicationResult(null, commandReplicatedFuture));
+                            });
                 });
+
+    }
+
+    private CompletableFuture<ReplicaResult> invokeTableWriteIntentSwitchReplicaRequest(
+            int tableId,
+            WriteIntentSwitchReplicaRequest request,
+            UUID senderId
+    ) {
+        TableWriteIntentSwitchReplicaRequest tableSpecificRequest = TX_MESSAGES_FACTORY.tableWriteIntentSwitchReplicaRequest()
+                .groupId(ReplicaMessageUtils.toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
+                .timestamp(clockService.now())
+                .txId(request.txId())
+                .commit(request.commit())
+                .commitTimestamp(request.commitTimestamp())
+                .tableId(tableId)
+                .build();
+
+        return replicaListener(tableId).invoke(tableSpecificRequest, senderId);
+    }
+
+    private CompletableFuture<Object> applyCommandToGroup(WriteIntentSwitchReplicaRequest request, Integer catalogVersion) {
+        WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+                .txId(request.txId())
+                .commit(request.commit())
+                .commitTimestamp(request.commitTimestamp())
+                .initiatorTime(clockService.current())
+                .tableIds(request.tableIds())
+                .requiredCatalogVersion(catalogVersion)
+                .build();
+
+        return raftCommandApplicator
+                .applyCmdWithExceptionHandling(wiSwitchCmd)
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', ex);
+                    }
+                });
+    }
+
+    private WriteIntentSwitchReplicatedInfo writeIntentSwitchReplicationInfoFor(WriteIntentSwitchReplicaRequest request) {
+        return new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId);
     }
 
     private ReplicaListener replicaListener(Integer tableId) {

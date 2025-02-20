@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import java.util.Set;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
  * or removes them (TxState.ABORTED).
+ *
+ * <p>Never sent by users of ReplicaService; it's rather an internal request used to handle {@link WriteIntentSwitchReplicaRequest}s
+ * in per-zone case (invoked on table replicas directly). Never used in per-table case.
+ * // TODO: IGNITE-22522 remove the above mention of per-table case.
  */
-@Transferable(TxMessageGroup.WRITE_INTENT_SWITCH_REQUEST)
-public interface WriteIntentSwitchReplicaRequest extends WriteIntentSwitchReplicaRequestBase {
-    /** IDs of tables in which the partition in question had write intents. */
-    Set<Integer> tableIds();
+@Transferable(TxMessageGroup.TABLE_WRITE_INTENT_SWITCH_REQUEST)
+public interface TableWriteIntentSwitchReplicaRequest extends WriteIntentSwitchReplicaRequestBase {
+    /** ID of the table which this write intent switch concerns. */
+    int tableId();
 }

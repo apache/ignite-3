@@ -114,4 +114,9 @@ public class TxMessageGroup {
 
     /** Message type for {@link EnlistedPartitionGroupMessage}. */
     public static final short ENLISTED_PARTITION_GROUP_MESSAGE = 20;
+
+    /**
+     * Message type for {@link TableWriteIntentSwitchReplicaRequest}.
+     */
+    public static final short TABLE_WRITE_INTENT_SWITCH_REQUEST = 21;
 }
