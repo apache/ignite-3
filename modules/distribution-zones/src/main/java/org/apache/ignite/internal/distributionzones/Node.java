@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
  * {@code nodeId} that is unique identifier of a node, that changes after a restart.
  * {@code nodeId} is needed to get node's attributes from the local state of the distribution zone manager.
  */
-public class Node {
+public class Node implements Comparable<Node> {
     private final String nodeName;
 
     private final UUID nodeId;
@@ -67,5 +67,16 @@ public class Node {
     @Override
     public String toString() {
         return S.toString(Node.class, this);
+    }
+
+    @Override
+    public int compareTo(Node o) {
+        int compareConsistentId = nodeName.compareTo(o.nodeName);
+
+        if (compareConsistentId != 0) {
+            return compareConsistentId;
+        } else {
+            return nodeId.compareTo(o.nodeId);
+        }
     }
 }
