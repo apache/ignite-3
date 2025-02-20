@@ -22,9 +22,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Mutable partition enlistement information for a partition. It stores information needed before commit timestamp is generated.
+ * Partition enlistement information in an ongoing transaction. It stores information needed before commit timestamp is generated.
  */
-public class MutablePartitionEnlistment {
+public class OngoingTxPartitionEnlistment {
     private final ClusterNode primaryNode;
     private final long consistencyToken;
     private final Set<Integer> tableIds = ConcurrentHashMap.newKeySet();
@@ -36,7 +36,7 @@ public class MutablePartitionEnlistment {
      * @param consistencyToken Enlistment consistency token.
      * @param tableId ID of the table.
      */
-    public MutablePartitionEnlistment(ClusterNode primaryNode, long consistencyToken, int tableId) {
+    public OngoingTxPartitionEnlistment(ClusterNode primaryNode, long consistencyToken, int tableId) {
         this(primaryNode, consistencyToken);
 
         tableIds.add(tableId);
@@ -48,7 +48,7 @@ public class MutablePartitionEnlistment {
      * @param primaryNode Primary node.
      * @param consistencyToken Enlistment consistency token.
      */
-    public MutablePartitionEnlistment(ClusterNode primaryNode, long consistencyToken) {
+    public OngoingTxPartitionEnlistment(ClusterNode primaryNode, long consistencyToken) {
         this.primaryNode = primaryNode;
         this.consistencyToken = consistencyToken;
     }

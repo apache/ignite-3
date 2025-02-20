@@ -43,7 +43,7 @@ public interface InternalTransaction extends Transaction {
      * @param replicationGroupId Replication group ID.
      * @return Enlisted partition information.
      */
-    MutablePartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId);
+    OngoingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId);
 
     /**
      * Returns a transaction state.

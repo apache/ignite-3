@@ -85,7 +85,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
-import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
+import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -744,7 +744,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 HybridTimestampTracker.atomicTracker(null),
                 commitPartition,
                 false,
-                Map.of(commitPartition, new MutablePartitionEnlistment(txCrdNode2.node(), 0L)),
+                Map.of(commitPartition, new OngoingTxPartitionEnlistment(txCrdNode2.node(), 0L)),
                 rwTx1Id
         );
 

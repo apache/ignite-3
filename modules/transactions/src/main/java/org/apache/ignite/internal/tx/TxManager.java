@@ -163,7 +163,7 @@ public interface TxManager extends IgniteComponent {
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, MutablePartitionEnlistment> enlistedGroups,
+            Map<ReplicationGroupId, OngoingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
 

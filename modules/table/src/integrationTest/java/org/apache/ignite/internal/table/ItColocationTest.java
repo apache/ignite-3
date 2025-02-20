@@ -106,7 +106,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
+import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -220,7 +220,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
                     boolean commitIntent,
-                    Map<ReplicationGroupId, MutablePartitionEnlistment> enlistedGroups,
+                    Map<ReplicationGroupId, OngoingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();

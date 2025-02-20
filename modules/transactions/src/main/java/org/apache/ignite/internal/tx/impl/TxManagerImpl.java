@@ -96,7 +96,7 @@ import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
-import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
+import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -580,7 +580,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commitIntent,
-            Map<ReplicationGroupId, MutablePartitionEnlistment> enlistedGroups,
+            Map<ReplicationGroupId, OngoingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}].", commitIntent, txId, enlistedGroups);
@@ -667,7 +667,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, MutablePartitionEnlistment> enlistedGroups,
+            Map<ReplicationGroupId, OngoingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
@@ -1041,13 +1041,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @return Verification future.
      */
     private CompletableFuture<Void> verifyCommitTimestamp(
-            Map<ReplicationGroupId, MutablePartitionEnlistment> enlistedGroups,
+            Map<ReplicationGroupId, OngoingTxPartitionEnlistment> enlistedGroups,
             HybridTimestamp commitTimestamp
     ) {
         var verificationFutures = new CompletableFuture[enlistedGroups.size()];
         int cnt = -1;
 
-        for (Map.Entry<ReplicationGroupId, MutablePartitionEnlistment> enlistedGroup : enlistedGroups.entrySet()) {
+        for (Map.Entry<ReplicationGroupId, OngoingTxPartitionEnlistment> enlistedGroup : enlistedGroups.entrySet()) {
             ReplicationGroupId groupId = enlistedGroup.getKey();
             long expectedEnlistmentConsistencyToken = enlistedGroup.getValue().consistencyToken();
 

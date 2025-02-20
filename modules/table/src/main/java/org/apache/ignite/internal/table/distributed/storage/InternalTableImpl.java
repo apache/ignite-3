@@ -128,7 +128,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
+import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -356,7 +356,7 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
 
-        MutablePartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
+        OngoingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
 
         CompletableFuture<R> fut;
 
@@ -472,7 +472,7 @@ public class InternalTableImpl implements InternalTable {
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
 
-            MutablePartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
+            OngoingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
 
             CompletableFuture<T> fut;
 
@@ -563,7 +563,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        MutablePartitionEnlistment enlistment = tx.enlistedPartition(partGroupId);
+        OngoingTxPartitionEnlistment enlistment = tx.enlistedPartition(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
@@ -652,7 +652,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             Function<Long, ReplicaRequest> mapFunc,
             boolean full,
-            MutablePartitionEnlistment enlistment,
+            OngoingTxPartitionEnlistment enlistment,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
             int retryOnLockConflict
     ) {
@@ -2005,7 +2005,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @return The enlist future (then will a leader become known).
      */
-    protected CompletableFuture<MutablePartitionEnlistment> enlist(int partId, InternalTransaction tx) {
+    protected CompletableFuture<OngoingTxPartitionEnlistment> enlist(int partId, InternalTransaction tx) {
         HybridTimestamp now = tx.startTimestamp();
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
@@ -2013,7 +2013,7 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(tablePartitionId, now);
 
-        Function<ReplicaMeta, MutablePartitionEnlistment> enlistClo = replicaMeta -> {
+        Function<ReplicaMeta, OngoingTxPartitionEnlistment> enlistClo = replicaMeta -> {
             ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
 
             tx.enlist(partGroupId, tableId, getClusterNode(replicaMeta), enlistmentConsistencyToken(replicaMeta));

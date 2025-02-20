@@ -197,7 +197,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
+import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -729,7 +729,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         Map.of(
                                 replicationGroupId,
                                 // Enlistment consistency token is not required for the rollback, so it is 0L.
-                                new MutablePartitionEnlistment(clusterNodeResolver.getById(senderId), 0L, replicationGroupId.tableId())
+                                new OngoingTxPartitionEnlistment(clusterNodeResolver.getById(senderId), 0L, replicationGroupId.tableId())
                         ),
                         txId
                 )

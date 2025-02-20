@@ -34,7 +34,7 @@ import org.apache.ignite.internal.tx.FinishingPartitionEnlistment;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
+import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -87,7 +87,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public MutablePartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+            public OngoingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
                 return null;
             }
 
@@ -208,7 +208,7 @@ public class FakeTxManager implements TxManager {
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, MutablePartitionEnlistment> enlistedGroups,
+            Map<ReplicationGroupId, OngoingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         return nullCompletedFuture();

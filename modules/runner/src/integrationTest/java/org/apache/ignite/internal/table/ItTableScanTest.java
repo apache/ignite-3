@@ -73,7 +73,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
+import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
@@ -869,7 +869,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        MutablePartitionEnlistment enlistment = tx.enlistedPartition(new TablePartitionId(table.tableId(), partId));
+        OngoingTxPartitionEnlistment enlistment = tx.enlistedPartition(new TablePartitionId(table.tableId(), partId));
 
         return new PrimaryReplica(enlistment.primaryNode(), enlistment.consistencyToken());
     }

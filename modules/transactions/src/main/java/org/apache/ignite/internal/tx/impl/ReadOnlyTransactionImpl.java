@@ -28,7 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.MutablePartitionEnlistment;
+import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -96,7 +96,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public MutablePartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+    public OngoingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
         return null;
     }
 
