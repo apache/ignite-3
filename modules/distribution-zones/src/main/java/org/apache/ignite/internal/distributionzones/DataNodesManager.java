@@ -329,7 +329,7 @@ public class DataNodesManager {
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> newLogicalTopology,
             Set<NodeWithAttributes> oldLogicalTopology,
-            DataNodeHistoryContext dataNodeHistoryContext
+            @Nullable DataNodeHistoryContext dataNodeHistoryContext
     ) {
         if (dataNodeHistoryContext == null) {
             // This means that the zone was not initialized yet. The initial history entry with current topology will
@@ -1020,6 +1020,14 @@ public class DataNodesManager {
         }
     }
 
+    /**
+     * Perform a meta storage operation for changing data nodes history and timers. Uses {@link #msInvokeWithRetry} for retries.
+     *
+     * @param zone Zone descriptor.
+     * @param keysToRead Keys to read from meta storage, to get {@link DataNodeHistoryContext}.
+     * @param operation Operation.
+     * @return Future reflecting the completion of meta storage operation.
+     */
     private CompletableFuture<Void> doOperation(
             CatalogZoneDescriptor zone,
             List<ByteArray> keysToRead,
@@ -1038,8 +1046,8 @@ public class DataNodesManager {
     /**
      * Utility method for meta storage invocation.
      *
-     * @param metaStorageOperationSupplier Function that returns IIF operation to use in meta storage invocation. It contains the actual logic
-     *     of operation.
+     * @param metaStorageOperationSupplier Function that returns IIF operation to use in meta storage invocation.
+     *     It contains the actual logic of operation.
      * @param attemptsLeft Number of attempts left, used if meta storage invoke did not succeed due to CAS fail.
      * @param zone Zone descriptor.
      * @return Future reflecting the completion of meta storage invocation.

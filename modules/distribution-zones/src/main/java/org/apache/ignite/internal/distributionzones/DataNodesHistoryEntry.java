@@ -41,6 +41,8 @@ public class DataNodesHistoryEntry {
     }
 
     /**
+     * Timestamp of the history entry.
+     *
      * @return Timestamp of the history entry.
      */
     public HybridTimestamp timestamp() {
@@ -48,6 +50,8 @@ public class DataNodesHistoryEntry {
     }
 
     /**
+     * Set of data nodes at the time of the history entry.
+     *
      * @return Set of data nodes at the time of the history entry.
      */
     public Set<NodeWithAttributes> dataNodes() {

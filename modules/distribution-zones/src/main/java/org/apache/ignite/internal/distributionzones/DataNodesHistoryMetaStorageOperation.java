@@ -46,17 +46,17 @@ class DataNodesHistoryMetaStorageOperation {
     private final DistributionZoneTimer scaleDownTimer;
 
     private DataNodesHistoryMetaStorageOperation(
-        Condition condition,
-        Operations msOperations,
-        String operationName,
-        int zoneId,
-        DataNodesHistory currentDataNodesHistory,
-        HybridTimestamp currentTimestamp,
-        HybridTimestamp historyEntryTimestamp,
-        Set<NodeWithAttributes> historyEntryNodes,
-        boolean addMandatoryEntry,
-        @Nullable DistributionZoneTimer scaleUpTimer,
-        @Nullable DistributionZoneTimer scaleDownTimer
+            Condition condition,
+            Operations msOperations,
+            String operationName,
+            int zoneId,
+            DataNodesHistory currentDataNodesHistory,
+            HybridTimestamp currentTimestamp,
+            HybridTimestamp historyEntryTimestamp,
+            Set<NodeWithAttributes> historyEntryNodes,
+            boolean addMandatoryEntry,
+            @Nullable DistributionZoneTimer scaleUpTimer,
+            @Nullable DistributionZoneTimer scaleDownTimer
     ) {
         this.condition = condition;
         this.msOperations = msOperations;
