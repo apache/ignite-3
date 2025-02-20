@@ -162,7 +162,7 @@ public class DistributionZoneTimer {
         protected DistributionZoneTimer readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
             HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(in.readVarInt());
             int timeToWaitInSeconds = in.readVarIntAsInt();
-            Set<NodeWithAttributes> nodes = in.readCollection(new HashSet<>(), NodeWithAttributesSerializer.INSTANCE::readExternal);
+            Set<NodeWithAttributes> nodes = in.readCollection(HashSet::new, NodeWithAttributesSerializer.INSTANCE::readExternal);
 
             return new DistributionZoneTimer(timestamp, timeToWaitInSeconds, nodes);
         }
