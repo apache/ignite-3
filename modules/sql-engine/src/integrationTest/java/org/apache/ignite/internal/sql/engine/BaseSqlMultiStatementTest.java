@@ -81,7 +81,7 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     /** Initiates multi-statements query execution. */
-    AsyncSqlCursor<InternalSqlRow> runScript(String query, Object... params) {
+    protected AsyncSqlCursor<InternalSqlRow> runScript(String query, Object... params) {
         return runScript(null, null, query, params);
     }
 
@@ -103,11 +103,11 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
         return Objects.requireNonNull(cursor);
     }
 
-    List<AsyncSqlCursor<InternalSqlRow>> fetchAllCursors(AsyncSqlCursor<InternalSqlRow> cursor) {
+    protected List<AsyncSqlCursor<InternalSqlRow>> fetchAllCursors(AsyncSqlCursor<InternalSqlRow> cursor) {
         return fetchCursors(cursor, -1, false);
     }
 
-    List<AsyncSqlCursor<InternalSqlRow>> fetchCursors(AsyncSqlCursor<InternalSqlRow> cursor, int count, boolean close) {
+    protected List<AsyncSqlCursor<InternalSqlRow>> fetchCursors(AsyncSqlCursor<InternalSqlRow> cursor, int count, boolean close) {
         List<AsyncSqlCursor<InternalSqlRow>> cursors = new ArrayList<>();
 
         cursors.add(cursor);

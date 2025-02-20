@@ -53,7 +53,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.ItComputeSystemViewTest.InfiniteJob;
+import org.apache.ignite.internal.sql.engine.systemviews.ItComputeSystemViewTest.InfiniteJob;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
