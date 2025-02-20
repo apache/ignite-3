@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Partition enlistment together with partition group ID.
+ * Partition enlistment information together with partition group ID.
  */
 public class EnlistedPartitionGroup {
     private final ReplicationGroupId groupId;
