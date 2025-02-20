@@ -396,6 +396,7 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public String toString() {
+        // Keep the same as IgniteToStringBuilder.toString().
         StringBuilder b = new StringBuilder();
 
         b.append(Tuple.class.getSimpleName()).append(" [");

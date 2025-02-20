@@ -27,7 +27,7 @@ import org.apache.ignite.table.Tuple;
 /**
  * Client SQL row.
  */
-public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlRow {
+class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlRow {
     /** Meta. */
     private final ResultSetMetadata metadata;
 
@@ -98,22 +98,5 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
     @Override
     public ResultSetMetadata metadata() {
         return metadata;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        StringBuilder b = new StringBuilder();
-
-        b.append(SqlRow.class.getSimpleName()).append(" [");
-        for (int i = 0; i < columnCount(); i++) {
-            if (i > 0) {
-                b.append(", ");
-            }
-            b.append(columnName(i)).append('=').append((Object) value(i));
-        }
-        b.append(']');
-
-        return b.toString();
     }
 }

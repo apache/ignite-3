@@ -54,6 +54,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -2212,6 +2214,28 @@ public class IgniteToStringBuilder {
                 ref.pos = pos + hashLen;
             }
         }
+    }
+
+    /**
+     * Converts Tuple to string representation.
+     *
+     * @param tuple Tuple.
+     * @return String.
+     */
+    public static String tupleToString(Tuple tuple) {
+        // Keep the same as TupleImpl.toString().
+        StringBuilder b = new StringBuilder();
+
+        b.append(tuple.getClass().getSimpleName()).append(" [");
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(tuple.columnName(i)).append('=').append((Object) tuple.value(i));
+        }
+        b.append(']');
+
+        return b.toString();
     }
 
     /**
