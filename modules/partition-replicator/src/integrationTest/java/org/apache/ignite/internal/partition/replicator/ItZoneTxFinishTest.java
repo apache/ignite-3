@@ -55,6 +55,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+// TODO: remove after switching to per-zone partitions https://issues.apache.org/jira/browse/IGNITE-22522
 class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
     @ParameterizedTest(name = "commit={0}")
     @ValueSource(booleans = {false, true})
