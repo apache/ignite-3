@@ -888,6 +888,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
 
+            minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
+
             Function<RaftCommandRunner, ReplicaListener> createListener = raftClient -> createReplicaListener(
                     tablePartitionId,
                     table,
