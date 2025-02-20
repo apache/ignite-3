@@ -176,6 +176,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public CompletableFuture<Void> finish(
             boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
     ) {
+        assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
+
         if (finishFuture != null) {
             return finishFuture;
         }
