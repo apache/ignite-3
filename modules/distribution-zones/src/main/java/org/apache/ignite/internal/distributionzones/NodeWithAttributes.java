@@ -23,7 +23,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,7 +115,7 @@ public class NodeWithAttributes implements Comparable<NodeWithAttributes> {
     }
 
     @Override
-    public int compareTo(@NotNull NodeWithAttributes o) {
-        return node.nodeName().compareTo(o.node.nodeName());
+    public int compareTo(NodeWithAttributes o) {
+        return node.compareTo(o.node);
     }
 }

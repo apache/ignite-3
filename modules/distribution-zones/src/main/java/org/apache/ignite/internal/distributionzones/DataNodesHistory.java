@@ -20,7 +20,6 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.Collections.emptySet;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
