@@ -78,6 +78,10 @@ public final class CancelHandleHelper {
         addCancelAction(token, () -> completionFut.cancel(true), completionFut);
     }
 
+    public static boolean isCancelled(CancellationToken token) {
+        return unwrapToken(token).isCancelled();
+    }
+
     private static CancellationTokenImpl unwrapToken(CancellationToken token) {
         if (token instanceof CancellationTokenImpl) {
             return (CancellationTokenImpl) token;
