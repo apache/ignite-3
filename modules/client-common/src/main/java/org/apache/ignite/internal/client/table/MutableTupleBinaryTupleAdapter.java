@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
@@ -548,5 +549,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             default:
                 throw new IllegalStateException("Unsupported type: " + type);
         }
+    }
+
+    @Override
+    public String toString() {
+        return S.tupleToString(this);
     }
 }
