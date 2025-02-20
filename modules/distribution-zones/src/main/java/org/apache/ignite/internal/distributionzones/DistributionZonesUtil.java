@@ -83,18 +83,18 @@ public class DistributionZonesUtil {
     public static final String DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpTimer.";
 
     /** Key prefix for zone's scale up timer, in {@code byte[]} representation. */
-    public static final byte[] DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES =
+    private static final byte[] DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES =
             DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     /** Key prefix for zone's scale down timer. */
     public static final String DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownTimer.";
 
     /** Key prefix for zone's scale down timer, in {@code byte[]} representation. */
-    public static final byte[] DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES =
+    private static final byte[] DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES =
             DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     /** Key prefix for zone's partition reset timer. */
-    public static final String DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX
+    private static final String DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX
             + "partitionResetTimer.";
 
     /** Key prefix for zones' logical topology nodes and logical topology version. */
