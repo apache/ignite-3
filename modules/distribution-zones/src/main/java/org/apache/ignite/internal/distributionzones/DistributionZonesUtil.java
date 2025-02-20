@@ -76,7 +76,7 @@ public class DistributionZonesUtil {
     public static final String DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "history.";
 
     /** Key prefix for zone's data nodes history, in {@code byte[]} representation. */
-    public static final byte[] DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES =
+    private static final byte[] DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES =
             DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     /** Key prefix for zone's scale up timer. */
