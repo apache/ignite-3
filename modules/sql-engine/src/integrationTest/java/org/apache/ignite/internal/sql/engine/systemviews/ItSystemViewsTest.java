@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.systemviews;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEWS;
-import static org.apache.ignite.internal.sql.engine.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEW_COLUMNS;
+import static org.apache.ignite.internal.sql.engine.systemviews.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEWS;
+import static org.apache.ignite.internal.sql.engine.systemviews.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEW_COLUMNS;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;

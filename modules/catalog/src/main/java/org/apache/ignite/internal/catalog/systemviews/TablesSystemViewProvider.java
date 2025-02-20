@@ -94,7 +94,8 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                                     catalog.schema(table.schemaId()).name(),
                                     table.name(),
                                     table.id(),
-                                    columnDescriptor
+                                    columnDescriptor,
+                                    table.columnIndex(columnDescriptor.name())
                                     )
                             )
                     )
@@ -109,6 +110,7 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("TABLE_NAME", STRING, entry -> entry.tableName)
                 .addColumn("TABLE_ID", INT32, entry -> entry.tableId)
                 .addColumn("COLUMN_NAME", STRING, entry -> entry.descriptor.name())
+                .addColumn("COLUMN_ORDINAL", INT32, entry -> entry.columnOrdinal)
                 .addColumn("TYPE", STRING, entry -> entry.descriptor.type().name())
                 .addColumn("NULLABLE", BOOLEAN, entry -> entry.descriptor.nullable())
                 .addColumn("PREC", INT32, entry -> entry.descriptor.precision())
@@ -123,12 +125,20 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         private final String tableName;
         private final String schema;
         private final int tableId;
+        private final int columnOrdinal;
 
-        private ColumnWithTableId(String schema, String tableName, int tableId, CatalogTableColumnDescriptor descriptor) {
+        private ColumnWithTableId(
+                String schema,
+                String tableName,
+                int tableId,
+                CatalogTableColumnDescriptor descriptor,
+                int columnOrdinal
+        ) {
             this.schema = schema;
             this.tableName = tableName;
             this.descriptor = descriptor;
             this.tableId = tableId;
+            this.columnOrdinal = columnOrdinal;
         }
     }
 
