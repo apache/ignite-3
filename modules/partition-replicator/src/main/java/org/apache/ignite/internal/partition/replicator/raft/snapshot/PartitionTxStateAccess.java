@@ -20,8 +20,11 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Small abstractions for TX storages that includes only methods, mandatory for the snapshot storage.
@@ -49,6 +52,17 @@ public interface PartitionTxStateAccess {
 
     /** Returns the last applied term of this storage. */
     long lastAppliedTerm();
+
+    /**
+     * Returns committed RAFT group configuration corresponding to the write command with the highest applied index, {@code null} if it was
+     * never saved.
+     */
+    @Nullable RaftGroupConfiguration committedGroupConfiguration();
+
+    /**
+     * Returns the last saved lease information or {@code null} if it was never saved.
+     */
+    @Nullable LeaseInfo leaseInfo();
 
     /**
      * Prepares the TX storage for rebalance with the same guarantees and requirements as {@link PartitionMvStorageAccess#startRebalance}.
