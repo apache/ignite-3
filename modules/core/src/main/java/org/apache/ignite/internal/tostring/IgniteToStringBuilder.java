@@ -54,7 +54,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
