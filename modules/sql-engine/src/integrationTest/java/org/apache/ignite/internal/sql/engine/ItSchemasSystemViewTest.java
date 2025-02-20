@@ -47,7 +47,7 @@ public class ItSchemasSystemViewTest extends BaseSqlIntegrationTest {
                         new MetadataMatcher()
                                 .name("SCHEMA_NAME")
                                 .type(ColumnType.STRING)
-                                .precision(CatalogUtils.MAX_VARLEN_LENGTH)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
                                 .nullable(true)
                 )
                 .check();
