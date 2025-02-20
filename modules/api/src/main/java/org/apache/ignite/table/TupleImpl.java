@@ -399,12 +399,12 @@ class TupleImpl implements Tuple, Serializable {
         // Keep the same as IgniteToStringBuilder.toString().
         StringBuilder b = new StringBuilder();
 
-        b.append(Tuple.class.getSimpleName()).append(" [");
-        for (int i = 0; i < colNames.size(); i++) {
+        b.append(getClass().getSimpleName()).append(" [");
+        for (int i = 0; i < columnCount(); i++) {
             if (i > 0) {
                 b.append(", ");
             }
-            b.append(colNames.get(i)).append('=').append(colValues.get(i));
+            b.append(columnName(i)).append('=').append((Object) value(i));
         }
         b.append(']');
 

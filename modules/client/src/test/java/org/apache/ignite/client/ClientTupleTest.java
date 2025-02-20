@@ -321,6 +321,16 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                 tuple.toString());
     }
 
+    @Test
+    public void testToStringMatchesTupleImpl() {
+        Tuple clientTuple = getTuple();
+        Tuple tupleImpl = Tuple.copy(clientTuple);
+
+        assertEquals(
+                tupleImpl.toString().replace("TupleImpl ", ""),
+                clientTuple.toString().replace("ClientTuple ", ""));
+    }
+
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         return transformer.apply(getTuple());
