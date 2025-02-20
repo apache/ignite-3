@@ -27,7 +27,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Structure that represents node with the attributes and which we store in Meta Storage when we store logical topology.
- * Light-weighted version of the {@link LogicalNode}.
+ * Light-weighted version of the {@link LogicalNode}. This class has to be comparable because it is used into ordered collections,
+ * which are serialized and their byte representation is compared on equality.
  */
 public class NodeWithAttributes implements Comparable<NodeWithAttributes> {
     private final Node node;
