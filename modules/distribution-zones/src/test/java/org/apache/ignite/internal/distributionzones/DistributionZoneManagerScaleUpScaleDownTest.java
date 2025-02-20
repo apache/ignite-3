@@ -45,7 +45,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodeHistoryContext;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -228,7 +228,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
 
-        DataNodeHistoryContext context = dataNodeHistoryContext(metaStorageManager, zoneId);
+        DataNodesHistoryContext context = dataNodeHistoryContext(metaStorageManager, zoneId);
         assertTrue(context.scaleUpTimerPresent());
         assertTrue(context.scaleDownTimerPresent());
 
@@ -261,7 +261,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
 
-        DataNodeHistoryContext context = dataNodeHistoryContext(metaStorageManager, zoneId);
+        DataNodesHistoryContext context = dataNodeHistoryContext(metaStorageManager, zoneId);
         assertTrue(context.scaleUpTimerPresent());
         assertTrue(context.scaleDownTimerPresent());
 

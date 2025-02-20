@@ -395,13 +395,13 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Meta storage entries to {@link DataNodeHistoryContext}.
+     * Meta storage entries to {@link DataNodesHistoryContext}.
      *
      * @param entries Entries.
      * @return DataNodeHistoryContext.
      */
     @Nullable
-    public static DataNodeHistoryContext dataNodeHistoryContextFromValues(Collection<Entry> entries) {
+    public static DistributionZonesUtil.DataNodesHistoryContext dataNodeHistoryContextFromValues(Collection<Entry> entries) {
         DataNodesHistory dataNodesHistory = null;
         DistributionZoneTimer scaleUpTimer = null;
         DistributionZoneTimer scaleDownTimer = null;
@@ -424,7 +424,7 @@ public class DistributionZonesUtil {
             }
         }
 
-        return new DataNodeHistoryContext(dataNodesHistory, scaleUpTimer, scaleDownTimer);
+        return new DataNodesHistoryContext(dataNodesHistory, scaleUpTimer, scaleDownTimer);
     }
 
     /**
@@ -570,7 +570,7 @@ public class DistributionZonesUtil {
     /**
      * Class representing data nodes' related values in Meta Storage.
      */
-    public static class DataNodeHistoryContext {
+    public static class DataNodesHistoryContext {
         @Nullable
         private final DataNodesHistory dataNodesHistory;
 
@@ -580,7 +580,7 @@ public class DistributionZonesUtil {
         @Nullable
         private final DistributionZoneTimer scaleDownTimer;
 
-        DataNodeHistoryContext(
+        DataNodesHistoryContext(
                 @Nullable DataNodesHistory dataNodesHistory,
                 @Nullable DistributionZoneTimer scaleUpTimer,
                 @Nullable DistributionZoneTimer scaleDownTimer

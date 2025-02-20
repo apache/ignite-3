@@ -82,7 +82,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
-import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodeHistoryContext;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -311,13 +311,13 @@ public class DataNodesManager {
         return doOperation(
                 zoneDescriptor,
                 List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleUpTimerKey(zoneId), zoneScaleDownTimerKey(zoneId)),
-                dataNodeHistoryContext -> completedFuture(onTopologyChangeInternal(
+                dataNodesHistoryContext -> completedFuture(onTopologyChangeInternal(
                         zoneDescriptor,
                         revision,
                         timestamp,
                         newLogicalTopology,
                         oldLogicalTopology,
-                        dataNodeHistoryContext
+                        dataNodesHistoryContext
                 ))
         );
     }
@@ -329,15 +329,15 @@ public class DataNodesManager {
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> newLogicalTopology,
             Set<NodeWithAttributes> oldLogicalTopology,
-            @Nullable DataNodeHistoryContext dataNodeHistoryContext
+            @Nullable DistributionZonesUtil.DataNodesHistoryContext dataNodesHistoryContext
     ) {
-        if (dataNodeHistoryContext == null) {
+        if (dataNodesHistoryContext == null) {
             // This means that the zone was not initialized yet. The initial history entry with current topology will
             // be written on the zone init.
             return null;
         }
 
-        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
+        DataNodesHistory dataNodesHistory = dataNodesHistoryContext.dataNodesHistory();
 
         if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
             // This event was already processed by another node.
@@ -349,8 +349,8 @@ public class DataNodesManager {
         LOG.debug("Topology change detected [zoneId={}, timestamp={}, newTopology={}, oldTopology={}].", zoneId, timestamp,
                 nodeNames(newLogicalTopology), nodeNames(oldLogicalTopology));
 
-        DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
-        DistributionZoneTimer scaleDownTimer = dataNodeHistoryContext.scaleDownTimer();
+        DistributionZoneTimer scaleUpTimer = dataNodesHistoryContext.scaleUpTimer();
+        DistributionZoneTimer scaleDownTimer = dataNodesHistoryContext.scaleDownTimer();
 
         DataNodesHistoryEntry latestDataNodes = dataNodesHistory.dataNodesForTimestamp(timestamp);
 
@@ -513,11 +513,11 @@ public class DataNodesManager {
         return doOperation(
                 zoneDescriptor,
                 List.of(zoneDataNodesHistoryKey(zoneId)),
-                dataNodeHistoryContext -> completedFuture(onZoneFilterChangeInternal(
+                dataNodesHistoryContext -> completedFuture(onZoneFilterChangeInternal(
                         zoneDescriptor,
                         timestamp,
                         logicalTopology,
-                        dataNodeHistoryContext
+                        dataNodesHistoryContext
                 ))
         );
     }
@@ -527,11 +527,11 @@ public class DataNodesManager {
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> logicalTopology,
-            DataNodeHistoryContext dataNodeHistoryContext
+            DataNodesHistoryContext dataNodesHistoryContext
     ) {
-        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
+        assert dataNodesHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
 
-        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
+        DataNodesHistory dataNodesHistory = dataNodesHistoryContext.dataNodesHistory();
 
         if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
             return null;
@@ -587,12 +587,12 @@ public class DataNodesManager {
         return doOperation(
                 zoneDescriptor,
                 List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleUpTimerKey(zoneId), zoneScaleDownTimerKey(zoneId)),
-                dataNodeHistoryContext -> completedFuture(onAutoAdjustAlterationInternal(
+                dataNodesHistoryContext -> completedFuture(onAutoAdjustAlterationInternal(
                         zoneDescriptor,
                         timestamp,
                         oldAutoAdjustScaleUp,
                         oldAutoAdjustScaleDown,
-                        dataNodeHistoryContext
+                        dataNodesHistoryContext
                 ))
         );
     }
@@ -603,11 +603,11 @@ public class DataNodesManager {
             HybridTimestamp timestamp,
             int oldAutoAdjustScaleUp,
             int oldAutoAdjustScaleDown,
-            DataNodeHistoryContext dataNodeHistoryContext
+            DataNodesHistoryContext dataNodesHistoryContext
     ) {
-        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
+        assert dataNodesHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
 
-        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
+        DataNodesHistory dataNodesHistory = dataNodesHistoryContext.dataNodesHistory();
 
         if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
             return null;
@@ -619,8 +619,8 @@ public class DataNodesManager {
                         + ", oldAutoAdjustScaleDown={}, descriptor={}].",
                 zoneId, timestamp, oldAutoAdjustScaleUp, oldAutoAdjustScaleDown, zoneDescriptor);
 
-        DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
-        DistributionZoneTimer scaleDownTimer = dataNodeHistoryContext.scaleDownTimer();
+        DistributionZoneTimer scaleUpTimer = dataNodesHistoryContext.scaleUpTimer();
+        DistributionZoneTimer scaleDownTimer = dataNodesHistoryContext.scaleDownTimer();
 
         DistributionZoneTimer modifiedScaleUpTimer = scaleUpTimer
                 .modifyTimeToWait(zoneDescriptor.dataNodesAutoAdjustScaleUp());
@@ -695,7 +695,7 @@ public class DataNodesManager {
         return () -> doOperation(
                 zoneDescriptor,
                 List.of(zoneDataNodesHistoryKey(zoneId), scheduledTimer.metaStorageKey()),
-                dataNodeHistoryContext -> applyTimerClosure0(zoneDescriptor, scheduledTimer, dataNodeHistoryContext)
+                dataNodesHistoryContext -> applyTimerClosure0(zoneDescriptor, scheduledTimer, dataNodesHistoryContext)
         );
     }
 
@@ -703,16 +703,16 @@ public class DataNodesManager {
     private CompletableFuture<DataNodesHistoryMetaStorageOperation> applyTimerClosure0(
             CatalogZoneDescriptor zoneDescriptor,
             ScheduledTimer scheduledTimer,
-            DataNodeHistoryContext dataNodeHistoryContext
+            DataNodesHistoryContext dataNodesHistoryContext
     ) {
-        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
+        assert dataNodesHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
 
-        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
+        DataNodesHistory dataNodesHistory = dataNodesHistoryContext.dataNodesHistory();
 
-        DistributionZoneTimer timer = scheduledTimer.timerFromContext(dataNodeHistoryContext);
+        DistributionZoneTimer timer = scheduledTimer.timerFromContext(dataNodesHistoryContext);
 
         if (timer.equals(DEFAULT_TIMER)) {
-            return null;
+            return nullCompletedFuture();
         }
 
         int zoneId = zoneDescriptor.id();
@@ -722,19 +722,19 @@ public class DataNodesManager {
         HybridTimestamp timeToTrigger = timer.timeToTrigger();
 
         if (dataNodesHistory.entryIsPresentAtExactTimestamp(timeToTrigger)) {
-            return null;
+            return nullCompletedFuture();
         }
 
         long currentDelay = delayInSeconds(timeToTrigger);
 
         if (currentDelay < 0) {
-            return null;
+            return nullCompletedFuture();
         }
 
         if (currentDelay > 1) {
             scheduledTimer.reschedule(currentDelay, applyTimerClosure(zoneDescriptor, scheduledTimer));
 
-            return null;
+            return nullCompletedFuture();
         }
 
         Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = scheduledTimer
@@ -1000,12 +1000,12 @@ public class DataNodesManager {
         return metaStorageManager.get(key).thenApply(e -> deserializeEntry(e, deserializer));
     }
 
-    private CompletableFuture<DataNodeHistoryContext> getDataNodeHistoryContextMs(List<ByteArray> keys) {
+    private CompletableFuture<DataNodesHistoryContext> getDataNodeHistoryContextMs(List<ByteArray> keys) {
         return metaStorageManager.getAll(new HashSet<>(keys))
                 .thenApply(entries -> dataNodeHistoryContextFromValues(entries.values()));
     }
 
-    private CompletableFuture<DataNodeHistoryContext> getDataNodeHistoryContextMsLocally(List<ByteArray> keys) {
+    private CompletableFuture<DataNodesHistoryContext> getDataNodeHistoryContextMsLocally(List<ByteArray> keys) {
         List<Entry> entries = metaStorageManager.getAllLocally(keys);
 
         return completedFuture(dataNodeHistoryContextFromValues(entries));
@@ -1024,14 +1024,14 @@ public class DataNodesManager {
      * Perform a meta storage operation for changing data nodes history and timers. Uses {@link #msInvokeWithRetry} for retries.
      *
      * @param zone Zone descriptor.
-     * @param keysToRead Keys to read from meta storage, to get {@link DataNodeHistoryContext}.
+     * @param keysToRead Keys to read from meta storage, to get {@link DataNodesHistoryContext}.
      * @param operation Operation.
      * @return Future reflecting the completion of meta storage operation.
      */
     private CompletableFuture<Void> doOperation(
             CatalogZoneDescriptor zone,
             List<ByteArray> keysToRead,
-            Function<DataNodeHistoryContext, CompletableFuture<DataNodesHistoryMetaStorageOperation>> operation
+            Function<DataNodesHistoryContext, CompletableFuture<DataNodesHistoryMetaStorageOperation>> operation
     ) {
         return msInvokeWithRetry(msGetter -> msGetter.get(keysToRead).thenCompose(operation), zone);
     }
@@ -1405,7 +1405,7 @@ public class DataNodesManager {
     @FunctionalInterface
     private interface DataNodeHistoryContextMetaStorageGetter {
         /** The future may contain {@code null} result. */
-        CompletableFuture<DataNodeHistoryContext> get(List<ByteArray> keys);
+        CompletableFuture<DataNodesHistoryContext> get(List<ByteArray> keys);
     }
 
     /**
@@ -1423,7 +1423,7 @@ public class DataNodesManager {
 
         ByteArray metaStorageKey();
 
-        DistributionZoneTimer timerFromContext(DataNodeHistoryContext context);
+        DistributionZoneTimer timerFromContext(DataNodesHistoryContext context);
 
         void reschedule(long delayInSeconds, Runnable runnable);
 
@@ -1471,7 +1471,7 @@ public class DataNodesManager {
         }
 
         @Override
-        public DistributionZoneTimer timerFromContext(DataNodeHistoryContext context) {
+        public DistributionZoneTimer timerFromContext(DataNodesHistoryContext context) {
             return context.scaleUpTimer();
         }
 
@@ -1534,7 +1534,7 @@ public class DataNodesManager {
         }
 
         @Override
-        public DistributionZoneTimer timerFromContext(DataNodeHistoryContext context) {
+        public DistributionZoneTimer timerFromContext(DataNodesHistoryContext context) {
             return context.scaleDownTimer();
         }
 

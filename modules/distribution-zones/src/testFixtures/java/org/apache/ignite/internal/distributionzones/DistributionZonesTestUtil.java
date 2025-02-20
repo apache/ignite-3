@@ -61,7 +61,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
-import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodeHistoryContext;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -616,13 +616,13 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Get {@link DataNodeHistoryContext} from meta storage.
+     * Get {@link DataNodesHistoryContext} from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
      * @param zoneId Zone id.
      * @return Data node history context.
      */
-    public static DataNodeHistoryContext dataNodeHistoryContext(MetaStorageManager metaStorageManager, int zoneId) {
+    public static DataNodesHistoryContext dataNodeHistoryContext(MetaStorageManager metaStorageManager, int zoneId) {
         CompletableFuture<Map<ByteArray, Entry>> fut = metaStorageManager.getAll(Set.of(
                 zoneDataNodesHistoryKey(zoneId),
                 zoneScaleUpTimerKey(zoneId),
