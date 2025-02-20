@@ -39,7 +39,6 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * KeyValueView operations tests within colocation track.
@@ -49,11 +48,11 @@ public class ItKeyValueViewOperationsTest extends ItAbstractColocationTest {
     private Node node;
 
     @Test
-    public void testKvOperations(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    public void testKvOperations() throws Exception {
+        startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
 
         node = getNode(replicaAssignment.consistentId());
 
