@@ -303,7 +303,7 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         // Before mutation.
         assertEquals(
                 "ClientTuple [I8=1, \"i16\"=2, I32=3, \"i64\"=4, FLOAT=5.5, DOUBLE=6.6, "
-                        + "UUID=" + UUID_VALUE + ", STR=\uD83D\uDD25 Ignite, DATE=2025-02-20, "
+                        + "UUID=" + UUID_VALUE + ", STR=" + STRING_VALUE + ", DATE=" + DATE_VALUE + ", "
                         + "TIME=" + TIME_VALUE + ", DATETIME=" + DATETIME_VALUE + ", "
                         + "TIMESTAMP=" + TIMESTAMP_VALUE + ", BOOL=true, DECIMAL=1.234, "
                         + "BYTES=, PERIOD=P16D, DURATION=PT408H]",
@@ -314,7 +314,7 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
 
         assertEquals(
                 "ClientTuple [I8=2, \"i16\"=2, I32=3, \"i64\"=4, FLOAT=5.5, DOUBLE=6.6, "
-                        + "UUID=" + UUID_VALUE + ", STR=\uD83D\uDD25 Ignite, DATE=2025-02-20, "
+                        + "UUID=" + UUID_VALUE + ", STR=" + STRING_VALUE + ", DATE=" + DATE_VALUE + ", "
                         + "TIME=" + TIME_VALUE + ", DATETIME=" + DATETIME_VALUE + ", "
                         + "TIMESTAMP=" + TIMESTAMP_VALUE + ", BOOL=true, DECIMAL=1.234, "
                         + "BYTES=null, PERIOD=P16D, DURATION=PT408H]",
