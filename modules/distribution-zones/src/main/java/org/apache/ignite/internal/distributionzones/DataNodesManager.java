@@ -1037,10 +1037,13 @@ public class DataNodesManager {
     }
 
     private CompletableFuture<Void> msInvokeWithRetry(
-            Function<DataNodeHistoryContextMetaStorageGetter, CompletableFuture<DataNodesHistoryMetaStorageOperation>> iifSupplier,
+            Function<
+                    DataNodeHistoryContextMetaStorageGetter,
+                    CompletableFuture<DataNodesHistoryMetaStorageOperation>
+            > metaStorageOperationSupplier,
             CatalogZoneDescriptor zone
     ) {
-        return msInvokeWithRetry(iifSupplier, MAX_ATTEMPTS_ON_RETRY, zone);
+        return msInvokeWithRetry(metaStorageOperationSupplier, MAX_ATTEMPTS_ON_RETRY, zone);
     }
 
     /**
@@ -1078,27 +1081,23 @@ public class DataNodesManager {
                     if (metaStorageOperation == null) {
                         return nullCompletedFuture();
                     } else {
-                        return metaStorageManager.invoke(metaStorageOperation.metaStorageIif());
-                    }
-                })
-                .handle((v, e) -> {
-                    if (e == null) {
-                        if (v == null) {
-                            return null;
-                        } else if (v.getAsBoolean()) {
-                            LOG.info(metaStorageOperationFuture.join().logMessageOnSuccess());
+                        return metaStorageManager.invoke(metaStorageOperation.metaStorageIif())
+                                .thenCompose(result -> {
+                                    if (result.getAsBoolean()) {
+                                        LOG.info(metaStorageOperation.logMessageOnSuccess());
 
-                            return null;
-                        } else {
-                            return msInvokeWithRetry(metaStorageOperationSupplier, attemptsLeft - 1, zone);
-                        }
-                    } else {
-                        LOG.error(metaStorageOperationFuture.join().logMessageOnFailure(), e);
-
-                        return null;
+                                        return nullCompletedFuture();
+                                    } else {
+                                        return msInvokeWithRetry(metaStorageOperationSupplier, attemptsLeft - 1, zone);
+                                    }
+                                })
+                                .whenComplete((v, e) -> {
+                                    if (e != null) {
+                                        LOG.error(metaStorageOperation.logMessageOnFailure(), e);
+                                    }
+                                });
                     }
-                })
-                .thenApply(c -> null);
+                });
     }
 
     /**

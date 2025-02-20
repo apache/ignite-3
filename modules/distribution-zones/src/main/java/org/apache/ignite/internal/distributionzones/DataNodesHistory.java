@@ -26,6 +26,7 @@ import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -127,7 +128,7 @@ public class DataNodesHistory {
             out.writeMap(
                     object.history,
                     (k, out0) -> out0.writeLong(k.longValue()),
-                    (v, out0) -> out0.writeCollection(v, NodeWithAttributesSerializer.INSTANCE::writeExternal)
+                    (v, out0) -> out0.writeCollection(new TreeSet<>(v), NodeWithAttributesSerializer.INSTANCE::writeExternal)
             );
         }
 
@@ -137,7 +138,7 @@ public class DataNodesHistory {
                     unused -> new TreeMap<>(),
                     in0 -> HybridTimestamp.hybridTimestamp(in0.readLong()),
                     in0 -> in0.readCollection(
-                            HashSet::new,
+                            unused -> new TreeSet<>(),
                             NodeWithAttributesSerializer.INSTANCE::readExternal
                     )
             );

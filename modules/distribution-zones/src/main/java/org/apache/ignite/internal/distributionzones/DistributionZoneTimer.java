@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -155,14 +156,17 @@ public class DistributionZoneTimer {
         protected void writeExternalData(DistributionZoneTimer object, IgniteDataOutput out) throws IOException {
             out.writeVarInt(object.createTimestamp.longValue());
             out.writeVarInt(object.timeToWaitInSeconds);
-            out.writeCollection(object.nodes, NodeWithAttributesSerializer.INSTANCE::writeExternal);
+            out.writeCollection(new TreeSet<>(object.nodes), NodeWithAttributesSerializer.INSTANCE::writeExternal);
         }
 
         @Override
         protected DistributionZoneTimer readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
             HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(in.readVarInt());
             int timeToWaitInSeconds = in.readVarIntAsInt();
-            Set<NodeWithAttributes> nodes = in.readCollection(HashSet::new, NodeWithAttributesSerializer.INSTANCE::readExternal);
+            Set<NodeWithAttributes> nodes = in.readCollection(
+                    unused -> new TreeSet<>(),
+                    NodeWithAttributesSerializer.INSTANCE::readExternal
+            );
 
             return new DistributionZoneTimer(timestamp, timeToWaitInSeconds, nodes);
         }
