@@ -45,6 +45,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * RAFT listener for the zone partition.
@@ -168,6 +170,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             } else if (command instanceof PrimaryReplicaChangeCommand) {
                 // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
                 // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
+                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
+            } else if (command instanceof SafeTimeSyncCommand) {
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else if (command instanceof TableAwareCommand) {
                 TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
@@ -326,5 +330,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
         }
+    }
+
+    @TestOnly
+    public HybridTimestamp currentSafeTime() {
+        return safeTimeTracker.current();
     }
 }

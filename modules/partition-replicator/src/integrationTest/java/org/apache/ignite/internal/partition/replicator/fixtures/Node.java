@@ -85,6 +85,7 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -169,6 +170,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -852,6 +854,10 @@ public class Node {
 
     public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
+    }
+
+    public HybridTimestamp currentSafeTimeForZonePartition(int zoneId, int partId) {
+        return partitionReplicaLifecycleManager.currentSafeTimeForZonePartition(zoneId, partId);
     }
 
     public DataStorageManager dataStorageManager() {
