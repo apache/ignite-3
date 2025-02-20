@@ -54,7 +54,7 @@ import org.junit.jupiter.api.Timeout;
  * Tests catalog compaction for colocation track.
  */
 @Timeout(60)
-public class ItCatalogCompactionTestIt extends ItAbstractColocationTest {
+public class ItCatalogCompactionTest extends ItAbstractColocationTest {
     /**
      * Tests catalog compaction.
      *
