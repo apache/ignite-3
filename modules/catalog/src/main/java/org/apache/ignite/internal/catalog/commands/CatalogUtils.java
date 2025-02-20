@@ -148,7 +148,7 @@ public class CatalogUtils {
     /**
      * Maximum length for VARCHAR and VARBINARY types.
      */
-    public static final int MAX_VARLEN_LENGTH = 2 << 15;
+    public static final int MAX_VARLEN_LENGTH = Integer.MAX_VALUE;
 
     /**
      * Minimum length for VARCHAR and VARBINARY types.

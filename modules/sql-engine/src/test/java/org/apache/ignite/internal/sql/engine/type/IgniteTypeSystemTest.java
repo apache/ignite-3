@@ -42,7 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
 
     private static final int TIME_PRECISION = 9;
-    private static final int STRING_PRECISION = 65536;
+    private static final int STRING_PRECISION = Integer.MAX_VALUE;
     private static final int DECIMAL_PRECISION = 32767;
     private static final int DECIMAL_SCALE = 32767;
     private static final int TIMESTAMP_DEFAULT_PRECISION = 6;
