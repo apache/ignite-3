@@ -50,11 +50,6 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public Transaction begin(@Nullable TransactionOptions options) {
-        if (options != null && options.timeoutMillis() != 0 && !options.readOnly()) {
-            // TODO: IGNITE-15936.
-            throw new UnsupportedOperationException("Timeouts are not supported yet for RW transactions.");
-        }
-
         InternalTxOptions internalTxOptions = options == null
                 ? InternalTxOptions.defaults()
                 : InternalTxOptions.builder()
