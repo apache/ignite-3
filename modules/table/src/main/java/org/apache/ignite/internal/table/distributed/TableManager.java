@@ -171,7 +171,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -1322,20 +1321,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             indexMetaStorage,
                             topologyService.localMember().id(),
                             minTimeCollectorService
-                    ) {
-                        @Override
-                        public void onConfigurationCommitted(
-                                RaftGroupConfiguration config,
-                                long lastAppliedIndex,
-                                long lastAppliedTerm
-                        ) {
-                            // Disable this method if the Colocation feature is enabled, actual configuration will be propagated
-                            // manually by the Zone Raft Listener.
-                            if (!enabledColocationFeature) {
-                                super.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm);
-                            }
-                        }
-                    };
+                    );
 
                     minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
