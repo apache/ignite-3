@@ -646,9 +646,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             processAssignmentsOnRecovery(recoveryRevision);
 
-            metaStorageMgr.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES), pendingAssignmentsRebalanceListener);
-            metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
-            metaStorageMgr.registerPrefixWatch(new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES), assignmentsSwitchRebalanceListener);
+            if (!enabledColocationFeature) {
+                metaStorageMgr.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES), pendingAssignmentsRebalanceListener);
+                metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
+                metaStorageMgr.registerPrefixWatch(
+                        new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES),
+                        assignmentsSwitchRebalanceListener
+                );
+            }
 
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> onTableCreate((CreateTableEventParameters) parameters));
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters ->
@@ -1243,6 +1248,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean isRecovery,
             long assignmentsTimestamp
     ) {
+        if (enabledColocationFeature) {
+            return nullCompletedFuture();
+        }
+
         int tableId = table.tableId();
 
         var internalTbl = (InternalTableImpl) table.internalTable();
@@ -1545,9 +1554,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         busyLock.block();
 
-        metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
-        metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
-        metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
+        if (!enabledColocationFeature) {
+            metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
+            metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
+            metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
+        }
 
         cleanUpTablesResources(tables);
     }

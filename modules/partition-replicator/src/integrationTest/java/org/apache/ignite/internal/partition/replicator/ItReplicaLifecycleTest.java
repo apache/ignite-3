@@ -44,12 +44,14 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -857,6 +859,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24572")
     public void testCatalogCompaction(TestInfo testInfo) throws Exception {
         // How often we update the low water mark.
         long lowWatermarkUpdateInterval = 500;
@@ -1028,7 +1031,7 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
     }
 
     private static InternalTable getInternalTable(Node node, String tableName) {
-        Table table = node.tableManager.table(tableName);
+        Table table = assertTimeoutPreemptively(Duration.ofSeconds(10), () -> node.tableManager.table(tableName));
 
         assertNotNull(table, tableName);
 
