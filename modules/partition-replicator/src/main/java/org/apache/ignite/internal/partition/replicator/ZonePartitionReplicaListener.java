@@ -58,6 +58,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
+    // tableId -> tableProcessor.
     private final Map<Integer, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
     /** Raft client. */
