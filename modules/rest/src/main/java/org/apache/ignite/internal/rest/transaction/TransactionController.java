@@ -78,7 +78,6 @@ public class TransactionController implements TransactionApi, ResourceHolder {
 
     @Override
     public CompletableFuture<Void> cancelTransaction(UUID transactionId) {
-        // ToDo transaction cancelation is not implemented yet in KillHandlerRegistry https://issues.apache.org/jira/browse/IGNITE-24296
         try {
             return killHandlerRegistry.handler(CancellableOperationType.TRANSACTION).cancelAsync(transactionId.toString())
                     .thenApply(result -> handleOperationResult(transactionId, result));

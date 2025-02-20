@@ -44,7 +44,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -131,7 +130,6 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24296")
     void shouldReturnProblemIfCancelNonExistingTransaction() {
         UUID transactionId = UUID.randomUUID();
 
@@ -139,6 +137,34 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
                 () -> cancelTransaction(client, transactionId),
                 NOT_FOUND,
                 isProblem().withDetail("Transaction not found [transactionId=" + transactionId + "]")
+        );
+    }
+
+    @Test
+    void shouldCancelTransaction() {
+        Transaction roTx = node(0).transactions().begin(new TransactionOptions().readOnly(true));
+        Transaction rwTx = node(0).transactions().begin(new TransactionOptions().readOnly(false));
+
+        TransactionInfo roTransactionInfo = getTransaction(client, ((InternalTransaction) roTx).id());
+        assertThat(roTransactionInfo, notNullValue());
+
+        cancelTransaction(client, roTransactionInfo.id());
+
+        assertThrowsProblem(
+                () -> getTransaction(client, roTransactionInfo.id()),
+                NOT_FOUND,
+                isProblem().withDetail("Transaction not found [transactionId=" + roTransactionInfo.id() + "]")
+        );
+
+        TransactionInfo rwTransactionInfo = getTransaction(client, ((InternalTransaction) rwTx).id());
+        assertThat(rwTransactionInfo, notNullValue());
+
+        cancelTransaction(client, rwTransactionInfo.id());
+
+        assertThrowsProblem(
+                () -> getTransaction(client, rwTransactionInfo.id()),
+                NOT_FOUND,
+                isProblem().withDetail("Transaction not found [transactionId=" + rwTransactionInfo.id() + "]")
         );
     }
 
