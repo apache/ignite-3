@@ -260,9 +260,11 @@ public class TestCluster {
                 ));
             }
 
-            NodeManager nodeManager = new NodeManager();
-
             ClusterService clusterService = clusterService(testInfo, peer.getPort(), new StaticNodeFinder(addressList));
+            NodeManager nodeManager = new NodeManager(clusterService);
+
+            nodeOptions.setScheduler(JRaftUtils.createScheduler(nodeOptions));
+            nodeOptions.setNodeManager(nodeManager);
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
@@ -272,16 +274,19 @@ public class TestCluster {
 
             ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
-            var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
+            var rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
 
             assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+            nodeManager.init(nodeOptions);
 
             if (optsClo != null)
                 optsClo.accept(peer.getPeerId(), nodeOptions);
 
             RaftGroupService server = new RaftGroupService(this.name, peer.getPeerId(),
-                nodeOptions, rpcServer, nodeManager) {
+                nodeOptions, rpcServer) {
                 @Override public synchronized void shutdown() {
+                    nodeManager.shutdown();
                     // This stop order is consistent with JRaftServerImpl
                     rpcServer.shutdown();
 

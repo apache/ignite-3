@@ -245,4 +245,14 @@ public final class RpcRequests {
 
         boolean success();
     }
+
+    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.COALESCED_HEARTBEAT_REQUEST)
+    public interface CoalescedHeartbeatRequest extends Message {
+        Collection<AppendEntriesRequest> messages();
+    }
+
+    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.COALESCED_HEARTBEAT_RESPONSE)
+    public interface CoalescedHeartbeatResponse extends Message {
+        Collection<Message> messages();
+    }
 }

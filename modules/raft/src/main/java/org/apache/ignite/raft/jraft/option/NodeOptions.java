@@ -17,16 +17,16 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
-import org.apache.ignite.raft.jraft.Node;import org.apache.ignite.raft.jraft.StateMachine;
+import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
@@ -43,7 +43,8 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
-import org.apache.ignite.raft.jraft.util.timer.Timer;import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.raft.jraft.util.timer.Timer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Node options.
@@ -273,6 +274,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     private RaftMetricSource raftMetrics;
 
+    /** Node manager. */
+    private NodeManager nodeManager;
+
     /**
      * Externally enforced config index.
      *
@@ -307,6 +311,24 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setRaftMetrics(RaftMetricSource raftMetrics) {
         this.raftMetrics = raftMetrics;
+    }
+
+    /**
+     * Gets a node manager.
+     *
+     * @return Node manager.
+     */
+    public NodeManager getNodeManager() {
+        return nodeManager;
+    }
+
+    /**
+     * Sets a node manager.
+     *
+     * @param nodeManager Node manager.
+     */
+    public void setNodeManager(NodeManager nodeManager) {
+        this.nodeManager = nodeManager;
     }
 
     /**
@@ -738,6 +760,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setStripes(this.getStripes());
         nodeOptions.setLogStripesCount(this.getLogStripesCount());
         nodeOptions.setLogYieldStrategy(this.isLogYieldStrategy());
+        nodeOptions.setNodeManager(this.getNodeManager());
 
         return nodeOptions;
     }

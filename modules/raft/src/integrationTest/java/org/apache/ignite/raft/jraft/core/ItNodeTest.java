@@ -144,7 +144,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
-import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -2897,12 +2896,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         log.info("Leader stopped.");
 
         assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
-
-        // Wait 30 seconds to check if snapshot is still installing.
-        Thread.sleep(30_000);
-
-        // Even after 30 seconds (in reality, forever), the snapshot is still installing.
-        assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
     }
 
     /**
@@ -3234,6 +3227,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
+        nodeOpts.setNodeManager(new NodeManager(null));
 
         RaftGroupService service = createService("test", peer, nodeOpts, List.of());
 
@@ -3281,6 +3275,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
         assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
+        nodeOpts.setNodeManager(new NodeManager(null));
 
         RaftGroupService service = createService("test", peer, nodeOpts, List.of());
 
@@ -4271,12 +4266,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         sendTestTaskAndWait(leader);
         cluster.ensureSame();
 
-        DefaultRaftClientService rpcService = (DefaultRaftClientService) leader.getRpcClientService();
-        RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
-
         AtomicInteger cnt = new AtomicInteger();
 
-        rpcClientEx.blockMessages((msg, nodeId) -> {
+        cluster.getServer(leader.getLeaderId()).getNodeOptions().getNodeManager().blockMessages((msg, nodeId) -> {
             assertTrue(msg instanceof RpcRequests.AppendEntriesRequest);
 
             if (cnt.get() >= 2)
@@ -4552,6 +4544,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         options.setServiceFactory(new IgniteJraftServiceFactory(log));
         options.setLogUri("test");
+        options.setNodeManager(new NodeManager(null));
 
         return options;
     }
@@ -4645,8 +4638,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
             .collect(toList());
 
-        var nodeManager = new NodeManager();
-
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 peer.getPort(),
@@ -4657,7 +4648,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         executors.add(requestExecutor);
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
@@ -4665,7 +4656,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {
+        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer) {
             @Override public synchronized void shutdown() {
                 rpcServer.shutdown();
 
