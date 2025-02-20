@@ -30,6 +30,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.ReplicaSafeTimeSyncRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
@@ -71,6 +72,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
     private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
+    private final ReplicaSafeTimeSyncRequestHandler replicaSafeTimeSyncRequestHandler;
 
     /**
      * The constructor.
@@ -109,6 +111,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 raftCommandApplicator);
 
         vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
+
+        replicaSafeTimeSyncRequestHandler = new ReplicaSafeTimeSyncRequestHandler(clockService, raftCommandApplicator);
     }
 
     @Override
@@ -209,7 +213,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            LOG.debug("Non table request is not supported by the zone partition yet " + request);
+            // return replicaSafeTimeSyncRequestHandler.handle((ReplicaSafeTimeSyncRequest) request);
         } else {
             LOG.warn("Non table request is not supported by the zone partition yet " + request);
         }

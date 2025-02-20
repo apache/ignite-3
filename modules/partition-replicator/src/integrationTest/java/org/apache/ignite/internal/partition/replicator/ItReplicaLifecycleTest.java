@@ -58,11 +58,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -654,6 +658,41 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         // Commit the open transaction.
         assertDoesNotThrow(tx::commit);
+    }
+
+    @Test
+    public void testReplicaSafeTimeSyncRequest() throws Exception {
+        // Prepare a single node cluster.
+        startCluster(2);
+        Node node0 = getNode(0);
+        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
+                cluster.stream().map(n -> n.name).collect(toList()), 1, 1);
+
+        List<TokenizedAssignments> tokenizedAssignments = assignments.stream()
+                .map(a -> new TokenizedAssignmentsImpl(a, Integer.MIN_VALUE))
+                .collect(toList());
+
+        placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
+        placementDriver.setAssignments(tokenizedAssignments);
+
+        // Prepare a zone.
+        String zoneName = "test_zone";
+        createZone(node0, zoneName, 1, 2);
+        int zoneId = DistributionZonesTestUtil.getZoneId(node0.catalogManager, zoneName, node0.hybridClock.nowLong());
+        int partId = 0;
+
+        // Create a table to work with.
+        createTable(node0, zoneName, "test_table");
+
+        HybridTimestamp node0safeTimeBefore = node0.currentSafeTimeForZonePartition(zoneId, partId);
+        Node node1 = getNode(1);
+        HybridTimestamp node1safeTimeBefore = node1.currentSafeTimeForZonePartition(zoneId, partId);
+
+        waitForCondition(
+                () -> node0safeTimeBefore.compareTo(node0.currentSafeTimeForZonePartition(zoneId, partId)) < 0
+                    && node1safeTimeBefore.compareTo(node1.currentSafeTimeForZonePartition(zoneId, partId)) < 0,
+                idleSafeTimePropagationDuration() * 2
+        );
     }
 
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {

@@ -1444,4 +1444,11 @@ public class PartitionReplicaLifecycleManager extends
     public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         return requireNonNull(zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId));
     }
+
+    @TestOnly
+    public HybridTimestamp currentSafeTimeForZonePartition(int zoneId, int partId) {
+        return requireNonNull(zoneResourcesManager.getZonePartitionResources(new ZonePartitionId(zoneId, partId)))
+                .raftListener()
+                .currentSafeTime();
+    }
 }

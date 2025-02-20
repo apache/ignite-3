@@ -306,4 +306,8 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
             assertThat(primaryReplicaChangeFuture, willCompleteSuccessfully());
         }
     }
+
+    long idleSafeTimePropagationDuration() {
+        return replicationConfiguration.idleSafeTimePropagationDuration().value();
+    }
 }
