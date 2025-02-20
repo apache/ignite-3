@@ -45,7 +45,6 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.KeyValueView;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -61,7 +60,6 @@ public class ItCatalogCompactionTest extends ItAbstractColocationTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24558")
     public void testCatalogCompaction() throws Exception {
         // How often we update the low water mark.
         long lowWatermarkUpdateInterval = 500;
@@ -81,7 +79,7 @@ public class ItCatalogCompactionTest extends ItAbstractColocationTest {
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
         placementDriver.setAssignments(tokenizedAssignments);
 
-        forceCheckpoint(node);
+        forceCheckpoint(node, "initial-checkpoint");
 
         String zoneName = "test-zone";
         createZone(node, zoneName, 1, 1);
@@ -102,8 +100,6 @@ public class ItCatalogCompactionTest extends ItAbstractColocationTest {
         Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
         assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
 
-        forceCheckpoint(node);
-
         int catalogVersion2 = getLatestCatalogVersion(node);
         assertThat("The catalog version did not changed [initial=" + catalogVersion1 + ", latest=" + catalogVersion2 + "].",
                 catalogVersion2, greaterThan(catalogVersion1));
@@ -112,7 +108,11 @@ public class ItCatalogCompactionTest extends ItAbstractColocationTest {
     }
 
     private static void expectEarliestCatalogVersion(Node node, int expectedVersion) throws Exception {
-        boolean result = waitForCondition(() -> getEarliestCatalogVersion(node) == expectedVersion, 10_000);
+        boolean result = waitForCondition(() -> {
+            forceCheckpoint(node, "force-checkpoint");
+
+            return getEarliestCatalogVersion(node) == expectedVersion;
+        }, 500, 10_000);
 
         assertTrue(result,
                 "Failed to wait for the expected catalog version [expected=" + expectedVersion
@@ -155,12 +155,12 @@ public class ItCatalogCompactionTest extends ItAbstractColocationTest {
      *
      * @param node Node to start the checkpoint on.
      */
-    private void forceCheckpoint(Node node) {
+    private static void forceCheckpoint(Node node, String reason) {
         PersistentPageMemoryStorageEngine storageEngine = (PersistentPageMemoryStorageEngine) node
                 .dataStorageManager()
                 .engineByStorageProfile(DEFAULT_STORAGE_PROFILE);
 
-        assertThat(storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED),
+        assertThat(storageEngine.checkpointManager().forceCheckpoint(reason).futureFor(FINISHED),
                 willSucceedIn(10, SECONDS));
     }
 
