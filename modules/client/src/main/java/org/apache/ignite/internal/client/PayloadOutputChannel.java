@@ -29,15 +29,20 @@ public class PayloadOutputChannel implements AutoCloseable {
     /** Output stream. */
     private final ClientMessagePacker out;
 
+    /** Client request ID. */
+    private final long requestId;
+
     /**
      * Constructor.
      *
      * @param ch  Channel.
      * @param out Packer.
+     * @param requestId Request ID.
      */
-    PayloadOutputChannel(ClientChannel ch, ClientMessagePacker out) {
+    PayloadOutputChannel(ClientChannel ch, ClientMessagePacker out, long requestId) {
         this.ch = ch;
         this.out = out;
+        this.requestId = requestId;
     }
 
     /**
@@ -56,6 +61,15 @@ public class PayloadOutputChannel implements AutoCloseable {
      */
     public ClientMessagePacker out() {
         return out;
+    }
+
+    /**
+     * Gets client request ID.
+     *
+     * @return Client request ID.
+     */
+    public long requestId() {
+        return requestId;
     }
 
     /** {@inheritDoc} */

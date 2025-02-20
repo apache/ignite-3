@@ -186,6 +186,9 @@ public class ClientOp {
     /** Execute partitioned compute job. */
     public static final int COMPUTE_EXECUTE_PARTITIONED = 69;
 
+    /** Cancel execution of a SQL query previously initiated on the same connection. */
+    public static final int SQL_CANCEL_EXEC = 70;
+
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -108,6 +107,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Test
+    @Override
     public void cancelQueryString() throws InterruptedException {
         IgniteSql sql = igniteSql();
         String query = "SELECT * FROM system_range(0, 10000000000)";
@@ -123,16 +123,10 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
             return sql.executeAsync(transaction, token, query);
         });
-
-        // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
-        CancelHandle cancelHandle = CancelHandle.create();
-        CancellationToken token = cancelHandle.token();
-        cancelHandle.cancel();
-
-        expectQueryCancelled(() -> await(sql.executeAsync(null, token, "SELECT 1")));
     }
 
     @Test
+    @Override
     public void cancelStatement() throws InterruptedException {
         IgniteSql sql = igniteSql();
 
@@ -235,8 +229,8 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected ResultSet<SqlRow> executeLazy(IgniteSql sql, String query, Object... args) {
-        return new SyncResultSetAdapter<>(await(sql.executeAsync(null, query, args)));
+    protected ResultSet<SqlRow> executeLazy(IgniteSql sql, @Nullable CancellationToken token, Statement statement, Object... args) {
+        return new SyncResultSetAdapter<>(await(sql.executeAsync(null, token, statement, args)));
     }
 
     @Override

@@ -343,7 +343,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         metrics.requestsActiveIncrement();
 
-        PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()));
+        PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()), id);
 
         try {
             var req = payloadCh.out();

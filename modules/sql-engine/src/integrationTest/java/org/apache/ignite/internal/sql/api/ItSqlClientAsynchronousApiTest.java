@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests for asynchronous client SQL API.
@@ -42,32 +47,11 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
         client.close();
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
-    @Override
-    public void cancelQueryString() throws InterruptedException {
-        super.cancelQueryString();
-    }
+    @AfterEach
+    public void checkResourceCleanup() {
+        ClientInboundMessageHandler handler = unwrapIgniteImpl(CLUSTER.aliveNode()).clientInboundMessageHandler();
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
-    @Override
-    public void cancelStatement() throws InterruptedException {
-        super.cancelStatement();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
-    @Override
-    public void cancelScript() {
-        super.cancelScript();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
-    @Override
-    public void cancelLongRunningStatement() throws InterruptedException {
-        super.cancelLongRunningStatement();
+        Awaitility.await().untilAsserted(() -> assertThat(handler.cancelHandlesCount(), is(0)));
     }
 
     @Override
