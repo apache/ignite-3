@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
+import static java.lang.Math.max;
+
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.Pa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -46,6 +49,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
@@ -67,24 +71,25 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     /** Mapping table partition identifier to table request processor. */
     private final Map<TablePartitionId, RaftTableProcessor> tableProcessors = new ConcurrentHashMap<>();
 
+    private final TxStatePartitionStorage txStateStorage;
+
     private final PartitionsSnapshots partitionsSnapshots;
 
     private final PartitionKey partitionKey;
 
-    /**
-     * Latest committed configuration of the zone-wide Raft group.
-     *
-     * <p>Multi-threaded access is guarded by {@link #commitedConfigurationLock}.
-     */
-    private CommittedConfiguration currentCommitedConfiguration;
+    private long lastAppliedIndex;
 
-    private final Object commitedConfigurationLock = new Object();
+    private long lastAppliedTerm;
+
+    private final Object volatileStateLock = new Object();
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
     // Raft command handlers.
     private final FinishTxCommandHandler finishTxCommandHandler;
     private final VacuumTxStatesCommandHandler vacuumTxStatesCommandHandler;
+
+    private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
     /** Constructor. */
     public ZonePartitionRaftListener(
@@ -98,6 +103,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
         this.partitionsSnapshots = partitionsSnapshots;
+        this.txStateStorage = txStatePartitionStorage;
         this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
@@ -190,6 +196,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 }
 
                 updateTrackerIgnoringTrackerClosedException(storageIndexTracker, clo.index());
+
+                synchronized (volatileStateLock) {
+                    lastAppliedIndex = max(lastAppliedIndex, commandIndex);
+                    lastAppliedTerm = max(lastAppliedTerm, commandTerm);
+                }
             }
         } finally {
             partitionSnapshots().releaseReadLock();
@@ -250,22 +261,34 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
-        synchronized (commitedConfigurationLock) {
-            currentCommitedConfiguration = new CommittedConfiguration(config, lastAppliedIndex, lastAppliedTerm);
-
+        synchronized (volatileStateLock) {
             tableProcessors.values()
                     .forEach(listener -> listener.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm));
+
+            byte[] configBytes = raftGroupConfigurationConverter.toBytes(config);
+
+            txStateStorage.committedGroupConfiguration(configBytes, lastAppliedIndex, lastAppliedTerm);
+
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
         }
     }
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        onSnapshotSaveHandler.onSnapshotSave(tableProcessors.values())
-                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
+        synchronized (volatileStateLock) {
+            onSnapshotSaveHandler.onSnapshotSave(lastAppliedIndex, lastAppliedTerm, tableProcessors.values())
+                    .whenComplete((unused, throwable) -> doneClo.accept(throwable));
+        }
     }
 
     @Override
     public boolean onSnapshotLoad(Path path) {
+        synchronized (volatileStateLock) {
+            lastAppliedIndex = txStateStorage.lastAppliedIndex();
+            lastAppliedTerm = txStateStorage.lastAppliedTerm();
+        }
+
         return true;
     }
 
@@ -280,14 +303,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * Adds a given Table Partition-level Raft processor to the set of managed processor.
      */
     public void addTableProcessor(TablePartitionId tablePartitionId, RaftTableProcessor processor) {
-        synchronized (commitedConfigurationLock) {
-            if (currentCommitedConfiguration != null) {
-                processor.onConfigurationCommitted(
-                        currentCommitedConfiguration.configuration,
-                        currentCommitedConfiguration.lastAppliedIndex,
-                        currentCommitedConfiguration.lastAppliedTerm
-                );
-            }
+        synchronized (volatileStateLock) {
+            RaftGroupConfiguration configuration = raftGroupConfigurationConverter.fromBytes(txStateStorage.committedGroupConfiguration());
+
+            LeaseInfo leaseInfo = txStateStorage.leaseInfo();
+
+            processor.initialize(configuration, leaseInfo, lastAppliedIndex, lastAppliedTerm);
 
             RaftTableProcessor prev = tableProcessors.put(tablePartitionId, processor);
 
@@ -312,19 +333,5 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private PartitionSnapshots partitionSnapshots() {
         return partitionsSnapshots.partitionSnapshots(partitionKey);
-    }
-
-    private static class CommittedConfiguration {
-        final RaftGroupConfiguration configuration;
-
-        final long lastAppliedIndex;
-
-        final long lastAppliedTerm;
-
-        CommittedConfiguration(RaftGroupConfiguration configuration, long lastAppliedIndex, long lastAppliedTerm) {
-            this.configuration = configuration;
-            this.lastAppliedIndex = lastAppliedIndex;
-            this.lastAppliedTerm = lastAppliedTerm;
-        }
     }
 }

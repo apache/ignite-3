@@ -20,15 +20,17 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 import java.util.UUID;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.PrimitivePartitionMeta;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Partition metadata for {@link PartitionMvStorageAccess}.
  */
 public class RaftSnapshotPartitionMeta extends PrimitivePartitionMeta {
-    private final RaftGroupConfiguration raftGroupConfig;
+    private final byte[] raftGroupConfig;
 
     /** Constructs an {@link RaftSnapshotPartitionMeta} from a {@link PartitionSnapshotMeta} . */
     public static RaftSnapshotPartitionMeta fromSnapshotMeta(PartitionSnapshotMeta meta, RaftGroupConfiguration raftGroupConfig) {
@@ -53,11 +55,11 @@ public class RaftSnapshotPartitionMeta extends PrimitivePartitionMeta {
     ) {
         super(lastAppliedIndex, lastAppliedTerm, leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
 
-        this.raftGroupConfig = raftGroupConfig;
+        this.raftGroupConfig = VersionedSerialization.toBytes(raftGroupConfig, RaftGroupConfigurationSerializer.INSTANCE);
     }
 
     /** Returns replication group config. */
-    public RaftGroupConfiguration raftGroupConfig() {
+    public byte[] raftGroupConfig() {
         return raftGroupConfig;
     }
 

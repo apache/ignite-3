@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
-import static java.lang.Math.max;
 import static java.util.concurrent.CompletableFuture.allOf;
 
 import java.util.Collection;
@@ -47,39 +46,16 @@ public class OnSnapshotSaveHandler {
     /**
      * Called when {@link RaftGroupListener#onSnapshotSave} is triggered.
      */
-    public CompletableFuture<Void> onSnapshotSave(Collection<RaftTableProcessor> tableProcessors) {
-        // The max index here is required for local recovery and a possible scenario
-        // of false node failure when we actually have all required data. This might happen because we use the minimal index
-        // among storages on a node restart.
-        // Let's consider a more detailed example:
-        //      1) We don't propagate the maximal lastAppliedIndex among storages, and onSnapshotSave finishes, it leads to the raft log
-        //         truncation until the maximal lastAppliedIndex.
-        //      2) Unexpected cluster restart happens.
-        //      3) Local recovery of a node is started, where we request data from the minimal lastAppliedIndex among storages, because
-        //         some data for some node might not have been flushed before unexpected cluster restart.
-        //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
-        //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
-        //      5) Node cannot finish local recovery.
+    public CompletableFuture<Void> onSnapshotSave(
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            Collection<RaftTableProcessor> tableProcessors
+    ) {
+        tableProcessors.forEach(processor -> processor.lastApplied(lastAppliedIndex, lastAppliedTerm));
 
-        long maxPartitionLastAppliedIndex = tableProcessors.stream()
-                .mapToLong(RaftTableProcessor::lastAppliedIndex)
-                .max()
-                .orElse(0);
+        txStatePartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-        long maxPartitionLastAppliedTerm = tableProcessors.stream()
-                .mapToLong(RaftTableProcessor::lastAppliedTerm)
-                .max()
-                .orElse(0);
-
-        long maxLastAppliedIndex = max(maxPartitionLastAppliedIndex, txStatePartitionStorage.lastAppliedIndex());
-
-        long maxLastAppliedTerm = max(maxPartitionLastAppliedTerm, txStatePartitionStorage.lastAppliedTerm());
-
-        tableProcessors.forEach(processor -> processor.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm));
-
-        txStatePartitionStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
-
-        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
+        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, lastAppliedIndex);
 
         Stream<CompletableFuture<?>> flushFutures = Stream.concat(
                 tableProcessors.stream().map(RaftTableProcessor::flushStorage),

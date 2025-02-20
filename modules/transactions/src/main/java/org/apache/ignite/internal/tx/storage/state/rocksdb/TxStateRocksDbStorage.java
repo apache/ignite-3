@@ -94,10 +94,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         TxStateRocksDbPartitionStorage storage = storages.get(partitionId);
 
         if (storage == null) {
-            storage = new TxStateRocksDbPartitionStorage(
-                partitionId,
-                this
-            );
+            storage = new TxStateRocksDbPartitionStorage(partitionId, this);
 
             storage.start();
         }
