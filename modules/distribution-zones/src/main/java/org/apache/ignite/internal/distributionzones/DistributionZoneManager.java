@@ -377,7 +377,7 @@ public class DistributionZoneManager extends
         }
     }
 
-    private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
+    private CompletableFuture<?> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
         return dataNodesManager.onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone));
@@ -718,7 +718,7 @@ public class DistributionZoneManager extends
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<Void> onDropZoneBusy(DropZoneEventParameters parameters) {
+    private CompletableFuture<?> onDropZoneBusy(DropZoneEventParameters parameters) {
         long causalityToken = parameters.causalityToken();
 
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);

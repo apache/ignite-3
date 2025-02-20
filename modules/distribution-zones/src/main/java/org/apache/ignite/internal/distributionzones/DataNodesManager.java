@@ -45,7 +45,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -89,7 +88,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -387,7 +385,7 @@ public class DataNodesManager {
         DistributionZoneTimer mergedScaleDownTimer = mergeTimerOnTopologyChange(zoneDescriptor, timestamp,
                 scaleDownTimer, removedNodes, newLogicalTopology, false);
 
-        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
+        DataNodesHistoryEntry currentDataNodes = currentDataNodes(
                 timestamp,
                 dataNodesHistory,
                 mergedScaleUpTimer,
@@ -409,8 +407,8 @@ public class DataNodesManager {
         );
 
         Operations operations = ops(
-                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.getFirst(),
-                        currentDataNodes.getSecond(), addMandatoryEntry),
+                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
+                        currentDataNodes.dataNodes(), addMandatoryEntry),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
                 renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
         );
@@ -422,8 +420,8 @@ public class DataNodesManager {
                 .operationName("topology change")
                 .currentDataNodesHistory(dataNodesHistory)
                 .currentTimestamp(timestamp)
-                .historyEntryTimestamp(currentDataNodes.getFirst())
-                .historyEntryNodes(currentDataNodes.getSecond())
+                .historyEntryTimestamp(currentDataNodes.timestamp())
+                .historyEntryNodes(currentDataNodes.dataNodes())
                 .scaleUpTimer(scaleUpTimerToSave)
                 .scaleDownTimer(scaleDownTimerToSave)
                 .addMandatoryEntry(addMandatoryEntry)
@@ -628,7 +626,7 @@ public class DataNodesManager {
         DistributionZoneTimer modifiedScaleDownTimer = scaleDownTimer
                 .modifyTimeToWait(zoneDescriptor.dataNodesAutoAdjustScaleDown());
 
-        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
+        DataNodesHistoryEntry currentDataNodes = currentDataNodes(
                 timestamp,
                 dataNodesHistory,
                 modifiedScaleUpTimer,
@@ -648,8 +646,8 @@ public class DataNodesManager {
         );
 
         Operations operations = ops(
-                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.getFirst(),
-                        currentDataNodes.getSecond()),
+                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
+                        currentDataNodes.dataNodes()),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
                 renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
         );
@@ -661,8 +659,8 @@ public class DataNodesManager {
                 .operationName("distribution zone auto adjust change")
                 .currentDataNodesHistory(dataNodesHistory)
                 .currentTimestamp(timestamp)
-                .historyEntryTimestamp(currentDataNodes.getFirst())
-                .historyEntryNodes(currentDataNodes.getSecond())
+                .historyEntryTimestamp(currentDataNodes.timestamp())
+                .historyEntryNodes(currentDataNodes.dataNodes())
                 .scaleUpTimer(scaleUpTimerToSave)
                 .scaleDownTimer(scaleDownTimerToSave)
                 .build();
@@ -737,7 +735,7 @@ public class DataNodesManager {
             return nullCompletedFuture();
         }
 
-        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = scheduledTimer
+        DataNodesHistoryEntry currentDataNodes = scheduledTimer
                 .recalculateDataNodes(dataNodesHistory, timer);
 
         // We need to wait for actual time according to hybrid clock plus clock skew, because scheduled executor
@@ -759,7 +757,7 @@ public class DataNodesManager {
                                                 zoneId,
                                                 dataNodesHistory,
                                                 timeToTrigger,
-                                                currentDataNodes.getSecond()
+                                                currentDataNodes.dataNodes()
                                         ),
                                         clearTimer(scheduledTimer.metaStorageKey())
                                 )
@@ -768,7 +766,7 @@ public class DataNodesManager {
                         .currentDataNodesHistory(dataNodesHistory)
                         .currentTimestamp(timeToTrigger)
                         .historyEntryTimestamp(timeToTrigger)
-                        .historyEntryNodes(currentDataNodes.getSecond())
+                        .historyEntryNodes(currentDataNodes.dataNodes())
                         .scaleUpTimer(scheduledTimer.scaleUpTimerAfterApply())
                         .scaleDownTimer(scheduledTimer.scaleDownTimerAfterApply())
                         .build()
@@ -824,9 +822,9 @@ public class DataNodesManager {
      * @param scaleUpTimer Scale up timer.
      * @param scaleDownTimer Scale down timer.
      * @param zoneDescriptor Zone descriptor.
-     * @return Pair of current timestamp and data nodes.
+     * @return History entry of current timestamp and data nodes.
      */
-    private static Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes(
+    private static DataNodesHistoryEntry currentDataNodes(
             HybridTimestamp timestamp,
             DataNodesHistory dataNodesHistory,
             DistributionZoneTimer scaleUpTimer,
@@ -858,7 +856,7 @@ public class DataNodesManager {
             }
         }
 
-        return pair(newTimestamp, dataNodes);
+        return new DataNodesHistoryEntry(newTimestamp, dataNodes);
     }
 
     /**
@@ -1110,7 +1108,7 @@ public class DataNodesManager {
      * @param dataNodes Data nodes.
      * @return Future reflecting the completion of initialisation of zone's keys in meta storage.
      */
-    CompletableFuture<Void> onZoneCreate(
+    CompletableFuture<?> onZoneCreate(
             int zoneId,
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> dataNodes
@@ -1160,13 +1158,13 @@ public class DataNodesManager {
                                     nodeNames(dataNodes)
                             );
                         }
-                    }).thenCompose((ignored) -> nullCompletedFuture());
+                    });
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    CompletableFuture<Void> onZoneDrop(int zoneId, HybridTimestamp timestamp) {
+    CompletableFuture<?> onZoneDrop(int zoneId, HybridTimestamp timestamp) {
         return removeDataNodesKeys(zoneId, timestamp)
                 .thenRun(() -> {
                     ZoneTimers zt = zoneTimers.remove(zoneId);
@@ -1427,7 +1425,7 @@ public class DataNodesManager {
 
         void reschedule(long delayInSeconds, Runnable runnable);
 
-        Pair<HybridTimestamp, Set<NodeWithAttributes>> recalculateDataNodes(DataNodesHistory dataNodesHistory, DistributionZoneTimer timer);
+        DataNodesHistoryEntry recalculateDataNodes(DataNodesHistory dataNodesHistory, DistributionZoneTimer timer);
 
         @Nullable
         DistributionZoneTimer scaleUpTimerAfterApply();
@@ -1481,7 +1479,7 @@ public class DataNodesManager {
         }
 
         @Override
-        public Pair<HybridTimestamp, Set<NodeWithAttributes>> recalculateDataNodes(
+        public DataNodesHistoryEntry recalculateDataNodes(
                 DataNodesHistory dataNodesHistory,
                 DistributionZoneTimer timer
         ) {
@@ -1544,7 +1542,7 @@ public class DataNodesManager {
         }
 
         @Override
-        public Pair<HybridTimestamp, Set<NodeWithAttributes>> recalculateDataNodes(
+        public DataNodesHistoryEntry recalculateDataNodes(
                 DataNodesHistory dataNodesHistory,
                 DistributionZoneTimer timer
         ) {
