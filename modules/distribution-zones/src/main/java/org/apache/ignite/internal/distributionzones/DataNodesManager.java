@@ -100,6 +100,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -307,23 +308,24 @@ public class DataNodesManager {
             Set<NodeWithAttributes> newLogicalTopology,
             Set<NodeWithAttributes> oldLogicalTopology
     ) {
-        return msInvokeWithRetry(msGetter -> {
-            int zoneId = zoneDescriptor.id();
+        int zoneId = zoneDescriptor.id();
 
-            return msGetter.get(List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleUpTimerKey(zoneId), zoneScaleDownTimerKey(zoneId)))
-                    .thenApply(dataNodeHistoryContext -> onTopologyChangeInternal(
-                            zoneDescriptor,
-                            revision,
-                            timestamp,
-                            newLogicalTopology,
-                            oldLogicalTopology,
-                            dataNodeHistoryContext
-                    ));
-        }, zoneDescriptor);
+        return doOperation(
+                zoneDescriptor,
+                List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleUpTimerKey(zoneId), zoneScaleDownTimerKey(zoneId)),
+                dataNodeHistoryContext -> completedFuture(onTopologyChangeInternal(
+                        zoneDescriptor,
+                        revision,
+                        timestamp,
+                        newLogicalTopology,
+                        oldLogicalTopology,
+                        dataNodeHistoryContext
+                ))
+        );
     }
 
     @Nullable
-    private LoggedIif onTopologyChangeInternal(
+    private DataNodesHistoryMetaStorageOperation onTopologyChangeInternal(
             CatalogZoneDescriptor zoneDescriptor,
             long revision,
             HybridTimestamp timestamp,
@@ -400,27 +402,34 @@ public class DataNodesManager {
 
         boolean addMandatoryEntry = !addedNodesComparingToOldTopology.isEmpty();
 
-        return new LoggedIif(
-                iif(
-                        and(
-                                dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
-                                and(
-                                        timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer),
-                                        timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer)
-                                )
-                        ),
-                        ops(
-                                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.getFirst(),
-                                        currentDataNodes.getSecond(), addMandatoryEntry),
-                                renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
-                                renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
-                        ).yield(true),
-                        ops().yield(false)
-                ),
-                updateHistoryLogRecord(zoneId, "topology change", dataNodesHistory, timestamp, currentDataNodes.getFirst(),
-                        currentDataNodes.getSecond(), scaleUpTimerToSave, scaleDownTimerToSave, addMandatoryEntry),
-                "Failed to update data nodes history and timers on topology change [timestamp=" + timestamp + "]."
+        Condition condition = and(
+                dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
+                and(
+                        timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer),
+                        timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer)
+                )
         );
+
+        Operations operations = ops(
+                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.getFirst(),
+                        currentDataNodes.getSecond(), addMandatoryEntry),
+                renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
+                renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
+        );
+
+        return DataNodesHistoryMetaStorageOperation.builder()
+                .zoneId(zoneId)
+                .condition(condition)
+                .operations(operations)
+                .operationName("topology change")
+                .currentDataNodesHistory(dataNodesHistory)
+                .currentTimestamp(timestamp)
+                .historyEntryTimestamp(currentDataNodes.getFirst())
+                .historyEntryNodes(currentDataNodes.getSecond())
+                .scaleUpTimer(scaleUpTimerToSave)
+                .scaleDownTimer(scaleDownTimerToSave)
+                .addMandatoryEntry(addMandatoryEntry)
+                .build();
     }
 
     /**
@@ -501,43 +510,61 @@ public class DataNodesManager {
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> logicalTopology
     ) {
-        return msInvokeWithRetry(msGetter -> {
-            int zoneId = zoneDescriptor.id();
+        int zoneId = zoneDescriptor.id();
 
-            return msGetter.get(List.of(zoneDataNodesHistoryKey(zoneId)))
-                    .thenApply(dataNodeHistoryContext -> {
-                        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
+        return doOperation(
+                zoneDescriptor,
+                List.of(zoneDataNodesHistoryKey(zoneId)),
+                dataNodeHistoryContext -> completedFuture(onZoneFilterChangeInternal(
+                        zoneDescriptor,
+                        timestamp,
+                        logicalTopology,
+                        dataNodeHistoryContext
+                ))
+        );
+    }
 
-                        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
+    @Nullable
+    private DataNodesHistoryMetaStorageOperation onZoneFilterChangeInternal(
+            CatalogZoneDescriptor zoneDescriptor,
+            HybridTimestamp timestamp,
+            Set<NodeWithAttributes> logicalTopology,
+            DataNodeHistoryContext dataNodeHistoryContext
+    ) {
+        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
 
-                        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
-                            return null;
-                        }
+        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
 
-                        LOG.debug("Distribution zone filter changed [zoneId={}, timestamp={}, logicalTopology={}, descriptor={}].", zoneId,
-                                timestamp, nodeNames(logicalTopology), zoneDescriptor);
+        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
+            return null;
+        }
 
-                        stopAllTimers(zoneId);
+        int zoneId = zoneDescriptor.id();
 
-                        Set<NodeWithAttributes> dataNodes = filterDataNodes(logicalTopology, zoneDescriptor);
+        LOG.debug("Distribution zone filter changed [zoneId={}, timestamp={}, logicalTopology={}, descriptor={}].", zoneId,
+                timestamp, nodeNames(logicalTopology), zoneDescriptor);
 
-                        return new LoggedIif(iif(
-                                    dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
-                                    ops(
-                                            addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
-                                            clearTimer(zoneScaleUpTimerKey(zoneId)),
-                                            clearTimer(zoneScaleDownTimerKey(zoneId)),
-                                            clearTimer(zonePartitionResetTimerKey(zoneId))
-                                    ).yield(true),
-                                    ops().yield(false)
-                            ),
-                            updateHistoryLogRecord(zoneId, "distribution zone filter change", dataNodesHistory, timestamp, timestamp,
-                                    dataNodes, DEFAULT_TIMER, DEFAULT_TIMER),
-                            "Failed to update data nodes history and timers on distribution zone filter change [timestamp="
-                                    + timestamp + "]."
-                            );
-                    });
-        }, zoneDescriptor);
+        stopAllTimers(zoneId);
+
+        Set<NodeWithAttributes> dataNodes = filterDataNodes(logicalTopology, zoneDescriptor);
+
+        return DataNodesHistoryMetaStorageOperation.builder()
+                .zoneId(zoneId)
+                .condition(dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory))
+                .operations(ops(
+                        addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
+                        clearTimer(zoneScaleUpTimerKey(zoneId)),
+                        clearTimer(zoneScaleDownTimerKey(zoneId)),
+                        clearTimer(zonePartitionResetTimerKey(zoneId))
+                ))
+                .operationName("distribution zone filter change")
+                .currentDataNodesHistory(dataNodesHistory)
+                .currentTimestamp(timestamp)
+                .historyEntryTimestamp(timestamp)
+                .historyEntryNodes(dataNodes)
+                .scaleUpTimer(DEFAULT_TIMER)
+                .scaleDownTimer(DEFAULT_TIMER)
+                .build();
     }
 
     /**
@@ -557,121 +584,90 @@ public class DataNodesManager {
             int oldAutoAdjustScaleUp,
             int oldAutoAdjustScaleDown
     ) {
-        return msInvokeWithRetry(msGetter -> {
-            int zoneId = zoneDescriptor.id();
+        int zoneId = zoneDescriptor.id();
 
-            return msGetter.get(List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleUpTimerKey(zoneId), zoneScaleDownTimerKey(zoneId)))
-                    .thenApply(dataNodeHistoryContext -> {
-                        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
-
-                        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
-
-                        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
-                            return null;
-                        }
-
-                        LOG.debug("Distribution zone auto adjust changed [zoneId={}, timestamp={}, oldAutoAdjustScaleUp={}, "
-                                + ", oldAutoAdjustScaleDown={}, descriptor={}].",
-                                zoneId, timestamp, oldAutoAdjustScaleUp, oldAutoAdjustScaleDown, zoneDescriptor);
-
-                        DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
-                        DistributionZoneTimer scaleDownTimer = dataNodeHistoryContext.scaleDownTimer();
-
-                        DistributionZoneTimer modifiedScaleUpTimer = scaleUpTimer
-                                .modifyTimeToWait(zoneDescriptor.dataNodesAutoAdjustScaleUp());
-
-                        DistributionZoneTimer modifiedScaleDownTimer = scaleDownTimer
-                                .modifyTimeToWait(zoneDescriptor.dataNodesAutoAdjustScaleDown());
-
-                        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
-                                timestamp,
-                                dataNodesHistory,
-                                modifiedScaleUpTimer,
-                                modifiedScaleDownTimer,
-                                zoneDescriptor
-                        );
-
-                        DistributionZoneTimer scaleUpTimerToSave = timerToSave(timestamp, modifiedScaleUpTimer);
-                        DistributionZoneTimer scaleDownTimerToSave = timerToSave(timestamp, modifiedScaleDownTimer);
-
-                        return new LoggedIif(iif(
-                                and(
-                                        dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
-                                        and(
-                                                timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer),
-                                                timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer)
-                                        )
-                                ),
-                                ops(
-                                        addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.getFirst(),
-                                                currentDataNodes.getSecond()),
-                                        renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
-                                        renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
-                                ).yield(true),
-                                ops().yield(false)
-                        ),
-                        updateHistoryLogRecord(zoneId, "distribution zone auto adjust change", dataNodesHistory, timestamp,
-                                currentDataNodes.getFirst(), currentDataNodes.getSecond(), scaleUpTimerToSave, scaleDownTimerToSave),
-                        "Failed to update data nodes history and timers on distribution zone auto adjust change [timestamp="
-                                + timestamp + "]."
-                        );
-                    });
-        }, zoneDescriptor);
+        return doOperation(
+                zoneDescriptor,
+                List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleUpTimerKey(zoneId), zoneScaleDownTimerKey(zoneId)),
+                dataNodeHistoryContext -> completedFuture(onAutoAdjustAlterationInternal(
+                        zoneDescriptor,
+                        timestamp,
+                        oldAutoAdjustScaleUp,
+                        oldAutoAdjustScaleDown,
+                        dataNodeHistoryContext
+                ))
+        );
     }
 
-    private static String updateHistoryLogRecord(
-            int zoneId,
-            String operation,
-            DataNodesHistory currentHistory,
-            HybridTimestamp currentTimestamp,
-            HybridTimestamp historyEntryTimestamp,
-            Set<NodeWithAttributes> nodes,
-            @Nullable DistributionZoneTimer scaleUpTimer,
-            @Nullable DistributionZoneTimer scaleDownTimer
+    @Nullable
+    private DataNodesHistoryMetaStorageOperation onAutoAdjustAlterationInternal(
+            CatalogZoneDescriptor zoneDescriptor,
+            HybridTimestamp timestamp,
+            int oldAutoAdjustScaleUp,
+            int oldAutoAdjustScaleDown,
+            DataNodeHistoryContext dataNodeHistoryContext
     ) {
-        return updateHistoryLogRecord(zoneId, operation, currentHistory, currentTimestamp, historyEntryTimestamp, nodes,
-                scaleUpTimer, scaleDownTimer, false);
-    }
+        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
 
-    /**
-     * Forms a message for the log record about the history entry update. It also specifies whether the new history entry was
-     * actually added; it is added if the history is empty, the nodes are different from the latest history entry or the
-     * {@code addMandatoryEntry} parameter is true.
-     *
-     * @param zoneId Zone id.
-     * @param operation Operation (topology change, auto adjust alteration, etc.).
-     * @param currentHistory Current data nodes history.
-     * @param currentTimestamp Current timestamp.
-     * @param historyEntryTimestamp Timestamp of the new history entry. It can be different from the current timestamp.
-     * @param nodes Data nodes of the new history entry.
-     * @param scaleUpTimer Scale up timer.
-     * @param scaleDownTimer Scale down timer.
-     * @param addMandatoryEntry If true, the history entry is always added.
-     * @return Log message.
-     */
-    private static String updateHistoryLogRecord(
-            int zoneId,
-            String operation,
-            DataNodesHistory currentHistory,
-            HybridTimestamp currentTimestamp,
-            HybridTimestamp historyEntryTimestamp,
-            Set<NodeWithAttributes> nodes,
-            @Nullable DistributionZoneTimer scaleUpTimer,
-            @Nullable DistributionZoneTimer scaleDownTimer,
-            boolean addMandatoryEntry
-    ) {
-        Set<NodeWithAttributes> latestNodesWritten = currentHistory.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes();
-        boolean historyEntryAdded = addMandatoryEntry || currentHistory.isEmpty() || !nodes.equals(latestNodesWritten);
+        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
 
-        return "Updated data nodes on " + operation + ", "
-                + (historyEntryAdded ? "added history entry" : "history entry not added")
-                + " [zoneId=" + zoneId + ", currentTimestamp=" + currentTimestamp
-                + (historyEntryAdded ? ", historyEntryTimestamp=" + historyEntryTimestamp + ", nodes=" + nodeNames(nodes) : "")
-                + (historyEntryAdded ? "" : ", latestNodesWritten=" + nodeNames(latestNodesWritten))
-                + "]"
-                + (scaleUpTimer == null ? "" : ", scaleUpTimer=" + scaleUpTimer)
-                + (scaleDownTimer == null ? "" : ", scaleDownTimer=" + scaleDownTimer)
-                + "].";
+        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
+            return null;
+        }
+
+        int zoneId = zoneDescriptor.id();
+
+        LOG.debug("Distribution zone auto adjust changed [zoneId={}, timestamp={}, oldAutoAdjustScaleUp={}, "
+                        + ", oldAutoAdjustScaleDown={}, descriptor={}].",
+                zoneId, timestamp, oldAutoAdjustScaleUp, oldAutoAdjustScaleDown, zoneDescriptor);
+
+        DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
+        DistributionZoneTimer scaleDownTimer = dataNodeHistoryContext.scaleDownTimer();
+
+        DistributionZoneTimer modifiedScaleUpTimer = scaleUpTimer
+                .modifyTimeToWait(zoneDescriptor.dataNodesAutoAdjustScaleUp());
+
+        DistributionZoneTimer modifiedScaleDownTimer = scaleDownTimer
+                .modifyTimeToWait(zoneDescriptor.dataNodesAutoAdjustScaleDown());
+
+        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
+                timestamp,
+                dataNodesHistory,
+                modifiedScaleUpTimer,
+                modifiedScaleDownTimer,
+                zoneDescriptor
+        );
+
+        DistributionZoneTimer scaleUpTimerToSave = timerToSave(timestamp, modifiedScaleUpTimer);
+        DistributionZoneTimer scaleDownTimerToSave = timerToSave(timestamp, modifiedScaleDownTimer);
+
+        Condition condition = and(
+                dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
+                and(
+                        timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer),
+                        timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer)
+                )
+        );
+
+        Operations operations = ops(
+                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.getFirst(),
+                        currentDataNodes.getSecond()),
+                renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
+                renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
+        );
+
+        return DataNodesHistoryMetaStorageOperation.builder()
+                .zoneId(zoneId)
+                .condition(condition)
+                .operations(operations)
+                .operationName("distribution zone auto adjust change")
+                .currentDataNodesHistory(dataNodesHistory)
+                .currentTimestamp(timestamp)
+                .historyEntryTimestamp(currentDataNodes.getFirst())
+                .historyEntryNodes(currentDataNodes.getSecond())
+                .scaleUpTimer(scaleUpTimerToSave)
+                .scaleDownTimer(scaleDownTimerToSave)
+                .build();
     }
 
     void onUpdatePartitionDistributionReset(
@@ -698,72 +694,87 @@ public class DataNodesManager {
     private Runnable applyTimerClosure(CatalogZoneDescriptor zoneDescriptor, ScheduledTimer scheduledTimer) {
         int zoneId = zoneDescriptor.id();
 
-        return () -> msInvokeWithRetry(msGetter -> {
-            return msGetter.get(List.of(zoneDataNodesHistoryKey(zoneId), scheduledTimer.metaStorageKey()))
-                    .thenCompose(dataNodeHistoryContext -> {
-                        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
+        return () -> doOperation(
+                zoneDescriptor,
+                List.of(zoneDataNodesHistoryKey(zoneId), scheduledTimer.metaStorageKey()),
+                dataNodeHistoryContext -> applyTimerClosure0(zoneDescriptor, scheduledTimer, dataNodeHistoryContext)
+        );
+    }
 
-                        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
+    @Nullable
+    private CompletableFuture<DataNodesHistoryMetaStorageOperation> applyTimerClosure0(
+            CatalogZoneDescriptor zoneDescriptor,
+            ScheduledTimer scheduledTimer,
+            DataNodeHistoryContext dataNodeHistoryContext
+    ) {
+        assert dataNodeHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
 
-                        DistributionZoneTimer timer = scheduledTimer.timerFromContext(dataNodeHistoryContext);
+        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
 
-                        if (timer.equals(DEFAULT_TIMER)) {
-                            return null;
-                        }
+        DistributionZoneTimer timer = scheduledTimer.timerFromContext(dataNodeHistoryContext);
 
-                        LOG.debug("Triggered " + scheduledTimer.name() + " [zoneId={}, timer={}].", zoneId, timer);
+        if (timer.equals(DEFAULT_TIMER)) {
+            return null;
+        }
 
-                        HybridTimestamp timeToTrigger = timer.timeToTrigger();
+        int zoneId = zoneDescriptor.id();
 
-                        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timeToTrigger)) {
-                            return null;
-                        }
+        LOG.debug("Triggered " + scheduledTimer.name() + " [zoneId={}, timer={}].", zoneId, timer);
 
-                        long currentDelay = delayInSeconds(timeToTrigger);
+        HybridTimestamp timeToTrigger = timer.timeToTrigger();
 
-                        if (currentDelay < 0) {
-                            return null;
-                        }
+        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timeToTrigger)) {
+            return null;
+        }
 
-                        if (currentDelay > 1) {
-                            scheduledTimer.reschedule(currentDelay, applyTimerClosure(zoneDescriptor, scheduledTimer));
+        long currentDelay = delayInSeconds(timeToTrigger);
 
-                            return null;
-                        }
+        if (currentDelay < 0) {
+            return null;
+        }
 
-                        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = scheduledTimer
-                                .recalculateDataNodes(dataNodesHistory, timer);
+        if (currentDelay > 1) {
+            scheduledTimer.reschedule(currentDelay, applyTimerClosure(zoneDescriptor, scheduledTimer));
 
-                        // We need to wait for actual time according to hybrid clock plus clock skew, because scheduled executor
-                        // is not synchronized with hybrid clock. If we don't do this and scheduled executor will trigger this closure
-                        // earlier than max hybrid clock time in cluster, we may append new history entry having timestamp that
-                        // is (actually) in future.
-                        return clockService.waitFor(timeToTrigger.addPhysicalTime(clockService.maxClockSkewMillis()))
-                                .thenApply(ignored -> new LoggedIif(iif(
-                                                and(
-                                                        dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
-                                                        timerEqualToOrNotExists(scheduledTimer.metaStorageKey(), timer)
-                                                ),
-                                                ops(
-                                                        addNewEntryToDataNodesHistory(
-                                                                zoneId,
-                                                                dataNodesHistory,
-                                                                timeToTrigger,
-                                                                currentDataNodes.getSecond()
-                                                        ),
-                                                        clearTimer(scheduledTimer.metaStorageKey())
-                                                ).yield(true),
-                                                ops().yield(false)
+            return null;
+        }
+
+        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = scheduledTimer
+                .recalculateDataNodes(dataNodesHistory, timer);
+
+        // We need to wait for actual time according to hybrid clock plus clock skew, because scheduled executor
+        // is not synchronized with hybrid clock. If we don't do this and scheduled executor will trigger this closure
+        // earlier than max hybrid clock time in cluster, we may append new history entry having timestamp that
+        // is (actually) in future.
+        return clockService.waitFor(timeToTrigger.addPhysicalTime(clockService.maxClockSkewMillis()))
+                .thenApply(ignored -> DataNodesHistoryMetaStorageOperation.builder()
+                        .zoneId(zoneId)
+                        .condition(
+                                and(
+                                        dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
+                                        timerEqualToOrNotExists(scheduledTimer.metaStorageKey(), timer)
+                                )
+                        )
+                        .operations(
+                                ops(
+                                        addNewEntryToDataNodesHistory(
+                                                zoneId,
+                                                dataNodesHistory,
+                                                timeToTrigger,
+                                                currentDataNodes.getSecond()
                                         ),
-                                        updateHistoryLogRecord(zoneId, scheduledTimer.name() + " trigger", dataNodesHistory,
-                                                timeToTrigger, timeToTrigger, currentDataNodes.getSecond(),
-                                                scheduledTimer.scaleUpTimerAfterApply(), scheduledTimer.scaleDownTimerAfterApply()),
-                                        "Failed to update data nodes history and timers on " + scheduledTimer.name() + " [timestamp="
-                                                + timer.timeToTrigger() + "]."
-                                ));
-
-                    });
-        }, zoneDescriptor);
+                                        clearTimer(scheduledTimer.metaStorageKey())
+                                )
+                        )
+                        .operationName(scheduledTimer.name() + " trigger")
+                        .currentDataNodesHistory(dataNodesHistory)
+                        .currentTimestamp(timeToTrigger)
+                        .historyEntryTimestamp(timeToTrigger)
+                        .historyEntryNodes(currentDataNodes.getSecond())
+                        .scaleUpTimer(scheduledTimer.scaleUpTimerAfterApply())
+                        .scaleDownTimer(scheduledTimer.scaleDownTimerAfterApply())
+                        .build()
+                );
     }
 
     private void onScaleUpTimerChange(CatalogZoneDescriptor zoneDescriptor, DistributionZoneTimer scaleUpTimer) {
@@ -1011,8 +1022,16 @@ public class DataNodesManager {
         }
     }
 
+    private CompletableFuture<Void> doOperation(
+            CatalogZoneDescriptor zone,
+            List<ByteArray> keysToRead,
+            Function<DataNodeHistoryContext, CompletableFuture<DataNodesHistoryMetaStorageOperation>> operation
+    ) {
+        return msInvokeWithRetry(msGetter -> msGetter.get(keysToRead).thenCompose(operation), zone);
+    }
+
     private CompletableFuture<Void> msInvokeWithRetry(
-            Function<DataNodeHistoryContextMetaStorageGetter, CompletableFuture<LoggedIif>> iifSupplier,
+            Function<DataNodeHistoryContextMetaStorageGetter, CompletableFuture<DataNodesHistoryMetaStorageOperation>> iifSupplier,
             CatalogZoneDescriptor zone
     ) {
         return msInvokeWithRetry(iifSupplier, MAX_ATTEMPTS_ON_RETRY, zone);
@@ -1021,14 +1040,17 @@ public class DataNodesManager {
     /**
      * Utility method for meta storage invocation.
      *
-     * @param iifSupplier Function that returns IIF operation to use in meta storage invocation. It contains the actual logic
+     * @param metaStorageOperationSupplier Function that returns IIF operation to use in meta storage invocation. It contains the actual logic
      *     of operation.
      * @param attemptsLeft Number of attempts left, used if meta storage invoke did not succeed due to CAS fail.
      * @param zone Zone descriptor.
      * @return Future reflecting the completion of meta storage invocation.
      */
     private CompletableFuture<Void> msInvokeWithRetry(
-            Function<DataNodeHistoryContextMetaStorageGetter, CompletableFuture<LoggedIif>> iifSupplier,
+            Function<
+                    DataNodeHistoryContextMetaStorageGetter,
+                    CompletableFuture<DataNodesHistoryMetaStorageOperation>
+            > metaStorageOperationSupplier,
             int attemptsLeft,
             CatalogZoneDescriptor zone
     ) {
@@ -1042,34 +1064,30 @@ public class DataNodesManager {
                 ? this::getDataNodeHistoryContextMsLocally
                 : this::getDataNodeHistoryContextMs;
 
-        CompletableFuture<LoggedIif> iifFuture = iifSupplier.apply(msGetter);
+        CompletableFuture<DataNodesHistoryMetaStorageOperation> metaStorageOperationFuture = metaStorageOperationSupplier.apply(msGetter);
 
-        return iifFuture
-                .thenCompose(iif -> {
-                    if (iif == null) {
+        return metaStorageOperationFuture
+                .thenCompose(metaStorageOperation -> {
+                    if (metaStorageOperation == null) {
                         return nullCompletedFuture();
                     } else {
-                        return metaStorageManager.invoke(iif.iif);
-                    }
-                })
-                .handle((v, e) -> {
-                    if (e == null) {
-                        if (v == null) {
-                            return null;
-                        } else if (v.getAsBoolean()) {
-                            LOG.info(iifFuture.join().messageOnSuccess);
+                        return metaStorageManager.invoke(metaStorageOperation.metaStorageIif())
+                                .thenCompose(result -> {
+                                    if (result.getAsBoolean()) {
+                                        LOG.info(metaStorageOperation.logMessageOnSuccess());
 
-                            return null;
-                        } else {
-                            return msInvokeWithRetry(iifSupplier, attemptsLeft - 1, zone);
-                        }
-                    } else {
-                        LOG.error(iifFuture.join().messageOnFailure, e);
-
-                        return null;
+                                        return nullCompletedFuture();
+                                    } else {
+                                        return msInvokeWithRetry(metaStorageOperationSupplier, attemptsLeft - 1, zone);
+                                    }
+                                })
+                                .whenComplete((v, e) -> {
+                                    if (e != null) {
+                                        LOG.error(metaStorageOperation.logMessageOnFailure(), e);
+                                    }
+                                });
                     }
-                })
-                .thenApply(c -> null);
+                });
     }
 
     /**
@@ -1371,18 +1389,6 @@ public class DataNodesManager {
             scaleUp.stopTimer();
             scaleDown.stopTimer();
             partitionReset.stopTimer();
-        }
-    }
-
-    private static class LoggedIif {
-        final Iif iif;
-        final String messageOnSuccess;
-        final String messageOnFailure;
-
-        LoggedIif(Iif iif, String messageOnSuccess, String messageOnFailure) {
-            this.iif = iif;
-            this.messageOnSuccess = messageOnSuccess;
-            this.messageOnFailure = messageOnFailure;
         }
     }
 
