@@ -683,7 +683,7 @@ public class InternalTableImpl implements InternalTable {
                                     tableName,
                                     partId,
                                     tx.state(),
-                                    tx.isTimeoutExceeded()
+                                    tx.isRolledBackWithTimeoutExceeded()
                             )));
                 }
 
@@ -2346,7 +2346,7 @@ public class InternalTableImpl implements InternalTable {
                     "Transaction is already finished () [txId={}, readOnly={}, timeoutExceeded={}].",
                     transaction.id(),
                     transaction.isReadOnly(),
-                    transaction.isTimeoutExceeded()
+                    transaction.isRolledBackWithTimeoutExceeded()
             ));
         }
     }

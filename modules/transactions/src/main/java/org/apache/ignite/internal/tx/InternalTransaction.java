@@ -146,15 +146,18 @@ public interface InternalTransaction extends Transaction {
     CompletableFuture<Void> kill();
 
     /**
-     * Rolls back the transaction if the timeout is exceeded.
+     * Rolls back the transaction due to timeout exceeded. After this method is called,
+     * {@link #isRolledBackWithTimeoutExceeded()} will return {@code true}.
      *
      * @return The future.
      */
-    default CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return rollbackAsync();
-    }
+    CompletableFuture<Void> rollbackTimeoutExceededAsync();
 
-    default boolean isTimeoutExceeded() {
-        return false;
-    }
+    /**
+     * Checks if the transaction was rolled back due to timeout exceeded. The only way to roll back a transaction due to timeout
+     * exceeded is to call {@link #rollbackTimeoutExceededAsync()}.
+     *
+     * @return {@code true} if the transaction was rolled back due to timeout exceeded, {@code false} otherwise.
+     */
+    boolean isRolledBackWithTimeoutExceeded();
 }

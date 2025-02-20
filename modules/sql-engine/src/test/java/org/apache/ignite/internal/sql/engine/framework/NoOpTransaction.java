@@ -53,6 +53,8 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final boolean readOnly;
 
+    private boolean isRolledBackWithTimeoutExceeded = false;
+
     private final CompletableFuture<Void> commitFut = new CompletableFuture<>();
 
     private final CompletableFuture<Void> rollbackFut = new CompletableFuture<>();
@@ -199,6 +201,17 @@ public final class NoOpTransaction implements InternalTransaction {
     @Override
     public CompletableFuture<Void> kill() {
         return rollbackAsync();
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        this.isRolledBackWithTimeoutExceeded = true;
+        return rollbackAsync();
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return isRolledBackWithTimeoutExceeded;
     }
 
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */

@@ -162,7 +162,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
     /** {@inheritDoc} */
     @Override
-    public boolean isTimeoutExceeded() {
+    public boolean isRolledBackWithTimeoutExceeded() {
         return timeoutExceeded;
     }
 }

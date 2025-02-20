@@ -179,6 +179,16 @@ public class FakeTxManager implements TxManager {
             public CompletableFuture<Void> kill() {
                 return nullCompletedFuture();
             }
+
+            @Override
+            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public boolean isRolledBackWithTimeoutExceeded() {
+                return false;
+            }
         };
     }
 

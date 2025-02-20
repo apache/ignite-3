@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -187,6 +188,16 @@ public class TransactionExpirationRegistryBenchmark {
         @Override
         public CompletableFuture<Void> kill() {
             return null;
+        }
+
+        @Override
+        public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public boolean isRolledBackWithTimeoutExceeded() {
+            return false;
         }
 
         @Override

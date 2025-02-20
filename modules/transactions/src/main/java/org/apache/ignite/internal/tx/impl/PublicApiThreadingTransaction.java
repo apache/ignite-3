@@ -161,7 +161,12 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public boolean isTimeoutExceeded() {
-        return transaction.isTimeoutExceeded();
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        return transaction.rollbackAsync();
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return transaction.isRolledBackWithTimeoutExceeded();
     }
 }
