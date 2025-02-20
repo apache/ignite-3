@@ -59,7 +59,7 @@ public class WriteIntentSwitchCommandHandler {
 
         boolean applied = false;
         for (int tableId : switchCommand.tableIds()) {
-            IgniteBiTuple<Serializable, Boolean> singleResult = tableProcessor(tableId)
+            IgniteBiTuple<Serializable, Boolean> singleResult = taftTableProcessor(tableId)
                     .processCommand(switchCommand, commandIndex, commandTerm, safeTimestamp);
             if (singleResult.get2()) {
                 applied = true;
@@ -69,11 +69,11 @@ public class WriteIntentSwitchCommandHandler {
         return new IgniteBiTuple<>(null, applied);
     }
 
-    private RaftTableProcessor tableProcessor(int tableId) {
-        RaftTableProcessor tableProcessor = tableProcessorByTableId.apply(tableId);
+    private RaftTableProcessor taftTableProcessor(int tableId) {
+        RaftTableProcessor raftTableProcessor = tableProcessorByTableId.apply(tableId);
 
-        assert tableProcessor != null : "No table processor found by table ID " + tableId;
+        assert raftTableProcessor != null : "No RAFT table processor found by table ID " + tableId;
 
-        return tableProcessor;
+        return raftTableProcessor;
     }
 }
