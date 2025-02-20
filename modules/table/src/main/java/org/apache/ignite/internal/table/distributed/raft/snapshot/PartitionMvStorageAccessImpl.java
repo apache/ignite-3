@@ -223,9 +223,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
 
     @Override
     public CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta) {
-        byte[] configBytes = raftGroupConfigurationConverter.toBytes(partitionMeta.raftGroupConfig());
-
-        return mvTableStorage.finishRebalancePartition(partitionId(), partitionMeta.toMvPartitionMeta(configBytes))
+        return mvTableStorage.finishRebalancePartition(partitionId(), partitionMeta.toMvPartitionMeta(partitionMeta.raftGroupConfig()))
                 .thenAccept(unused -> mvGc.addStorage(tablePartitionId(), gcUpdateHandler));
     }
 

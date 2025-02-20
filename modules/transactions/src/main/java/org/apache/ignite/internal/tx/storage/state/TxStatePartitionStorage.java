@@ -23,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -51,7 +53,7 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
     /**
      * Puts the tx meta into the storage. WARNING: this method should be used only within the rebalance, because it doesn't update
      * the index and the term in the storage. Index and term are updated after the rebalance is finished,
-     * see {@link #finishRebalance(long, long)}.
+     * see {@link #finishRebalance}.
      *
      * @param txId Tx id.
      * @param txMeta Tx meta.
@@ -160,8 +162,8 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
      *
      * <p>This method must be called before every rebalance of transaction state storage and ends with a call to one of the methods:
      * <ul>
-     *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalance(long, long)} - in case of successful completion of rebalance.</li>
+     *     <li>{@link #abortRebalance} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalance} - in case of successful completion of rebalance.</li>
      * </ul>
      *
      * <p>If the {@link #lastAppliedIndex()} is {@link #REBALANCE_IN_PROGRESS} after a node restart, then the storage needs to be
@@ -189,20 +191,20 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
     CompletableFuture<Void> abortRebalance();
 
     /**
-     * Completes rebalance for transaction state storage: updates {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()}.
+     * Completes rebalance for transaction state storage: updates {@link #lastAppliedIndex}, {@link #lastAppliedTerm},
+     * {@link #committedGroupConfiguration} and {@link #leaseInfo}.
      *
      * <p>After calling this method, methods for writing and reading will be available.
      *
      * <p>If rebalance has not started, then an IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR}
      * will be thrown
      *
-     * @param lastAppliedIndex Last applied index.
-     * @param lastAppliedTerm Last applied term.
+     * @param partitionMeta Metadata of the partition.
      * @return Future of the finish rebalance for transaction state storage.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code in case when the operation
      *      has failed.
      */
-    CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm);
+    CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta);
 
     /**
      * Clears transaction state storage. After the cleaning is completed, the storage will be fully available.
@@ -221,4 +223,25 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
      *      another reason.
      */
     CompletableFuture<Void> clear();
+
+    /**
+     * Updates the replication protocol group configuration.
+     */
+    void committedGroupConfiguration(byte[] config, long index, long term);
+
+    /**
+     * Byte representation of the committed replication protocol group configuration corresponding to the write command with the highest
+     * index applied to the storage or {@code null} if it was never saved.
+     */
+    byte @Nullable [] committedGroupConfiguration();
+
+    /**
+     * Updates the current lease information.
+     */
+    void leaseInfo(LeaseInfo leaseInfo, long index, long term);
+
+    /**
+     * Returns the current lease information of {@code null} if it was never saved.
+     */
+    @Nullable LeaseInfo leaseInfo();
 }
