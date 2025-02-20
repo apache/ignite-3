@@ -23,6 +23,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,6 +51,21 @@ public interface RaftTableProcessor {
      */
     void onConfigurationCommitted(
             RaftGroupConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    );
+
+    /**
+     * Sets the initial state of this processor when it gets added to a zone partition.
+     *
+     * @param config Initial Raft configuration.
+     * @param leaseInfo Initial lease information.
+     * @param lastAppliedIndex Current last applied index.
+     * @param lastAppliedTerm Current last applied term.
+     */
+    void initialize(
+            @Nullable RaftGroupConfiguration config,
+            @Nullable LeaseInfo leaseInfo,
             long lastAppliedIndex,
             long lastAppliedTerm
     );
