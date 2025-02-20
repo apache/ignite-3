@@ -115,8 +115,7 @@ public class WriteIntentSwitchRequestHandler {
         HybridTimestamp finalCommandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
 
         return allOf(futures)
-                .thenCompose(unused -> reliableCatalogVersions.reliableCatalogVersionFor(
-                        finalCommandTimestamp))
+                .thenCompose(unused -> reliableCatalogVersions.reliableCatalogVersionFor(finalCommandTimestamp))
                 .thenApply(catalogVersion -> {
                     WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                             .txId(request.txId())
