@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.systemviews;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
