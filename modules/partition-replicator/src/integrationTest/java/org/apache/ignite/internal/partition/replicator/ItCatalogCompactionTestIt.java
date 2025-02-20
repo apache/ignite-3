@@ -54,7 +54,7 @@ import org.junit.jupiter.api.Timeout;
  * Tests catalog compaction for colocation track.
  */
 @Timeout(60)
-public class ItCatalogCompactionTest extends AbstractColocationTest {
+public class ItCatalogCompactionTestIt extends ItAbstractColocationTest {
     /**
      * Tests catalog compaction.
      *
@@ -105,7 +105,7 @@ public class ItCatalogCompactionTest extends AbstractColocationTest {
         forceCheckpoint(node);
 
         int catalogVersion2 = getLatestCatalogVersion(node);
-        assertThat("The catalog version did not changed [initial=" + catalogVersion1 + ", latest=" + catalogVersion2 + ']',
+        assertThat("The catalog version did not changed [initial=" + catalogVersion1 + ", latest=" + catalogVersion2 + "].",
                 catalogVersion2, greaterThan(catalogVersion1));
 
         expectEarliestCatalogVersion(node, catalogVersion2 - 1);
@@ -117,7 +117,7 @@ public class ItCatalogCompactionTest extends AbstractColocationTest {
         assertTrue(result,
                 "Failed to wait for the expected catalog version [expected=" + expectedVersion
                         + ", earliest=" + getEarliestCatalogVersion(node)
-                        + ", latest=" + getLatestCatalogVersion(node) + ']');
+                        + ", latest=" + getLatestCatalogVersion(node) + "].");
     }
 
     private static int getLatestCatalogVersion(Node node) {

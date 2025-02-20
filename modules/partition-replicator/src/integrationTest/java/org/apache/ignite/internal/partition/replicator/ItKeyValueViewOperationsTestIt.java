@@ -44,7 +44,7 @@ import org.junit.jupiter.api.Test;
  * KeyValueView operations tests within colocation track.
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-public class ItKeyValueViewOperationsTest extends AbstractColocationTest {
+public class ItKeyValueViewOperationsTestIt extends ItAbstractColocationTest {
     private Node node;
 
     @Test

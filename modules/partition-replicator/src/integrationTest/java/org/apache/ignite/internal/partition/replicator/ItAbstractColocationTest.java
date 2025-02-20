@@ -81,46 +81,46 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(SystemPropertiesExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
-public class AbstractColocationTest extends IgniteAbstractTest {
+abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    protected static final int BASE_PORT = 20_000;
+    private static final int BASE_PORT = 20_000;
 
-    protected static final int AWAIT_TIMEOUT_MILLIS = 10_000;
-
-    @InjectConfiguration
-    protected SystemLocalConfiguration systemConfiguration;
+    static final int AWAIT_TIMEOUT_MILLIS = 10_000;
 
     @InjectConfiguration
-    protected RaftConfiguration raftConfiguration;
+    private SystemLocalConfiguration systemConfiguration;
 
     @InjectConfiguration
-    protected NodeAttributesConfiguration defaultNodeAttributesConfiguration;
+    private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private NodeAttributesConfiguration defaultNodeAttributesConfiguration;
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
-    protected StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    protected MetaStorageConfiguration metaStorageConfiguration;
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     @InjectConfiguration
-    protected ReplicationConfiguration replicationConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
     @InjectExecutorService
-    protected ScheduledExecutorService scheduledExecutorService;
+    private ScheduledExecutorService scheduledExecutorService;
 
     @InjectConfiguration
-    protected GcConfiguration gcConfiguration;
+    GcConfiguration gcConfiguration;
 
     @InjectConfiguration
-    protected TransactionConfiguration txConfiguration;
+    TransactionConfiguration txConfiguration;
 
-    protected final List<Node> cluster = new ArrayList<>();
+    final List<Node> cluster = new ArrayList<>();
 
     // TODO Remove https://issues.apache.org/jira/browse/IGNITE-24375
-    protected final TestPlacementDriver placementDriver = new TestPlacementDriver();
+    final TestPlacementDriver placementDriver = new TestPlacementDriver();
 
-    protected NodeFinder nodeFinder;
+    private NodeFinder nodeFinder;
 
     private TestInfo testInfo;
 
@@ -134,17 +134,17 @@ public class AbstractColocationTest extends IgniteAbstractTest {
         closeAll(cluster.parallelStream().map(node -> node::stop));
     }
 
-    protected void startCluster(int size) throws Exception {
+    void startCluster(int size) throws Exception {
         startCluster(size, null, null);
     }
 
-    protected void startCluster(int size, List<NodeAttributesConfiguration> customAttributes) throws Exception {
+    void startCluster(int size, List<NodeAttributesConfiguration> customAttributes) throws Exception {
         assertThat(customAttributes.size(), equalTo(size));
 
         startCluster(size, null, customAttributes);
     }
 
-    protected void startCluster(
+    void startCluster(
             int size,
             @Nullable Node.InvokeInterceptor invokeInterceptor,
             @Nullable List<NodeAttributesConfiguration> customAttributes
@@ -188,7 +188,7 @@ public class AbstractColocationTest extends IgniteAbstractTest {
 
                     return logicalTopologyFuture.join().nodes().size() == cluster.size();
                 },
-                30_000
+                AWAIT_TIMEOUT_MILLIS
         ));
     }
 
@@ -196,7 +196,7 @@ public class AbstractColocationTest extends IgniteAbstractTest {
         return addNodeToCluster(cluster.size());
     }
 
-    protected Node addNodeToCluster(int idx) {
+    Node addNodeToCluster(int idx) {
         Node node = newNode(new NetworkAddress("localhost", BASE_PORT + idx), nodeFinder);
 
         cluster.add(node);
@@ -251,7 +251,7 @@ public class AbstractColocationTest extends IgniteAbstractTest {
         createZone(node, zoneName, partitions, replicas, false);
     }
 
-    static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
+    private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
         DistributionZonesTestUtil.createZoneWithStorageProfile(
                 node.catalogManager,
                 zoneName,

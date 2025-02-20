@@ -52,7 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "500")
 @Timeout(60)
-public class ItTransactionsVacuumTest extends AbstractColocationTest {
+public class ItTransactionsVacuumTest extends ItAbstractColocationTest {
     /**
      * Tests transactions vacuum.
      *
@@ -69,7 +69,7 @@ public class ItTransactionsVacuumTest extends AbstractColocationTest {
         createZone(node, zoneName, 1, 1);
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
 
-        String tableName = "test_table_1";
+        String tableName = "test_table";
         createTable(node, zoneName, tableName);
 
         int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
@@ -81,9 +81,9 @@ public class ItTransactionsVacuumTest extends AbstractColocationTest {
 
         tableView.putAll(tx, Map.of(0L, 0, 1L, 1));
 
-        assertNotNull(volatileTxState(node, txId), "Volatile TX state is absent");
+        assertNotNull(volatileTxState(node, txId), "Volatile TX state is absent.");
 
-        assertNull(persistentTxState(node, zoneId, 0, txId), "Persistent TX state exists for non-completed TX");
+        assertNull(persistentTxState(node, zoneId, 0, txId), "Persistent TX state exists for non-completed TX.");
 
         tx.commit();
 
