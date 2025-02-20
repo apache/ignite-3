@@ -744,7 +744,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
         // Node name is {@code null} if the node has not been added to the topology.
         if (recipientNode.name() != null) {
-            return connectionManager.consistentId().equals(recipientNode.name()) ? null : getFromCacheOrCreateResolved(recipientNode);
+            return connectionManager.nodeId().equals(recipientNode.id()) ? null : getFromCacheOrCreateResolved(recipientNode);
         }
 
         InetSocketAddress localAddress = connectionManager.localAddress();
