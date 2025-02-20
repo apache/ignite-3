@@ -1774,11 +1774,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(result);
         }
 
-        // If it's a commit (and we have commitTimestamp), we need to have catalog version corresponding to it; otherwise,
-        // any timestamp which is not before the transaction begin ts will do (but it's advantageous to take something as close to
-        // 'now' as possible).
-        HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp
-                : HybridTimestamp.max(beginTimestamp(request.txId()), clockService.current());
+        // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
+        // or txBeginTs [if it's an abort]). But there seems to be no guarantee that the compactor will not remove this version.
+        // TODO: IGNITE-24574 Introduce a mechanism to save the chosen catalog version from being compacted too early.
+        HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
+        commandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
 
         return reliableCatalogVersions.reliableCatalogVersionFor(commandTimestamp)
                 .thenCompose(catalogVersion -> applyWriteIntentSwitchCommandToGroup(request, catalogVersion))

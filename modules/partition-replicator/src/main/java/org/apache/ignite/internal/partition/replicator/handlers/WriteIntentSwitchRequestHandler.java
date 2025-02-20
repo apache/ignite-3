@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 
@@ -26,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Handles {@link WriteIntentSwitchReplicaRequest}s.
@@ -103,14 +106,23 @@ public class WriteIntentSwitchRequestHandler {
                 .map(tableId -> replicaListener(tableId).invoke(request, senderId))
                 .toArray(CompletableFuture[]::new);
 
+        @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
+
+        // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
+        // or txBeginTs [if it's an abort]). But there seems to be no guarantee that the compactor will not remove this version.
+        // TODO: IGNITE-24574 Introduce a mechanism to save the chosen catalog version from being compacted too early.
+        HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
+        HybridTimestamp finalCommandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
+
         return allOf(futures)
-                .thenCompose(unused -> reliableCatalogVersions.reliableCatalogVersionFor(clockService.now()))
+                .thenCompose(unused -> reliableCatalogVersions.reliableCatalogVersionFor(
+                        finalCommandTimestamp))
                 .thenApply(catalogVersion -> {
                     WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                             .txId(request.txId())
                             .commit(request.commit())
                             .commitTimestamp(request.commitTimestamp())
-                            .initiatorTime(clockService.now())
+                            .initiatorTime(clockService.current())
                             .tableIds(request.tableIds())
                             .requiredCatalogVersion(catalogVersion)
                             .build();
