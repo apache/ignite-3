@@ -439,7 +439,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static NodeWithAttributes nodeFromHistory(DataNodesHistory history, String nodeName, HybridTimestamp timestamp) {
-        return history.dataNodesForTimestamp(timestamp).getSecond().stream()
+        return history.dataNodesForTimestamp(timestamp).dataNodes().stream()
                 .filter(n -> n.nodeName().equals(nodeName))
                 .findFirst()
                 .orElseThrow();

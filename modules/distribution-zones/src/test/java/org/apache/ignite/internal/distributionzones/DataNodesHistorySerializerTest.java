@@ -19,7 +19,6 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
-import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,8 +74,8 @@ public class DataNodesHistorySerializerTest {
         assertTrue(deserializedHistory.entryIsPresentAtExactTimestamp(TIMESTAMP_0));
         assertTrue(deserializedHistory.entryIsPresentAtExactTimestamp(TIMESTAMP_1));
 
-        assertEquals(pair(TIMESTAMP_0, Set.of(A)), deserializedHistory.dataNodesForTimestamp(TIMESTAMP_0));
-        assertEquals(pair(TIMESTAMP_1, Set.of(A, B)), deserializedHistory.dataNodesForTimestamp(TIMESTAMP_1));
+        assertEquals(new DataNodesHistoryEntry(TIMESTAMP_0, Set.of(A)), deserializedHistory.dataNodesForTimestamp(TIMESTAMP_0));
+        assertEquals(new DataNodesHistoryEntry(TIMESTAMP_1, Set.of(A, B)), deserializedHistory.dataNodesForTimestamp(TIMESTAMP_1));
     }
 
     @Test
@@ -86,7 +85,7 @@ public class DataNodesHistorySerializerTest {
         assertTrue(deserializedHistory.entryIsPresentAtExactTimestamp(TIMESTAMP_0));
         assertTrue(deserializedHistory.entryIsPresentAtExactTimestamp(TIMESTAMP_1));
 
-        assertEquals(pair(TIMESTAMP_0, Set.of(A)), deserializedHistory.dataNodesForTimestamp(TIMESTAMP_0));
-        assertEquals(pair(TIMESTAMP_1, Set.of(A, B)), deserializedHistory.dataNodesForTimestamp(TIMESTAMP_1));
+        assertEquals(new DataNodesHistoryEntry(TIMESTAMP_0, Set.of(A)), deserializedHistory.dataNodesForTimestamp(TIMESTAMP_0));
+        assertEquals(new DataNodesHistoryEntry(TIMESTAMP_1, Set.of(A, B)), deserializedHistory.dataNodesForTimestamp(TIMESTAMP_1));
     }
 }

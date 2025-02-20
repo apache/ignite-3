@@ -77,6 +77,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.DataNodesHistoryEntry;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
@@ -86,7 +87,6 @@ import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventL
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -1273,8 +1273,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private static Set<String> dataNodesFromValue(byte[] value) {
         DataNodesHistory history = DataNodesHistorySerializer.deserialize(value);
-        Pair<HybridTimestamp, Set<NodeWithAttributes>> latest = history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE);
-        return DistributionZonesUtil.dataNodes(latest.getSecond()).stream().map(Node::nodeName).collect(toSet());
+        DataNodesHistoryEntry latest = history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE);
+        return DistributionZonesUtil.dataNodes(latest.dataNodes()).stream().map(Node::nodeName).collect(toSet());
     }
 
     /**
@@ -1584,7 +1584,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
                     if (dataNodesBytes != null) {
                         DataNodesHistory history = DataNodesHistorySerializer.deserialize(dataNodesBytes);
-                        Set<NodeWithAttributes> nwa = history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).getSecond();
+                        Set<NodeWithAttributes> nwa = history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes();
                         newDataNodes = nwa.stream().map(NodeWithAttributes::node).collect(toSet());
                     } else {
                         newDataNodes = emptySet();

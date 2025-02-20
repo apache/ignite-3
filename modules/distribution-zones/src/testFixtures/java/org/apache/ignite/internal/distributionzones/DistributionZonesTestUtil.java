@@ -64,7 +64,6 @@ import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHi
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodeHistoryContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -379,9 +378,9 @@ public class DistributionZonesTestUtil {
 
             DataNodesHistory history = DataNodesHistorySerializer.deserialize(storageValue);
 
-            Pair<HybridTimestamp, Set<NodeWithAttributes>> dataNodes = history.dataNodesForTimestamp(timestampToCheck);
+            DataNodesHistoryEntry dataNodes = history.dataNodesForTimestamp(timestampToCheck);
 
-            return dataNodes.getSecond()
+            return dataNodes.dataNodes()
                     .stream()
                     .map(n -> new Node(n.nodeName(), n.nodeId()))
                     .collect(toSet());

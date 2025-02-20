@@ -149,7 +149,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
         }
 
         DataNodesHistory history = DataNodesHistorySerializer.deserialize(e.value());
-        Set<String> nodes = history.dataNodesForTimestamp(ts).getSecond().stream()
+        Set<String> nodes = history.dataNodesForTimestamp(ts).dataNodes().stream()
                 .map(NodeWithAttributes::nodeName)
                 .collect(toSet());
 

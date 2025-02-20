@@ -376,7 +376,7 @@ public class DistributionZonesUtil {
 
         DataNodesHistory dataNodesHistory = DataNodesHistorySerializer.deserialize(dataNodesBytes);
 
-        return dataNodesHistory.dataNodesForTimestamp(timestamp).getSecond();
+        return dataNodesHistory.dataNodesForTimestamp(timestamp).dataNodes();
     }
 
     /**

@@ -419,7 +419,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             DataNodesHistory history = DataNodesHistorySerializer.deserialize(e.value());
 
-            return history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).getSecond()
+            return history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes()
                     .stream()
                     .map(NodeWithAttributes::nodeName)
                     .collect(Collectors.toSet())

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
-import static org.apache.ignite.internal.lang.Pair.pair;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -28,7 +27,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -84,16 +82,16 @@ public class DataNodesHistory {
      * Returns data nodes for timestamp, or empty set.
      *
      * @param timestamp Timestamp.
-     * @return Data nodes for timestamp, or empty set.
+     * @return Data nodes for timestamp.
      */
-    public Pair<HybridTimestamp, Set<NodeWithAttributes>> dataNodesForTimestamp(HybridTimestamp timestamp) {
+    public DataNodesHistoryEntry dataNodesForTimestamp(HybridTimestamp timestamp) {
         Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> entry = history.floorEntry(timestamp);
 
         if (entry == null) {
-            return pair(HybridTimestamp.MIN_VALUE, emptySet());
+            return new DataNodesHistoryEntry(HybridTimestamp.MIN_VALUE, emptySet());
         }
 
-        return pair(entry.getKey(), entry.getValue());
+        return new DataNodesHistoryEntry(entry.getKey(), entry.getValue());
     }
 
     @Override

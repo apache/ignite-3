@@ -311,95 +311,116 @@ public class DataNodesManager {
             int zoneId = zoneDescriptor.id();
 
             return msGetter.get(List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleUpTimerKey(zoneId), zoneScaleDownTimerKey(zoneId)))
-                    .thenApply(dataNodeHistoryContext -> {
-                        if (dataNodeHistoryContext == null) {
-                            // This means that the zone was not initialized yet. The initial history entry with current topology will
-                            // be written on the zone init.
-                            return null;
-                        }
-
-                        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
-
-                        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
-                            return null;
-                        }
-
-                        LOG.debug("Topology change detected [zoneId={}, timestamp={}, newTopology={}, oldTopology={}].", zoneId, timestamp,
-                                nodeNames(newLogicalTopology), nodeNames(oldLogicalTopology));
-
-                        DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
-                        DistributionZoneTimer scaleDownTimer = dataNodeHistoryContext.scaleDownTimer();
-
-                        Pair<HybridTimestamp, Set<NodeWithAttributes>> latestDataNodes = dataNodesHistory.dataNodesForTimestamp(timestamp);
-
-                        Set<NodeWithAttributes> addedNodes = newLogicalTopology.stream()
-                                .filter(node -> !latestDataNodes.getSecond().contains(node))
-                                .collect(toSet());
-
-                        Set<NodeWithAttributes> addedNodesComparingToOldTopology = newLogicalTopology.stream()
-                                .filter(node -> !oldLogicalTopology.contains(node))
-                                .collect(toSet());
-
-                        Set<NodeWithAttributes> removedNodes = latestDataNodes.getSecond().stream()
-                                .filter(node -> !newLogicalTopology.contains(node) && !Objects.equals(node.nodeName(), localNodeName))
-                                .filter(node -> !scaleDownTimer.nodes().contains(node))
-                                .collect(toSet());
-
-                        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty())
-                                && zoneDescriptor.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE) {
-                            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
-                            throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
-                        }
-
-                        int partitionResetDelay = partitionDistributionResetTimeoutSupplier.getAsInt();
-
-                        if (!removedNodes.isEmpty()
-                                && zoneDescriptor.consistencyMode() == HIGH_AVAILABILITY
-                                && partitionResetDelay != INFINITE_TIMER_VALUE) {
-                            reschedulePartitionReset(partitionResetDelay, () -> partitionResetClosure.accept(revision, zoneId), zoneId);
-                        }
-
-                        DistributionZoneTimer mergedScaleUpTimer = mergeTimerOnTopologyChange(zoneDescriptor, timestamp,
-                                scaleUpTimer, addedNodes, newLogicalTopology, true);
-
-                        DistributionZoneTimer mergedScaleDownTimer = mergeTimerOnTopologyChange(zoneDescriptor, timestamp,
-                                scaleDownTimer, removedNodes, newLogicalTopology, false);
-
-                        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
-                                timestamp,
-                                dataNodesHistory,
-                                mergedScaleUpTimer,
-                                mergedScaleDownTimer,
-                                zoneDescriptor
-                        );
-
-                        DistributionZoneTimer scaleUpTimerToSave = timerToSave(timestamp, mergedScaleUpTimer);
-                        DistributionZoneTimer scaleDownTimerToSave = timerToSave(timestamp, mergedScaleDownTimer);
-
-                        boolean addMandatoryEntry = !addedNodesComparingToOldTopology.isEmpty();
-
-                        return new LoggedIif(iif(
-                                and(
-                                        dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
-                                        and(
-                                                timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer),
-                                                timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer)
-                                        )
-                                ),
-                                ops(
-                                        addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.getFirst(),
-                                                currentDataNodes.getSecond(), addMandatoryEntry),
-                                        renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
-                                        renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
-                                ).yield(true),
-                                ops().yield(false)
-                        ),
-                        updateHistoryLogRecord(zoneId, "topology change", dataNodesHistory, timestamp, currentDataNodes.getFirst(),
-                                currentDataNodes.getSecond(), scaleUpTimerToSave, scaleDownTimerToSave, addMandatoryEntry),
-                        "Failed to update data nodes history and timers on topology change [timestamp=" + timestamp + "]."
-                        );
-                    });
+                    .thenApply(dataNodeHistoryContext -> onTopologyChangeInternal(
+                            zoneDescriptor,
+                            revision,
+                            timestamp,
+                            newLogicalTopology,
+                            oldLogicalTopology,
+                            dataNodeHistoryContext
+                    ));
         }, zoneDescriptor);
+    }
+
+    @Nullable
+    private LoggedIif onTopologyChangeInternal(
+            CatalogZoneDescriptor zoneDescriptor,
+            long revision,
+            HybridTimestamp timestamp,
+            Set<NodeWithAttributes> newLogicalTopology,
+            Set<NodeWithAttributes> oldLogicalTopology,
+            DataNodeHistoryContext dataNodeHistoryContext
+    ) {
+        if (dataNodeHistoryContext == null) {
+            // This means that the zone was not initialized yet. The initial history entry with current topology will
+            // be written on the zone init.
+            return null;
+        }
+
+        DataNodesHistory dataNodesHistory = dataNodeHistoryContext.dataNodesHistory();
+
+        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
+            // This event was already processed by another node.
+            return null;
+        }
+
+        int zoneId = zoneDescriptor.id();
+
+        LOG.debug("Topology change detected [zoneId={}, timestamp={}, newTopology={}, oldTopology={}].", zoneId, timestamp,
+                nodeNames(newLogicalTopology), nodeNames(oldLogicalTopology));
+
+        DistributionZoneTimer scaleUpTimer = dataNodeHistoryContext.scaleUpTimer();
+        DistributionZoneTimer scaleDownTimer = dataNodeHistoryContext.scaleDownTimer();
+
+        DataNodesHistoryEntry latestDataNodes = dataNodesHistory.dataNodesForTimestamp(timestamp);
+
+        Set<NodeWithAttributes> addedNodes = newLogicalTopology.stream()
+                .filter(node -> !latestDataNodes.dataNodes().contains(node))
+                .collect(toSet());
+
+        Set<NodeWithAttributes> addedNodesComparingToOldTopology = newLogicalTopology.stream()
+                .filter(node -> !oldLogicalTopology.contains(node))
+                .collect(toSet());
+
+        Set<NodeWithAttributes> removedNodes = latestDataNodes.dataNodes().stream()
+                .filter(node -> !newLogicalTopology.contains(node) && !Objects.equals(node.nodeName(), localNodeName))
+                .filter(node -> !scaleDownTimer.nodes().contains(node))
+                .collect(toSet());
+
+        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty())
+                && zoneDescriptor.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE) {
+            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
+            throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
+        }
+
+        int partitionResetDelay = partitionDistributionResetTimeoutSupplier.getAsInt();
+
+        if (!removedNodes.isEmpty()
+                && zoneDescriptor.consistencyMode() == HIGH_AVAILABILITY
+                && partitionResetDelay != INFINITE_TIMER_VALUE) {
+            reschedulePartitionReset(partitionResetDelay, () -> partitionResetClosure.accept(revision, zoneId), zoneId);
+        }
+
+        DistributionZoneTimer mergedScaleUpTimer = mergeTimerOnTopologyChange(zoneDescriptor, timestamp,
+                scaleUpTimer, addedNodes, newLogicalTopology, true);
+
+        DistributionZoneTimer mergedScaleDownTimer = mergeTimerOnTopologyChange(zoneDescriptor, timestamp,
+                scaleDownTimer, removedNodes, newLogicalTopology, false);
+
+        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
+                timestamp,
+                dataNodesHistory,
+                mergedScaleUpTimer,
+                mergedScaleDownTimer,
+                zoneDescriptor
+        );
+
+        DistributionZoneTimer scaleUpTimerToSave = timerToSave(timestamp, mergedScaleUpTimer);
+        DistributionZoneTimer scaleDownTimerToSave = timerToSave(timestamp, mergedScaleDownTimer);
+
+        boolean addMandatoryEntry = !addedNodesComparingToOldTopology.isEmpty();
+
+        return new LoggedIif(
+                iif(
+                        and(
+                                dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
+                                and(
+                                        timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer),
+                                        timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer)
+                                )
+                        ),
+                        ops(
+                                addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.getFirst(),
+                                        currentDataNodes.getSecond(), addMandatoryEntry),
+                                renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
+                                renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
+                        ).yield(true),
+                        ops().yield(false)
+                ),
+                updateHistoryLogRecord(zoneId, "topology change", dataNodesHistory, timestamp, currentDataNodes.getFirst(),
+                        currentDataNodes.getSecond(), scaleUpTimerToSave, scaleDownTimerToSave, addMandatoryEntry),
+                "Failed to update data nodes history and timers on topology change [timestamp=" + timestamp + "]."
+        );
     }
 
     /**
@@ -639,7 +660,7 @@ public class DataNodesManager {
             @Nullable DistributionZoneTimer scaleDownTimer,
             boolean addMandatoryEntry
     ) {
-        Set<NodeWithAttributes> latestNodesWritten = currentHistory.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).getSecond();
+        Set<NodeWithAttributes> latestNodesWritten = currentHistory.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes();
         boolean historyEntryAdded = addMandatoryEntry || currentHistory.isEmpty() || !nodes.equals(latestNodesWritten);
 
         return "Updated data nodes on " + operation + ", "
@@ -803,12 +824,12 @@ public class DataNodesManager {
             DistributionZoneTimer scaleDownTimer,
             CatalogZoneDescriptor zoneDescriptor
     ) {
-        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodesEntry = dataNodesHistory.dataNodesForTimestamp(timestamp);
+        DataNodesHistoryEntry currentDataNodesEntry = dataNodesHistory.dataNodesForTimestamp(timestamp);
 
-        assert currentDataNodesEntry.getFirst() != HybridTimestamp.MIN_VALUE
+        assert currentDataNodesEntry.timestamp().longValue() != HybridTimestamp.MIN_VALUE.longValue()
                 : "Data nodes history is missing for timestamp [zoneId=" + zoneDescriptor.id() + ", timestamp=" + timestamp + "].";
 
-        Set<NodeWithAttributes> dataNodes = new HashSet<>(currentDataNodesEntry.getSecond());
+        Set<NodeWithAttributes> dataNodes = new HashSet<>(currentDataNodesEntry.dataNodes());
 
         long scaleUpTriggerTime = scaleUpTimer.timeToTrigger().longValue();
         long scaleDownTriggerTime = scaleDownTimer.timeToTrigger().longValue();
@@ -857,7 +878,7 @@ public class DataNodesManager {
         DataNodesHistory volatileHistory = dataNodesHistoryVolatile.get(zoneId);
         if (volatileHistory != null && volatileHistory.entryIsPresentAtExactTimestamp(timestamp)) {
             return completedFuture(volatileHistory.dataNodesForTimestamp(timestamp)
-                    .getSecond()
+                    .dataNodes()
                     .stream()
                     .map(NodeWithAttributes::nodeName)
                     .collect(toSet())
@@ -882,9 +903,9 @@ public class DataNodesManager {
                         return filterDataNodes(topologyNodes(), zone);
                     }
 
-                    Pair<HybridTimestamp, Set<NodeWithAttributes>> entry = history.dataNodesForTimestamp(timestamp);
+                    DataNodesHistoryEntry entry = history.dataNodesForTimestamp(timestamp);
 
-                    return entry.getSecond();
+                    return entry.dataNodes();
                 }))
                 .thenApply(nodes -> nodes.stream().map(NodeWithAttributes::nodeName).collect(toSet()));
     }
@@ -949,7 +970,7 @@ public class DataNodesManager {
     ) {
         if (!addMandatoryEntry
                 && !history.isEmpty()
-                && nodes.equals(history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).getSecond())) {
+                && nodes.equals(history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes())) {
             return noop();
         } else {
             DataNodesHistory newHistory = history.addHistoryEntry(timestamp, nodes);
