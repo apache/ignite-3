@@ -1701,29 +1701,20 @@ public class PartitionReplicaListener implements ReplicaListener {
         replicaTxFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
-                .thenCompose(res -> {
+                .thenApply(res -> {
                     if (res.hadUpdateFutures() || res.forceCleanup()) {
-                        HybridTimestamp commandTimestamp = clockService.now();
+                        CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture =
+                                applyWriteIntentSwitchCommandLocallyAndToGroup(request);
 
-                        return reliableCatalogVersionFor(commandTimestamp)
-                                .thenApply(catalogVersion -> {
-                                    CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture =
-                                            applyWriteIntentSwitchCommand(
-                                                    request.txId(),
-                                                    request.commit(),
-                                                    request.commitTimestamp(),
-                                                    request.tableIds(),
-                                                    catalogVersion
-                                            );
-
-                                    return new ReplicaResult(null, new CommandApplicationResult(null, commandReplicatedFuture));
-                                });
+                        return new ReplicaResult(null, new CommandApplicationResult(null, commandReplicatedFuture));
                     } else {
-                        return completedFuture(
-                                new ReplicaResult(new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId), null)
-                        );
+                        return new ReplicaResult(writeIntentSwitchReplicatedInfoFor(request), null);
                     }
                 });
+    }
+
+    private WriteIntentSwitchReplicatedInfo writeIntentSwitchReplicatedInfoFor(WriteIntentSwitchReplicaRequest request) {
+        return new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId);
     }
 
     private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId, boolean commit) {
@@ -1764,45 +1755,54 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty(), forceCleanup.get()));
     }
 
-    private CompletableFuture<WriteIntentSwitchReplicatedInfo> applyWriteIntentSwitchCommand(
-            UUID transactionId,
-            boolean commit,
-            HybridTimestamp commitTimestamp,
-            Set<Integer> tableIds,
-            int catalogVersion
+    private CompletableFuture<WriteIntentSwitchReplicatedInfo> applyWriteIntentSwitchCommandLocallyAndToGroup(
+            WriteIntentSwitchReplicaRequest request
     ) {
+        @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
+
         storageUpdateHandler.switchWriteIntents(
-                transactionId,
-                commit,
+                request.txId(),
+                request.commit(),
                 commitTimestamp,
-                indexIdsAtRwTxBeginTsOrNull(transactionId)
+                indexIdsAtRwTxBeginTsOrNull(request.txId())
         );
 
-        WriteIntentSwitchReplicatedInfo result = new WriteIntentSwitchReplicatedInfo(transactionId, replicationGroupId);
+        WriteIntentSwitchReplicatedInfo result = writeIntentSwitchReplicatedInfoFor(request);
 
         if (enabledColocationFeature) {
             // We don't need to apply Raft command as zone replication listener will do it for us.
             return completedFuture(result);
         }
 
+        // If it's a commit (and we have commitTimestamp), we need to have catalog version corresponding to it; otherwise,
+        // any timestamp which is not before the transaction begin ts will do (but it's advantageous to take something as close to
+        // 'now' as possible).
+        HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp
+                : HybridTimestamp.max(beginTimestamp(request.txId()), clockService.current());
+
+        return reliableCatalogVersions.reliableCatalogVersionFor(commandTimestamp)
+                .thenCompose(catalogVersion -> applyWriteIntentSwitchCommandToGroup(request, catalogVersion))
+                .thenApply(res -> result);
+    }
+
+    private CompletableFuture<?> applyWriteIntentSwitchCommandToGroup(WriteIntentSwitchReplicaRequest request, int catalogVersion) {
         WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
-                .txId(transactionId)
-                .commit(commit)
-                .commitTimestamp(commitTimestamp)
-                .initiatorTime(clockService.now())
-                .tableIds(tableIds)
+                .txId(request.txId())
+                .commit(request.commit())
+                .commitTimestamp(request.commitTimestamp())
+                .initiatorTime(clockService.current())
+                .tableIds(request.tableIds())
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
         return applyCmdWithExceptionHandling(wiSwitchCmd)
                 .exceptionally(e -> {
-                    LOG.warn("Failed to complete transaction cleanup command [txId=" + transactionId + ']', e);
+                    LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
 
                     ExceptionUtils.sneakyThrow(e);
 
                     return null;
-                })
-                .thenApply(res -> result);
+                });
     }
 
     /**
