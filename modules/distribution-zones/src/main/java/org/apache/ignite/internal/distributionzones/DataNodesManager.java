@@ -1070,30 +1070,35 @@ public class DataNodesManager {
                 ? this::getDataNodeHistoryContextMsLocally
                 : this::getDataNodeHistoryContextMs;
 
-        CompletableFuture<DataNodesHistoryMetaStorageOperation> metaStorageOperationFuture = metaStorageOperationSupplier.apply(msGetter);
+        CompletableFuture<DataNodesHistoryMetaStorageOperation> metaStorageOperationFuture =
+                metaStorageOperationSupplier.apply(msGetter);
 
         return metaStorageOperationFuture
                 .thenCompose(metaStorageOperation -> {
                     if (metaStorageOperation == null) {
                         return nullCompletedFuture();
                     } else {
-                        return metaStorageManager.invoke(metaStorageOperation.metaStorageIif())
-                                .thenCompose(result -> {
-                                    if (result.getAsBoolean()) {
-                                        LOG.info(metaStorageOperation.logMessageOnSuccess());
-
-                                        return nullCompletedFuture();
-                                    } else {
-                                        return msInvokeWithRetry(metaStorageOperationSupplier, attemptsLeft - 1, zone);
-                                    }
-                                })
-                                .whenComplete((v, e) -> {
-                                    if (e != null) {
-                                        LOG.error(metaStorageOperation.logMessageOnFailure(), e);
-                                    }
-                                });
+                        return metaStorageManager.invoke(metaStorageOperation.metaStorageIif());
                     }
-                });
+                })
+                .handle((v, e) -> {
+                    if (e == null) {
+                        if (v == null) {
+                            return null;
+                        } else if (v.getAsBoolean()) {
+                            LOG.info(metaStorageOperationFuture.join().logMessageOnSuccess());
+
+                            return null;
+                        } else {
+                            return msInvokeWithRetry(metaStorageOperationSupplier, attemptsLeft - 1, zone);
+                        }
+                    } else {
+                        LOG.error(metaStorageOperationFuture.join().logMessageOnFailure(), e);
+
+                        return null;
+                    }
+                })
+                .thenApply(c -> null);
     }
 
     /**
