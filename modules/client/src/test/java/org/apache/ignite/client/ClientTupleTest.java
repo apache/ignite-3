@@ -295,6 +295,32 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         assertThrows(IllegalArgumentException.class, () -> valTupleWithFullRow.byteValue("\"STR\""), "Column doesn't exist [name=\"STR\"]");
     }
 
+    @SuppressWarnings("DynamicRegexReplaceableByCompiledPattern")
+    @Test
+    public void testToString() {
+        Tuple tuple = getTupleWithColumnOfAllTypes();
+
+        // Before mutation.
+        assertEquals(
+                "ClientTuple [I8=1, \"i16\"=2, I32=3, \"i64\"=4, FLOAT=5.5, DOUBLE=6.6, "
+                        + "UUID=" + UUID_VALUE + ", STR=\uD83D\uDD25 Ignite, DATE=2025-02-20, "
+                        + "TIME=" + TIME_VALUE + ", DATETIME=" + DATETIME_VALUE + ", "
+                        + "TIMESTAMP=" + TIMESTAMP_VALUE + ", BOOL=true, DECIMAL=1.234, "
+                        + "BYTES=, PERIOD=P16D, DURATION=PT408H]",
+                tuple.toString().replaceAll("\\[B@\\w+", ""));
+
+        // After mutation (different impl).
+        tuple.set("I8", 2).set("BYTES", null);
+
+        assertEquals(
+                "ClientTuple [I8=2, \"i16\"=2, I32=3, \"i64\"=4, FLOAT=5.5, DOUBLE=6.6, "
+                        + "UUID=" + UUID_VALUE + ", STR=\uD83D\uDD25 Ignite, DATE=2025-02-20, "
+                        + "TIME=" + TIME_VALUE + ", DATETIME=" + DATETIME_VALUE + ", "
+                        + "TIMESTAMP=" + TIMESTAMP_VALUE + ", BOOL=true, DECIMAL=1.234, "
+                        + "BYTES=null, PERIOD=P16D, DURATION=PT408H]",
+                tuple.toString());
+    }
+
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         return transformer.apply(getTuple());
