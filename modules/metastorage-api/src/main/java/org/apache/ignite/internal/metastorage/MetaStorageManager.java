@@ -254,8 +254,6 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Returns a future of getting latest entries corresponding to the given keys from the metastorage locally.
      *
-     * <p>Never completes with a {@link CompactedException}.</p>
-     *
      * @param keys List of keys (must not be empty).
      */
     List<Entry> getAllLocally(List<ByteArray> keys);

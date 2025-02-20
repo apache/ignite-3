@@ -222,7 +222,7 @@ public class DataNodesManager {
         }
 
         return metaStorageManager.getAll(allKeys)
-                .thenApply(entriesMap -> {
+                .thenAccept(entriesMap -> {
                     for (CatalogZoneDescriptor zone : descriptors.values()) {
                         Entry historyEntry = entriesMap.get(zoneDataNodesHistoryKey(zone.id()));
                         Entry scaleUpEntry = entriesMap.get(zoneScaleUpTimerKey(zone.id()));
@@ -252,8 +252,6 @@ public class DataNodesManager {
                         onScaleDownTimerChange(zone, scaleDownTimer);
                         restorePartitionResetTimer(zone.id(), scaleDownTimer, recoveryRevision);
                     }
-
-                    return null;
                 });
     }
 

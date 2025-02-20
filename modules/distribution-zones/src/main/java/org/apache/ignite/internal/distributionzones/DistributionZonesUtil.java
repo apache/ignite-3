@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -74,23 +75,23 @@ public class DistributionZonesUtil {
     /** Key prefix for zone's data nodes history. */
     public static final String DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "history.";
 
-    /** Key prefix for zone's data nodes history, in {@link ByteArray} representation. */
-    public static final ByteArray DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES =
-            new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX);
+    /** Key prefix for zone's data nodes history, in {@code byte[]} representation. */
+    public static final byte[] DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES =
+            DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     /** Key prefix for zone's scale up timer. */
     public static final String DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpTimer.";
 
-    /** Key prefix for zone's scale up timer, in {@link ByteArray} representation. */
-    public static final ByteArray DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES =
-            new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX);
+    /** Key prefix for zone's scale up timer, in {@code byte[]} representation. */
+    public static final byte[] DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES =
+            DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     /** Key prefix for zone's scale down timer. */
     public static final String DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownTimer.";
 
-    /** Key prefix for zone's scale down timer, in {@link ByteArray} representation. */
-    public static final ByteArray DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES =
-            new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX);
+    /** Key prefix for zone's scale down timer, in {@code byte[]} representation. */
+    public static final byte[] DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES =
+            DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     /** Key prefix for zone's partition reset timer. */
     public static final String DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX
@@ -414,11 +415,11 @@ public class DistributionZonesUtil {
 
             byte[] v = e.tombstone() ? null : e.value();
 
-            if (startsWith(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES.bytes())) {
+            if (startsWith(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES)) {
                 dataNodesHistory = v == null ? null : DataNodesHistorySerializer.deserialize(v);
-            } else if (startsWith(e.key(), DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES.bytes())) {
+            } else if (startsWith(e.key(), DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES)) {
                 scaleUpTimer = v == null ? null : DistributionZoneTimerSerializer.deserialize(v);
-            } else if (startsWith(e.key(), DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES.bytes())) {
+            } else if (startsWith(e.key(), DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES)) {
                 scaleDownTimer = v == null ? null : DistributionZoneTimerSerializer.deserialize(v);
             }
         }
