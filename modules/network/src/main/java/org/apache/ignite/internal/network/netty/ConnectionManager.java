@@ -110,8 +110,8 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Message listeners. */
     private final List<Consumer<InNetworkObject>> listeners = new CopyOnWriteArrayList<>();
 
-    /** Node consistent id. */
-    private final String consistentId;
+    /** Node id. */
+    private final UUID nodeId;
 
     /**
      * Completed when local node is set; attempts to initiate a connection to this node from the outside will wait
@@ -156,7 +156,8 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param networkConfiguration Network configuration.
      * @param serializationService Serialization service.
-     * @param consistentId Consistent ID of this node.
+     * @param nodeName Node name.
+     * @param nodeId ID of this node.
      * @param bootstrapFactory Bootstrap factory.
      * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
@@ -166,7 +167,8 @@ public class ConnectionManager implements ChannelCreationListener {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            String consistentId,
+            String nodeName,
+            UUID nodeId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
@@ -176,7 +178,8 @@ public class ConnectionManager implements ChannelCreationListener {
         this(
                 networkConfiguration,
                 serializationService,
-                consistentId,
+                nodeName,
+                nodeId,
                 bootstrapFactory,
                 staleIdDetector,
                 clusterIdSupplier,
@@ -191,7 +194,8 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param networkConfiguration Network configuration.
      * @param serializationService Serialization service.
-     * @param consistentId Consistent ID of this node.
+     * @param nodeName Node name.
+     * @param nodeId ID of this node.
      * @param bootstrapFactory Bootstrap factory.
      * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
@@ -202,7 +206,8 @@ public class ConnectionManager implements ChannelCreationListener {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            String consistentId,
+            String nodeName,
+            UUID nodeId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
@@ -211,7 +216,7 @@ public class ConnectionManager implements ChannelCreationListener {
             ChannelTypeRegistry channelTypeRegistry
     ) {
         this.serializationService = serializationService;
-        this.consistentId = consistentId;
+        this.nodeId = nodeId;
         this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
@@ -242,7 +247,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 1,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(consistentId, "connection-maintenance", LOG)
+                NamedThreadFactory.create(nodeName, "connection-maintenance", LOG)
         );
         maintenanceExecutor.allowCoreThreadTimeOut(true);
 
@@ -583,12 +588,12 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     /**
-     * Returns this node's consistent id.
+     * Returns this node's id.
      *
-     * @return This node's consistent id.
+     * @return This node's id.
      */
-    public String consistentId() {
-        return consistentId;
+    public UUID nodeId() {
+        return nodeId;
     }
 
     /**
