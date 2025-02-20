@@ -19,22 +19,16 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -50,7 +44,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -62,19 +55,17 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -87,7 +78,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 
 /**
@@ -96,20 +86,28 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
+    @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes1;
+
+    @InjectConfiguration("mock.nodeAttributes: {region = EU, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes2;
+
+    @InjectConfiguration("mock.nodeAttributes: {region = UK, storage = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes3;
+
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
     @Test
-    public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    public void testZoneReplicaListener() throws Exception {
+        startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         createZone(node, "test_zone", 1, 1);
-        DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
         long key = 1;
 
@@ -150,8 +148,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testAlterReplicaTrigger() throws Exception {
+        startCluster(3);
 
         Node node = getNode(0);
 
@@ -168,7 +166,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -187,8 +185,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testAlterReplicaTriggerDefaultZone(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testAlterReplicaTriggerDefaultZone() throws Exception {
+        startCluster(3);
 
         Node node = getNode(0);
 
@@ -224,8 +222,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testAlterReplicaExtensionTrigger(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testAlterReplicaExtensionTrigger() throws Exception {
+        startCluster(3);
 
         Node node = getNode(0);
 
@@ -259,14 +257,15 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
     }
 
     @Test
-    void testAlterFilterTrigger(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testAlterFilterTrigger() throws Exception {
+        List<NodeAttributesConfiguration> nodeAttributesConfigurations = List.of(nodeAttributes1, nodeAttributes2, nodeAttributes3);
+        startCluster(3, nodeAttributesConfigurations);
 
         Node node = getNode(0);
 
@@ -285,7 +284,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -300,17 +299,17 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                Set.of(nodes.get(0).name),
+                Set.of(cluster.get(0).name),
                 20_000L
         );
     }
 
     @Test
-    void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testTableReplicaListenersCreationAfterRebalance() throws Exception {
+        startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -335,14 +334,14 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testTableReplicaListenersRemoveAfterRebalance(TestInfo testInfo) throws Exception {
+    void testTableReplicaListenersRemoveAfterRebalance() throws Exception {
         String zoneName = "TEST_ZONE";
         String tableName = "TEST_TABLE";
 
-        startNodes(testInfo, 3);
+        startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 1, 3).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -366,18 +365,18 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 30_000L
         ));
 
-        nodes.values().forEach(n -> checkNoDestroyPartitionStoragesInvokes(n, tableName, 0));
+        cluster.forEach(n -> checkNoDestroyPartitionStoragesInvokes(n, tableName, 0));
 
         alterZone(node.catalogManager, zoneName, 1);
 
-        nodes.values().stream().filter(n -> !replicaAssignment.consistentId().equals(n.name)).forEach(
+        cluster.stream().filter(n -> !replicaAssignment.consistentId().equals(n.name)).forEach(
                 n -> checkDestroyPartitionStoragesInvokes(n, tableName, 0));
 
     }
 
     @Test
-    void testReplicaIsStartedOnNodeStart(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 3);
+    void testReplicaIsStartedOnNodeStart() throws Exception {
+        startCluster(3);
 
         Node node0 = getNode(0);
 
@@ -394,20 +393,20 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
         stopNode(2);
 
-        Node node2 = startNode(testInfo, 2);
+        Node node2 = addNodeToCluster(2);
 
         assertTrue(waitForCondition(() -> node2.replicaManager.isReplicaStarted(partId), 10_000L));
     }
 
     @Test
-    void testStableAreWrittenAfterRestart(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 1);
+    void testStableAreWrittenAfterRestart() throws Exception {
+        startCluster(1);
 
         Node node0 = getNode(0);
 
@@ -443,7 +442,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         stopNode(0);
 
-        startNodes(testInfo, 1);
+        startCluster(1);
 
         node0 = getNode(0);
 
@@ -454,7 +453,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -462,8 +461,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    void testStableAreWrittenAfterRestartAndConcurrentStableUpdate(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 1);
+    void testStableAreWrittenAfterRestartAndConcurrentStableUpdate() throws Exception {
+        startCluster(1);
 
         Node node0 = getNode(0);
 
@@ -501,11 +500,11 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         stopNode(0);
 
-        startNodes(testInfo, 1, (condition, success, failure) -> {
+        startCluster(1, (condition, success, failure) -> {
             if (skipMetaStorageInvoke(success, stablePartAssignmentsKey(partId).toString())) {
                 reached.set(true);
 
-                Node node = nodes.get(0);
+                Node node = cluster.get(0);
 
                 int catalogVersion = node.catalogManager.latestCatalogVersion();
                 long timestamp = node.catalogManager.catalog(catalogVersion).time();
@@ -517,7 +516,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
             }
 
             return null;
-        });
+        }, null);
 
         node0 = getNode(0);
 
@@ -530,7 +529,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                cluster.stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -538,18 +537,17 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    public void testTableEstimatedSize(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 1);
+    public void testTableEstimatedSize() throws Exception {
+        startCluster(1);
 
         Assignment replicaAssignment1 = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 0, 2, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 2, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment1.consistentId());
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         createZone(node, "test_zone", 2, 1);
-        DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
         {
             createTable(node, "test_zone", "test_table_1");
@@ -596,16 +594,15 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    public void testScanCloseReplicaRequest(TestInfo testInfo) throws Exception {
+    public void testScanCloseReplicaRequest() throws Exception {
         // Prepare a single node cluster.
-        startNodes(testInfo, 1);
+        startCluster(1);
         Node node = getNode(0);
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         // Prepare a zone.
         String zoneName = "test_zone";
         createZone(node, zoneName, 1, 1);
-        DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
 
         // Create a table to work with.
         String tableName = "test_table";
@@ -659,97 +656,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         assertDoesNotThrow(tx::commit);
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24558")
-    public void testCatalogCompaction(TestInfo testInfo) throws Exception {
-        // How often we update the low water mark.
-        long lowWatermarkUpdateInterval = 500;
-        updateLowWatermarkConfiguration(lowWatermarkUpdateInterval * 2, lowWatermarkUpdateInterval);
-
-        // Prepare a single node cluster.
-        startNodes(testInfo, 1);
-        Node node = getNode(0);
-
-        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
-                nodes.values().stream().map(n -> n.name).collect(toList()), 1, 1);
-
-        List<TokenizedAssignments> tokenizedAssignments = assignments.stream()
-                .map(a -> new TokenizedAssignmentsImpl(a, Integer.MIN_VALUE))
-                .collect(toList());
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-        placementDriver.setAssignments(tokenizedAssignments);
-
-        forceCheckpoint(node);
-
-        String zoneName = "test-zone";
-        createZone(node, zoneName, 1, 1);
-        DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
-
-        int catalogVersion1 = getLatestCatalogVersion(node);
-
-        String tableName1 = "test_table_1";
-        createTable(node, zoneName, tableName1);
-
-        String tableName2 = "test_table_2";
-        createTable(node, zoneName, tableName2);
-
-        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName2, node.hybridClock.nowLong());
-        TableViewInternal tableViewInternal = node.tableManager.table(tableId);
-        KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
-
-        // Write 2 rows to the table.
-        Map<Long, Integer> valuesToPut = Map.of(0L, 0, 1L, 1);
-        assertDoesNotThrow(() -> tableView.putAll(null, valuesToPut));
-
-        forceCheckpoint(node);
-
-        int catalogVersion2 = getLatestCatalogVersion(node);
-        assertThat("The catalog version did not changed [initial=" + catalogVersion1 + ", latest=" + catalogVersion2 + ']',
-                catalogVersion2, greaterThan(catalogVersion1));
-
-        expectEarliestCatalogVersion(node, catalogVersion2 - 1);
-    }
-
-    private static void expectEarliestCatalogVersion(Node node, int expectedVersion) throws Exception {
-        boolean result = waitForCondition(() -> getEarliestCatalogVersion(node) == expectedVersion, 10_000);
-
-        assertTrue(result,
-                "Failed to wait for the expected catalog version [expected=" + expectedVersion
-                        + ", earliest=" + getEarliestCatalogVersion(node)
-                        + ", latest=" + getLatestCatalogVersion(node) + ']');
-    }
-
-    private static int getLatestCatalogVersion(Node node) {
-        Catalog catalog = getLatestCatalog(node);
-
-        return catalog.version();
-    }
-
-    private static int getEarliestCatalogVersion(Node node) {
-        CatalogManager catalogManager = node.catalogManager;
-
-        int ver = catalogManager.earliestCatalogVersion();
-
-        Catalog catalog = catalogManager.catalog(ver);
-
-        Objects.requireNonNull(catalog);
-
-        return catalog.version();
-    }
-
-    private static Catalog getLatestCatalog(Node node) {
-        CatalogManager catalogManager = node.catalogManager;
-
-        int ver = catalogManager.activeCatalogVersion(node.hybridClock.nowLong());
-
-        Catalog catalog = catalogManager.catalog(ver);
-
-        Objects.requireNonNull(catalog);
-
-        return catalog;
-    }
-
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
         return node.resourcesRegistry.resources().get(cursorId);
     }
@@ -798,35 +704,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 .destroyPartition(partitionId);
         verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                 .destroyTxStateStorage(partitionId);
-    }
-
-    /**
-     * Update low water mark configuration.
-     *
-     * @param dataAvailabilityTime Data availability time.
-     * @param updateInterval Update interval.
-     */
-    private void updateLowWatermarkConfiguration(long dataAvailabilityTime, long updateInterval) {
-        CompletableFuture<?> updateFuture = gcConfiguration.lowWatermark().change(change -> {
-            change.changeDataAvailabilityTime(dataAvailabilityTime);
-            change.changeUpdateInterval(updateInterval);
-        });
-
-        assertThat(updateFuture, willSucceedFast());
-    }
-
-    /**
-     * Start the new checkpoint immediately on the provided node.
-     *
-     * @param node Node to start the checkpoint on.
-     */
-    private static void forceCheckpoint(Node node) {
-        PersistentPageMemoryStorageEngine storageEngine = (PersistentPageMemoryStorageEngine) node
-                .dataStorageManager()
-                .engineByStorageProfile(DEFAULT_STORAGE_PROFILE);
-
-        assertThat(storageEngine.checkpointManager().forceCheckpoint("test-reason").futureFor(FINISHED),
-                willSucceedIn(10, SECONDS));
     }
 
     @Test

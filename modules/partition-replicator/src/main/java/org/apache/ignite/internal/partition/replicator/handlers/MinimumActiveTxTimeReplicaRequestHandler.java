@@ -66,6 +66,6 @@ public class MinimumActiveTxTimeReplicaRequestHandler {
 
         // The timestamp must increase monotonically, otherwise it will have to be
         // stored on disk so that reordering does not occur after the node is restarted.
-        return commandApplicator.applyCmdWithExceptionHandling(cmd);
+        return commandApplicator.applyCommandWithExceptionHandling(cmd);
     }
 }

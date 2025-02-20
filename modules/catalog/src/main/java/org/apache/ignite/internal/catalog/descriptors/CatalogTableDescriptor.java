@@ -267,7 +267,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Returns {@code true} if this the given column is a part of collocation key.
+     * Returns {@code true} if this the given column is a part of colocation key.
      */
     public boolean isColocationColumn(String name) {
         return colocationColumns.contains(name);
