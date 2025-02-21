@@ -40,7 +40,11 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
         int partitions0 = partitions;
 
         if (schema0 == null || partitions0 < 0) {
-            throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
+            throw new IllegalStateException("StreamerPartitionAwarenessProvider.refreshAsync() was not called or awaited.");
+        }
+
+        if (partitions0 == 0) {
+            throw new IllegalStateException("Partition count is zero.");
         }
 
         int hash = colocationHash(schema0, item);
@@ -53,7 +57,7 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
     public CompletableFuture<Void> refreshAsync() {
         var schemaFut = tbl.getLatestSchema().thenAccept(schema -> this.schema = schema);
 
-        if (partitions < 0) {
+        if (partitions <= 0) {
             partitions = tbl.tryGetPartitionCount();
         }
 
@@ -62,7 +66,8 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
             return schemaFut;
         }
 
-        var assignmentFut = tbl.getPartitionAssignment().thenAccept(assignment -> this.partitions = assignment.size());
+        var assignmentFut = tbl.getPartitionAssignment()
+                .thenAccept(assignment -> this.partitions = assignment.size());
 
         return CompletableFuture.allOf(schemaFut, assignmentFut);
     }

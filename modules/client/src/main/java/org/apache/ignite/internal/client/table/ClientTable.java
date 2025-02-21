@@ -633,7 +633,9 @@ public class ClientTable implements Table {
                     },
                     r -> {
                         int cnt = r.in().unpackInt();
-                        assert cnt >= 0 : "Invalid partition count: " + cnt;
+                        if (cnt <= 0) {
+                            throw new IgniteException(INTERNAL_ERR, "Invalid partition count returned by the server: " + cnt);
+                        }
 
                         int oldPartitionCount = partitionCount;
 
