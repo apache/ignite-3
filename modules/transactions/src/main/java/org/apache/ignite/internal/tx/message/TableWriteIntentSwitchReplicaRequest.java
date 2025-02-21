@@ -15,27 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.command;
+package org.apache.ignite.internal.tx.message;
 
-import java.util.Set;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * State machine command to cleanup on a transaction commit.
+ * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
+ * or removes them (TxState.ABORTED).
+ *
+ * <p>Never sent by users of ReplicaService; it's rather an internal request used to handle {@link WriteIntentSwitchReplicaRequest}s
+ * in per-zone case (invoked on table replicas directly). Never used in per-table case.
+ * // TODO: IGNITE-22522 remove the above mention of per-table case.
  */
-@Transferable(PartitionReplicationMessageGroup.Commands.WRITE_INTENT_SWITCH)
-public interface WriteIntentSwitchCommand extends PartitionCommand {
-    /**
-     * Returns a commit or a rollback state.
-     */
-    boolean commit();
-
-    /** Transaction commit timestamp. */
-    @Nullable HybridTimestamp commitTimestamp();
-
-    /** IDs of tables in which the partition in question had write intents. */
-    Set<Integer> tableIds();
+@Transferable(TxMessageGroup.TABLE_WRITE_INTENT_SWITCH_REQUEST)
+public interface TableWriteIntentSwitchReplicaRequest extends WriteIntentSwitchReplicaRequestBase {
+    /** ID of the table which this write intent switch concerns. */
+    int tableId();
 }

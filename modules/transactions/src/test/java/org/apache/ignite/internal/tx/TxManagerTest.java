@@ -53,6 +53,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -232,9 +232,12 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId partitionIdForEnlistment = new ZonePartitionId(1, 0);
 
-        tx.enlist(partitionIdForEnlistment, 10, new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.enlist(partitionIdForEnlistment, 10, REMOTE_NODE, 1L);
 
-        assertEquals(new IgniteBiTuple<>(REMOTE_NODE, 1L), tx.enlistedNodeAndConsistencyToken(partitionIdForEnlistment));
+        PendingTxPartitionEnlistment actual = tx.enlistedPartition(partitionIdForEnlistment);
+        assertEquals(REMOTE_NODE.name(), actual.primaryNodeConsistentId());
+        assertEquals(1L, actual.consistencyToken());
+        assertEquals(Set.of(10), actual.tableIds());
     }
 
     @Test
@@ -312,7 +315,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), REMOTE_NODE, 1L);
         tx.assignCommitPartition(tablePartitionId1);
 
         tx.commit();
@@ -333,7 +336,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), REMOTE_NODE, 1L);
         tx.assignCommitPartition(tablePartitionId1);
 
         tx.rollback();
@@ -361,7 +364,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), REMOTE_NODE, 1L);
         tx.assignCommitPartition(tablePartitionId1);
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
@@ -389,7 +392,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), REMOTE_NODE, 1L);
         tx.assignCommitPartition(tablePartitionId1);
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
@@ -629,11 +632,11 @@ public class TxManagerTest extends IgniteAbstractTest {
         ClusterNode node = mock(ClusterNode.class);
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), new IgniteBiTuple<>(node, 1L));
+        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), node, 1L);
         tx.assignCommitPartition(tablePartitionId1);
 
         ReplicationGroupId partitionIdForEnlistment2 = new TablePartitionId(2, 0);
-        tx.enlist(partitionIdForEnlistment2, 20, new IgniteBiTuple<>(node, 1L));
+        tx.enlist(partitionIdForEnlistment2, 20, node, 1L);
 
         when(placementDriver.getPrimaryReplica(eq(tablePartitionId1), any()))
                 .thenReturn(completedFuture(
@@ -770,7 +773,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.enlist(tablePartitionId1, tablePartitionId1.tableId(), REMOTE_NODE, 1L);
         tx.assignCommitPartition(tablePartitionId1);
 
         return tx;

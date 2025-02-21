@@ -106,6 +106,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
@@ -198,6 +199,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -207,12 +209,14 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -720,9 +724,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                         // Tx recovery is executed on the commit partition.
                         replicationGroupId,
                         false,
-                        // Enlistment consistency token is not required for the rollback, so it is 0L.
-                        Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
-                        Set.of(replicationGroupId.tableId()),
+                        Map.of(
+                                replicationGroupId,
+                                // Enlistment consistency token is not required for the rollback, so it is 0L.
+                                new PendingTxPartitionEnlistment(
+                                        clusterNodeResolver.getById(senderId).name(),
+                                        0L,
+                                        replicationGroupId.tableId()
+                                )
+                        ),
                         txId
                 )
                 .whenComplete((v, ex) -> runCleanupOnNode(replicationGroupId, txId, senderId));
@@ -865,6 +875,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request);
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
             return processWriteIntentSwitchAction((WriteIntentSwitchReplicaRequest) request);
+        } else if (request instanceof TableWriteIntentSwitchReplicaRequest) {
+            return processTableWriteIntentSwitchAction((TableWriteIntentSwitchReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
             return processReadOnlySingleEntryAction((ReadOnlySingleRowPkReplicaRequest) request, isPrimary);
         } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
@@ -1692,31 +1704,41 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return CompletableFuture of ReplicaResult.
      */
     private CompletableFuture<ReplicaResult> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
+        // When doing changes to this code, please take a look at WriteIntentSwitchRequestHandler#handle() as it might also need
+        // to be touched.
+
+        assert !enabledColocation() : request;
+
         replicaTxFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
-                .thenCompose(res -> {
-                    if (res.hadUpdateFutures() || res.forceCleanup()) {
-                        HybridTimestamp commandTimestamp = clockService.now();
+                .thenApply(res -> {
+                    if (res.shouldApplyWriteIntent()) {
+                        CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture =
+                                applyWriteIntentSwitchCommandLocallyAndToGroup(request);
 
-                        return reliableCatalogVersionFor(commandTimestamp)
-                                .thenApply(catalogVersion -> {
-                                    CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture =
-                                            applyWriteIntentSwitchCommand(
-                                                    request.txId(),
-                                                    request.commit(),
-                                                    request.commitTimestamp(),
-                                                    catalogVersion
-                                            );
-
-                                    return new ReplicaResult(null, new CommandApplicationResult(null, commandReplicatedFuture));
-                                });
+                        return new ReplicaResult(null, new CommandApplicationResult(null, commandReplicatedFuture));
                     } else {
-                        return completedFuture(
-                                new ReplicaResult(new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId), null)
-                        );
+                        return new ReplicaResult(writeIntentSwitchReplicatedInfoFor(request), null);
                     }
                 });
+    }
+
+    private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
+        assert enabledColocation() : request;
+
+        return awaitCleanupReadyFutures(request.txId(), request.commit())
+                .thenApply(res -> {
+                    if (res.shouldApplyWriteIntent()) {
+                        applyWriteIntentSwitchCommandLocally(request);
+                    }
+
+                    return new ReplicaResult(res, null);
+                });
+    }
+
+    private WriteIntentSwitchReplicatedInfo writeIntentSwitchReplicatedInfoFor(WriteIntentSwitchReplicaRequest request) {
+        return new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId);
     }
 
     private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId, boolean commit) {
@@ -1757,36 +1779,57 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty(), forceCleanup.get()));
     }
 
-    private CompletableFuture<WriteIntentSwitchReplicatedInfo> applyWriteIntentSwitchCommand(
-            UUID transactionId,
-            boolean commit,
-            HybridTimestamp commitTimestamp,
-            int catalogVersion
+    private CompletableFuture<WriteIntentSwitchReplicatedInfo> applyWriteIntentSwitchCommandLocallyAndToGroup(
+            WriteIntentSwitchReplicaRequest request
     ) {
+        applyWriteIntentSwitchCommandLocally(request);
+
+        WriteIntentSwitchReplicatedInfo result = writeIntentSwitchReplicatedInfoFor(request);
+
+        if (enabledColocation()) {
+            // We don't need to apply Raft command as zone replication listener will do it for us.
+            return completedFuture(result);
+        }
+
+        // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
+        // or txBeginTs [if it's an abort]). But there seems to be no guarantee that the compactor will not remove this version.
+        // TODO: IGNITE-24574 Introduce a mechanism to save the chosen catalog version from being compacted too early.
+        @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
+        HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
+        commandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
+
+        return reliableCatalogVersions.reliableCatalogVersionFor(commandTimestamp)
+                .thenCompose(catalogVersion -> applyWriteIntentSwitchCommandToGroup(request, catalogVersion))
+                .thenApply(res -> result);
+    }
+
+    private void applyWriteIntentSwitchCommandLocally(WriteIntentSwitchReplicaRequestBase request) {
+        storageUpdateHandler.switchWriteIntents(
+                request.txId(),
+                request.commit(),
+                request.commitTimestamp(),
+                indexIdsAtRwTxBeginTsOrNull(request.txId())
+        );
+    }
+
+    private CompletableFuture<?> applyWriteIntentSwitchCommandToGroup(WriteIntentSwitchReplicaRequest request, int catalogVersion) {
         WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
-                .txId(transactionId)
-                .commit(commit)
-                .commitTimestamp(commitTimestamp)
-                .initiatorTime(clockService.now())
+                .txId(request.txId())
+                .commit(request.commit())
+                .commitTimestamp(request.commitTimestamp())
+                .initiatorTime(clockService.current())
+                .tableIds(request.tableIds())
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
-        storageUpdateHandler.switchWriteIntents(
-                transactionId,
-                commit,
-                commitTimestamp,
-                indexIdsAtRwTxBeginTsOrNull(transactionId)
-        );
-
         return applyCmdWithExceptionHandling(wiSwitchCmd)
                 .exceptionally(e -> {
-                    LOG.warn("Failed to complete transaction cleanup command [txId=" + transactionId + ']', e);
+                    LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
 
                     ExceptionUtils.sneakyThrow(e);
 
                     return null;
-                })
-                .thenApply(res -> new WriteIntentSwitchReplicatedInfo(transactionId, replicationGroupId));
+                });
     }
 
     /**
@@ -3734,30 +3777,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // We are sure that there will be no error here since the primary replica is sent the request to itself.
                 .requiredCatalogVersion(buildingChangeInfo.catalogVersion())
                 .build();
-    }
-
-    private static class FuturesCleanupResult {
-        private final boolean hadReadFutures;
-        private final boolean hadUpdateFutures;
-        private final boolean forceCleanup;
-
-        public FuturesCleanupResult(boolean hadReadFutures, boolean hadUpdateFutures, boolean forceCleanup) {
-            this.hadReadFutures = hadReadFutures;
-            this.hadUpdateFutures = hadUpdateFutures;
-            this.forceCleanup = forceCleanup;
-        }
-
-        public boolean hadReadFutures() {
-            return hadReadFutures;
-        }
-
-        public boolean hadUpdateFutures() {
-            return hadUpdateFutures;
-        }
-
-        public boolean forceCleanup() {
-            return forceCleanup;
-        }
     }
 
     private CompletableFuture<?> processOperationRequestWithTxOperationManagementLogic(
