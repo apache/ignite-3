@@ -130,6 +130,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -313,39 +314,19 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         ClusterNode node = invocationOnMock.getArgument(0);
 
                         return replicaListener.invoke(invocationOnMock.getArgument(1), node.id())
-                                .thenApply(r -> new TimestampAwareReplicaResponse() {
-                                    @Override
-                                    public @Nullable Object result() {
-                                        return r.result();
-                                    }
-
-                                    @Override
-                                    public @Nullable HybridTimestamp timestamp() {
-                                        return CLOCK.now();
-                                    }
-
-                                    @Override
-                                    public MessageSerializer<NetworkMessage> serializer() {
-                                        return null;
-                                    }
-
-                                    @Override
-                                    public short messageType() {
-                                        return 0;
-                                    }
-
-                                    @Override
-                                    public short groupType() {
-                                        return 0;
-                                    }
-
-                                    @Override
-                                    public NetworkMessage clone() {
-                                        return null;
-                                    }
-                                });
+                                .thenApply(DummyInternalTableImpl::dummyTimestampAwareResponse);
                     })
                     .when(replicaSvc).invokeRaw(any(ClusterNode.class), any());
+
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        String nodeConsistenId = invocationOnMock.getArgument(0);
+                        UUID nodeId = deriveUuidFrom(nodeConsistenId);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId)
+                                .thenApply(DummyInternalTableImpl::dummyTimestampAwareResponse);
+                    })
+                    .when(replicaSvc).invokeRaw(anyString(), any());
         }
 
         AtomicLong raftIndex = new AtomicLong(1);
@@ -525,6 +506,40 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
             assertThat(svc.run(primaryReplicaChangeCommand), willCompleteSuccessfully());
         }
+    }
+
+    private static @NotNull TimestampAwareReplicaResponse dummyTimestampAwareResponse(ReplicaResult r) {
+        return new TimestampAwareReplicaResponse() {
+            @Override
+            public @Nullable Object result() {
+                return r.result();
+            }
+
+            @Override
+            public @Nullable HybridTimestamp timestamp() {
+                return CLOCK.now();
+            }
+
+            @Override
+            public MessageSerializer<NetworkMessage> serializer() {
+                return null;
+            }
+
+            @Override
+            public short messageType() {
+                return 0;
+            }
+
+            @Override
+            public short groupType() {
+                return 0;
+            }
+
+            @Override
+            public NetworkMessage clone() {
+                return null;
+            }
+        };
     }
 
     /**

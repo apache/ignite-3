@@ -19,6 +19,7 @@ package org.apache.ignite.distributed;
 
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.Flow.Publisher;
@@ -44,7 +45,10 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
     protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
         requireNonNull(tx);
 
-        return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), mock(ClusterNode.class), tx.coordinatorId());
+        ClusterNode node = mock(ClusterNode.class);
+        lenient().when(node.name()).thenReturn("node");
+
+        return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), node, tx.coordinatorId());
     }
 
     @Override
