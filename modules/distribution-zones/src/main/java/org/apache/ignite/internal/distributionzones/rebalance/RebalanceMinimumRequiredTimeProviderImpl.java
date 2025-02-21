@@ -21,7 +21,7 @@ import static java.lang.Math.min;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor.updateRequiresAssignmentsRecalculation;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 
@@ -253,7 +253,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
     }
 
     private Map<Integer, Map<Integer, Assignments>> readPendingAssignments(long appliedRevision) {
-        return readAssignments(PENDING_ASSIGNMENTS_PREFIX_BYTES, appliedRevision, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
+        return readAssignments(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES, appliedRevision, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
     }
 
     private Map<Integer, Map<Integer, Assignments>> readAssignments(byte[] prefix, long appliedRevision) {
@@ -263,7 +263,11 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
     /**
      * Reads assignments from the metastorage locally. The resulting map is a {@code tableId -> {partitionId -> assignments}} mapping.
      */
-    Map<Integer, Map<Integer, Assignments>> readAssignments(byte[] prefix, long appliedRevision, Function<byte[], Assignments> valDeser) {
+    Map<Integer, Map<Integer, Assignments>> readAssignments(
+            byte[] prefix,
+            long appliedRevision,
+            Function<byte[], Assignments> deserializer
+    ) {
         Map<Integer, Map<Integer, Assignments>> assignments = new HashMap<>();
 
         try (Cursor<Entry> entries = readLocallyByPrefix(prefix, appliedRevision)) {
@@ -277,7 +281,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 int partitionId = tablePartitionId.partitionId();
 
                 assignments.computeIfAbsent(tableId, id -> new HashMap<>())
-                        .put(partitionId, valDeser.apply(entry.value()));
+                        .put(partitionId, deserializer.apply(entry.value()));
             }
         }
 

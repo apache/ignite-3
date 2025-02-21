@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.utils;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
@@ -139,7 +139,7 @@ public class RebalanceUtilEx {
 
         Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), partitions, replicas);
 
-        ByteArray pendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray pendingKey = pendingPartAssignmentsQueueKey(partId);
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 

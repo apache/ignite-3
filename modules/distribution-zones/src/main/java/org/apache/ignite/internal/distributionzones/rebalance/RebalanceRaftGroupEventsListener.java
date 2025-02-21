@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchAppendKey;
@@ -272,7 +272,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         try {
-            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(tablePartitionId);
+            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsQueueKey(tablePartitionId);
             ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(tablePartitionId);
             ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(tablePartitionId);
             ByteArray switchReduceKey = switchReduceKey(tablePartitionId);

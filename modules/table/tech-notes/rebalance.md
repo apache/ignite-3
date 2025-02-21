@@ -20,7 +20,7 @@ Every algorithm phase has the following main sections:
 ## New metastore keys
 For further steps, we should introduce some new metastore keys:
 - `partition.assignments.stable` - the list of peers, which process operations for a partition at the current moment.
-- `partition.assignments.pending` - the list of peers, where current rebalance move the partition.
+- `partition.assignments.pending` - the queue of list of peers, where current rebalance move the partition.
 - `partition.assignments.planned` - the list of peers, which will be used for new rebalance, when current will be finished.
 
 Also, we will need the utility key:
@@ -53,7 +53,7 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
             partition.assignments.pending = calcPartAssignments() 
             partition.change.trigger.revision = event.revision
         else:
-            if partition.assignments.pending != calcPartAssignments
+            if partition.assignments.pending != partAssignmentsPendingQueue
                 partition.assignments.planned = calcPartAssignments()
                 partition.change.trigger.revision = event.revision
             else
@@ -146,13 +146,13 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
     if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         if empty(partition.assignments.pending):
             if partition.assignments.stable != calcPartAssignments():
-                partition.assignments.pending = calcPartAssignments() 
+                partition.assignments.pending = partAssignmentsPendingQueue
                 partition.change.trigger.revision = event.revision
             else:
                 skip
         else:
             if empty(partition.assignments.pending.lock):
-                partition.assignments.pending = calcPartAssignments() 
+                partition.assignments.pending = partAssignmentsPendingQueue
                 partition.change.trigger.revision = event.revision
             else:
                 partition.assignments.planned = calcPartAssignments() 

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
@@ -97,7 +97,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
         if (currentPending != null) {
             assertThat(
                     metaStorageManager.put(
-                            pendingPartAssignmentsKey(tablePartitionId),
+                            pendingPartAssignmentsQueueKey(tablePartitionId),
                             AssignmentsQueue.toBytes(Assignments.of(currentPending, assignmentsTimestamp))
                     ),
                     willCompleteSuccessfully()

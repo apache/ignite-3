@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -97,11 +97,11 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * Restores assignments form Vault and subscribers on further updates.
      */
     public void startTrack() {
-        msManager.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES), pendingAssignmentsListener);
+        msManager.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES), pendingAssignmentsListener);
         msManager.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsListener);
 
         msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
-            handleRecoveryAssignments(recoveryRevisions, PENDING_ASSIGNMENTS_PREFIX_BYTES, groupPendingAssignments,
+            handleRecoveryAssignments(recoveryRevisions, PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES, groupPendingAssignments,
                     bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes()
             );
             handleRecoveryAssignments(recoveryRevisions, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments,
@@ -182,7 +182,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            handleReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX_BYTES, groupPendingAssignments,
+            handleReceivedAssignments(event, PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES, groupPendingAssignments,
                     bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes()
             );
 
@@ -194,7 +194,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             WatchEvent event,
             byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
-            Function<byte[], Set<Assignment>> deserFunction
+            Function<byte[], Set<Assignment>> deserializer
     ) {
         for (EntryEvent evt : event.entryEvents()) {
             Entry entry = evt.newEntry();
@@ -204,7 +204,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             if (entry.tombstone()) {
                 groupIdToAssignmentsMap.remove(grpId);
             } else {
-                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserFunction);
+                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer);
             }
         }
     }
@@ -213,7 +213,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             Revisions recoveryRevisions,
             byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
-            Function<byte[], Set<Assignment>> deserFunction
+            Function<byte[], Set<Assignment>> deserializer
     ) {
         var prefix = new ByteArray(assignmentsMetastoreKeyPrefix);
 
@@ -227,7 +227,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
                 ReplicationGroupId grpId = extractTablePartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
-                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserFunction);
+                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer);
             }
         }
     }

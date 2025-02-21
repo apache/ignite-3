@@ -293,7 +293,7 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         if (currentPendingAssignments != null) {
             keyValueStorage.put(
-                    ZoneRebalanceUtil.pendingPartAssignmentsKey(zonePartitionId).bytes(),
+                    ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(zonePartitionId).bytes(),
                     AssignmentsQueue.toBytes(Assignments.of(currentPendingAssignments, assignmentsTimestamp)),
                     KV_UPDATE_CONTEXT
             );
@@ -335,7 +335,7 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             actualStableAssignments = Assignments.fromBytes(actualStableBytes).nodes();
         }
 
-        byte[] actualPendingBytes = keyValueStorage.get(ZoneRebalanceUtil.pendingPartAssignmentsKey(zonePartitionId).bytes()).value();
+        byte[] actualPendingBytes = keyValueStorage.get(ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(zonePartitionId).bytes()).value();
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {

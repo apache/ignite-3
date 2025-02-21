@@ -871,7 +871,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private void publishPendingAssignments(Set<Assignment> assignments) {
-        publishAssignments(RebalanceUtil.pendingPartAssignmentsKey(GROUP_1),
+        publishAssignments(RebalanceUtil.pendingPartAssignmentsQueueKey(GROUP_1),
                 AssignmentsQueue.toBytes(Assignments.of(assignments, assignmentsTimestamp))
         );
     }

@@ -307,7 +307,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any(), any());
     }
@@ -330,7 +330,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
@@ -366,7 +366,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
@@ -400,7 +400,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
@@ -408,7 +408,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         watchListenerOnUpdate(zoneId, nodes2, 1);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         TablePartitionId partId = new TablePartitionId(getTableId(TABLE_NAME), 0);
 

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchAppendKey;
@@ -176,7 +176,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 try {
                     rebalanceAttempts.set(0);
 
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(zonePartitionId)).get().value();
+                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsQueueKey(zonePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
                         Set<Assignment> pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsBytes).poll().nodes();
@@ -325,7 +325,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         try {
-            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(zonePartitionId);
+            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsQueueKey(zonePartitionId);
             ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(zonePartitionId);
             ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(zonePartitionId);
             ByteArray switchReduceKey = switchReduceKey(zonePartitionId);
@@ -587,7 +587,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
         Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), partitions, replicas);
 
-        ByteArray pendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray pendingKey = pendingPartAssignmentsQueueKey(partId);
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 

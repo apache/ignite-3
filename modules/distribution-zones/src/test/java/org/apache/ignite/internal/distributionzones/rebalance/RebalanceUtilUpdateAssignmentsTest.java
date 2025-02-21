@@ -287,7 +287,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         if (currentPendingAssignments != null) {
             keyValueStorage.put(
-                    RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(),
+                    RebalanceUtil.pendingPartAssignmentsQueueKey(tablePartitionId).bytes(),
                     AssignmentsQueue.toBytes(Assignments.of(currentPendingAssignments, assignmentsTimestamp)),
                     KV_UPDATE_CONTEXT
             );
@@ -329,7 +329,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             actualStableAssignments = Assignments.fromBytes(actualStableBytes).nodes();
         }
 
-        byte[] actualPendingBytes = keyValueStorage.get(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualPendingBytes = keyValueStorage.get(RebalanceUtil.pendingPartAssignmentsQueueKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {

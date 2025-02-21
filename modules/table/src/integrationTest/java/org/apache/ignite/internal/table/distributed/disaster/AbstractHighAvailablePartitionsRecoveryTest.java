@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
@@ -223,7 +223,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
 
                             ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
-                            ByteArray pendingKey = pendingPartAssignmentsKey(tablePartitionId);
+                            ByteArray pendingKey = pendingPartAssignmentsQueueKey(tablePartitionId);
                             ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
 
                             Map<ByteArray, Entry> results = await(gatewayNode.metaStorageManager()

@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -464,7 +464,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
             MetaStorageManager metaStorageManager,
             TablePartitionId partId
     ) throws InterruptedException, ExecutionException {
-        assertTrue(metaStorageManager.get(pendingPartAssignmentsKey(partId)).get().empty());
+        assertTrue(metaStorageManager.get(pendingPartAssignmentsQueueKey(partId)).get().empty());
     }
 
     private static String createZoneSql(

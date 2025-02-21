@@ -32,7 +32,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -760,7 +760,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         {
             TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
 
-            ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+            ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
 
             int catalogVersion = node.catalogManager.latestCatalogVersion();
             long timestamp = node.catalogManager.catalog(catalogVersion).time();
@@ -833,7 +833,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         // Write the new assignments to metastore as a pending assignments.
         TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
 
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
 
         int catalogVersion = node.catalogManager.latestCatalogVersion();
         long timestamp = node.catalogManager.catalog(catalogVersion).time();
@@ -958,7 +958,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
 
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
         Map<ByteArray, byte[]> msEntries = new HashMap<>();
@@ -1079,7 +1079,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             int partitionNumber
     ) {
         return metaStorageManager
-                .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
+                .get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partitionNumber)))
                 .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
     }
 
@@ -1438,7 +1438,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool(),
-                    replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                    replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                             .thenApply(Entry::value)
             ));
 

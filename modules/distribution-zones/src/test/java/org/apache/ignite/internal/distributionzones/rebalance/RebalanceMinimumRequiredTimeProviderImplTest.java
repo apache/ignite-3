@@ -406,7 +406,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
                 Assignments.of(timestamp, Assignment.forPeer("nodeName"))
         ).toBytes();
 
-        saveAssignments(false, zoneName, tableId, catalog, RebalanceUtil::pendingPartAssignmentsKey, valueFunction, allPartitions);
+        saveAssignments(false, zoneName, tableId, catalog, RebalanceUtil::pendingPartAssignmentsQueueKey, valueFunction, allPartitions);
     }
 
     private void savePlannedAssignments(String zoneName,

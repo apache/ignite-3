@@ -30,11 +30,11 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Class that encapsulates a queue with consequent configuration switches between planned and stable configuration
+ * Class that encapsulates a queue with consequent configuration switches
  * e.g. promoting a learner to a peer or demoting a peer to a learner in following steps:
  * <ul>
- * <li> node removed from configuration
- * <li> node added to configuration with different type (peer or learner)
+ *   <li> node removed from configuration
+ *   <li> node added to configuration with different type (peer or learner)
  * </ul>
  */
 public class AssignmentsQueue implements Iterable<Assignments> {
@@ -48,7 +48,7 @@ public class AssignmentsQueue implements Iterable<Assignments> {
     }
 
     /** Constructor. */
-    public AssignmentsQueue(Collection<Assignments> assignments) {
+    AssignmentsQueue(Collection<Assignments> assignments) {
         this.queue = new LinkedList<>(assignments);
     }
 
@@ -57,8 +57,8 @@ public class AssignmentsQueue implements Iterable<Assignments> {
      *
      * @return the head of this queue, or {@code Assignments.EMPTY} if this queue is empty
      */
-    public Assignments poll() {
-        return Objects.requireNonNullElse(queue.poll(), Assignments.EMPTY);
+    public @Nullable Assignments poll() {
+        return queue.poll();
     }
 
     /**
@@ -66,8 +66,8 @@ public class AssignmentsQueue implements Iterable<Assignments> {
      *
      * @return the tail of this queue, or {@code Assignments.EMPTY} if this queue is empty
      */
-    public Assignments peekLast() {
-        return Objects.requireNonNullElse(queue.peekLast(), Assignments.EMPTY);
+    public @Nullable Assignments peekLast() {
+        return queue.peekLast();
     }
 
     public byte[] toBytes() {
