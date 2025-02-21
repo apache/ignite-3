@@ -263,7 +263,7 @@ public class VolatileTxStateMetaStorage {
         if (cleanupCompletionTimestamp == null) {
             return initialVacuumObservationTimestamp + txnResourceTtl < vacuumObservationTimestamp;
         } else {
-            return cleanupCompletionTimestamp < vacuumObservationTimestamp;
+            return cleanupCompletionTimestamp + txnResourceTtl < vacuumObservationTimestamp;
         }
     }
 }
