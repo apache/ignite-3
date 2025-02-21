@@ -216,7 +216,7 @@ internal static class DataStreamerWithReceiver
             var key = keySelector(item);
             keyWriter.Write(ref tupleBuilder, key, schema, keyOnly: true, Span<byte>.Empty);
 
-            var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
+            var partitionId = partitionCount <= 0 ? 0 : Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
 
             var payload = payloadSelector(item);
