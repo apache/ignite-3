@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
@@ -45,6 +46,10 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Integration tests for {@link TransactionController}.
@@ -134,37 +139,26 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
         UUID transactionId = UUID.randomUUID();
 
         assertThrowsProblem(
-                () -> cancelTransaction(client, transactionId),
+                () -> killTransaction(client, transactionId),
                 NOT_FOUND,
                 isProblem().withDetail("Transaction not found [transactionId=" + transactionId + "]")
         );
     }
 
-    @Test
-    void shouldCancelTransaction() {
-        Transaction roTx = node(0).transactions().begin(new TransactionOptions().readOnly(true));
-        Transaction rwTx = node(0).transactions().begin(new TransactionOptions().readOnly(false));
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldKillTransaction(boolean readOnly) {
+        Transaction tx = node(0).transactions().begin(new TransactionOptions().readOnly(readOnly));
 
-        TransactionInfo roTransactionInfo = getTransaction(client, ((InternalTransaction) roTx).id());
-        assertThat(roTransactionInfo, notNullValue());
+        TransactionInfo transactionInfo = getTransaction(client, ((InternalTransaction) tx).id());
+        assertThat(transactionInfo, notNullValue());
 
-        cancelTransaction(client, roTransactionInfo.id());
-
-        assertThrowsProblem(
-                () -> getTransaction(client, roTransactionInfo.id()),
-                NOT_FOUND,
-                isProblem().withDetail("Transaction not found [transactionId=" + roTransactionInfo.id() + "]")
-        );
-
-        TransactionInfo rwTransactionInfo = getTransaction(client, ((InternalTransaction) rwTx).id());
-        assertThat(rwTransactionInfo, notNullValue());
-
-        cancelTransaction(client, rwTransactionInfo.id());
+        killTransaction(client, transactionInfo.id());
 
         assertThrowsProblem(
-                () -> getTransaction(client, rwTransactionInfo.id()),
+                () -> getTransaction(client, transactionInfo.id()),
                 NOT_FOUND,
-                isProblem().withDetail("Transaction not found [transactionId=" + rwTransactionInfo.id() + "]")
+                isProblem().withDetail("Transaction not found [transactionId=" + transactionInfo.id() + "]")
         );
     }
 
@@ -179,7 +173,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
         return client.toBlocking().retrieve(HttpRequest.GET("/" + transactionId), TransactionInfo.class);
     }
 
-    private static void cancelTransaction(HttpClient client, UUID transactionId) {
+    private static void killTransaction(HttpClient client, UUID transactionId) {
         client.toBlocking().exchange(DELETE("/" + transactionId));
     }
 }
