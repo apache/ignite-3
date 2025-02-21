@@ -790,7 +790,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     ),
                     this::onElectedAsLeader,
                     disruptorConfig,
-
                     raftGroupOptionsConfigurer
             );
 
