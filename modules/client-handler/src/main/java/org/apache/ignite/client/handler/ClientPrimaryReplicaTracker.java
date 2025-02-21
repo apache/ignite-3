@@ -264,7 +264,10 @@ public class ClientPrimaryReplicaTracker {
             throw tableIdNotFoundException(tableId);
         }
 
-        return zone.partitions();
+        int partitions = zone.partitions();
+        assert partitions > 0 : "Unexpected zone partitions: " + partitions + ", tableId=" + tableId + ", zoneId=" + table.zoneId();
+
+        return partitions;
     }
 
     long maxStartTime() {

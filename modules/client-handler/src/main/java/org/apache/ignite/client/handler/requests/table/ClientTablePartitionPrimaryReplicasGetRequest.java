@@ -49,9 +49,8 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
         return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
             assert primaryReplicas != null : "Primary replicas == null";
 
-            // TODO: Can we get 0 count here?
             List<String> nodeNames = primaryReplicas.nodeNames();
-            if (nodeNames == null) {
+            if (nodeNames == null || nodeNames.isEmpty()) {
                 // Special case: assignment is not yet available, but we return the partition count.
                 out.packInt(primaryReplicas.partitions());
                 out.packBoolean(false);
