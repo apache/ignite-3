@@ -38,7 +38,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -57,7 +56,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 // TODO: remove after switching to per-zone partitions https://issues.apache.org/jira/browse/IGNITE-22522
 class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
-    @ParameterizedTest(name = "commit={0}")
+    @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void txFinishCommandGetsReplicated(boolean commit) throws Exception {
         startCluster(3);
@@ -69,8 +68,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
         int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
-        setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -169,8 +166,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
         int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
-        setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 

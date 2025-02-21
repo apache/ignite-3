@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
@@ -179,7 +180,11 @@ public class TxMessageSender {
                         .txId(txId)
                         .commitPartitionId(commitPartitionIdMessage)
                         .timestamp(clockService.now())
-                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
+                        // TODO Dirty hack within colocation track only. Remove after https://issues.apache.org/jira/browse/IGNITE-24343
+                        .groupId(enabledColocation()
+                                ? toReplicationGroupIdMessage(
+                                REPLICA_MESSAGES_FACTORY, enlistedPartitions.entrySet().iterator().next().getKey())
+                                : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toEnlistedPartitionMessagesByGroupId(enlistedPartitions))
                         .commit(commit)
                         .commitTimestamp(commitTimestamp)

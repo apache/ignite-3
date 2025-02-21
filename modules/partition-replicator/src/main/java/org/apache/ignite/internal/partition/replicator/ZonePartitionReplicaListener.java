@@ -31,6 +31,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.WriteIntentSwitchRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.jetbrains.annotations.Nullable;
@@ -73,6 +75,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
     private final WriteIntentSwitchRequestHandler writeIntentSwitchRequestHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
+    private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
 
     /**
      * The constructor.
@@ -123,6 +126,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 clockService,
                 raftCommandApplicator
         );
+
+        vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
     }
 
     @Override
@@ -205,7 +210,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     ) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-24526
         // Need to move the necessary part of PartitionReplicaListener#processRequest request processing here
-        if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
+
+        if (request instanceof VacuumTxStateReplicaRequest) {
+            return vacuumTxStateReplicaRequestHandler.handle((VacuumTxStateReplicaRequest) request);
+        } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             LOG.debug("Non table request is not supported by the zone partition yet " + request);

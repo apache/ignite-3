@@ -327,7 +327,7 @@ public class TxFinishReplicaRequestHandler {
             finishTxCmdBldr.commitTimestamp(commitTimestamp);
         }
 
-        return raftCommandApplicator.applyCmdWithExceptionHandling(finishTxCmdBldr.build());
+        return raftCommandApplicator.applyCommandWithExceptionHandling(finishTxCmdBldr.build());
     }
 
     private static List<EnlistedPartitionGroupMessage> toPartitionInfoMessages(Collection<EnlistedPartitionGroup> partitionIds) {

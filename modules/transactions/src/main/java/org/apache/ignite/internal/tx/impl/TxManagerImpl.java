@@ -971,7 +971,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         long vacuumObservationTimestamp = System.currentTimeMillis();
 
-        return txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value(),
+        return txStateVolatileStorage.vacuum(
+                vacuumObservationTimestamp,
+                txConfig.txnResourceTtl().value(),
                 persistentTxStateVacuumizer::vacuumPersistentTxStates);
     }
 

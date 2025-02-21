@@ -177,7 +177,7 @@ public class WriteIntentSwitchRequestHandler {
                 .build();
 
         return raftCommandApplicator
-                .applyCmdWithExceptionHandling(wiSwitchCmd)
+                .applyCommandWithExceptionHandling(wiSwitchCmd)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', ex);

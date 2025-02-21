@@ -35,9 +35,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.replicator.Member;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -64,8 +62,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
-        setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -158,11 +154,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        Function<ReplicaRequest, ReplicationGroupId> requestConverter =
-                requestConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
-
         cluster.forEach(node -> {
-            node.setRequestConverter(requestConverter);
             node.waitForMetadataCompletenessAtNow();
         });
 
@@ -183,7 +175,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
             truncateLogOnEveryNode(zonePartitionId);
         }
 
-        Node newNode = addNodeToCluster(requestConverter);
+        Node newNode = addNodeToCluster();
 
         // Wait for the rebalance to kick in.
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));
@@ -229,10 +221,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        Function<ReplicaRequest, ReplicationGroupId> requestConverter = requestConverter(zonePartitionId, new TablePartitionId(tableId, 0));
-
         cluster.forEach(node -> {
-            node.setRequestConverter(requestConverter);
             node.waitForMetadataCompletenessAtNow();
         });
 
@@ -249,7 +238,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         cluster.remove(0);
 
-        node = addNodeToCluster(requestConverter);
+        node = addNodeToCluster();
 
         node.waitForMetadataCompletenessAtNow();
 

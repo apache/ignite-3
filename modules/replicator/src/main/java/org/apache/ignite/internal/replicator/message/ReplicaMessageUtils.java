@@ -68,7 +68,10 @@ public class ReplicaMessageUtils {
             ReplicaMessagesFactory messagesFactory,
             ReplicationGroupId replicationGroupId
     ) {
-        assert replicationGroupId instanceof TablePartitionId || replicationGroupId instanceof ZonePartitionId : replicationGroupId;
+        assert replicationGroupId instanceof TablePartitionId || replicationGroupId instanceof ZonePartitionId :
+                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
+                        + ", value=" + replicationGroupId
+                        + ", requiredType=TablePartitionId or ZonePartitionId].";
 
         if (replicationGroupId instanceof TablePartitionId) {
             return toTablePartitionIdMessage(messagesFactory, (TablePartitionId) replicationGroupId);

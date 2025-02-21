@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -26,8 +28,10 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -123,6 +127,18 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
 
         assertThat(manager.txStatePartitionStorage(zoneId, 1), is(nullValue()));
         assertThat(manager.txStatePartitionStorage(zoneId, 2), is(notNullValue()));
+    }
+
+    @Test
+    void supportsParallelAllocation() {
+        int partCount = 1000;
+        int zoneId = 1;
+
+        CompletableFuture<?>[] futures = IntStream.range(0, partCount)
+                .mapToObj(partId -> runAsync(() -> allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount)))
+                .toArray(CompletableFuture[]::new);
+
+        assertThat(allOf(futures), willCompleteSuccessfully());
     }
 
     @SuppressWarnings("ThrowableNotThrown")

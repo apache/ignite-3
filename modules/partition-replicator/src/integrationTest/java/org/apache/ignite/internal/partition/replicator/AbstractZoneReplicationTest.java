@@ -34,10 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
@@ -52,13 +50,10 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -68,7 +63,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -175,10 +169,8 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
         ));
     }
 
-    protected Node addNodeToCluster(Function<ReplicaRequest, ReplicationGroupId> requestConverter) {
+    protected Node addNodeToCluster() {
         Node node = newNode(new NetworkAddress("localhost", BASE_PORT + cluster.size()), nodeFinder);
-
-        node.setRequestConverter(requestConverter);
 
         cluster.add(node);
 
@@ -245,28 +237,6 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
         );
 
         return getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
-    }
-
-    protected final void setupTableIdToZoneIdConverter(ZonePartitionId zonePartitionId, TablePartitionId... tablePartitionIds) {
-        Function<ReplicaRequest, ReplicationGroupId> requestConverter = requestConverter(zonePartitionId, tablePartitionIds);
-
-        cluster.forEach(node -> node.setRequestConverter(requestConverter));
-    }
-
-    protected static Function<ReplicaRequest, ReplicationGroupId> requestConverter(
-            ZonePartitionId zonePartitionId, TablePartitionId... tablePartitionIds
-    ) {
-        Set<ReplicationGroupId> tablePartitionIdsSet = Set.of(tablePartitionIds);
-
-        return request ->  {
-            ReplicationGroupId replicationGroupId = request.groupId().asReplicationGroupId();
-
-            if (tablePartitionIdsSet.contains(replicationGroupId) && !(request instanceof WriteIntentSwitchReplicaRequest)) {
-                return zonePartitionId;
-            } else {
-                return replicationGroupId;
-            }
-        };
     }
 
     protected void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {

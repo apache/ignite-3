@@ -32,6 +32,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.TableAwar
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -79,11 +81,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final Object commitedConfigurationLock = new Object();
 
+    private final OnSnapshotSaveHandler onSnapshotSaveHandler;
+
     // Raft command handlers.
     private final FinishTxCommandHandler finishTxCommandHandler;
+
     private final WriteIntentSwitchCommandHandler writeIntentSwitchCommandHandler;
 
-    private final OnSnapshotSaveHandler onSnapshotSaveHandler;
+    private final VacuumTxStatesCommandHandler vacuumTxStatesCommandHandler;
 
     /** Constructor. */
     public ZonePartitionRaftListener(
@@ -99,6 +104,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.partitionsSnapshots = partitionsSnapshots;
         this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
+
         // RAFT command handlers initialization.
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
@@ -109,7 +116,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
         writeIntentSwitchCommandHandler = new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager);
 
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
+        vacuumTxStatesCommandHandler = new VacuumTxStatesCommandHandler(txStatePartitionStorage);
     }
 
     @Override
@@ -185,16 +192,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                         commandTerm,
                         safeTimestamp
                 );
+            } else if (command instanceof VacuumTxStatesCommand) {
+                result = vacuumTxStatesCommandHandler.handle((VacuumTxStatesCommand) command, commandIndex, commandTerm);
             } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-                result = new IgniteBiTuple<>(null, false);
-
-                tableProcessors.values().forEach(processor -> {
-                    IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
-                    // Need to adjust the safe time if any of the table processors successfully handled the command.
-                    if (Boolean.TRUE.equals(r.get2())) {
-                        result.set2(Boolean.TRUE);
-                    }
-                });
+                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else {
                 LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
 
@@ -218,6 +219,44 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         clo.result(result.get1());
     }
 
+    /**
+     * Redirects the command to all raft table processors to process.
+     *
+     * @param command Command to process.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     * @param safeTimestamp Safe timestamp.
+     * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
+     */
+    private IgniteBiTuple<Serializable, Boolean> processCrossTableProcessorsCommand(
+            WriteCommand command,
+            long commandIndex,
+            long commandTerm,
+            @Nullable HybridTimestamp safeTimestamp
+    ) {
+        IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
+
+        tableProcessors.values().forEach(processor -> {
+            IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
+            // Need to adjust the safe time if any of the table processors successfully handled the command.
+            if (Boolean.TRUE.equals(r.get2())) {
+                result.set2(Boolean.TRUE);
+            }
+        });
+
+        return result;
+    }
+
+    /**
+     * Redirects the command to a particular raft table processor for the given {@code tablePartitionId}.
+     *
+     * @param tableId ID of a table.
+     * @param command Command to process.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     * @param safeTimestamp Safe timestamp.
+     * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
+     */
     private IgniteBiTuple<Serializable, Boolean> processTableAwareCommand(
             int tableId,
             WriteCommand command,

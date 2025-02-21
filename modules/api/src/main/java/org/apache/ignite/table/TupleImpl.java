@@ -100,7 +100,7 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public Tuple set(String columnName, @Nullable Object val) {
-        String columnName0 = IgniteNameUtils.parseSimpleName(columnName);
+        String columnName0 = IgniteNameUtils.parseIdentifier(columnName);
 
         int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName0), name -> colMapping.size());
 
@@ -128,7 +128,7 @@ class TupleImpl implements Tuple, Serializable {
     public int columnIndex(String columnName) {
         Objects.requireNonNull(columnName);
 
-        Integer idx = colMapping.get(IgniteNameUtils.parseSimpleName(columnName));
+        Integer idx = colMapping.get(IgniteNameUtils.parseIdentifier(columnName));
 
         return idx == null ? -1 : idx;
     }
@@ -396,14 +396,15 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public String toString() {
+        // Keep the same as IgniteToStringBuilder.toString().
         StringBuilder b = new StringBuilder();
 
-        b.append(Tuple.class.getSimpleName()).append(" [");
-        for (int i = 0; i < colNames.size(); i++) {
+        b.append(getClass().getSimpleName()).append(" [");
+        for (int i = 0; i < columnCount(); i++) {
             if (i > 0) {
                 b.append(", ");
             }
-            b.append(colNames.get(i)).append('=').append(colValues.get(i));
+            b.append(columnName(i)).append('=').append((Object) value(i));
         }
         b.append(']');
 

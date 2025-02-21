@@ -24,7 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
@@ -112,6 +112,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -211,11 +212,9 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
-import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
@@ -269,9 +268,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-
-    /** Factory for creating transaction command messages. */
-    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
@@ -356,10 +352,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private static final boolean SKIP_UPDATES = getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
 
-    /* Feature flag for zone based collocation track */
-    // TODO IGNITE-22115 remove it
-    private final boolean enabledColocationFeature = getBoolean(COLOCATION_FEATURE_FLAG, false);
-
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinishMarker replicaTxFinishMarker;
@@ -367,6 +359,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
+    private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
 
     /**
      * The constructor.
@@ -464,6 +457,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,
                 raftCommandApplicator);
+
+        vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
 
         prepareIndexBuilderTxRwOperationTracker();
     }
@@ -899,9 +894,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof TxStateCommitPartitionRequest) {
             return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
         } else if (request instanceof VacuumTxStateReplicaRequest) {
-            return processVacuumTxStateReplicaRequest((VacuumTxStateReplicaRequest) request);
+            if (!enabledColocation()) {
+                return vacuumTxStateReplicaRequestHandler.handle((VacuumTxStateReplicaRequest) request);
+            }
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
-            if (!enabledColocationFeature) {
+            if (!enabledColocation()) {
                 return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
             }
         }
@@ -1243,7 +1240,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         requireNonNull(isPrimary);
 
         // Disable safe-time sync if the Colocation feature is enabled, safe-time is managed on a different level there.
-        if (!isPrimary || enabledColocationFeature) {
+        if (!isPrimary || enabledColocation()) {
             return nullCompletedFuture();
         }
 
@@ -1710,7 +1707,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // When doing changes to this code, please take a look at WriteIntentSwitchRequestHandler#handle() as it might also need
         // to be touched.
 
-        assert !enabledColocationFeature : request;
+        assert !enabledColocation() : request;
 
         replicaTxFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
@@ -1728,7 +1725,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-        assert enabledColocationFeature : request;
+        assert enabledColocation() : request;
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenApply(res -> {
@@ -1789,7 +1786,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         WriteIntentSwitchReplicatedInfo result = writeIntentSwitchReplicatedInfoFor(request);
 
-        if (enabledColocationFeature) {
+        if (enabledColocation()) {
             // We don't need to apply Raft command as zone replication listener will do it for us.
             return completedFuture(result);
         }
@@ -2546,7 +2543,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd) {
-        return raftCommandApplicator.applyCmdWithExceptionHandling(cmd);
+        return raftCommandApplicator.applyCommandWithExceptionHandling(cmd);
     }
 
     /**
@@ -3990,14 +3987,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
-    }
-
-    private CompletableFuture<?> processVacuumTxStateReplicaRequest(VacuumTxStateReplicaRequest request) {
-        VacuumTxStatesCommand cmd = TX_MESSAGES_FACTORY.vacuumTxStatesCommand()
-                .txIds(request.transactionIds())
-                .build();
-
-        return raftCommandRunner.run(cmd);
     }
 
     /**

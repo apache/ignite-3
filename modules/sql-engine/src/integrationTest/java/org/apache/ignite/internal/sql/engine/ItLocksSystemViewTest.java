@@ -84,20 +84,22 @@ public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
         Ignite node = CLUSTER.aliveNode();
 
         sql("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-        sql("INSERT INTO test VALUES (0, 0), (2, 2)");
 
-        List<InternalTransaction> txs = List.of(
-                (InternalTransaction) node.transactions().begin(),
-                (InternalTransaction) node.transactions().begin(),
-                (InternalTransaction) node.transactions().begin()
-        );
+        String[] operations = {
+                "INSERT INTO test VALUES (1, 1)",
+                "UPDATE test SET val = 1 WHERE id = 0",
+                "DELETE FROM test WHERE id = 2"
+        };
 
-        try {
-            sql(txs.get(0), "INSERT INTO test VALUES (1, 1)");
-            sql(txs.get(1), "UPDATE test SET val = 1 WHERE id = 0");
-            sql(txs.get(2), "DELETE FROM test WHERE id = 2");
+        for (String op : operations) {
+            sql("DELETE FROM test");
+            sql("INSERT INTO test VALUES (0, 0), (2, 2)");
 
-            for (InternalTransaction tx : txs) {
+            InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+            try {
+                sql(tx, op);
+
                 List<List<Object>> rows = sql("SELECT * FROM SYSTEM.LOCKS WHERE TX_ID=?", tx.id().toString());
 
                 assertThat(rows, is(not(empty())));
@@ -105,9 +107,9 @@ public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
                 for (List<Object> row : rows) {
                     verifyLockInfo(row, tx.id().toString());
                 }
+            } finally {
+                tx.rollback();
             }
-        } finally {
-            txs.forEach(InternalTransaction::rollback);
         }
     }
 
