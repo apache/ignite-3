@@ -1059,6 +1059,10 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         TxStateMeta txInMemoryState = txManager.stateMeta(txId);
 
+        if (txInMemoryState == null) {
+            return null;
+        }
+
         long current = FastTimestamps.coarseCurrentTimeMillis();
 
 
