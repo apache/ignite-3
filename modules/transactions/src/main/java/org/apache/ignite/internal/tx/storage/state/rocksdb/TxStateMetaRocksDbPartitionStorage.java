@@ -49,7 +49,7 @@ class TxStateMetaRocksDbPartitionStorage {
     /**
      * Prefix to store lease information.
      */
-    private static final byte LEASE_INFO_PREFIX = 3;
+    private static final byte LEASE_INFO_PREFIX = 2;
 
     private final ColumnFamily columnFamily;
 
