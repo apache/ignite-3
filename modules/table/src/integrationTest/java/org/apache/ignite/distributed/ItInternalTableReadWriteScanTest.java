@@ -49,7 +49,10 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         PendingTxPartitionEnlistment enlistment =
                 tx.enlistedPartition(new TablePartitionId(internalTbl.tableId(), part));
 
-        PrimaryReplica recipient = new PrimaryReplica(clusterNodeResolver.getByConsistentId(enlistment.primaryNodeConsistentId()), enlistment.consistencyToken());
+        PrimaryReplica recipient = new PrimaryReplica(
+                clusterNodeResolver.getByConsistentId(enlistment.primaryNodeConsistentId()),
+                enlistment.consistencyToken()
+        );
 
         return new RollbackTxOnErrorPublisher<>(
                 tx,
