@@ -416,62 +416,6 @@ Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
 
-
-=== ALTER TABLE IF EXISTS SET EXPIRE AT
-
-[.diagram-container]
-Diagram(
-Terminal('ALTER TABLE'),
-Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
-Terminal('SET'),
-Terminal('EXPIRE'),
-Terminal('AT'),
-NonTerminal('expiry_column_name'),
-End({type:'complex'})
-)
-
-Keywords and parameters:
-
-* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `expiry_column_name` - the name of the table column that is used to track expiry time.
-
-=== ALTER TABLE IF EXISTS table SET EXPIRE AT
-
-[.diagram-container]
-Diagram(
-Terminal('ALTER TABLE'),
-Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
-Terminal('EXPIRE'),
-Terminal('AT'),
-NonTerminal('expiry_column_name'),
-End({type:'simple'})
-)
-
-Keywords and parameters:
-
-* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `EXPIRE AT` - allows specifying a column with a point in time when a record should be deleted.
-
-
-=== ALTER TABLE IF EXISTS table DROP EXPIRE
-
-[.diagram-container]
-Diagram(
-Terminal('ALTER TABLE'),
-Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
-Terminal('DROP'),
-Terminal('EXPIRE'),
-End({type:'simple'})
-)
-
-Keywords and parameters:
-
-* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `DROP EXPIRE` - disables row expiration for the table.
-
 == DROP TABLE
 
 The `DROP TABLE` command drops an existing table. The table will be marked for deletion and will be removed by garbage collection after the link:administrators-guide/data-partitions#version-storage[low watermark] point is reached. Until the data is removed, it will be available to link:developers-guide/transactions#read-only-transactions[read-only transactions] that check the time before the table was marked for deletion.
