@@ -87,7 +87,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
 
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any()))
+        when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
 
         ClusterState clusterState = cmgMessagesFactory.clusterState()
