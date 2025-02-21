@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.systemviews;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -26,7 +26,6 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
@@ -34,8 +33,7 @@ import org.junit.jupiter.api.Test;
 /**
  * End-to-end tests to verify the {@code SCHEMAS}system view.
  */
-public class ItSchemasSystemViewTest extends BaseSqlIntegrationTest {
-
+public class ItSchemasSystemViewTest extends AbstractSystemViewTest {
     @Test
     public void metadata() {
         assertQuery("SELECT * FROM system.schemas")
@@ -47,7 +45,7 @@ public class ItSchemasSystemViewTest extends BaseSqlIntegrationTest {
                         new MetadataMatcher()
                                 .name("SCHEMA_NAME")
                                 .type(ColumnType.STRING)
-                                .precision(CatalogUtils.MAX_VARLEN_LENGTH)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
                                 .nullable(true)
                 )
                 .check();
