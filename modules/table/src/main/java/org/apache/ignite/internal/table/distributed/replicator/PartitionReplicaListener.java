@@ -1707,6 +1707,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return CompletableFuture of ReplicaResult.
      */
     private CompletableFuture<ReplicaResult> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
+        // When doing changes to this code, please take a look at WriteIntentSwitchRequestHandler#handle() as it might also need
+        // to be touched.
+
         assert !enabledColocationFeature : request;
 
         replicaTxFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
