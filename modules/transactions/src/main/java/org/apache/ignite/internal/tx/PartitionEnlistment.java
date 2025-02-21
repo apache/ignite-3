@@ -25,22 +25,22 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Partition enlistment information used when finishing a transaction (after its commit timestamp is chosen) and when doing its cleanup.
  */
-public class FinishingPartitionEnlistment {
-    private final String primaryConsistentId;
+public class PartitionEnlistment {
+    private final String primaryNodeConsistentId;
 
     @IgniteToStringInclude
-    private final Set<Integer> tableIds;
+    protected final Set<Integer> tableIds;
 
-    public FinishingPartitionEnlistment(String primaryConsistentId, Set<Integer> tableIds) {
-        this.primaryConsistentId = primaryConsistentId;
-        this.tableIds = Set.copyOf(tableIds);
+    public PartitionEnlistment(String primaryNodeConsistentId, Set<Integer> tableIds) {
+        this.primaryNodeConsistentId = primaryNodeConsistentId;
+        this.tableIds = tableIds;
     }
 
     /**
      * Returns consistent ID of the primary node.
      */
-    public String primaryConsistentId() {
-        return primaryConsistentId;
+    public String primaryNodeConsistentId() {
+        return primaryNodeConsistentId;
     }
 
     /**
@@ -52,6 +52,6 @@ public class FinishingPartitionEnlistment {
 
     @Override
     public String toString() {
-        return S.toString(FinishingPartitionEnlistment.class, this);
+        return S.toString(PartitionEnlistment.class, this);
     }
 }

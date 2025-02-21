@@ -17,27 +17,23 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.network.ClusterNode;
 
 /**
- * Partition enlistement information in an ongoing transaction. It stores information needed before commit timestamp is generated.
+ * Partition enlistement information in a pending transaction. It stores information needed before commit timestamp is generated.
  */
-public class OngoingTxPartitionEnlistment {
-    private final ClusterNode primaryNode;
+public class PendingTxPartitionEnlistment extends PartitionEnlistment {
     private final long consistencyToken;
-    private final Set<Integer> tableIds = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates a new enlistment adding the given table ID to it.
      *
-     * @param primaryNode Primary node.
+     * @param primaryNodeConsistentId Primary node consistent ID.
      * @param consistencyToken Enlistment consistency token.
      * @param tableId ID of the table.
      */
-    public OngoingTxPartitionEnlistment(ClusterNode primaryNode, long consistencyToken, int tableId) {
-        this(primaryNode, consistencyToken);
+    public PendingTxPartitionEnlistment(String primaryNodeConsistentId, long consistencyToken, int tableId) {
+        this(primaryNodeConsistentId, consistencyToken);
 
         tableIds.add(tableId);
     }
@@ -45,11 +41,12 @@ public class OngoingTxPartitionEnlistment {
     /**
      * Creates a new enlistment with empty table ID set.
      *
-     * @param primaryNode Primary node.
+     * @param primaryNodeConsistentId Primary node.
      * @param consistencyToken Enlistment consistency token.
      */
-    public OngoingTxPartitionEnlistment(ClusterNode primaryNode, long consistencyToken) {
-        this.primaryNode = primaryNode;
+    public PendingTxPartitionEnlistment(String primaryNodeConsistentId, long consistencyToken) {
+        super(primaryNodeConsistentId, ConcurrentHashMap.newKeySet());
+
         this.consistencyToken = consistencyToken;
     }
 
@@ -63,23 +60,9 @@ public class OngoingTxPartitionEnlistment {
     }
 
     /**
-     * Returns primary node of this partition.
-     */
-    public ClusterNode primaryNode() {
-        return primaryNode;
-    }
-
-    /**
      * Returns enlistment consistency token.
      */
     public long consistencyToken() {
         return consistencyToken;
-    }
-
-    /**
-     * Converts this to an instance of {@link FinishingPartitionEnlistment}.
-     */
-    public FinishingPartitionEnlistment snapshot() {
-        return new FinishingPartitionEnlistment(primaryNode.name(), tableIds);
     }
 }

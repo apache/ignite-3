@@ -139,10 +139,10 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<ReplicationGroupId, FinishingPartitionEnlistment> partitions = Map.of(
-                tablePartitionId1, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
-                tablePartitionId2, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
-                tablePartitionId3, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
         );
 
         HybridTimestamp beginTimestamp = clock.now();
@@ -164,10 +164,10 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<ReplicationGroupId, FinishingPartitionEnlistment> partitions = Map.of(
-                tablePartitionId1, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
-                tablePartitionId2, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
-                tablePartitionId3, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
         );
 
         // First cleanup fails:
@@ -201,10 +201,10 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<ReplicationGroupId, FinishingPartitionEnlistment> partitions = Map.of(
-                tablePartitionId1, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
-                tablePartitionId2, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
-                tablePartitionId3, new FinishingPartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
         );
 
         // First cleanup fails:

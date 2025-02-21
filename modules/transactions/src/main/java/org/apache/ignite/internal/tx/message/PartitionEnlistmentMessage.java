@@ -20,10 +20,10 @@ package org.apache.ignite.internal.tx.message;
 import java.util.Set;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.tx.FinishingPartitionEnlistment;
+import org.apache.ignite.internal.tx.PartitionEnlistment;
 
 /**
- * Message for {@link FinishingPartitionEnlistment}.
+ * Message for {@link PartitionEnlistment}.
  */
 @Transferable(TxMessageGroup.PARTITION_ENLISTMENT_MESSAGE)
 public interface PartitionEnlistmentMessage extends NetworkMessage {
@@ -38,9 +38,9 @@ public interface PartitionEnlistmentMessage extends NetworkMessage {
     Set<Integer> tableIds();
 
     /**
-     * Converts this message to the corresponding {@link FinishingPartitionEnlistment}.
+     * Converts this message to the corresponding {@link PartitionEnlistment}.
      */
-    default FinishingPartitionEnlistment asPartition() {
-        return new FinishingPartitionEnlistment(primaryConsistentId(), tableIds());
+    default PartitionEnlistment asPartition() {
+        return new PartitionEnlistment(primaryConsistentId(), Set.copyOf(tableIds()));
     }
 }

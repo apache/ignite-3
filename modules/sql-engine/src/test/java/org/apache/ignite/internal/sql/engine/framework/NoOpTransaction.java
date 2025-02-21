@@ -29,7 +29,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -45,7 +45,9 @@ public final class NoOpTransaction implements InternalTransaction {
     private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1)
             .addPhysicalTime(System.currentTimeMillis());
 
-    private final OngoingTxPartitionEnlistment enlistment;
+    private final ClusterNode enlistmentNode;
+
+    private final PendingTxPartitionEnlistment enlistment;
 
     private final TablePartitionId groupId = new TablePartitionId(1, 0);
 
@@ -85,14 +87,15 @@ public final class NoOpTransaction implements InternalTransaction {
      */
     public NoOpTransaction(String name, boolean implicit, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        this.enlistment = new OngoingTxPartitionEnlistment(new ClusterNodeImpl(randomUUID(), name, networkAddress), 1L, groupId.tableId());
+        this.enlistmentNode = new ClusterNodeImpl(randomUUID(), name, networkAddress);
+        this.enlistment = new PendingTxPartitionEnlistment(enlistmentNode.name(), 1L, groupId.tableId());
         this.implicit = implicit;
         this.readOnly = readOnly;
     }
 
     /** Node at which this transaction was start. */
     public ClusterNode clusterNode() {
-        return enlistment.primaryNode();
+        return enlistmentNode;
     }
 
     @Override
@@ -144,7 +147,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public OngoingTxPartitionEnlistment enlistedPartition(ReplicationGroupId tablePartitionId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId tablePartitionId) {
         return enlistment;
     }
 

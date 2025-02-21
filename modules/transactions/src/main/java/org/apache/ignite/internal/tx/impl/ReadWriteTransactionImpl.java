@@ -34,7 +34,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
@@ -50,7 +50,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
 
     /** Enlisted partitions: partition id -> partition info. */
-    private final Map<ReplicationGroupId, OngoingTxPartitionEnlistment> enlisted = new ConcurrentHashMap<>();
+    private final Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlisted = new ConcurrentHashMap<>();
 
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
@@ -97,7 +97,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public OngoingTxPartitionEnlistment enlistedPartition(ReplicationGroupId partGroupId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
@@ -118,9 +118,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         try {
             checkEnlistPossibility();
 
-            OngoingTxPartitionEnlistment enlistment = enlisted.computeIfAbsent(
+            PendingTxPartitionEnlistment enlistment = enlisted.computeIfAbsent(
                     replicationGroupId,
-                    k -> new OngoingTxPartitionEnlistment(primaryNode, consistencyToken)
+                    k -> new PendingTxPartitionEnlistment(primaryNode.name(), consistencyToken)
             );
 
             enlistment.addTableId(tableId);

@@ -54,9 +54,9 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.tx.FinishingPartitionEnlistment;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
+import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -132,7 +132,7 @@ public class TxFinishReplicaRequestHandler {
      */
     public CompletableFuture<TransactionResult> handle(TxFinishReplicaRequest request) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-        Map<ReplicationGroupId, FinishingPartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
+        Map<ReplicationGroupId, PartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
 
         UUID txId = request.txId();
 
@@ -156,10 +156,10 @@ public class TxFinishReplicaRequestHandler {
         }
     }
 
-    private static Map<ReplicationGroupId, FinishingPartitionEnlistment> asReplicationGroupIdToPartitionMap(
+    private static Map<ReplicationGroupId, PartitionEnlistment> asReplicationGroupIdToPartitionMap(
             Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> messages
     ) {
-        var result = new HashMap<ReplicationGroupId, FinishingPartitionEnlistment>(IgniteUtils.capacity(messages.size()));
+        var result = new HashMap<ReplicationGroupId, PartitionEnlistment>(IgniteUtils.capacity(messages.size()));
 
         for (Entry<ReplicationGroupIdMessage, PartitionEnlistmentMessage> e : messages.entrySet()) {
             result.put(e.getKey().asReplicationGroupId(), e.getValue().asPartition());
@@ -169,7 +169,7 @@ public class TxFinishReplicaRequestHandler {
     }
 
     private CompletableFuture<TransactionResult> finishAndCleanup(
-            Map<ReplicationGroupId, FinishingPartitionEnlistment> enlistedPartitions,
+            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

@@ -38,7 +38,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
-import org.apache.ignite.internal.tx.FinishingPartitionEnlistment;
+import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -162,7 +162,7 @@ public class TxMessageSender {
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
             TablePartitionId commitPartition,
-            Map<ReplicationGroupId, FinishingPartitionEnlistment> enlistedPartitions,
+            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             Long consistencyToken,
             boolean commit,
@@ -281,17 +281,17 @@ public class TxMessageSender {
     }
 
     private static Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> toEnlistedPartitionMessagesByGroupId(
-            Map<ReplicationGroupId, FinishingPartitionEnlistment> idEnlistedPartitions
+            Map<ReplicationGroupId, PartitionEnlistment> idEnlistedPartitions
     ) {
         var messages = new HashMap<ReplicationGroupIdMessage, PartitionEnlistmentMessage>(idEnlistedPartitions.size());
 
-        for (Map.Entry<ReplicationGroupId, FinishingPartitionEnlistment> e : idEnlistedPartitions.entrySet()) {
-            FinishingPartitionEnlistment enlistedPartition = e.getValue();
+        for (Map.Entry<ReplicationGroupId, PartitionEnlistment> e : idEnlistedPartitions.entrySet()) {
+            PartitionEnlistment enlistedPartition = e.getValue();
 
             messages.put(
                     toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, e.getKey()),
                     TX_MESSAGES_FACTORY.partitionEnlistmentMessage()
-                            .primaryConsistentId(enlistedPartition.primaryConsistentId())
+                            .primaryConsistentId(enlistedPartition.primaryNodeConsistentId())
                             .tableIds(enlistedPartition.tableIds())
                             .build()
             );

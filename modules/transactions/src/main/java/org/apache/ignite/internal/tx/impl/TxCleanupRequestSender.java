@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.FinishingPartitionEnlistment;
+import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
@@ -158,7 +158,7 @@ public class TxCleanupRequestSender {
      */
     public CompletableFuture<Void> cleanup(
             ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, FinishingPartitionEnlistment> enlistedPartitions,
+            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -172,7 +172,7 @@ public class TxCleanupRequestSender {
         Map<String, List<EnlistedPartitionGroup>> partitionsByPrimaryName = new HashMap<>();
         enlistedPartitions.forEach((partitionId, partition) -> {
             List<EnlistedPartitionGroup> enlistedPartitionGroups = partitionsByPrimaryName.computeIfAbsent(
-                    partition.primaryConsistentId(),
+                    partition.primaryNodeConsistentId(),
                     node -> new ArrayList<>()
             );
             enlistedPartitionGroups.add(new EnlistedPartitionGroup(partitionId, partition.tableIds()));

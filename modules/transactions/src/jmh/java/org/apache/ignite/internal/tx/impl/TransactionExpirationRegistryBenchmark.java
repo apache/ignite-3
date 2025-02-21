@@ -25,7 +25,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -95,7 +95,7 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public OngoingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+        public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
             return null;
         }
 

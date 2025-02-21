@@ -163,7 +163,7 @@ public interface TxManager extends IgniteComponent {
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, OngoingTxPartitionEnlistment> enlistedGroups,
+            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
 
@@ -181,7 +181,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, FinishingPartitionEnlistment> enlistedPartitions,
+            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

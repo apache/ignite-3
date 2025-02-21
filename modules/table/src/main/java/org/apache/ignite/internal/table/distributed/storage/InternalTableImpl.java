@@ -128,7 +128,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.OngoingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -358,7 +358,7 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
 
-        OngoingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
+        PendingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
 
         CompletableFuture<R> fut;
 
@@ -474,7 +474,7 @@ public class InternalTableImpl implements InternalTable {
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
 
-            OngoingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
+            PendingTxPartitionEnlistment enlistment = actualTx.enlistedPartition(partGroupId);
 
             CompletableFuture<T> fut;
 
@@ -565,7 +565,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        OngoingTxPartitionEnlistment enlistment = tx.enlistedPartition(partGroupId);
+        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
@@ -592,7 +592,7 @@ public class InternalTableImpl implements InternalTable {
         if (enlistment != null) {
             enlistment.addTableId(tableId);
 
-            fut = replicaSvc.invoke(enlistment.primaryNode(), mapFunc.apply(enlistment.consistencyToken()));
+            fut = replicaSvc.invoke(enlistment.primaryNodeConsistentId(), mapFunc.apply(enlistment.consistencyToken()));
         } else {
             fut = enlistAndInvoke(tx, partId, mapFunc, false, null);
         }
@@ -654,7 +654,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             Function<Long, ReplicaRequest> mapFunc,
             boolean full,
-            OngoingTxPartitionEnlistment enlistment,
+            PendingTxPartitionEnlistment enlistment,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
             int retryOnLockConflict
     ) {
@@ -669,7 +669,7 @@ public class InternalTableImpl implements InternalTable {
                 || request instanceof SwapRowReplicaRequest;
 
         if (full) { // Full transaction retries are handled in postEnlist.
-            return replicaSvc.invokeRaw(enlistment.primaryNode(), request).handle((r, e) -> {
+            return replicaSvc.invokeRaw(enlistment.primaryNodeConsistentId(), request).handle((r, e) -> {
                 boolean hasError = e != null;
                 assert hasError || r instanceof TimestampAware;
 
@@ -694,7 +694,7 @@ public class InternalTableImpl implements InternalTable {
                             )));
                 }
 
-                return replicaSvc.<R>invoke(enlistment.primaryNode(), request).thenApply(res -> {
+                return replicaSvc.<R>invoke(enlistment.primaryNodeConsistentId(), request).thenApply(res -> {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
@@ -725,7 +725,7 @@ public class InternalTableImpl implements InternalTable {
                     return completedFuture(r);
                 }).thenCompose(identity());
             } else { // Explicit reads should be retried too.
-                return replicaSvc.<R>invoke(enlistment.primaryNode(), request).handle((r, e) -> {
+                return replicaSvc.<R>invoke(enlistment.primaryNodeConsistentId(), request).handle((r, e) -> {
                     if (e != null) {
                         if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
                             return trackingInvoke(
@@ -1691,7 +1691,7 @@ public class InternalTableImpl implements InternalTable {
                         tablePartitionId,
                         scanId,
                         th,
-                        recipientNode,
+                        recipientNode.name(),
                         intentionallyClose || th != null
                 );
             }
@@ -1753,7 +1753,7 @@ public class InternalTableImpl implements InternalTable {
                             replicationGrpId,
                             scanId,
                             th,
-                            tx.enlistedPartition(replicationGrpId).primaryNode(),
+                            tx.enlistedPartition(replicationGrpId).primaryNodeConsistentId(),
                             intentionallyClose
                     ) : completedOrFailedFuture(null, th);
                 }
@@ -1805,7 +1805,7 @@ public class InternalTableImpl implements InternalTable {
 
             @Override
             protected CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th) {
-                return completeScan(txId, tablePartitionId, scanId, th, recipient.node(), intentionallyClose);
+                return completeScan(txId, tablePartitionId, scanId, th, recipient.node().name(), intentionallyClose);
             }
         };
     }
@@ -1817,7 +1817,7 @@ public class InternalTableImpl implements InternalTable {
      * @param replicaGrpId Replication group id.
      * @param scanId Scan id.
      * @param th An exception that may occur in the scan procedure or {@code null} when the procedure passes without an exception.
-     * @param recipientNode Server node where the scan was started.
+     * @param recipientConsistentId Consistent ID of the server node where the scan was started.
      * @param explicitCloseCursor True when the cursor should be closed explicitly.
      * @return The future.
      */
@@ -1826,7 +1826,7 @@ public class InternalTableImpl implements InternalTable {
             TablePartitionId replicaGrpId,
             long scanId,
             Throwable th,
-            ClusterNode recipientNode,
+            String recipientConsistentId,
             boolean explicitCloseCursor
     ) {
         CompletableFuture<Void> closeFut = nullCompletedFuture();
@@ -1846,7 +1846,7 @@ public class InternalTableImpl implements InternalTable {
                     .scanId(scanId)
                     .build();
 
-            closeFut = replicaSvc.invoke(recipientNode, scanCloseReplicaRequest);
+            closeFut = replicaSvc.invoke(recipientConsistentId, scanCloseReplicaRequest);
         }
 
         return closeFut.handle((unused, throwable) -> {
@@ -2007,7 +2007,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @return The enlist future (then will a leader become known).
      */
-    protected CompletableFuture<OngoingTxPartitionEnlistment> enlist(int partId, InternalTransaction tx) {
+    protected CompletableFuture<PendingTxPartitionEnlistment> enlist(int partId, InternalTransaction tx) {
         HybridTimestamp now = tx.startTimestamp();
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
@@ -2015,7 +2015,7 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(tablePartitionId, now);
 
-        Function<ReplicaMeta, OngoingTxPartitionEnlistment> enlistClo = replicaMeta -> {
+        Function<ReplicaMeta, PendingTxPartitionEnlistment> enlistClo = replicaMeta -> {
             ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
 
             tx.enlist(partGroupId, tableId, getClusterNode(replicaMeta), enlistmentConsistencyToken(replicaMeta));

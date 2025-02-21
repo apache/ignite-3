@@ -234,10 +234,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(partitionIdForEnlistment, 10, REMOTE_NODE, 1L);
 
-        OngoingTxPartitionEnlistment actual = tx.enlistedPartition(partitionIdForEnlistment);
-        assertEquals(REMOTE_NODE, actual.primaryNode());
+        PendingTxPartitionEnlistment actual = tx.enlistedPartition(partitionIdForEnlistment);
+        assertEquals(REMOTE_NODE.name(), actual.primaryNodeConsistentId());
         assertEquals(1L, actual.consistencyToken());
-        assertEquals(Set.of(10), actual.snapshot().tableIds());
+        assertEquals(Set.of(10), actual.tableIds());
     }
 
     @Test
