@@ -51,7 +51,7 @@ public class ClientTupleReplaceExactRequest {
             TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
 
             return readSchema(in, table).thenCompose(schema -> {
                 var oldTuple = readTuple(in, false, schema);

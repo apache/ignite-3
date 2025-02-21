@@ -318,6 +318,7 @@ public class ClientCompute implements IgniteCompute {
                 ClientCompute::unpackSubmitTaskResult,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -333,6 +334,7 @@ public class ClientCompute implements IgniteCompute {
                 },
                 ClientCompute::unpackSubmitResult,
                 node.name(),
+                null,
                 null,
                 true
         );
@@ -393,7 +395,7 @@ public class ClientCompute implements IgniteCompute {
     ) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
-                (schema, outputChannel) -> {
+                (schema, outputChannel, unused) -> {
                     ClientMessagePacker w = outputChannel.out();
 
                     w.packInt(t.tableId());
@@ -434,7 +436,7 @@ public class ClientCompute implements IgniteCompute {
         int partitionId = ((HashPartition) partition).partitionId();
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_PARTITIONED,
-                (schema, outputChannel) -> {
+                (schema, outputChannel, unused) -> {
                     ClientMessagePacker w = outputChannel.out();
 
                     w.packInt(t.tableId());

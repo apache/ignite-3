@@ -85,7 +85,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, key, s, w, n,true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -109,7 +109,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (s, w) -> ser.writeTuples(tx, keys, s, w, true),
+                (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
                 Collections.emptyMap(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()),
@@ -131,7 +131,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -151,7 +151,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 defaultValue,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -171,7 +171,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
-                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
                 tx);
@@ -194,7 +194,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                (s, w) -> ser.writeTuples(tx, keys, s, w, true),
+                (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()),
                 tx);
@@ -214,7 +214,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
+                (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 r -> null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
                 tx);
@@ -242,7 +242,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeKvTuples(tx, pairs.entrySet(), s, w),
+                (s, w, n) -> ser.writeKvTuples(tx, pairs.entrySet(), s, w, n),
                 r -> null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, pairs.keySet().iterator().next()),
                 tx);
@@ -262,7 +262,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
+                (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -285,7 +285,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
+                (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -306,7 +306,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
+                (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
                 tx);
@@ -331,7 +331,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
                 tx);
@@ -345,7 +345,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
+                (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
                 tx);
@@ -368,7 +368,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (s, w) -> ser.writeTuples(tx, keys, s, w, true),
+                (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()),
@@ -388,7 +388,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -410,7 +410,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -437,7 +437,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
+                (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
                 tx);
@@ -452,9 +452,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
-                (s, w) -> {
-                    ser.writeKvTuple(tx, key, oldVal, s, w, false);
-                    ser.writeKvTuple(tx, key, newVal, s, w, true);
+                (s, w, n) -> {
+                    ser.writeKvTuple(tx, key, oldVal, s, w, n, false);
+                    ser.writeKvTuple(tx, key, newVal, s, w, n, true);
                 },
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -475,7 +475,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
+                (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -498,7 +498,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
+                (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -519,7 +519,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer, Void> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
-                (s, w) -> ser.writeStreamerKvTuples(partition, items, deleted, s, w),
+                (s, w, n) -> ser.writeStreamerKvTuples(partition, items, deleted, s, w),
                 r -> null,
                 PartitionAwarenessProvider.of(partition),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),

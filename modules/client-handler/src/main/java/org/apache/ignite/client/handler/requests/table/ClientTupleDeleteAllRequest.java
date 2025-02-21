@@ -52,7 +52,7 @@ public class ClientTupleDeleteAllRequest {
             TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
             return readTuples(in, table, true).thenCompose(tuples -> {
                 return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples -> {
                     writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView());

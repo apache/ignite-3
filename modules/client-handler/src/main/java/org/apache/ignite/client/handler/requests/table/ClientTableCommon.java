@@ -38,6 +38,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.RemoteTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -391,19 +393,35 @@ public class ClientTableCommon {
      * @param in Unpacker.
      * @param out Packer.
      * @param resources Resource registry.
+     * @param table The associated table.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            @Nullable TableViewInternal table
     ) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
-            var tx = resources.get(in.unpackLong()).get(InternalTransaction.class);
+            long id = in.unpackLong();
+            if (id == 0) {
+                UUID txId = in.unpackUuid();
+                int commitPart = in.unpackInt();
+                UUID coord = in.unpackUuid();
+
+                assert commitPart >= 0 && table != null : "Illegal condition for direct mapping";
+
+                RemoteTransaction tx = new RemoteTransaction(txId, commitPart, coord);
+                tx.assignCommitPartition(new TablePartitionId(table.tableId(), commitPart));
+
+                return tx;
+            }
+
+            var tx = resources.get(id).get(InternalTransaction.class);
 
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
@@ -424,6 +442,7 @@ public class ClientTableCommon {
      * @param out Packer.
      * @param resources Resource registry.
      * @param txManager Ignite transactions.
+     * @param table
      * @param readOnly Read only flag.
      * @return Transaction.
      */
@@ -432,10 +451,11 @@ public class ClientTableCommon {
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             TxManager txManager,
+            @Nullable TableViewInternal table,
             boolean readOnly
     ) {
 
-        InternalTransaction tx = readTx(in, out, resources);
+        InternalTransaction tx = readTx(in, out, resources, table);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.

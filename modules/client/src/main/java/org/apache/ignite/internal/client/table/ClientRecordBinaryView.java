@@ -76,7 +76,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, keyRec, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec),
@@ -98,7 +98,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
+                (s, w, n) -> ser.writeTuples(tx, keyRecs, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readTuplesNullable(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()),
@@ -119,7 +119,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
-                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
                 tx);
@@ -142,7 +142,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                (s, w) -> ser.writeTuples(tx, keys, s, w, true),
+                (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()),
                 tx);
@@ -161,7 +161,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                (s, w) -> ser.writeTuple(tx, rec, s, w),
+                (s, w, n) -> ser.writeTuple(tx, rec, s, w, n),
                 r -> null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec),
                 tx);
@@ -184,7 +184,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeTuples(tx, recs, s, w, false),
+                (s, w, n) -> ser.writeTuples(tx, recs, s, w, n, false),
                 r -> null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()),
                 tx);
@@ -203,7 +203,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                (s, w) -> ser.writeTuple(tx, rec, s, w, false),
+                (s, w, n) -> ser.writeTuple(tx, rec, s, w, n, false),
                 (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec),
@@ -223,7 +223,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                (s, w) -> ser.writeTuple(tx, rec, s, w, false),
+                (s, w, n) -> ser.writeTuple(tx, rec, s, w, n, false),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec),
                 tx);
@@ -246,7 +246,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
-                (s, w) -> ser.writeTuples(tx, recs, s, w, false),
+                (s, w, n) -> ser.writeTuples(tx, recs, s, w, n, false),
                 (s, r) -> ClientTupleSerializer.readTuples(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()),
@@ -272,7 +272,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                (s, w) -> ser.writeTuple(tx, rec, s, w, false),
+                (s, w, n) -> ser.writeTuple(tx, rec, s, w, n, false),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec),
                 tx);
@@ -286,9 +286,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
-                (s, w) -> {
-                    ser.writeTuple(tx, oldRec, s, w, false, false);
-                    ser.writeTuple(tx, newRec, s, w, false, true);
+                (s, w, n) -> {
+                    ser.writeTuple(tx, oldRec, s, w, n, false, false);
+                    ser.writeTuple(tx, newRec, s, w, n, false, true);
                 },
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, oldRec),
@@ -308,7 +308,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                (s, w) -> ser.writeTuple(tx, rec, s, w, false),
+                (s, w, n) -> ser.writeTuple(tx, rec, s, w, n, false),
                 (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec),
@@ -328,7 +328,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, keyRec, s, w, n, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec),
                 tx);
@@ -347,7 +347,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                (s, w) -> ser.writeTuple(tx, rec, s, w, false),
+                (s, w, n) -> ser.writeTuple(tx, rec, s, w, n, false),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec),
                 tx);
@@ -366,7 +366,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
+                (s, w, n) -> ser.writeTuple(tx, keyRec, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec),
@@ -390,7 +390,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
+                (s, w, n) -> ser.writeTuples(tx, keyRecs, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()),
@@ -414,7 +414,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
-                (s, w) -> ser.writeTuples(tx, recs, s, w, false),
+                (s, w, n) -> ser.writeTuples(tx, recs, s, w, n, false),
                 (s, r) -> ClientTupleSerializer.readTuples(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()),
@@ -434,7 +434,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<Tuple, Integer, Void> batchSender = (partitionId, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
-                (s, w) -> ser.writeStreamerTuples(partitionId, items, deleted, s, w),
+                (s, w, n) -> ser.writeStreamerTuples(partitionId, items, deleted, s, w),
                 r -> null,
                 PartitionAwarenessProvider.of(partitionId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),

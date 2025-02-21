@@ -112,9 +112,16 @@ public class ClientRecordSerializer<R> {
         writeRecRaw(rec, mapper, schema, out, part);
     }
 
-    void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
+    void writeRec(
+            @Nullable Transaction tx,
+            @Nullable R rec,
+            ClientSchema schema,
+            PayloadOutputChannel out,
+            @Nullable String affinityNode,
+            TuplePart part
+    ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, affinityNode);
         out.out().packInt(schema.version());
 
         writeRecRaw(rec, schema, out.out(), part);
@@ -126,10 +133,11 @@ public class ClientRecordSerializer<R> {
             @Nullable R rec2,
             ClientSchema schema,
             PayloadOutputChannel out,
+            @Nullable String affinityNode,
             TuplePart part
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, affinityNode);
         out.out().packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
@@ -144,10 +152,11 @@ public class ClientRecordSerializer<R> {
             Collection<R> recs,
             ClientSchema schema,
             PayloadOutputChannel out,
+            @Nullable String affinityNode,
             TuplePart part
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, affinityNode);
         out.out().packInt(schema.version());
         out.out().packInt(recs.size());
 

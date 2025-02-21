@@ -36,6 +36,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
@@ -245,7 +246,7 @@ public class ClientSql implements IgniteSql {
         Objects.requireNonNull(statement);
 
         PayloadWriter payloadWriter = w -> {
-            writeTx(transaction, w);
+            writeTx(transaction, w, null);
 
             w.out().packString(statement.defaultSchema());
             w.out().packInt(statement.pageSize());
@@ -268,7 +269,7 @@ public class ClientSql implements IgniteSql {
         if (transaction != null) {
             try {
                 //noinspection resource
-                return ClientLazyTransaction.ensureStarted(transaction, ch, null)
+                return ClientLazyTransaction.ensureStarted(transaction, ch, new IgniteBiTuple<>())
                         .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader))
                         .exceptionally(ClientSql::handleException);
             } catch (TransactionException e) {
@@ -289,7 +290,7 @@ public class ClientSql implements IgniteSql {
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         PayloadWriter payloadWriter = w -> {
-            writeTx(transaction, w);
+            writeTx(transaction, w, null);
 
             w.out().packString(statement.defaultSchema());
             w.out().packInt(statement.pageSize());

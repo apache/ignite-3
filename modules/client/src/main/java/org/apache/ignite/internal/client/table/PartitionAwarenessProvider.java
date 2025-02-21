@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.function.Function;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,10 +51,6 @@ public class PartitionAwarenessProvider {
 
     public static PartitionAwarenessProvider of(@Nullable ClientLazyTransaction tx, Function<ClientSchema, Integer> hashFunc) {
         return new PartitionAwarenessProvider(hashFunc, null, tx);
-    }
-
-    @Nullable String nodeName() {
-        return tx != null ? tx.nodeName() : null;
     }
 
     @Nullable Integer partition() {

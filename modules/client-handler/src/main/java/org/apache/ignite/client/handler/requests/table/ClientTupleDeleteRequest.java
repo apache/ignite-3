@@ -50,7 +50,7 @@ public class ClientTupleDeleteRequest {
             TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
             return readTuple(in, table, true).thenCompose(tuple -> {
                 return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {
                     out.packInt(table.schemaView().lastKnownSchemaVersion());

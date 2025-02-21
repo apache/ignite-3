@@ -51,7 +51,7 @@ public class ClientTupleInsertAllRequest {
             TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
             return readTuples(in, table, false).thenCompose(tuples -> {
                 return table.recordView().insertAllAsync(tx, tuples).thenAccept(skippedTuples -> {
                     writeTuples(out, skippedTuples, table.schemaView());

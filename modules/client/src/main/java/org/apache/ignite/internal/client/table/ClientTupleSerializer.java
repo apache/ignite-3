@@ -72,9 +72,10 @@ public class ClientTupleSerializer {
             @Nullable Transaction tx,
             Tuple tuple,
             ClientSchema schema,
-            PayloadOutputChannel out
+            PayloadOutputChannel out,
+            @Nullable String affinityNode
     ) {
-        writeTuple(tx, tuple, schema, out, false, false);
+        writeTuple(tx, tuple, schema, out, affinityNode, false, false);
     }
 
     /**
@@ -90,9 +91,10 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
+            @Nullable String affinityNode,
             boolean keyOnly
     ) {
-        writeTuple(tx, tuple, schema, out, keyOnly, false);
+        writeTuple(tx, tuple, schema, out, affinityNode, keyOnly, false);
     }
 
     /**
@@ -109,12 +111,13 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
+            @Nullable String affinityNode,
             boolean keyOnly,
             boolean skipHeader
     ) {
         if (!skipHeader) {
             out.out().packInt(tableId);
-            writeTx(tx, out);
+            writeTx(tx, out, affinityNode);
             out.out().packInt(schema.version());
         }
 
@@ -169,11 +172,12 @@ public class ClientTupleSerializer {
             @Nullable Tuple val,
             ClientSchema schema,
             PayloadOutputChannel out,
+            @Nullable String affinityNode,
             boolean skipHeader
     ) {
         if (!skipHeader) {
             out.out().packInt(tableId);
-            writeTx(tx, out);
+            writeTx(tx, out, affinityNode);
             out.out().packInt(schema.version());
         }
 
@@ -224,14 +228,20 @@ public class ClientTupleSerializer {
      * @param schema Schema.
      * @param out Out.
      */
-    void writeKvTuples(@Nullable Transaction tx, Collection<Entry<Tuple, Tuple>> pairs, ClientSchema schema, PayloadOutputChannel out) {
+    void writeKvTuples(
+            @Nullable Transaction tx,
+            Collection<Entry<Tuple, Tuple>> pairs,
+            ClientSchema schema,
+            PayloadOutputChannel out,
+            @Nullable String affinityNode
+    ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, affinityNode);
         out.out().packInt(schema.version());
         out.out().packInt(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs) {
-            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, true);
+            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, affinityNode, true);
         }
     }
 
@@ -249,7 +259,8 @@ public class ClientTupleSerializer {
             Collection<Entry<Tuple, Tuple>> pairs,
             @Nullable BitSet deleted,
             ClientSchema schema,
-            PayloadOutputChannel out) {
+            PayloadOutputChannel out
+    ) {
         ClientMessagePacker w = out.out();
 
         w.packInt(tableId);
@@ -264,9 +275,9 @@ public class ClientTupleSerializer {
             boolean del = deleted != null && deleted.get(i++);
 
             if (del) {
-                writeTuple(null, pair.getKey(), schema, out, true, true);
+                writeTuple(null, pair.getKey(), schema, out, null, true, true);
             } else {
-                writeKvTuple(null, pair.getKey(), pair.getValue(), schema, out, true);
+                writeKvTuple(null, pair.getKey(), pair.getValue(), schema, out, null, true);
             }
         }
     }
@@ -284,15 +295,16 @@ public class ClientTupleSerializer {
             Collection<Tuple> tuples,
             ClientSchema schema,
             PayloadOutputChannel out,
+            @Nullable String affinityNode,
             boolean keyOnly
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, affinityNode);
         out.out().packInt(schema.version());
         out.out().packInt(tuples.size());
 
         for (var tuple : tuples) {
-            writeTuple(tx, tuple, schema, out, keyOnly, true);
+            writeTuple(tx, tuple, schema, out, affinityNode, keyOnly, true);
         }
     }
 
@@ -323,7 +335,7 @@ public class ClientTupleSerializer {
         int i = 0;
         for (var tuple : tuples) {
             boolean keyOnly = deleted != null && deleted.get(i++);
-            writeTuple(null, tuple, schema, out, keyOnly, true);
+            writeTuple(null, tuple, schema, out, null, keyOnly, true);
         }
     }
 

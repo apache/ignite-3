@@ -46,6 +46,7 @@ import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
@@ -291,20 +292,33 @@ public class ClientTable implements Table {
      *
      * @param tx Transaction.
      * @param out Packer.
+     * @param affinityNode Affinity node for direct mapping attempt.
      */
-    public static void writeTx(@Nullable Transaction tx, PayloadOutputChannel out) {
+    public static void writeTx(@Nullable Transaction tx, PayloadOutputChannel out, @Nullable String affinityNode) {
         if (tx == null) {
             out.out().packNil();
         } else {
             ClientTransaction clientTx = ClientTransaction.get(tx);
 
-            //noinspection resource
-            if (clientTx.channel() != out.clientChannel()) {
-                // Do not throw IgniteClientConnectionException to avoid retry kicking in.
-                throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
-            }
+            // Test if a direct request is possible:
+            // 1. The txn started using partition map.
+            // 2. Operation partition is known and direct connection to corresponding primary replica is available.
+            if (affinityNode != null && affinityNode.equals(out.clientChannel().protocolContext().clusterNode().name())
+                    && clientTx.commitPartition() != ClientTransaction.NO_COMMIT_PARTITION) {
+                // For direct request, pass 0 for resourceId to distinguish with proxy mode.
+                out.out().packLong(0);
+                out.out().packUuid(clientTx.txId());
+                out.out().packInt(clientTx.commitPartition());
+                out.out().packUuid(clientTx.coordinatorId());
+            } else {
+                //noinspection resource
+                if (clientTx.channel() != out.clientChannel()) {
+                    // Do not throw IgniteClientConnectionException to avoid retry kicking in.
+                    throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
+                }
 
-            out.out().packLong(clientTx.id());
+                out.out().packLong(clientTx.id());
+            }
         }
     }
 
@@ -321,9 +335,9 @@ public class ClientTable implements Table {
      */
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, String> writer,
             Function<PayloadInputChannel, T> reader,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
                 opCode,
@@ -352,9 +366,9 @@ public class ClientTable implements Table {
      */
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, String> writer,
             Function<PayloadInputChannel, T> reader,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             boolean expectNotifications,
             @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
@@ -384,9 +398,9 @@ public class ClientTable implements Table {
      */
     <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, String> writer,
             Function<PayloadInputChannel, T> reader,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
             @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
@@ -416,10 +430,10 @@ public class ClientTable implements Table {
      */
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, String> writer,
             BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             @Nullable Transaction tx
     ) {
         return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false, tx);
@@ -443,11 +457,11 @@ public class ClientTable implements Table {
      */
     private <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, String> writer,
             BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
             boolean responseSchemaRequired,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
             @Nullable Integer schemaVersionOverride,
             boolean expectNotifications,
@@ -455,27 +469,23 @@ public class ClientTable implements Table {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
-        CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
-                ? nullCompletedFuture()
-                : getPartitionAssignment();
+        CompletableFuture<List<String>> partitionsFut =
+                provider.isPartitionAwarenessEnabled() ? getPartitionAssignment() : nullCompletedFuture();
 
         // Wait for schema and partition assignment.
         CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String txPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
+                    var tup = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                    return ClientLazyTransaction.ensureStarted(tx, ch, txPreferredNodeName).thenCompose(unused -> {
-                                // Update preferred node name after starting the transaction.
-                                // All operations for a given explicit transaction should go to the same node (tx coordinator).
-                                String opPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
-
-                                return ch.serviceAsync(opCode,
-                                        w -> writer.accept(schema, w),
-                                        r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
-                                        opPreferredNodeName,
-                                        retryPolicyOverride,
-                                        expectNotifications);
+                    return ClientLazyTransaction.ensureStarted(tx, ch, tup).thenCompose(tx0 -> {
+                        return ch.serviceAsync(opCode,
+                                w -> writer.accept(schema, w, tup.get1()),
+                                r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
+                                tup.get1() != null ? tup.get1() : tx0.nodeName(),
+                                tx0.nodeName(),
+                                retryPolicyOverride,
+                                expectNotifications);
                             }
                     );
                 })
@@ -685,38 +695,30 @@ public class ClientTable implements Table {
         return partitionCount;
     }
 
-    @Nullable
-    private static String getPreferredNodeName(
-            @Nullable PartitionAwarenessProvider provider,
+    private static IgniteBiTuple<String, Integer> getPreferredNodeName(
+            PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
             ClientSchema schema) {
-        if (provider == null) {
-            return null;
-        }
-
-        String nodeName = provider.nodeName();
-
-        if (nodeName != null) {
-            return nodeName;
-        }
+        assert provider != null;
 
         if (partitions == null || partitions.isEmpty()) {
-            return null;
+            return new IgniteBiTuple<>();
         }
 
         Integer partition = provider.partition();
 
         if (partition != null) {
-            return partitions.get(partition);
+            return new IgniteBiTuple<>(partitions.get(partition), partition);
         }
 
         Integer hash = provider.getObjectHashCode(schema);
 
         if (hash == null) {
-            return null;
+            return new IgniteBiTuple<>();
         }
 
-        return partitions.get(Math.abs(hash % partitions.size()));
+        int part = Math.abs(hash % partitions.size());
+        return new IgniteBiTuple<>(partitions.get(part), part);
     }
 
     private static class PartitionAssignment {

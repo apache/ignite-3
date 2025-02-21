@@ -51,7 +51,7 @@ public class ClientTupleGetAndReplaceRequest {
             TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().getAndReplaceAsync(tx, tuple).thenAccept(resTuple -> {
                     ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView());

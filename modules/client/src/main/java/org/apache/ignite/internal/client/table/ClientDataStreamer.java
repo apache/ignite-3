@@ -97,6 +97,7 @@ class ClientDataStreamer {
                                         ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(in.in())
                                         : null,
                                 partitionAssignment.get(partitionId),
+                                null,
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),
                                 false)
                 );

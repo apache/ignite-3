@@ -50,7 +50,7 @@ public class ClientTupleUpsertAllRequest {
             TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
             return readTuples(in, table, false).thenCompose(tuples -> {
                 return table.recordView().upsertAllAsync(tx, tuples).thenAccept(unused -> {
                     out.packInt(table.schemaView().lastKnownSchemaVersion());

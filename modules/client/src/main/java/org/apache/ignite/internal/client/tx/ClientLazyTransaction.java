@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -99,13 +100,13 @@ public class ClientLazyTransaction implements Transaction {
      *
      * @return Node name or {@code null}.
      */
-    public @Nullable String nodeName() {
+    public String nodeName() {
         var tx0 = tx;
 
+        assert tx0 != null;
+
         //noinspection resource
-        return tx0 != null
-                ? tx0.join().channel().protocolContext().clusterNode().name()
-                : null;
+        return tx0.join().nodeName();
     }
 
     /**
@@ -132,13 +133,14 @@ public class ClientLazyTransaction implements Transaction {
      *
      * @param tx Transaction.
      * @param ch Channel.
-     * @param preferredNodeName Preferred node name.
+     * @param tup Node-partition pair.
      * @return Future that will be completed when the transaction is started.
      */
     public static CompletableFuture<ClientTransaction> ensureStarted(
             @Nullable Transaction tx,
             ReliableChannel ch,
-            @Nullable String preferredNodeName) {
+            IgniteBiTuple<String, Integer> tup
+    ) {
         if (tx == null) {
             return nullCompletedFuture();
         }
@@ -147,19 +149,20 @@ public class ClientLazyTransaction implements Transaction {
             throw ClientTransaction.unsupportedTxTypeException(tx);
         }
 
-        return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
+        return ((ClientLazyTransaction) tx).ensureStarted(ch, tup);
     }
 
     private synchronized CompletableFuture<ClientTransaction> ensureStarted(
             ReliableChannel ch,
-            @Nullable String preferredNodeName) {
+            IgniteBiTuple<String, Integer> tup
+    ) {
         var tx0 = tx;
 
         if (tx0 != null) {
             return tx0;
         }
 
-        tx0 = ClientTransactions.beginAsync(ch, preferredNodeName, options, observableTimestamp);
+        tx0 = ClientTransactions.beginAsync(ch, tup, options, observableTimestamp);
         tx = tx0;
 
         return tx0;

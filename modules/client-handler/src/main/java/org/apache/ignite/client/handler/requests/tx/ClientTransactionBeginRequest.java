@@ -77,6 +77,8 @@ public class ClientTransactionBeginRequest {
         try {
             long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
             out.packLong(resourceId);
+            out.packUuid(tx.id());
+            out.packUuid(tx.coordinatorId());
 
             metrics.transactionsActiveIncrement();
 

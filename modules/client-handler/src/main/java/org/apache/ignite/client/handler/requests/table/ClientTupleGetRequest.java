@@ -50,7 +50,7 @@ public class ClientTupleGetRequest {
             TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, true);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, true);
             return readTuple(in, table, true).thenCompose(keyTuple -> {
                 return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> {
                     ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView());

@@ -50,12 +50,30 @@ public class ClientTupleUpsertRequest {
             TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> {
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                 });
             });
         });
+
+//        return readTableAsync(in, tables).thenCompose(table -> {
+//            UUID txId = in.unpackUuid();
+//            int commitPart = in.unpackInt();
+//            UUID coord = in.unpackUuid();
+//            HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
+//
+//            return readTuple(in, table, false).thenCompose(tuple -> {
+//                return table.schemaVersions().schemaVersionAt(beginTs, table.tableId()).thenCompose(schema -> {
+//                    RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
+//                    BinaryRowEx row = view.marshal(tuple, schema, false);
+//
+//                    return table.internalTable().upsertDirect(row, txId, commitPart, coord).thenAccept(ignored -> {
+//                        out.packInt(table.schemaView().lastKnownSchemaVersion());
+//                    });
+//                });
+//            });
+//        });
     }
 }

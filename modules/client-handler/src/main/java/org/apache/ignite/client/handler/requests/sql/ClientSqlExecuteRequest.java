@@ -71,7 +71,7 @@ public class ClientSqlExecuteRequest {
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics
     ) {
-        InternalTransaction tx = readTx(in, out, resources);
+        InternalTransaction tx = readTx(in, out, resources, null);
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
