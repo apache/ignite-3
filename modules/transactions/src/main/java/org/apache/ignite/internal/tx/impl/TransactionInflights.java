@@ -139,13 +139,13 @@ public class TransactionInflights {
         }
     }
 
-    void markReadOnlyTxFinished(UUID txId) {
+    void markReadOnlyTxFinished(UUID txId, boolean timeoutExceeded) {
         txCtxMap.compute(txId, (k, ctx) -> {
             if (ctx == null) {
-                ctx = new ReadOnlyTxContext();
+                ctx = new ReadOnlyTxContext(timeoutExceeded);
             }
 
-            ctx.finishTx(null);
+            ctx.finishTx(null, timeoutExceeded);
 
             return ctx;
         });
@@ -154,12 +154,12 @@ public class TransactionInflights {
     ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
-                tuple0 = new ReadWriteTxContext(placementDriver, clockService); // No writes enlisted.
+                tuple0 = new ReadWriteTxContext(placementDriver, clockService, false); // No writes enlisted.
             }
 
             assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
 
-            tuple0.finishTx(enlistedGroups);
+            tuple0.finishTx(enlistedGroups, false);
 
             return tuple0;
         });
@@ -187,11 +187,13 @@ public class TransactionInflights {
 
         abstract void onInflightsRemoved();
 
-        abstract void finishTx(@Nullable Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
+        abstract void finishTx(@Nullable Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups, boolean timeoutExceeded);
 
         abstract boolean isTxFinishing();
 
         abstract boolean isReadyToFinish();
+
+        abstract boolean isTimeoutExceeded();
     }
 
     /**
@@ -203,6 +205,15 @@ public class TransactionInflights {
      */
     private static class ReadOnlyTxContext extends TxContext {
         private volatile boolean markedFinished;
+        private volatile boolean timeoutExceeded;
+
+        ReadOnlyTxContext() {
+            // No-op.
+        }
+
+        ReadOnlyTxContext(boolean timeoutExceeded) {
+            this.timeoutExceeded = timeoutExceeded;
+        }
 
         @Override
         public void onInflightsRemoved() {
@@ -210,7 +221,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(@Nullable Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(@Nullable Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups, boolean timeoutExceeded) {
             markedFinished = true;
         }
 
@@ -225,6 +236,11 @@ public class TransactionInflights {
         }
 
         @Override
+        boolean isTimeoutExceeded() {
+            return timeoutExceeded;
+        }
+
+        @Override
         public String toString() {
             return "ReadOnlyTxContext [inflights=" + inflights + ']';
         }
@@ -236,10 +252,16 @@ public class TransactionInflights {
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
         private volatile Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
         private final ClockService clockService;
+        private volatile boolean timeoutExceeded;
 
         private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService) {
+            this(placementDriver, clockService, false);
+        }
+
+        private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService, boolean timeoutExceeded) {
             this.placementDriver = placementDriver;
             this.clockService = clockService;
+            this.timeoutExceeded = timeoutExceeded;
         }
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
@@ -327,8 +349,9 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups, boolean timeoutExceeded) {
             this.enlistedGroups = enlistedGroups;
+            this.timeoutExceeded = timeoutExceeded;
             finishInProgressFuture = new CompletableFuture<>();
         }
 
@@ -340,6 +363,11 @@ public class TransactionInflights {
         @Override
         public boolean isReadyToFinish() {
             return waitRepFut.isDone();
+        }
+
+        @Override
+        boolean isTimeoutExceeded() {
+            return timeoutExceeded;
         }
 
         @Override
