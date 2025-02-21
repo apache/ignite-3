@@ -1063,10 +1063,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             return null;
         }
 
-        long current = FastTimestamps.coarseCurrentTimeMillis();
-
-
         if (TxState.isFinalState(txInMemoryState.txState())) {
+            long current = FastTimestamps.coarseCurrentTimeMillis();
+
             Long initialTs = txInMemoryState.initialVacuumObservationTimestamp();
 
             assertNotNull(initialTs);

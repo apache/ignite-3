@@ -150,7 +150,6 @@ public class VolatileTxStateMetaStorage {
         LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
         AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
-        AtomicInteger markedAsInitiallyDetectedTxnsCount = new AtomicInteger(0);
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
@@ -229,14 +228,12 @@ public class VolatileTxStateMetaStorage {
                                     + "txnResourceTtl={}, "
                                     + "vacuumizedTxnsCount={}, "
                                     + "vacuumizedPersistentTxnStatesCount={}, "
-                                    + "markedAsInitiallyDetectedTxnsCount={}, "
                                     + "alreadyMarkedTxnsCount={}, "
                                     + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
                             vacuumObservationTimestamp,
                             txnResourceTtl,
                             vacuumizedTxnsCount,
                             vacuumResult.vacuumizedPersistentTxnStatesCount,
-                            markedAsInitiallyDetectedTxnsCount,
                             alreadyMarkedTxnsCount,
                             skippedForFurtherProcessingUnfinishedTxnsCount
                     );
