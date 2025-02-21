@@ -28,13 +28,20 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * End-to-end tests to verify the {@code SCHEMAS}system view.
  */
 public class ItSchemasSystemViewTest extends BaseSqlIntegrationTest {
+
+    @BeforeAll
+    void beforeAll() {
+        IgniteTestUtils.await(systemViewManager().completeRegistration());
+    }
 
     @Test
     public void metadata() {
