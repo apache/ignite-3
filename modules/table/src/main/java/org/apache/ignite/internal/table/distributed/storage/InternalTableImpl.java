@@ -148,6 +148,8 @@ import org.jetbrains.annotations.Nullable;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-24580 - Make sure tableId always gets enlisted.
+
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
