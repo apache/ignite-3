@@ -389,12 +389,16 @@ public class ClientPrimaryReplicaTracker {
         private final long timestamp;
 
         PrimaryReplicasResult(int partitions) {
+            assert partitions > 0 : "partitions = " + partitions;
+
             this.partitions = partitions;
             this.nodeNames = null;
             this.timestamp = 0;
         }
 
         PrimaryReplicasResult(List<String> nodeNames, long timestamp) {
+            assert !nodeNames.isEmpty() : "nodeNames is empty";
+
             this.partitions = nodeNames.size();
             this.nodeNames = nodeNames;
             this.timestamp = timestamp;
@@ -425,15 +429,15 @@ public class ClientPrimaryReplicaTracker {
             this.partitions = partitions;
         }
 
-        public int catalogVersion() {
+        int catalogVersion() {
             return catalogVersion;
         }
 
-        public int tableId() {
+        int tableId() {
             return tableId;
         }
 
-        public int partitions() {
+        int partitions() {
             return partitions;
         }
     }
