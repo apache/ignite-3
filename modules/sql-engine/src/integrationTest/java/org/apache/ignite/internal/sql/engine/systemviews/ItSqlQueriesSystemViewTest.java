@@ -39,7 +39,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.BaseSqlMultiStatementTest;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;

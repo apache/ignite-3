@@ -113,8 +113,7 @@ public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
 
             assertThat(resultRow, hasSize(1));
             assertThat(resultRow.get(0), equalTo(Arrays.asList(expected)));
-        }
-        finally {
+        } finally {
             tx.rollback();
         }
     }
