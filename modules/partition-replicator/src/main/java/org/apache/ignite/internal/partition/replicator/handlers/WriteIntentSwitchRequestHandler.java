@@ -114,7 +114,7 @@ public class WriteIntentSwitchRequestHandler {
         txFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
         List<CompletableFuture<ReplicaResult>> futures = request.tableIds().stream()
-                .map(tableId -> invokeTableWriteIntentSwitchReplicaRequest(tableId, request, senderId))
+                .map(tableId -> invokeTableWriteIntentSwitchReplicaRequest(tableId, request, clockService.current(), senderId))
                 .collect(toList());
 
         // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
@@ -151,11 +151,12 @@ public class WriteIntentSwitchRequestHandler {
     private CompletableFuture<ReplicaResult> invokeTableWriteIntentSwitchReplicaRequest(
             int tableId,
             WriteIntentSwitchReplicaRequest request,
+            HybridTimestamp now,
             UUID senderId
     ) {
         TableWriteIntentSwitchReplicaRequest tableSpecificRequest = TX_MESSAGES_FACTORY.tableWriteIntentSwitchReplicaRequest()
                 .groupId(ReplicaMessageUtils.toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
-                .timestamp(clockService.now())
+                .timestamp(now)
                 .txId(request.txId())
                 .commit(request.commit())
                 .commitTimestamp(request.commitTimestamp())
