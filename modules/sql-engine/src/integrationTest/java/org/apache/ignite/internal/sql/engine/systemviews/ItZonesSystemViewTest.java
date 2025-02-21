@@ -31,7 +31,10 @@ import java.util.Objects;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
@@ -59,7 +62,9 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
                 true,
-                DEFAULT_CONSISTENCY_MODE.name()
+                DEFAULT_CONSISTENCY_MODE.name(),
+                0,
+                catalog.defaultZone().name()
         ).check();
     }
 
@@ -223,6 +228,68 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
         sql("DROP ZONE " + ZONE_NAME);
     }
 
+    @Test
+    public void testMetadata() {
+        assertQuery("SELECT * FROM SYSTEM.ZONES")
+                .columnMetadata(
+                        new MetadataMatcher()
+                                .name("ZONE_NAME")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("PARTITIONS")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("REPLICAS")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("DATA_NODES_AUTO_ADJUST_SCALE_UP")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("DATA_NODES_AUTO_ADJUST_SCALE_DOWN")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("DATA_NODES_FILTER")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("IS_DEFAULT_ZONE")
+                                .type(ColumnType.BOOLEAN)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("CONSISTENCY_MODE")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("ZONE_ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("NAME")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true)
+                )
+                .check();
+    }
+
     private static String createZoneSql(String zoneName, int partitions, int replicas, int scaleUp, int scaleDown, String filter) {
         String sqlFormat = "CREATE ZONE \"%s\" WITH "
                 + "\"PARTITIONS\" = %d, "
@@ -267,7 +334,8 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     }
 
     private static String selectFromZonesSystemView(String zoneName) {
-        String sqlFormat = "SELECT * FROM SYSTEM.ZONES WHERE NAME = '%s'";
+        String sqlFormat = "SELECT ZONE_NAME, PARTITIONS, REPLICAS, DATA_NODES_AUTO_ADJUST_SCALE_UP, DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "
+                + "DATA_NODES_FILTER, IS_DEFAULT_ZONE, CONSISTENCY_MODE FROM SYSTEM.ZONES WHERE ZONE_NAME = '%s'";
 
         return String.format(sqlFormat, zoneName);
     }

@@ -69,10 +69,16 @@ public class SystemViewViewProvider implements CatalogSystemViewProvider {
 
         return SystemViews.<ViewWithSchema>clusterViewBuilder()
                 .name("SYSTEM_VIEWS")
+                .addColumn("VIEW_ID", INT32, entry -> entry.descriptor.id())
+                .addColumn("SCHEMA_NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.schema)
+                .addColumn("VIEW_NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
+                .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.systemViewType().name())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("ID", INT32, entry -> entry.descriptor.id())
                 .addColumn("SCHEMA", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.schema)
                 .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
-                .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.systemViewType().name())
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(viewDataPublisher)
                 .build();
     }
@@ -94,12 +100,15 @@ public class SystemViewViewProvider implements CatalogSystemViewProvider {
         return SystemViews.<ColumnWithTableId>clusterViewBuilder()
                 .name("SYSTEM_VIEW_COLUMNS")
                 .addColumn("VIEW_ID", INT32, entry -> entry.id)
-                .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
+                .addColumn("VIEW_NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
                 .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.type().name())
                 .addColumn("NULLABLE", BOOLEAN, entry -> entry.descriptor.nullable())
                 .addColumn("PRECISION", INT32, entry -> entry.descriptor.precision())
                 .addColumn("SCALE", INT32, entry -> entry.descriptor.scale())
                 .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next column is deprecated and should be removed.
+                //  It is kept for compatibility with 3.0 version, to allow column being found by it's old names.
+                .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
                 .dataProvider(viewDataPublisher)
                 .build();
     }

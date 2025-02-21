@@ -74,24 +74,42 @@ public class ItSystemViewsTest extends AbstractSystemViewTest {
         assertQuery(format("SELECT * FROM {}", SYSTEM_VIEWS.canonicalName()))
                 .columnMetadata(
                         new MetadataMatcher()
-                                .name("ID")
+                                .name("VIEW_ID")
                                 .type(ColumnType.INT32)
                                 .nullable(true),
 
                         new MetadataMatcher()
-                                .name("SCHEMA")
+                                .name("SCHEMA_NAME")
                                 .type(ColumnType.STRING)
                                 .precision(Short.MAX_VALUE)
                                 .nullable(true),
 
                         new MetadataMatcher()
-                                .name("NAME")
+                                .name("VIEW_NAME")
                                 .type(ColumnType.STRING)
                                 .precision(Short.MAX_VALUE)
                                 .nullable(true),
 
                         new MetadataMatcher()
                                 .name("TYPE")
+                                .type(ColumnType.STRING)
+                                .precision(Short.MAX_VALUE)
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("SCHEMA")
+                                .type(ColumnType.STRING)
+                                .precision(Short.MAX_VALUE)
+                                .nullable(true),
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("NAME")
                                 .type(ColumnType.STRING)
                                 .precision(Short.MAX_VALUE)
                                 .nullable(true)
@@ -109,7 +127,7 @@ public class ItSystemViewsTest extends AbstractSystemViewTest {
                                 .nullable(true),
 
                         new MetadataMatcher()
-                                .name("NAME")
+                                .name("VIEW_NAME")
                                 .type(ColumnType.STRING)
                                 .precision(Short.MAX_VALUE)
                                 .nullable(true),
@@ -138,7 +156,15 @@ public class ItSystemViewsTest extends AbstractSystemViewTest {
                         new MetadataMatcher()
                                 .name("LENGTH")
                                 .type(ColumnType.INT32)
-                                .nullable(true))
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("NAME")
+                                .type(ColumnType.STRING)
+                                .precision(Short.MAX_VALUE)
+                                .nullable(true)
+                )
                 .check();
     }
 

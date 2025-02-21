@@ -51,7 +51,7 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
     private static SystemView<?> getZoneView(Supplier<Catalog> catalogSupplier) {
         return SystemViews.<ZoneWithDefaultMarker>clusterViewBuilder()
                 .name("ZONES")
-                .addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
+                .addColumn("ZONE_NAME", STRING, wrapper -> wrapper.zone.name())
                 .addColumn("PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
                 .addColumn("REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
                 .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
@@ -59,6 +59,10 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
                 .addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
                 .addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
                 .addColumn("CONSISTENCY_MODE", STRING, wrapper -> wrapper.zone.consistencyMode().name())
+                .addColumn("ZONE_ID", INT32, wrapper -> wrapper.zone.id())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
+                .addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
                 .dataProvider(SubscriptionUtils.fromIterable(() -> {
                             Catalog catalog = catalogSupplier.get();
                             CatalogZoneDescriptor defaultZone = catalog.defaultZone();

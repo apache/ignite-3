@@ -77,12 +77,8 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
     }
 
     @Test
-    public void singleStatement() {
-        String query = "SELECT * FROM SQL_QUERIES ORDER BY START_TIME";
-
-        // Verify metadata.
-        assertQuery(query)
-                .withDefaultSchema("SYSTEM")
+    public void testMetadata() {
+        assertQuery("SELECT * FROM SYSTEM.SQL_QUERIES")
                 .columnMetadata(
                         new MetadataMatcher().name("INITIATOR_NODE").type(ColumnType.STRING).nullable(false),
                         new MetadataMatcher().name("ID").type(ColumnType.STRING).precision(36).nullable(true),
@@ -97,6 +93,11 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
                 )
                 .returnRowCount(1)
                 .check();
+    }
+
+    @Test
+    public void singleStatement() {
+        String query = "SELECT * FROM SQL_QUERIES ORDER BY START_TIME";
 
         Ignite initiator = CLUSTER.aliveNode();
 

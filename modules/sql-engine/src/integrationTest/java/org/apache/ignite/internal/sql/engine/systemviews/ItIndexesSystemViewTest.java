@@ -24,9 +24,12 @@ import java.util.Collection;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /** End-to-end tests to verify indexes system view. */
@@ -36,6 +39,59 @@ public class ItIndexesSystemViewTest extends AbstractSystemViewTest {
     private static final String COLUMNS = "ID, NAME";
 
     private static final String COLUMNS_COLLATIONS = "ID DESC, NAME ASC";
+
+    @Test
+    public void testMetadata() {
+        assertQuery("SELECT * FROM SYSTEM.INDEXES")
+                .columnMetadata(
+                        new MetadataMatcher().name("INDEX_ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("INDEX_NAME")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("TABLE_ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("TABLE_NAME")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("SCHEMA_ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("SCHEMA_NAME")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("TYPE")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("IS_UNIQUE")
+                                .type(ColumnType.BOOLEAN)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("COLUMNS")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher().name("STATUS")
+                                .type(ColumnType.STRING)
+                                .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                                .nullable(true)
+                )
+                .check();
+    }
 
     @Test
     public void multipleIndexes() {

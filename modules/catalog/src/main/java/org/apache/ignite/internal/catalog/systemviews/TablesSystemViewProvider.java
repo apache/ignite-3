@@ -66,13 +66,22 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
 
         return SystemViews.<TableWithSchemaAndZoneName>clusterViewBuilder()
                 .name("TABLES")
+                .addColumn("SCHEMA_NAME", STRING, entry -> entry.schemaName)
+                .addColumn("TABLE_NAME", STRING, entry -> entry.table.name())
+                .addColumn("TABLE_ID", INT32, entry -> entry.table.id())
+                .addColumn("PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
+                .addColumn("ZONE_NAME", STRING, entry -> entry.zoneName)
+                .addColumn("STORAGE_PROFILE", STRING, entry -> entry.table.storageProfile())
+                .addColumn("COLOCATION_KEY_INDEX", STRING, entry -> concatColumns(entry.table.colocationColumns()))
+                .addColumn("SCHEMA_ID", INT32, entry -> entry.table.schemaId())
+                .addColumn("ZONE_ID", INT32, entry -> entry.table.zoneId())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("SCHEMA", STRING, entry -> entry.schemaName)
                 .addColumn("NAME", STRING, entry -> entry.table.name())
                 .addColumn("ID", INT32, entry -> entry.table.id())
-                .addColumn("PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
                 .addColumn("ZONE", STRING, entry -> entry.zoneName)
-                .addColumn("STORAGE_PROFILE", STRING, entry -> entry.table.storageProfile())
-                .addColumn("COLOCATION_KEY_INDEX", STRING, entry -> concatColumns(entry.table.colocationColumns()))
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(viewDataPublisher)
                 .build();
     }
@@ -106,16 +115,21 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
 
         return SystemViews.<ColumnWithTableId>clusterViewBuilder()
                 .name("TABLE_COLUMNS")
-                .addColumn("SCHEMA", STRING, entry -> entry.schema)
+                .addColumn("SCHEMA_NAME", STRING, entry -> entry.schema)
                 .addColumn("TABLE_NAME", STRING, entry -> entry.tableName)
                 .addColumn("TABLE_ID", INT32, entry -> entry.tableId)
                 .addColumn("COLUMN_NAME", STRING, entry -> entry.descriptor.name())
                 .addColumn("TYPE", STRING, entry -> entry.descriptor.type().name())
                 .addColumn("NULLABLE", BOOLEAN, entry -> entry.descriptor.nullable())
-                .addColumn("PREC", INT32, entry -> entry.descriptor.precision())
+                .addColumn("PRECISION", INT32, entry -> entry.descriptor.precision())
                 .addColumn("SCALE", INT32, entry -> entry.descriptor.scale())
                 .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
                 .addColumn("COLUMN_ORDINAL", INT32, entry -> entry.columnOrdinal)
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
+                .addColumn("SCHEMA", STRING, entry -> entry.schema)
+                .addColumn("PREC", INT32, entry -> entry.descriptor.precision())
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(viewDataPublisher)
                 .build();
     }

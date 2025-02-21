@@ -42,19 +42,19 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
         assertQuery("SELECT * FROM SYSTEM.TABLES")
                 .columnMetadata(
                         new MetadataMatcher()
-                                .name("SCHEMA")
+                                .name("SCHEMA_NAME")
                                 .type(ColumnType.STRING)
                                 .precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true),
 
                         new MetadataMatcher()
-                                .name("NAME")
+                                .name("TABLE_NAME")
                                 .type(ColumnType.STRING)
                                 .precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true),
 
                         new MetadataMatcher()
-                                .name("ID")
+                                .name("TABLE_ID")
                                 .type(ColumnType.INT32)
                                 .nullable(true),
 
@@ -64,7 +64,7 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
                                 .nullable(true),
 
                         new MetadataMatcher()
-                                .name("ZONE")
+                                .name("ZONE_NAME")
                                 .type(ColumnType.STRING)
                                 .precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true),
@@ -77,6 +77,43 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
 
                         new MetadataMatcher()
                                 .name("COLOCATION_KEY_INDEX")
+                                .type(ColumnType.STRING)
+                                .precision(DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("SCHEMA_ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        new MetadataMatcher()
+                                .name("ZONE_ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("SCHEMA")
+                                .type(ColumnType.STRING)
+                                .precision(DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("NAME")
+                                .type(ColumnType.STRING)
+                                .precision(DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("ZONE")
                                 .type(ColumnType.STRING)
                                 .precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true)
@@ -104,7 +141,7 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
         assertQuery("SELECT * FROM SYSTEM.TABLE_COLUMNS")
                 .columnMetadata(
                         new MetadataMatcher()
-                                .name("SCHEMA")
+                                .name("SCHEMA_NAME")
                                 .type(ColumnType.STRING)
                                 .precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true),
@@ -139,7 +176,7 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
                                 .nullable(true),
 
                         new MetadataMatcher()
-                                .name("PREC")
+                                .name("PRECISION")
                                 .type(ColumnType.INT32)
                                 .nullable(true),
 
@@ -155,6 +192,19 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
 
                         new MetadataMatcher()
                                 .name("COLUMN_ORDINAL")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("SCHEMA")
+                                .type(ColumnType.STRING)
+                                .precision(DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+
+                        // Legacy column.
+                        new MetadataMatcher()
+                                .name("PREC")
                                 .type(ColumnType.INT32)
                                 .nullable(true)
                 )
