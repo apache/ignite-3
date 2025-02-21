@@ -77,7 +77,7 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     /** {@inheritDoc} */
     @Override
     protected int binaryTupleIndex(String columnName) {
-        Column column = schema.column(IgniteNameUtils.parseSimpleName(columnName));
+        Column column = schema.column(IgniteNameUtils.parseIdentifier(columnName));
 
         if (column == null) {
             return -1;

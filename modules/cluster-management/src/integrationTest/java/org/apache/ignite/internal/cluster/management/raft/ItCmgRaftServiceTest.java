@@ -164,7 +164,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     );
                 }
 
-                this.raftService = new CmgRaftService(raftService, clusterService, logicalTopology);
+                this.raftService = new CmgRaftService(raftService, clusterService.topologyService(), logicalTopology);
             } catch (InterruptedException | NodeStoppingException e) {
                 throw new RuntimeException(e);
             }

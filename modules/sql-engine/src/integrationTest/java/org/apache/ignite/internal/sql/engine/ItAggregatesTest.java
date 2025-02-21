@@ -48,11 +48,10 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Group of tests to verify aggregation functions.
  */
 public class ItAggregatesTest extends BaseSqlIntegrationTest {
-    private static final String[] DISABLED_RULES = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
-            "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
-
-    private static final List<String> MAP_REDUCE_RULES = List.of("MapReduceHashAggregateConverterRule",
-            "MapReduceSortAggregateConverterRule");
+    private static final String[] PERMUTATION_RULES = {
+            "MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+            "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"
+    };
 
     private static final int ROWS = 103;
 
@@ -245,23 +244,21 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .returns(0L, null)
                 .check();
 
-        if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
-            assertQuery("select avg(salary) from person")
-                    .disableRules(rules)
-                    .returns(12.0)
-                    .check();
+        assertQuery("select avg(salary) from person")
+                .disableRules(rules)
+                .returns(12.0)
+                .check();
 
-            assertQuery("select name, salary from person where person.salary > (select avg(person.salary) from person)")
-                    .disableRules(rules)
-                    .returns(null, 15d)
-                    .returns("Ilya", 15d)
-                    .check();
+        assertQuery("select name, salary from person where person.salary > (select avg(person.salary) from person)")
+                .disableRules(rules)
+                .returns(null, 15d)
+                .returns("Ilya", 15d)
+                .check();
 
-            assertQuery("select avg(salary) from (select avg(salary) as salary from person union all select salary from person)")
-                    .disableRules(rules)
-                    .returns(12d)
-                    .check();
-        }
+        assertQuery("select avg(salary) from (select avg(salary) as salary from person union all select salary from person)")
+                .disableRules(rules)
+                .returns(12d)
+                .check();
     }
 
     @ParameterizedTest
@@ -426,13 +423,10 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .returns(7L)
                 .check();
 
-        // Such kind of queries can`t be processed with
-        if (Arrays.stream(rules).anyMatch(r -> r.contains("MapReduceSortAggregateConverterRule"))) {
-            assertQuery("SELECT COUNT(a), COUNT(DISTINCT(b)) FROM test_a_b_s")
-                    .disableRules(rules)
-                    .returns(7L, 5L)
-                    .check();
-        }
+        assertQuery("SELECT COUNT(a), COUNT(DISTINCT(b)) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(7L, 5L)
+                .check();
 
         assertQuery("SELECT COUNT(a) as a, s FROM test_a_b_s GROUP BY s ORDER BY a, s")
                 .disableRules(rules)
@@ -442,26 +436,25 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .returns(3L, "world")
                 .check();
 
-        if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
-            assertQuery("SELECT COUNT(a) as a, AVG(a) as b, MIN(a), MIN(b), s FROM test_a_b_s GROUP BY s ORDER BY a, b")
-                    .disableRules(rules)
-                    .returns(1L, 10, 10, 5, "ahello")
-                    .returns(1L, 11, 11, 3, null)
-                    .returns(2L, 11, 11, 1, "hello")
-                    .returns(3L, 12, 12, 2, "world")
-                    .check();
+        assertQuery("SELECT COUNT(a) as a, SUBSTRING(AVG(a)::VARCHAR, 1, 6) as b, MIN(a), MIN(b), s FROM test_a_b_s "
+                + "GROUP BY s ORDER BY a, b")
+                .disableRules(rules)
+                .returns(1L, "10.000", 10, 5, "ahello")
+                .returns(1L, "11.000", 11, 3, null)
+                .returns(2L, "11.000", 11, 1, "hello")
+                .returns(3L, "12.333", 12, 2, "world")
+                .check();
 
-            assertQuery("SELECT COUNT(a) as a, AVG(a) as bb, MIN(a), MIN(b), s FROM test_a_b_s GROUP BY s, b ORDER BY a, s")
-                    .disableRules(rules)
-                    .returns(1L, 10, 10, 5, "ahello")
-                    .returns(1L, 11, 11, 1, "hello")
-                    .returns(1L, 11, 11, 3, "hello")
-                    .returns(1L, 13, 13, 6, "world")
-                    .returns(1L, 11, 11, 3, null)
-                    .returns(2L, 12, 12, 2, "world")
-                    .check();
-        }
-
+        assertQuery("SELECT COUNT(a) as a, SUBSTRING(AVG(a)::VARCHAR, 1, 6) as bb, MIN(a), MIN(b), s FROM test_a_b_s "
+                + "GROUP BY s, b ORDER BY a, s")
+                .disableRules(rules)
+                .returns(1L, "10.000", 10, 5, "ahello")
+                .returns(1L, "11.000", 11, 1, "hello")
+                .returns(1L, "11.000", 11, 3, "hello")
+                .returns(1L, "13.000", 13, 6, "world")
+                .returns(1L, "11.000", 11, 3, null)
+                .returns(2L, "12.000", 12, 2, "world")
+                .check();
 
         assertQuery("SELECT COUNT(a) FROM test_a_b_s")
                 .disableRules(rules)
@@ -478,12 +471,10 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .returns(7L, 6L, 7L)
                 .check();
 
-        if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
-            assertQuery("SELECT AVG(a) FROM test_a_b_s")
-                    .disableRules(rules)
-                    .returns(11)
-                    .check();
-        }
+        assertQuery("SELECT SUBSTRING(AVG(a)::VARCHAR, 1, 6) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns("11.428")
+                .check();
 
         assertQuery("SELECT MIN(a) FROM test_a_b_s")
                 .disableRules(rules)
@@ -640,7 +631,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .reduce(new BigDecimal("0.00"), BigDecimal::add)
                 .divide(BigDecimal.valueOf(numbers.size()), 16, IgniteTypeSystem.INSTANCE.roundingMode());
 
-        for (String[] rules : makePermutations(DISABLED_RULES)) {
+        for (String[] rules : makePermutations(PERMUTATION_RULES)) {
             assertQuery("SELECT AVG(int_col), AVG(dec10_2_col) FROM numbers")
                     .disableRules(rules)
                     .returns(avg, avg)
@@ -792,7 +783,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     }
 
     private static Stream<Arguments> provideRules() {
-        return Arrays.stream(makePermutations(DISABLED_RULES)).map(Object.class::cast).map(Arguments::of);
+        return Arrays.stream(makePermutations(PERMUTATION_RULES)).map(Object.class::cast).map(Arguments::of);
     }
 
     private String appendDisabledRules(String sql, String[] rules) {

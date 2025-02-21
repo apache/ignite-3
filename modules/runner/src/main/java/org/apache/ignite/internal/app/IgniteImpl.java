@@ -1341,12 +1341,7 @@ public class IgniteImpl implements Ignite {
                     + "Please make sure that the classloader for loading services is correct.");
         }
 
-        var configModules = new ConfigurationModules(modules);
-
-        LOG.info("Configuration modules loaded [modules={}, localRoots={}, distRoots={}]",
-                modules, configModules.local().rootKeys(), configModules.distributed().rootKeys());
-
-        return configModules;
+        return new ConfigurationModules(modules);
     }
 
     /**

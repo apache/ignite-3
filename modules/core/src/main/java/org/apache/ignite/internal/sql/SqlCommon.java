@@ -24,9 +24,8 @@ import org.apache.ignite.table.QualifiedName;
  * Common SQL utilities.
  */
 public final class SqlCommon {
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: parse identifier correctly.
     /** Normalized name of the default schema. */
-    public static final String DEFAULT_SCHEMA_NAME = IgniteNameUtils.parseSimpleName(QualifiedName.DEFAULT_SCHEMA_NAME);
+    public static final String DEFAULT_SCHEMA_NAME = IgniteNameUtils.parseIdentifier(QualifiedName.DEFAULT_SCHEMA_NAME);
 
     /** Default page size. */
     public static final int DEFAULT_PAGE_SIZE = 1024;

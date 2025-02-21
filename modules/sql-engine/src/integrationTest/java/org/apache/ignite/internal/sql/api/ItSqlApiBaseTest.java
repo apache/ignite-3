@@ -1201,6 +1201,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    public void rowToString() {
+        SqlRow row = executeForRead(igniteSql(), "SELECT 1 as COL_A, '2' as COL_B").next();
+
+        assertEquals(row.getClass().getSimpleName() + " [COL_A=1, COL_B=2]", row.toString());
+    }
+
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, String query, Object... args) {
         return executeForRead(sql, null, query, args);
     }

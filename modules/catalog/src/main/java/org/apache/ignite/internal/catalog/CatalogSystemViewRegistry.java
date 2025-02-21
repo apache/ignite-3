@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.systemviews.IndexSystemViewProvider;
+import org.apache.ignite.internal.catalog.systemviews.SchemasSystemViewProvider;
 import org.apache.ignite.internal.catalog.systemviews.SystemViewViewProvider;
 import org.apache.ignite.internal.catalog.systemviews.TablesSystemViewProvider;
 import org.apache.ignite.internal.catalog.systemviews.ZonesSystemViewProvider;
@@ -42,7 +43,8 @@ public class CatalogSystemViewRegistry implements SystemViewProvider {
                 new SystemViewViewProvider(),
                 new IndexSystemViewProvider(),
                 new ZonesSystemViewProvider(),
-                new TablesSystemViewProvider()
+                new TablesSystemViewProvider(),
+                new SchemasSystemViewProvider()
         );
     }
 

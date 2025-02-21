@@ -46,7 +46,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -126,10 +125,8 @@ import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -163,6 +160,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.PublicApiThreadingIgniteTransactions;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -239,6 +237,9 @@ public class Node {
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
+    /** Cleanup manager for tx resources. */
+    private final ResourceVacuumManager resourceVacuumManager;
+
     /** The future have to be complete after the node start and all Meta storage watches are deployd. */
     private CompletableFuture<Void> deployWatchesFut;
 
@@ -250,8 +251,6 @@ public class Node {
 
     /** Failure processor. */
     private final FailureManager failureManager;
-
-    private volatile Function<ReplicaRequest, ReplicationGroupId> converter = request -> request.groupId().asReplicationGroupId();
 
     private final LogStorageFactory partitionsLogStorageFactory;
 
@@ -557,7 +556,6 @@ public class Node {
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
-                t -> converter.apply(t),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
         );
@@ -650,6 +648,16 @@ public class Node {
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                 .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
+
+        resourceVacuumManager = new ResourceVacuumManager(
+                name,
+                resourcesRegistry,
+                clusterService.topologyService(),
+                clusterService.messagingService(),
+                transactionInflights,
+                txManager,
+                lowWatermark
+        );
 
         tableManager = new TableManager(
                 name,
@@ -767,7 +775,8 @@ public class Node {
                 outgoingSnapshotsManager,
                 partitionReplicaLifecycleManager,
                 tableManager,
-                indexManager
+                indexManager,
+                resourceVacuumManager
         )).thenComposeAsync(componentFuts -> {
             CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                     .thenCompose(rev -> allOf(
@@ -831,10 +840,6 @@ public class Node {
         this.invokeInterceptor = invokeInterceptor;
     }
 
-    public void setRequestConverter(Function<ReplicaRequest, ReplicationGroupId> converter) {
-        this.converter = converter;
-    }
-
     private static Path resolveDir(Path workDir, String dirName) {
         Path newDirPath = workDir.resolve(dirName);
 
@@ -851,5 +856,9 @@ public class Node {
 
     public DataStorageManager dataStorageManager() {
         return dataStorageMgr;
+    }
+
+    public TxManager txManager() {
+        return txManager;
     }
 }

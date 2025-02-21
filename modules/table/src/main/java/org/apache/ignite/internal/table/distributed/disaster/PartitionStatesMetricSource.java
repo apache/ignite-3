@@ -112,7 +112,7 @@ class PartitionStatesMetricSource implements MetricSource {
         long[] count = {0};
 
         // When receiving/loading metrics for all tables, the total complexity will be O(N*N) where N is the number of tables (for
-        // simplicity). While this is done intentionally, in the future it will be necessary to optimize this or wait for the collocation
+        // simplicity). While this is done intentionally, in the future it will be necessary to optimize this or wait for the colocation
         // of table partitions within one distribution zone.
         disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
             if (raftNodeId.groupId() instanceof TablePartitionId) {

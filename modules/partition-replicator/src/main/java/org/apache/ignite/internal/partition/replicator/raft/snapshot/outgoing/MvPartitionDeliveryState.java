@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
-import java.util.Collection;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Iterator;
+import java.util.List;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.storage.RowId;
 import org.jetbrains.annotations.Nullable;
@@ -29,22 +31,29 @@ import org.jetbrains.annotations.Nullable;
 class MvPartitionDeliveryState {
     private final Iterator<PartitionMvStorageAccess> partitionStoragesIterator;
 
-    /**
-     * Current row ID within the current partition storage. Can be {@code null} only if the snapshot has delivered all possible data.
-     */
+    /** Current row ID within the current partition storage. */
     @Nullable
     private RowId currentRowId;
 
-    /**
-     * Current partition storage. Can be {@code null} only if the snapshot has delivered all possible data.
-     */
+    /** Current partition storage. */
     @Nullable
     private PartitionMvStorageAccess currentPartitionStorage;
 
-    MvPartitionDeliveryState(Collection<PartitionMvStorageAccess> partitionStorages) {
+    private final IntSet tableIds;
+
+    private boolean isStarted = false;
+
+    /**
+     * Creates a new state. The state is initially positioned before the first row of the first storage.
+     *
+     * @param partitionStorages Partition storages to iterate over. They <b>must</b> be sorted by table ID in ascending order.
+     */
+    MvPartitionDeliveryState(List<PartitionMvStorageAccess> partitionStorages) {
         this.partitionStoragesIterator = partitionStorages.iterator();
 
-        advance();
+        tableIds = new IntOpenHashSet(partitionStorages.size());
+
+        partitionStorages.forEach(storage -> tableIds.add(storage.tableId()));
     }
 
     RowId currentRowId() {
@@ -64,13 +73,29 @@ class MvPartitionDeliveryState {
     }
 
     /**
+     * Returns {@code true} if the given table ID is in the range of tables that this state iterates over.
+     */
+    boolean isGoingToBeDelivered(int tableId) {
+        return tableIds.contains(tableId);
+    }
+
+    /**
      * Returns {@code true} if all data for the snapshot has been retrieved.
      */
     boolean isExhausted() {
-        return currentPartitionStorage == null;
+        return currentPartitionStorage == null && !partitionStoragesIterator.hasNext();
+    }
+
+    /**
+     * Returns {@code true} if the {@link #advance()} method has been called at least once.
+     */
+    boolean hasIterationStarted() {
+        return isStarted;
     }
 
     void advance() {
+        isStarted = true;
+
         while (true) {
             if (currentPartitionStorage == null) {
                 if (!partitionStoragesIterator.hasNext()) {
