@@ -91,11 +91,11 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
             return catalog.tables().stream()
                     .flatMap(table -> table.columns().stream()
                             .map(columnDescriptor -> new ColumnWithTableId(
-                                    catalog.schema(table.schemaId()).name(),
-                                    table.name(),
-                                    table.id(),
-                                    columnDescriptor,
-                                    table.columnIndex(columnDescriptor.name())
+                                            catalog.schema(table.schemaId()).name(),
+                                            table.name(),
+                                            table.id(),
+                                            columnDescriptor,
+                                            table.columnIndex(columnDescriptor.name())
                                     )
                             )
                     )

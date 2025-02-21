@@ -32,24 +32,16 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.SqlException;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * End-to-end tests to verify zones system view.
  */
-public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
+public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String ALTER_ZONE_NAME = "NEW_TEST_ZONE";
-
-    @BeforeAll
-    void beforeAll() {
-        IgniteTestUtils.await(systemViewManager().completeRegistration());
-    }
 
     @Test
     public void systemViewDefaultZone() {

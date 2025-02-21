@@ -58,10 +58,9 @@ import org.junit.jupiter.api.Test;
 /**
  * End-to-end tests to verify {@code SQL_QUERIES} system view.
  */
-public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
+public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
     @BeforeAll
     void beforeAll() {
-        await(systemViewManager().completeRegistration());
 
         sql("CREATE TABLE test(id INT PRIMARY KEY)");
     }

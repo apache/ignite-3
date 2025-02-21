@@ -23,19 +23,15 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_V
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** End-to-end tests to verify tables system views. */
-public class ItTablesSystemViewTest extends BaseSqlIntegrationTest {
+public class ItTablesSystemViewTest extends AbstractSystemViewTest {
     @BeforeAll
     void beforeAll() {
-        IgniteTestUtils.await(systemViewManager().completeRegistration());
-
         sql("CREATE SCHEMA TEST_SCHEMA");
         sql("CREATE TABLE table_name(ID INT PRIMARY KEY, NAME VARCHAR, SALARY DECIMAL(12,2))");
         sql("CREATE TABLE TEST_SCHEMA.TABLE_NAME_2(FIRST_NAME VARCHAR, LAST_NAME VARCHAR, ID INT PRIMARY KEY)");
@@ -173,9 +169,9 @@ public class ItTablesSystemViewTest extends BaseSqlIntegrationTest {
         Catalog catalog = catalogManager.catalog(version);
 
         catalog.tables().forEach(table ->
-                assertQuery("SELECT schema, table_name, column_name, column_ordinal, type " +
-                        "FROM system.table_columns " +
-                        "ORDER BY schema, table_name, column_name"
+                assertQuery("SELECT schema, table_name, column_name, column_ordinal, type "
+                        + "FROM system.table_columns "
+                        + "ORDER BY schema, table_name, column_name"
                 )
                         .returns("PUBLIC", "TABLE_NAME", "ID", 0, "INT32")
                         .returns("PUBLIC", "TABLE_NAME", "NAME", 1, "STRING")

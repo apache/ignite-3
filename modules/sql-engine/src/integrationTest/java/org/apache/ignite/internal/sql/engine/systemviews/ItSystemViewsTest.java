@@ -21,11 +21,8 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.systemviews.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEWS;
 import static org.apache.ignite.internal.sql.engine.systemviews.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEW_COLUMNS;
 
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -33,7 +30,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * End-to-end tests to verify system views.
  */
-public class ItSystemViewsTest extends BaseSqlIntegrationTest {
+public class ItSystemViewsTest extends AbstractSystemViewTest {
     enum KnownSystemView {
         SYSTEM_VIEWS("SYSTEM", "SYSTEM_VIEWS"),
         SYSTEM_VIEW_COLUMNS("SYSTEM", "SYSTEM_VIEW_COLUMNS"),
@@ -50,11 +47,6 @@ public class ItSystemViewsTest extends BaseSqlIntegrationTest {
         String canonicalName() {
             return schema + "." + name;
         }
-    }
-
-    @BeforeAll
-    void beforeAll() {
-        IgniteTestUtils.await(systemViewManager().completeRegistration());
     }
 
     @ParameterizedTest

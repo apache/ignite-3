@@ -26,24 +26,16 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** End-to-end tests to verify indexes system view. */
-public class ItIndexesSystemViewTest extends BaseSqlIntegrationTest {
+public class ItIndexesSystemViewTest extends AbstractSystemViewTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
     private static final String COLUMNS = "ID, NAME";
 
     private static final String COLUMNS_COLLATIONS = "ID DESC, NAME ASC";
-
-    @BeforeAll
-    void beforeAll() {
-        IgniteTestUtils.await(systemViewManager().completeRegistration());
-    }
 
     @Test
     public void multipleIndexes() {
