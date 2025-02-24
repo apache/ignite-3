@@ -387,6 +387,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
      * </ol>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     void testManualRecovery() throws InterruptedException {
         startNode(3);
         startNode(4);

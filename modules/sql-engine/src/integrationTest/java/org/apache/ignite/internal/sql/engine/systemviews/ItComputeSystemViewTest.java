@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.systemviews;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
@@ -57,7 +57,6 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.sql.ColumnType;
@@ -69,7 +68,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * End-to-end tests to verify {@code COMPUTE_TASKS} system view.
  */
-public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
+public class ItComputeSystemViewTest extends AbstractSystemViewTest {
     @Override
     protected int initialNodes() {
         return 2;

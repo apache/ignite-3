@@ -17,32 +17,22 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Cleanup transaction message.
+ * Base for {@link WriteIntentSwitchReplicaRequest} and {@link TableWriteIntentSwitchReplicaRequest}.
  */
-@Transferable(TxMessageGroup.TX_CLEANUP_MSG)
-public interface TxCleanupMessage extends TimestampAware {
+public interface WriteIntentSwitchReplicaRequestBase extends ReplicaRequest, TimestampAware {
     /**
-     * Gets a transaction id to resolve.
+     * Returns transaction Id.
      *
      * @return Transaction id.
      */
     UUID txId();
-
-    /**
-     * Returns replication groups aggregated by expected primary replica nodes.
-     * Null when this message is sent at recovery.
-     *
-     * @return Replication groups aggregated by expected primary replica nodes.
-     */
-    @Nullable List<EnlistedPartitionGroupMessage> groups();
 
     /**
      * Returns {@code True} if a commit request.

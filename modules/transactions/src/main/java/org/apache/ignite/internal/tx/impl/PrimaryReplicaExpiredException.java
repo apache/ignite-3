@@ -37,7 +37,7 @@ public class PrimaryReplicaExpiredException extends IgniteInternalException {
      */
     public PrimaryReplicaExpiredException(
             ReplicationGroupId groupId,
-            Long expectedEnlistmentConsistencyToken,
+            long expectedEnlistmentConsistencyToken,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable ReplicaMeta currentPrimaryReplica
     ) {
