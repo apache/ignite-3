@@ -63,6 +63,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -1054,7 +1056,24 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     @Nullable
     private static TransactionMeta volatileTxState(IgniteImpl node, UUID txId) {
         TxManagerImpl txManager = (TxManagerImpl) node.txManager();
-        return txManager.stateMeta(txId);
+
+        TxStateMeta txInMemoryState = txManager.stateMeta(txId);
+
+        if (txInMemoryState == null) {
+            return null;
+        }
+
+        if (TxState.isFinalState(txInMemoryState.txState())) {
+            long current = FastTimestamps.coarseCurrentTimeMillis();
+
+            Long initialTs = txInMemoryState.initialVacuumObservationTimestamp();
+
+            assertNotNull(initialTs);
+
+            assertTrue(current >= initialTs);
+        }
+
+        return txInMemoryState;
     }
 
     @Nullable
