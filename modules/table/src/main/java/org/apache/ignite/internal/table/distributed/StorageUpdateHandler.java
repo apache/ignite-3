@@ -196,8 +196,6 @@ public class StorageUpdateHandler {
             return;
         }
 
-        PartitionGroupId commitPartitionIdAsPartitioned = (PartitionGroupId) commitPartitionId;
-
         Iterator<Entry<UUID, TimedBinaryRow>> it = rowsToUpdate.entrySet().iterator();
         Entry<UUID, TimedBinaryRow> lastUnprocessedEntry = it.next();
 
@@ -207,7 +205,7 @@ public class StorageUpdateHandler {
                     txId,
                     trackWriteIntent,
                     commitTs,
-                    commitPartitionIdAsPartitioned,
+                    (PartitionGroupId) commitPartitionId,
                     it,
                     onApplication,
                     storageUpdateConfiguration.batchByteLength().value(),
