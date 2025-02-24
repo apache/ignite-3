@@ -313,7 +313,19 @@ public class ReplicaService {
      * @return Response future with either evaluation raw response or completed exceptionally.
      */
     public CompletableFuture<ReplicaResponse> invokeRaw(ClusterNode node, ReplicaRequest request) {
-        return sendToReplicaRaw(node.name(), request);
+        return invokeRaw(node.name(), request);
+    }
+
+    /**
+     * Sends a request to the given replica {@code node} and returns a future that will be completed with a raw response.
+     * This can be used to carry additional metadata to the caller.
+     *
+     * @param targetNodeConsistentId A consistent id of the replica node.
+     * @param request The request.
+     * @return Response future with either evaluation raw response or completed exceptionally.
+     */
+    public CompletableFuture<ReplicaResponse> invokeRaw(String targetNodeConsistentId, ReplicaRequest request) {
+        return sendToReplicaRaw(targetNodeConsistentId, request);
     }
 
     public MessagingService messagingService() {
