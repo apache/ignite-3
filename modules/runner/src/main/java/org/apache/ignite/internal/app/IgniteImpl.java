@@ -1499,7 +1499,7 @@ public class IgniteImpl implements Ignite {
                 .thenComposeAsync(v -> {
                     LOG.info("Components started, performing recovery");
 
-                    LOG.info("Distributed node configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
+                    LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
 
                     return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
                 }, joinExecutor)
