@@ -112,11 +112,41 @@ public class TestIgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     public static IgniteServer start(String nodeName, @Nullable String configStr, Path workDir) {
+        return doStart(nodeName, configStr, workDir, true);
+    }
+
+    /**
+     * Starts an Ignite node with an optional bootstrap configuration defined as a HOCON (Human-Optimized Config Object 
+     * Notation) configuration string.
+     *
+     * <p>When this method returns, the node is partially started, meaning its REST endpoint is functional and it is ready 
+     * to accept the initialization command (e.g., for setting up the cluster).
+     *
+     * @param nodeName The name of the node to start. Must not be {@code null} and must be unique within the cluster.
+     * @param configStr An optional configuration string for the node written in HOCON format. If {@code null}, the 
+     *                  default configuration will be used.
+     * @param workDir The path to the working directory for the node. This directory must exist and the application must 
+     *                have sufficient permissions to read from and write to it.
+     * @return A {@link CompletableFuture} that resolves to the fully initialized Ignite node with all components started and 
+     *         the cluster ready for further interactions.
+     * @throws IgniteException If an error occurs while reading or parsing the node configuration.
+     * @throws IllegalArgumentException If {@code nodeName} is {@code null} or invalid.
+     * @throws IOException If there are issues accessing or writing to the specified {@code workDir}.
+     */
+    public static IgniteServer startWithProductionDefaults(String nodeName, @Nullable String configStr, Path workDir) {
+        return doStart(nodeName, configStr, workDir, false);
+    }
+
+    private static IgniteServer doStart(String nodeName, @Nullable String configStr, Path workDir, boolean useTestDefaults) {
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
 
-            addDefaultsToConfigurationFile(configStr, configPath);
+            if (useTestDefaults) {
+                writeConfigurationFileApplyingTestDefaults(configStr, configPath);
+            } else {
+                writeConfigurationFile(configStr, configPath);
+            }
 
             return IgniteServer.start(nodeName, configPath, workDir);
         } catch (IOException e) {
@@ -127,21 +157,32 @@ public class TestIgnitionManager {
     /**
      * Writes default values into the configuration file, according to the same rules that are used in {@link #start(String, String, Path)}.
      */
-    public static void addDefaultsToConfigurationFile(Path configPath) {
+    public static void writeConfigurationFileApplyingTestDefaults(Path configPath) {
         try {
-            addDefaultsToConfigurationFile(null, configPath);
+            writeConfigurationFileApplyingTestDefaults(null, configPath);
         } catch (IOException e) {
             throw new IgniteException(INTERNAL_ERR, "Couldn't update node configuration file", e);
         }
     }
 
-    private static void addDefaultsToConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
+    private static void writeConfigurationFileApplyingTestDefaults(@Nullable String configStr, Path configPath) throws IOException {
         if (configStr == null && Files.exists(configPath)) {
             // Nothing to do.
             return;
         }
 
-        Files.writeString(configPath, applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG), SYNC, CREATE, TRUNCATE_EXISTING);
+        String configStringToWrite = applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG);
+
+        writeConfigurationFile(configStringToWrite, configPath);
+    }
+
+    private static void writeConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
+        if (configStr == null && Files.exists(configPath)) {
+            // Nothing to do.
+            return;
+        }
+
+        Files.writeString(configPath, configStr, SYNC, CREATE, TRUNCATE_EXISTING);
     }
 
     /**
