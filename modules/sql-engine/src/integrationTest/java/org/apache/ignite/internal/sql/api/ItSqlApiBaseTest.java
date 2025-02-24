@@ -1248,19 +1248,25 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         await(cancelFut);
     }
 
+    /**
+     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started),
+     * the query will either not be started or will be cancelled. That is, it is impossible for a remote cancellation request
+     * to be processed by the server before the query itself is started.
+     *
+     * @throws Exception If failed.
+     */
     @Test
     public void cancelQueryDuringExecution() throws Exception {
         IgniteSql sql = igniteSql();
         String query = "SELECT * FROM system_range(0, 10000000000)";
 
         int triesCount = 10;
+        CyclicBarrier startBarrier = new CyclicBarrier(2);
 
         for (int i = triesCount - 1; i >= 0; i--) {
             CancelHandle cancelHandle = CancelHandle.create();
             CancellationToken token = cancelHandle.token();
             long delay = i;
-
-            CyclicBarrier startBarrier = new CyclicBarrier(2);
 
             CompletableFuture<Void> cancelFut = IgniteTestUtils.runAsync(() -> {
                 startBarrier.await();
@@ -1291,6 +1297,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             });
 
             await(cancelFut);
+
+            startBarrier.reset();
         }
     }
 

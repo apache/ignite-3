@@ -37,7 +37,7 @@ public class ClientSqlCancelRequest {
             Map<Long, CancelHandle> cancelHandleMap
     ) {
         long correlationToken = in.unpackLong();
-        CancelHandle cancelHandle = cancelHandleMap.remove(correlationToken);
+        CancelHandle cancelHandle = cancelHandleMap.get(correlationToken);
 
         if (cancelHandle != null) {
             return cancelHandle.cancelAsync();

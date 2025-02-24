@@ -78,6 +78,13 @@ public final class CancelHandleHelper {
         addCancelAction(token, () -> completionFut.cancel(true), completionFut);
     }
 
+    /**
+     * Flag indicating whether cancellation was requested or not.
+     *
+     * <p>This method will return true even if cancellation has not been completed yet.
+     *
+     * @return {@code True} if a cancellation was previously requested, {@code false} otherwise.
+     */
     public static boolean isCancelled(CancellationToken token) {
         return unwrapToken(token).isCancelled();
     }
