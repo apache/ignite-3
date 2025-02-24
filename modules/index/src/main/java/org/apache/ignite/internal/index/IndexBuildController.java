@@ -22,9 +22,13 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -40,6 +44,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
@@ -53,7 +59,9 @@ import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutExce
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -95,7 +103,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final Set<TablePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
+    private final Set<ReplicationGroupId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
     IndexBuildController(
@@ -131,35 +139,67 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_BUILDING, (StartBuildingIndexEventParameters parameters) -> {
-            return onIndexBuilding(parameters).thenApply(unused -> false);
-        });
+        catalogService.listen(INDEX_BUILDING,
+                (StartBuildingIndexEventParameters parameters) -> onIndexBuilding(parameters).thenApply(unused -> false));
 
-        catalogService.listen(CatalogEvent.INDEX_REMOVED, (RemoveIndexEventParameters parameters) -> {
-            return onIndexRemoved(parameters).thenApply(unused -> false);
-        });
+        catalogService.listen(INDEX_REMOVED,
+                (RemoveIndexEventParameters parameters) -> onIndexRemoved(parameters).thenApply(unused -> false));
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters -> {
-            return onPrimaryReplicaElected(parameters).thenApply(unused -> false);
-        });
+        placementDriver.listen(PRIMARY_REPLICA_ELECTED, parameters -> onPrimaryReplicaElected(parameters).thenApply(unused -> false));
     }
 
     private CompletableFuture<?> onIndexBuilding(StartBuildingIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             Catalog catalog = catalogService.catalog(parameters.catalogVersion());
 
-            assert catalog != null : "Not found catalog for version " +  parameters.catalogVersion();
+            assert catalog != null : "Failed to find a catalog for the specified version [version=" +  parameters.catalogVersion()
+                    + ", earliestVersion=" + catalogService.earliestCatalogVersion()
+                    + ", latestVersion=" + catalogService.latestCatalogVersion()
+                    + "].";
 
             CatalogIndexDescriptor indexDescriptor = catalog.index(parameters.indexId());
 
+            assert indexDescriptor != null : "Failed to find an index descriptor for the specified index [indexId="
+                    + parameters.indexId() + "].";
+
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(catalog.table(indexDescriptor.tableId()).zoneId());
+
+            assert zoneDescriptor != null : "Failed to find a zone descriptor for the specified table [indexId="
+                    + parameters.indexId() + ", tableId=" + indexDescriptor.tableId() + "].";
+
+            boolean enabledColocation = enabledColocation();
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
-            for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
-                if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
-                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
+            for (ReplicationGroupId primaryReplicationGroupId : primaryReplicaIds) {
+                int zoneId;
+                int partitionId;
+                boolean needToProcessPartition;
+
+                if (enabledColocation) {
+                    ZonePartitionId zoneReplicaId = (ZonePartitionId) primaryReplicationGroupId;
+                    zoneId = zoneReplicaId.zoneId();
+                    partitionId = zoneReplicaId.partitionId();
+
+                    needToProcessPartition = zoneReplicaId.zoneId() == zoneDescriptor.id();
+                } else {
+                    TablePartitionId partitionReplicaId = (TablePartitionId) primaryReplicationGroupId;
+                    zoneId = catalog.table(partitionReplicaId.tableId()).zoneId();
+                    partitionId = partitionReplicaId.partitionId();
+
+                    needToProcessPartition = partitionReplicaId.tableId() == indexDescriptor.tableId();
+                }
+
+                if (needToProcessPartition) {
+                    CompletableFuture<MvTableStorage> tableStorageFuture =
+                            getMvTableStorageFuture(parameters.causalityToken(), indexDescriptor.tableId());
+
+                    CompletableFuture<?> startBuildIndexFuture = tableStorageFuture
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicationGroupId, clockService.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
-                                            primaryReplicaId,
+                                            zoneId,
+                                            indexDescriptor.tableId(),
+                                            partitionId,
+                                            primaryReplicationGroupId,
                                             indexDescriptor,
                                             mvTableStorage,
                                             replicaMeta
@@ -184,31 +224,72 @@ class IndexBuildController implements ManuallyCloseable {
 
     private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
-
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                primaryReplicaIds.add(primaryReplicaId);
+                // This assert is added for testing purposes, at least for now.
+                assert (enabledColocation() && parameters.groupId() instanceof ZonePartitionId)
+                        || (!enabledColocation() && parameters.groupId() instanceof TablePartitionId) :
+                        "Primary replica ID must be of type ZonePartitionId if colocation is enabled, "
+                                + "otherwise it must be of type TablePartitionId";
+
+                primaryReplicaIds.add(parameters.groupId());
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
                 Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-                // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed table by LWM
-                if (catalog == null || catalog.table(primaryReplicaId.tableId()) == null) {
-                    return nullCompletedFuture();
-                }
+                if (enabledColocation()) {
+                    ZonePartitionId primaryReplicaId = (ZonePartitionId) parameters.groupId();
 
-                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
-                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
-                                        catalog.version(),
-                                        primaryReplicaId,
-                                        mvTableStorage,
-                                        replicaMeta
-                                ))
-                        );
+                    CatalogZoneDescriptor zoneDescriptor = catalog.zone(primaryReplicaId.zoneId());
+                    // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed zone by LWM
+                    if (zoneDescriptor == null) {
+                        return nullCompletedFuture();
+                    }
+
+                    var indexFutures = new ArrayList<CompletableFuture<?>>();
+                    for (CatalogTableDescriptor tableDescriptor : catalog.tables()) {
+                        // 1. Perhaps, it makes sense to get primary replica future first and then get table storage future,
+                        // because, it will be the same for all tables in the zone for the given partition.
+                        // 2. Is it possible to filter out tables in efficient way
+                        // that do not have indices to avoid creating unnecessary futures?
+                        // It looks like catalog.indexes(tableDescriptor.id()).isEmpty() is good enough.
+                        // However, what about PK index?
+                        CompletableFuture<?> future =
+                                getMvTableStorageFuture(parameters.causalityToken(), tableDescriptor.id())
+                                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
+                                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                                                        catalog.version(),
+                                                        tableDescriptor,
+                                                        primaryReplicaId,
+                                                        mvTableStorage,
+                                                        replicaMeta)));
+
+                        indexFutures.add(future);
+                    }
+
+                    return allOf(indexFutures.toArray(CompletableFuture[]::new));
+                } else {
+                    TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
+
+                    // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed table by LWM
+                    CatalogTableDescriptor tableDescriptor = catalog.table(primaryReplicaId.tableId());
+                    if (tableDescriptor == null) {
+                        return nullCompletedFuture();
+                    }
+
+                    return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId.tableId())
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
+                                    .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                                            catalog.version(),
+                                            tableDescriptor,
+                                            primaryReplicaId,
+                                            mvTableStorage,
+                                            replicaMeta
+                                    ))
+                            );
+                }
             } else {
-                stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
+                stopBuildingIndexesIfPrimaryExpired(parameters.groupId());
 
                 return nullCompletedFuture();
             }
@@ -216,13 +297,15 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void tryScheduleBuildIndexesForNewPrimaryReplica(
+            // TODO It seems that we can pass the catalog itself instead of its version.
             int catalogVersion,
-            TablePartitionId primaryReplicaId,
+            CatalogTableDescriptor tableDescriptor,
+            ReplicationGroupId primaryReplicaId,
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
     ) {
         inBusyLock(busyLock, () -> {
-            if (isLeaseExpire(replicaMeta)) {
+            if (isLeaseExpired(replicaMeta)) {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
@@ -230,14 +313,27 @@ class IndexBuildController implements ManuallyCloseable {
 
             Catalog catalog = catalogService.catalog(catalogVersion);
 
+            // This assert does not make sense, {@link CatalogService#catalog} throws CatalogNotFoundException if the catalog is not found.
             assert catalog != null : "Not found catalog for version " + catalogVersion;
 
-            for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(primaryReplicaId.tableId())) {
+            for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableDescriptor.id())) {
                 if (indexDescriptor.status() == BUILDING) {
-                    scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
+                    scheduleBuildIndex(
+                            tableDescriptor.zoneId(),
+                            tableDescriptor.id(),
+                            enabledColocation()
+                                    ? ((ZonePartitionId) primaryReplicaId).partitionId()
+                                    : ((TablePartitionId) primaryReplicaId).partitionId(),
+                            indexDescriptor,
+                            mvTableStorage,
+                            enlistmentConsistencyToken(replicaMeta));
                 } else if (indexDescriptor.status() == AVAILABLE) {
                     scheduleBuildIndexAfterDisasterRecovery(
-                            primaryReplicaId,
+                            tableDescriptor.zoneId(),
+                            tableDescriptor.id(),
+                            enabledColocation()
+                                    ? ((ZonePartitionId) primaryReplicaId).partitionId()
+                                    : ((TablePartitionId) primaryReplicaId).partitionId(),
                             indexDescriptor,
                             mvTableStorage,
                             enlistmentConsistencyToken(replicaMeta)
@@ -248,19 +344,31 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void tryScheduleBuildIndex(
-            TablePartitionId primaryReplicaId,
+            int zoneId,
+            int tableId,
+            int partitionId,
+            ReplicationGroupId primaryReplicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
     ) {
+        assert enabledColocation()
+                ? ((ZonePartitionId) primaryReplicaId).zoneId() == zoneId
+                        && ((ZonePartitionId) primaryReplicaId).partitionId() == partitionId
+                : ((TablePartitionId) primaryReplicaId).tableId() == tableId
+                        && ((TablePartitionId) primaryReplicaId).partitionId() == partitionId
+                : "Primary replica identifier mismatched [zoneId=" + zoneId + ", tableId=" + tableId
+                        + ", partitionId=" + partitionId + ", primaryReplicaId=" + primaryReplicaId
+                        + ", primaryReplicaCls=" + primaryReplicaId.getClass().getSimpleName() + "].";
+
         inBusyLock(busyLock, () -> {
-            if (isLeaseExpire(replicaMeta)) {
+            if (isLeaseExpired(replicaMeta)) {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
             }
 
-            scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
+            scheduleBuildIndex(zoneId, tableId, partitionId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
         });
     }
 
@@ -272,16 +380,25 @@ class IndexBuildController implements ManuallyCloseable {
      *
      * @param replicaId Replica ID.
      */
-    private void stopBuildingIndexesIfPrimaryExpired(TablePartitionId replicaId) {
+    private void stopBuildingIndexesIfPrimaryExpired(ReplicationGroupId replicaId) {
         if (primaryReplicaIds.remove(replicaId)) {
             // Primary replica is no longer current, we need to stop building indexes for it.
-            indexBuilder.stopBuildingIndexes(replicaId.tableId(), replicaId.partitionId());
+            if (enabledColocation()) {
+                ZonePartitionId zoneId = (ZonePartitionId) replicaId;
+                indexBuilder.stopBuildingZoneIndexes(zoneId.zoneId(), zoneId.partitionId());
+            } else {
+                TablePartitionId partitionId = (TablePartitionId) replicaId;
+                indexBuilder.stopBuildingTableIndexes(partitionId.tableId(), partitionId.partitionId());
+            }
         }
     }
 
-    private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, TablePartitionId replicaId) {
-        return indexManager.getMvTableStorage(causalityToken, replicaId.tableId())
-                .thenApply(mvTableStorage -> requireMvTableStorageNonNull(mvTableStorage, replicaId.tableId()));
+    private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, int tableId) {
+        // TODO This is the only one usage of {@link IndexManager#getMvTableStorage} method.
+        // I don't seen any reason for creating additional completable future via thenApply method.
+        // Just move null check to the IndexManager#getMvTableStorage method.
+        return indexManager.getMvTableStorage(causalityToken, tableId)
+                .thenApply(mvTableStorage -> requireMvTableStorageNonNull(mvTableStorage, tableId));
     }
 
     private static MvTableStorage requireMvTableStorageNonNull(@Nullable MvTableStorage mvTableStorage, int tableId) {
@@ -296,7 +413,7 @@ class IndexBuildController implements ManuallyCloseable {
         return mvTableStorage;
     }
 
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId replicaId, HybridTimestamp timestamp) {
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId replicaId, HybridTimestamp timestamp) {
         return placementDriver
                 .awaitPrimaryReplica(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                 .handle((replicaMeta, throwable) -> {
@@ -316,20 +433,25 @@ class IndexBuildController implements ManuallyCloseable {
 
     /** Shortcut to schedule index building. */
     private void scheduleBuildIndex(
-            TablePartitionId replicaId,
+            int zoneId,
+            int tableId,
+            int partitionId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
-        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, partitionId);
 
-        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
+        // This assert duplicates the check in the #mvPartitionStorage method.
+        assert mvPartition != null : "Partition storage is missing [zoneId=" + zoneId
+                + ", tableId=" + tableId + ", partitionId=" + partitionId + "].";
 
-        IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
+        IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndex(
-                replicaId.tableId(),
-                replicaId.partitionId(),
+                zoneId,
+                tableId,
+                partitionId,
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
@@ -340,20 +462,25 @@ class IndexBuildController implements ManuallyCloseable {
 
     /** Shortcut to schedule {@link CatalogIndexStatus#AVAILABLE available} index building after disaster recovery. */
     private void scheduleBuildIndexAfterDisasterRecovery(
-            TablePartitionId replicaId,
+            int zoneId,
+            int tableId,
+            int partitionId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
-        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, partitionId);
 
-        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
+        // Duplicates the check in the #mvPartitionStorage method.
+        assert mvPartition != null : "Partition storage is missing [zoneId=" + zoneId
+                + ", tableId=" + tableId + ", partitionId=" + partitionId + "].";
 
-        IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
+        IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
-                replicaId.tableId(),
-                replicaId.partitionId(),
+                zoneId,
+                tableId,
+                partitionId,
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
@@ -366,7 +493,7 @@ class IndexBuildController implements ManuallyCloseable {
         return IndexManagementUtils.localNode(clusterService);
     }
 
-    private boolean isLeaseExpire(ReplicaMeta replicaMeta) {
+    private boolean isLeaseExpired(ReplicaMeta replicaMeta) {
         return !isPrimaryReplica(replicaMeta, localNode(), clockService.now());
     }
 
@@ -374,22 +501,22 @@ class IndexBuildController implements ManuallyCloseable {
         return replicaMeta.getStartTime().longValue();
     }
 
-    private static MvPartitionStorage mvPartitionStorage(MvTableStorage mvTableStorage, TablePartitionId replicaId) {
-        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(replicaId.partitionId());
+    private static MvPartitionStorage mvPartitionStorage(MvTableStorage mvTableStorage, int partitionId) {
+        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partitionId);
 
-        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
+        assert mvPartition != null : "Partition storage is missing [partitionId=" + partitionId + "].";
 
         return mvPartition;
     }
 
     private static IndexStorage indexStorage(
             MvTableStorage mvTableStorage,
-            TablePartitionId replicaId,
+            int partitionId,
             CatalogIndexDescriptor indexDescriptor
     ) {
-        IndexStorage indexStorage = mvTableStorage.getIndex(replicaId.partitionId(), indexDescriptor.id());
+        IndexStorage indexStorage = mvTableStorage.getIndex(partitionId, indexDescriptor.id());
 
-        assert indexStorage != null : "replicaId=" + replicaId + ", indexId=" + indexDescriptor.id();
+        assert indexStorage != null : "Index storage is missing [partitionId=" + partitionId + ", indexId=" + indexDescriptor.id() + "].";
 
         return indexStorage;
     }

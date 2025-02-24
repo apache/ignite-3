@@ -240,8 +240,8 @@ class IndexBuildTask {
 
     private String createCommonIndexInfo() {
         return IgniteStringFormatter.format(
-                "tableId={}, partitionId={}, indexId={}",
-                taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
+                "zoneId = {}, tableId={}, partitionId={}, indexId={}",
+                taskId.getZoneId(), taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
         );
     }
 
