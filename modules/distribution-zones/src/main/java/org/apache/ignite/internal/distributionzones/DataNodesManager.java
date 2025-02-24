@@ -1324,7 +1324,6 @@ public class DataNodesManager {
     /**
      * Representation of zone timer schedule, visible for testing purposes.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24609
     @VisibleForTesting
     public static class ZoneTimerSchedule {
         final StripedScheduledThreadPoolExecutor executor;
@@ -1401,7 +1400,6 @@ public class DataNodesManager {
         }
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24609
     @FunctionalInterface
     private interface DataNodeHistoryContextMetaStorageGetter {
         /** The future may contain {@code null} result. */
@@ -1413,7 +1411,6 @@ public class DataNodesManager {
      * {@link #applyTimerClosure}. The only difference in implementations is the name of timer that is used for logging,
      * the meta storage key, fields of {@link ZoneTimers} used for scheduling, etc.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24609
     private interface ScheduledTimer {
         /**
          * Name of the timer, is used for logging.
@@ -1437,7 +1434,6 @@ public class DataNodesManager {
         DistributionZoneTimer scaleDownTimerAfterApply();
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24609
     private class ScaleUpScheduledTimer implements ScheduledTimer {
         final CatalogZoneDescriptor zone;
 
@@ -1501,7 +1497,6 @@ public class DataNodesManager {
         }
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24609
     private class ScaleDownScheduledTimer implements ScheduledTimer {
         final CatalogZoneDescriptor zone;
 
