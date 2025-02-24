@@ -166,7 +166,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
         try {
             if (command instanceof FinishTxCommand) {
-                result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
+                result = finishTxCommandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
             } else if (command instanceof PrimaryReplicaChangeCommand) {
                 // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
                 // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
@@ -175,7 +175,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 result = new IgniteBiTuple<>(null, true);
             } else if (command instanceof WriteIntentSwitchCommand) {
                 result = writeIntentSwitchCommandHandler.handle(
-                        (WriteIntentSwitchCommand) command,
+                        command,
                         commandIndex,
                         commandTerm,
                         safeTimestamp
@@ -189,7 +189,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                         safeTimestamp
                 );
             } else if (command instanceof VacuumTxStatesCommand) {
-                result = vacuumTxStatesCommandHandler.handle((VacuumTxStatesCommand) command, commandIndex, commandTerm);
+                result = vacuumTxStatesCommandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
             } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else {

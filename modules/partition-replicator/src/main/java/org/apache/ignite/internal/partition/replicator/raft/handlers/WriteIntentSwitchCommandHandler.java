@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Handler for {@link WriteIntentSwitchCommand}s.
  */
-public class WriteIntentSwitchCommandHandler {
+public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<WriteIntentSwitchCommand> {
     private final IntFunction<RaftTableProcessor> tableProcessorByTableId;
 
     private final RaftTxFinishMarker txFinishMarker;
@@ -42,16 +42,8 @@ public class WriteIntentSwitchCommandHandler {
         txFinishMarker = new RaftTxFinishMarker(txManager);
     }
 
-    /**
-     * Handles {@link WriteIntentSwitchCommand}s.
-     *
-     * @param switchCommand Command to handle
-     * @param commandIndex Command index.
-     * @param commandTerm Index of the term.
-     * @param safeTimestamp Safe timestamp of the command.
-     * @return Pair: {result, wasHandled}.
-     */
-    public IgniteBiTuple<Serializable, Boolean> handle(
+    @Override
+    protected IgniteBiTuple<Serializable, Boolean> handleInternally(
             WriteIntentSwitchCommand switchCommand,
             long commandIndex,
             long commandTerm,

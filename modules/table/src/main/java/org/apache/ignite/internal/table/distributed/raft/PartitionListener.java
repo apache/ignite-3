@@ -262,7 +262,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         } else if (command instanceof UpdateAllCommand) {
             result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof FinishTxCommand) {
-            result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
+            result = finishTxCommandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof WriteIntentSwitchCommand) {
             result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
         } else if (command instanceof SafeTimeSyncCommand) {
@@ -273,10 +273,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
         } else if (command instanceof VacuumTxStatesCommand) {
             if (!enabledColocation()) {
-                result = vacuumTxStatesCommandHandler.handle((VacuumTxStatesCommand) command, commandIndex, commandTerm);
+                result = vacuumTxStatesCommandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
             }
         } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-            result = minimumActiveTxTimeCommandHandler.handle((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex);
+            result = minimumActiveTxTimeCommandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
         }
 
         if (result == null) {
