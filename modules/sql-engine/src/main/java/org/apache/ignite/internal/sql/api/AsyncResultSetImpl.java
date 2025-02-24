@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.NoRowSetExpectedException;
@@ -396,9 +397,10 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
             return meta;
         }
 
+        /** {@inheritDoc} */
         @Override
         public String toString() {
-            return "Row " + row;
+            return S.tupleToString(this);
         }
     }
 }

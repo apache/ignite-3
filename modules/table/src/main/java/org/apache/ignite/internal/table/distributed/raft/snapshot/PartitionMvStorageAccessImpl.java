@@ -135,7 +135,14 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion) {
+    public void addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId,
+            int catalogVersion
+    ) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage();
 
         List<IndexIdAndTableVersion> indexIdAndTableVersionList = fullStateTransferIndexChooser.chooseForAddWrite(
@@ -149,7 +156,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+            mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
             for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
                 indexUpdateHandler.addToIndex(indexIdAndBinaryRow.binaryRow(), rowId, indexIdAndBinaryRow.indexId());
@@ -223,9 +230,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
 
     @Override
     public CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta) {
-        byte[] configBytes = raftGroupConfigurationConverter.toBytes(partitionMeta.raftGroupConfig());
-
-        return mvTableStorage.finishRebalancePartition(partitionId(), partitionMeta.toMvPartitionMeta(configBytes))
+        return mvTableStorage.finishRebalancePartition(partitionId(), partitionMeta.toMvPartitionMeta(partitionMeta.raftGroupConfig()))
                 .thenAccept(unused -> mvGc.addStorage(tablePartitionId(), gcUpdateHandler));
     }
 

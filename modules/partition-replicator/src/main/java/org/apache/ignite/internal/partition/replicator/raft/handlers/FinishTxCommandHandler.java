@@ -33,12 +33,12 @@ import org.apache.ignite.internal.partition.replicator.network.command.FinishTxC
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 
 /**
@@ -48,14 +48,14 @@ public class FinishTxCommandHandler {
     private static final IgniteLogger LOG = Loggers.forClass(FinishTxCommandHandler.class);
 
     private final TxStatePartitionStorage txStatePartitionStorage;
-    private final TablePartitionId replicationGroupId;
+    private final ReplicationGroupId replicationGroupId;
 
     private final RaftTxFinishMarker txFinishMarker;
 
     /** Constructor. */
     public FinishTxCommandHandler(
             TxStatePartitionStorage txStatePartitionStorage,
-            TablePartitionId replicationGroupId,
+            ReplicationGroupId replicationGroupId,
             TxManager txManager
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
@@ -86,7 +86,7 @@ public class FinishTxCommandHandler {
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                fromPartitionIdMessage(cmd.partitionIds()),
+                fromPartitionMessages(cmd.partitions()),
                 cmd.commitTimestamp()
         );
 
@@ -114,11 +114,11 @@ public class FinishTxCommandHandler {
         return new IgniteBiTuple<>(new TransactionResult(stateToSet, cmd.commitTimestamp()), true);
     }
 
-    private static List<ReplicationGroupId> fromPartitionIdMessage(List<ReplicationGroupIdMessage> partitionIds) {
-        List<ReplicationGroupId> list = new ArrayList<>(partitionIds.size());
+    private static List<EnlistedPartitionGroup> fromPartitionMessages(List<EnlistedPartitionGroupMessage> messages) {
+        List<EnlistedPartitionGroup> list = new ArrayList<>(messages.size());
 
-        for (ReplicationGroupIdMessage partitionIdMessage : partitionIds) {
-            list.add(partitionIdMessage.asReplicationGroupId());
+        for (EnlistedPartitionGroupMessage message : messages) {
+            list.add(message.asPartitionInfo());
         }
 
         return list;

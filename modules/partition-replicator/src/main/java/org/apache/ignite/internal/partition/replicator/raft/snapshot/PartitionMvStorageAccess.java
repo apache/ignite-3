@@ -68,6 +68,7 @@ public interface PartitionMvStorageAccess {
      */
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID. In details: - if there is no
      * uncommitted version, a new uncommitted version is added - if there is an uncommitted version belonging to the same transaction, it
@@ -77,13 +78,13 @@ public interface PartitionMvStorageAccess {
      * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction ID.
-     * @param commitTableId Commit table ID.
+     * @param commitTableOrZoneId Commit table/zone ID.
      * @param commitPartitionId Commit partitionId.
      * @param catalogVersion Catalog version of the incoming partition snapshot.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction ID.
      * @throws StorageException If failed to write data.
      */
-    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion);
+    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId, int catalogVersion);
 
     /**
      * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an

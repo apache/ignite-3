@@ -26,6 +26,8 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -139,10 +141,10 @@ public class ThreadAssertingTxStatePartitionStorage implements TxStatePartitionS
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+    public CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta) {
         assertThreadAllowsToWrite();
 
-        return storage.finishRebalance(lastAppliedIndex, lastAppliedTerm);
+        return storage.finishRebalance(partitionMeta);
     }
 
     @Override
@@ -150,5 +152,29 @@ public class ThreadAssertingTxStatePartitionStorage implements TxStatePartitionS
         assertThreadAllowsToWrite();
 
         return storage.clear();
+    }
+
+    @Override
+    public void committedGroupConfiguration(byte[] config, long index, long term) {
+        assertThreadAllowsToWrite();
+
+        storage.committedGroupConfiguration(config, index, term);
+    }
+
+    @Override
+    public byte @Nullable [] committedGroupConfiguration() {
+        return storage.committedGroupConfiguration();
+    }
+
+    @Override
+    public @Nullable LeaseInfo leaseInfo() {
+        return storage.leaseInfo();
+    }
+
+    @Override
+    public void leaseInfo(LeaseInfo leaseInfo, long index, long term) {
+        assertThreadAllowsToWrite();
+
+        storage.leaseInfo(leaseInfo, index, term);
     }
 }
