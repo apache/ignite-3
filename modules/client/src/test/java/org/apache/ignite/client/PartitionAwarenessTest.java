@@ -33,6 +33,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -616,8 +618,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAssignmentUnavailableStreamer() {
-        server.placementDriver().returnNull(true);
-        server2.placementDriver().returnNull(true);
+        List<String> nullReplicas = IntStream.range(0, 4).mapToObj(i -> (String)null).collect(Collectors.toList());
+        initPrimaryReplicas(nullReplicas);
 
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1)
@@ -631,7 +633,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
             fut = recordView.streamData(publisher, options);
 
-            for (int i = 0; i < 100; i++) {
+            for (long i = 0; i < 100; i++) {
                 publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", i)));
             }
         }
