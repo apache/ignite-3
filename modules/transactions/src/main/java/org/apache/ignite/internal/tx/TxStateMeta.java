@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -122,8 +123,13 @@ public class TxStateMeta implements TransactionMeta {
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
         this.tx = tx;
-        this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
         this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
+
+        if (initialVacuumObservationTimestamp != null) {
+            this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
+        } else {
+            this.initialVacuumObservationTimestamp = TxState.isFinalState(txState) ? coarseCurrentTimeMillis() : null;
+        }
     }
 
     /**

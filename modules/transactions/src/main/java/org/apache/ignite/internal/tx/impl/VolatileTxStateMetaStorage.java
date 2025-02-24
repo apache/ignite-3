@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.lang.Math.max;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
@@ -151,7 +150,6 @@ public class VolatileTxStateMetaStorage {
         LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
         AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
-        AtomicInteger markedAsInitiallyDetectedTxnsCount = new AtomicInteger(0);
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
@@ -171,39 +169,34 @@ public class VolatileTxStateMetaStorage {
                 } else if (TxState.isFinalState(meta0.txState())) {
                     Long initialVacuumObservationTimestamp = meta0.initialVacuumObservationTimestamp();
 
-                    if (initialVacuumObservationTimestamp == null && txnResourceTtl > 0) {
-                        markedAsInitiallyDetectedTxnsCount.incrementAndGet();
+                    Long cleanupCompletionTimestamp = meta0.cleanupCompletionTimestamp();
 
-                        return markInitialVacuumObservationTimestamp(meta0, vacuumObservationTimestamp);
-                    } else {
-                        Long cleanupCompletionTimestamp = meta0.cleanupCompletionTimestamp();
+                    boolean shouldBeVacuumized = shouldBeVacuumized(initialVacuumObservationTimestamp,
+                            cleanupCompletionTimestamp, txnResourceTtl, vacuumObservationTimestamp);
 
-                        boolean shouldBeVacuumized = shouldBeVacuumized(initialVacuumObservationTimestamp,
-                                cleanupCompletionTimestamp, txnResourceTtl, vacuumObservationTimestamp);
+                    if (shouldBeVacuumized) {
+                        if (meta0.commitPartitionId() == null) {
+                            vacuumizedTxnsCount.incrementAndGet();
 
-                        if (shouldBeVacuumized) {
-                            if (meta0.commitPartitionId() == null) {
-                                vacuumizedTxnsCount.incrementAndGet();
-
-                                return null;
-                            } else {
-                                // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-                                // Should be changed to ZonePartitionId.
-                                Set<VacuumizableTx> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
-                                ids.add(new VacuumizableTx(txId, cleanupCompletionTimestamp));
-
-                                if (cleanupCompletionTimestamp != null) {
-                                    cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
-                                }
-
-                                return meta0;
-                            }
+                            return null;
                         } else {
-                            alreadyMarkedTxnsCount.incrementAndGet();
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
+                            // Should be changed to ZonePartitionId.
+                            Set<VacuumizableTx> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
+                            ids.add(new VacuumizableTx(txId, cleanupCompletionTimestamp));
+
+                            if (cleanupCompletionTimestamp != null) {
+                                cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
+                            }
 
                             return meta0;
                         }
+                    } else {
+                        alreadyMarkedTxnsCount.incrementAndGet();
+
+                        return meta0;
                     }
+
                 }
 
                 skippedForFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
@@ -235,14 +228,12 @@ public class VolatileTxStateMetaStorage {
                                     + "txnResourceTtl={}, "
                                     + "vacuumizedTxnsCount={}, "
                                     + "vacuumizedPersistentTxnStatesCount={}, "
-                                    + "markedAsInitiallyDetectedTxnsCount={}, "
                                     + "alreadyMarkedTxnsCount={}, "
                                     + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
                             vacuumObservationTimestamp,
                             txnResourceTtl,
                             vacuumizedTxnsCount,
                             vacuumResult.vacuumizedPersistentTxnStatesCount,
-                            markedAsInitiallyDetectedTxnsCount,
                             alreadyMarkedTxnsCount,
                             skippedForFurtherProcessingUnfinishedTxnsCount
                     );
@@ -254,20 +245,8 @@ public class VolatileTxStateMetaStorage {
         return Collections.unmodifiableMap(txStateMap);
     }
 
-    private static TxStateMeta markInitialVacuumObservationTimestamp(TxStateMeta meta, long vacuumObservationTimestamp) {
-        return new TxStateMeta(
-                meta.txState(),
-                meta.txCoordinatorId(),
-                meta.commitPartitionId(),
-                meta.commitTimestamp(),
-                meta.tx(),
-                vacuumObservationTimestamp,
-                meta.cleanupCompletionTimestamp()
-        );
-    }
-
     private static boolean shouldBeVacuumized(
-            @Nullable Long initialVacuumObservationTimestamp,
+            Long initialVacuumObservationTimestamp,
             @Nullable Long cleanupCompletionTimestamp,
             long txnResourceTtl,
             long vacuumObservationTimestamp) {
@@ -281,7 +260,7 @@ public class VolatileTxStateMetaStorage {
         if (cleanupCompletionTimestamp == null) {
             return initialVacuumObservationTimestamp + txnResourceTtl < vacuumObservationTimestamp;
         } else {
-            return max(cleanupCompletionTimestamp, initialVacuumObservationTimestamp) + txnResourceTtl < vacuumObservationTimestamp;
+            return cleanupCompletionTimestamp + txnResourceTtl < vacuumObservationTimestamp;
         }
     }
 }
