@@ -17,20 +17,23 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.unmodifiableList;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.jetbrains.annotations.Nullable;
 
 class DataNodesHistoryMetaStorageOperation {
     private final Condition condition;
-    private final Operations msOperations;
+    private final List<Operation> operations;
     private final String operationName;
     private final int zoneId;
     private final DataNodesHistory currentDataNodesHistory;
@@ -47,7 +50,7 @@ class DataNodesHistoryMetaStorageOperation {
 
     private DataNodesHistoryMetaStorageOperation(
             Condition condition,
-            Operations msOperations,
+            List<Operation> operations,
             String operationName,
             int zoneId,
             DataNodesHistory currentDataNodesHistory,
@@ -59,7 +62,7 @@ class DataNodesHistoryMetaStorageOperation {
             @Nullable DistributionZoneTimer scaleDownTimer
     ) {
         this.condition = condition;
-        this.msOperations = msOperations;
+        this.operations = operations;
         this.operationName = operationName;
         this.zoneId = zoneId;
         this.currentDataNodesHistory = currentDataNodesHistory;
@@ -77,12 +80,12 @@ class DataNodesHistoryMetaStorageOperation {
 
     /**
      * Forms a message for the log record about the history entry update. It also specifies whether the new history entry was
-      actually added; it is added if the history is empty, the nodes are different from the latest history entry or the
+     * actually added; it is added if the history is empty, the nodes are different from the latest history entry or the
      * {@code addMandatoryEntry} parameter is true.
      *
      * @return Log message.
      */
-    String logMessageOnSuccess() {
+    String successLogMessage() {
         Set<NodeWithAttributes> latestNodesWritten = currentDataNodesHistory.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes();
         Set<NodeWithAttributes> nodes = historyEntryNodes;
         boolean historyEntryAdded = addMandatoryEntry || currentDataNodesHistory.isEmpty() || !nodes.equals(latestNodesWritten);
@@ -98,22 +101,18 @@ class DataNodesHistoryMetaStorageOperation {
                 + "].";
     }
 
-    String logMessageOnFailure() {
+    String failureLogMessage() {
         return "Failed to update data nodes history and timers on " + operationName + " [timestamp="
                 + currentTimestamp + "].";
     }
 
-    Iif metaStorageIif() {
-        return iif(
-                condition,
-                msOperations.yield(true),
-                ops().yield(false)
-        );
+    public Iif operation() {
+        return iif(condition, new Operations(operations).yield(true), ops().yield(false));
     }
 
     static class Builder {
         private Condition condition;
-        private Operations msOperations;
+        private List<Operation> operations;
         private String operationName;
         private int zoneId = -1;
         private DataNodesHistory currentDataNodesHistory;
@@ -129,8 +128,8 @@ class DataNodesHistoryMetaStorageOperation {
             return this;
         }
 
-        Builder operations(Operations msOperations) {
-            this.msOperations = msOperations;
+        Builder operations(List<Operation> operations) {
+            this.operations = operations;
             return this;
         }
 
@@ -182,7 +181,7 @@ class DataNodesHistoryMetaStorageOperation {
         DataNodesHistoryMetaStorageOperation build() {
             assert zoneId >= 0 : "Zone id is not set.";
             assert condition != null : "Condition is not set, zoneId=" + zoneId;
-            assert msOperations != null : "Meta storage operations are not set, zoneId=" + zoneId;
+            assert operations != null : "Meta storage operations are not set, zoneId=" + zoneId;
             assert operationName != null : "Operation name is not set, zoneId=" + zoneId;
             assert currentDataNodesHistory != null : "Current data nodes history is not set, zoneId=" + zoneId;
             assert currentTimestamp != null : "Current timestamp is not set, zoneId=" + zoneId;
@@ -190,17 +189,17 @@ class DataNodesHistoryMetaStorageOperation {
             assert historyEntryNodes != null : "History entry nodes are not set, zoneId=" + zoneId;
 
             return new DataNodesHistoryMetaStorageOperation(
-                condition,
-                msOperations,
-                operationName,
-                zoneId,
-                currentDataNodesHistory,
-                currentTimestamp,
-                historyEntryTimestamp,
-                historyEntryNodes,
-                addMandatoryEntry,
-                scaleUpTimer,
-                scaleDownTimer
+                    condition,
+                    unmodifiableList(operations),
+                    operationName,
+                    zoneId,
+                    currentDataNodesHistory,
+                    currentTimestamp,
+                    historyEntryTimestamp,
+                    historyEntryNodes,
+                    addMandatoryEntry,
+                    scaleUpTimer,
+                    scaleDownTimer
             );
         }
     }

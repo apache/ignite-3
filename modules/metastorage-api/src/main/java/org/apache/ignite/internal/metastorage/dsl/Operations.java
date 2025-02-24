@@ -50,6 +50,15 @@ public final class Operations {
     }
 
     /**
+     * Constructs new operations batch.
+     *
+     * @param operations operations.
+     */
+    public Operations(List<Operation> operations) {
+        this.operations = operations;
+    }
+
+    /**
      * Produce new {@link Update} statement with boolean result.
      *
      * @param result boolean result.

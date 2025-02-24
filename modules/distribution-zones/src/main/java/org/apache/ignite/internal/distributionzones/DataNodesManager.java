@@ -27,9 +27,9 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DEFAULT_TIMER;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
@@ -61,6 +61,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
@@ -98,7 +99,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -406,7 +406,7 @@ public class DataNodesManager {
                 )
         );
 
-        Operations operations = ops(
+        List<Operation> operations = List.of(
                 addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
                         currentDataNodes.dataNodes(), addMandatoryEntry),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
@@ -547,7 +547,7 @@ public class DataNodesManager {
         return DataNodesHistoryMetaStorageOperation.builder()
                 .zoneId(zoneId)
                 .condition(dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory))
-                .operations(ops(
+                .operations(List.of(
                         addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
                         clearTimer(zoneScaleUpTimerKey(zoneId)),
                         clearTimer(zoneScaleDownTimerKey(zoneId)),
@@ -645,7 +645,7 @@ public class DataNodesManager {
                 )
         );
 
-        Operations operations = ops(
+        List<Operation> operations = List.of(
                 addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
                         currentDataNodes.dataNodes()),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
@@ -752,7 +752,7 @@ public class DataNodesManager {
                                 )
                         )
                         .operations(
-                                ops(
+                                List.of(
                                         addNewEntryToDataNodesHistory(
                                                 zoneId,
                                                 dataNodesHistory,
@@ -1079,10 +1079,10 @@ public class DataNodesManager {
                     if (metaStorageOperation == null) {
                         return nullCompletedFuture();
                     } else {
-                        return metaStorageManager.invoke(metaStorageOperation.metaStorageIif())
+                        return metaStorageManager.invoke(metaStorageOperation.operation())
                                 .thenCompose(result -> {
                                     if (result.getAsBoolean()) {
-                                        LOG.info(metaStorageOperation.logMessageOnSuccess());
+                                        LOG.info(metaStorageOperation.successLogMessage());
 
                                         return nullCompletedFuture();
                                     } else {
@@ -1091,7 +1091,7 @@ public class DataNodesManager {
                                 })
                                 .whenComplete((v, e) -> {
                                     if (e != null) {
-                                        LOG.error(metaStorageOperation.logMessageOnFailure(), e);
+                                        LOG.error(metaStorageOperation.failureLogMessage(), e);
                                     }
                                 });
                     }
@@ -1231,7 +1231,7 @@ public class DataNodesManager {
                 busyLock,
                 () -> processWatchEvent(
                         event,
-                        DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX,
+                        DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES,
                         (zoneId, e) -> processTimerWatchEvent(zoneId, e, true)
                 )
         );
@@ -1242,7 +1242,7 @@ public class DataNodesManager {
                 busyLock,
                 () -> processWatchEvent(
                         event,
-                        DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX,
+                        DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES,
                         (zoneId, e) -> processTimerWatchEvent(zoneId, e, false)
                 )
         );
@@ -1251,7 +1251,7 @@ public class DataNodesManager {
     private WatchListener createDataNodesListener() {
         return event -> inBusyLockAsync(
                 busyLock,
-                () -> processWatchEvent(event, DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX, this::processDataNodesHistoryWatchEvent)
+                () -> processWatchEvent(event, DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES, this::processDataNodesHistoryWatchEvent)
         );
     }
 
@@ -1297,7 +1297,7 @@ public class DataNodesManager {
 
     private static CompletableFuture<Void> processWatchEvent(
             WatchEvent event,
-            String keyPrefix,
+            byte[] keyPrefix,
             BiFunction<Integer, Entry, CompletableFuture<Void>> processor
     ) {
         EntryEvent entryEvent = event.entryEvent();
@@ -1305,10 +1305,9 @@ public class DataNodesManager {
         Entry e = entryEvent.newEntry();
 
         if (e != null && !e.empty()) {
-            String keyString = new String(e.key(), UTF_8);
-            assert keyString.startsWith(keyPrefix) : "Unexpected key: " + keyString;
+            assert startsWith(e.key(), keyPrefix) : "Unexpected key: " + new String(e.key(), UTF_8);
 
-            int zoneId = extractZoneId(e.key(), keyPrefix.getBytes(UTF_8));
+            int zoneId = extractZoneId(e.key(), keyPrefix);
 
             return processor.apply(zoneId, e);
         }
