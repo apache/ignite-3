@@ -655,7 +655,7 @@ public class ClientTable implements Table {
 
                             // Return empty array so that per-partition batches can be initialized.
                             // We'll get the actual assignment on the next call.
-                            return new ArrayList<>(cnt);
+                            return emptyAssignment(cnt);
                         }
 
                         // Returned timestamp can be newer than requested.
@@ -719,6 +719,16 @@ public class ClientTable implements Table {
         }
 
         return partitions.get(Math.abs(hash % partitions.size()));
+    }
+
+    private static List<String> emptyAssignment(int size) {
+        List<String> emptyRes = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            emptyRes.add(null);
+        }
+
+        return emptyRes;
     }
 
     private static class PartitionAssignment {

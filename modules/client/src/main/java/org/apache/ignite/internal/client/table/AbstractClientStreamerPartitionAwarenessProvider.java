@@ -44,7 +44,7 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
         }
 
         if (partitions0 == 0) {
-            return 0;
+            throw new IllegalStateException("StreamerPartitionAwarenessProvider has zero partitions.");
         }
 
         int hash = colocationHash(schema0, item);
