@@ -642,7 +642,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             processAssignmentsOnRecovery(recoveryRevision);
 
             if (!enabledColocation()) {
-                metaStorageMgr.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES), pendingAssignmentsRebalanceListener);
+                metaStorageMgr.registerPrefixWatch(
+                        new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
+                        pendingAssignmentsRebalanceListener
+                );
                 metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
                 metaStorageMgr.registerPrefixWatch(
                         new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES),
