@@ -118,20 +118,17 @@ public class TxCleanupRequestSender {
     private void markTxnCleanupReplicated(UUID txId, TxState state, ReplicationGroupId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        // TODO: IGNITE-24343 - handle for ZonePartitionId as well.
-        if (commitPartitionId instanceof TablePartitionId) {
-            txStateVolatileStorage.updateMeta(txId, oldMeta ->
-                    new TxStateMeta(
-                            oldMeta == null ? state : oldMeta.txState(),
-                            oldMeta == null ? null : oldMeta.txCoordinatorId(),
-                            (TablePartitionId) commitPartitionId,
-                            oldMeta == null ? null : oldMeta.commitTimestamp(),
-                            oldMeta == null ? null : oldMeta.tx(),
-                            oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
-                            cleanupCompletionTimestamp
-                    )
-            );
-        }
+        txStateVolatileStorage.updateMeta(txId, oldMeta ->
+                new TxStateMeta(
+                        oldMeta == null ? state : oldMeta.txState(),
+                        oldMeta == null ? null : oldMeta.txCoordinatorId(),
+                        commitPartitionId,
+                        oldMeta == null ? null : oldMeta.commitTimestamp(),
+                        oldMeta == null ? null : oldMeta.tx(),
+                        oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
+                        cleanupCompletionTimestamp
+                )
+        );
     }
 
     /**

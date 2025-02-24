@@ -22,15 +22,15 @@ import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Thrown when transaction cancel failed.
+ * Thrown when transaction kill failed.
  */
-public class TransactionCancelException extends IgniteInternalException {
+public class TransactionKillException extends IgniteInternalException {
     /**
      * Constructor.
      *
      * @param transactionId Transaction id.
      */
-    public TransactionCancelException(String transactionId) {
-        super(ILLEGAL_ARGUMENT_ERR, "Transaction can not be canceled [transactionId=" + transactionId + ']');
+    public TransactionKillException(String transactionId) {
+        super(ILLEGAL_ARGUMENT_ERR, "Transaction can not be killed [transactionId=" + transactionId + ']');
     }
 }

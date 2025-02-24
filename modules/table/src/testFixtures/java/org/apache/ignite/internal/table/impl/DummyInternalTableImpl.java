@@ -154,7 +154,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
 
-    private static final int ZONE_ID = 2;
+    /** ID of the zone to which the corresponding table belongs. */
+    public static final int ZONE_ID = 2;
 
     private static final int PART_ID = 0;
 

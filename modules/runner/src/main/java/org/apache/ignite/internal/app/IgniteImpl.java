@@ -34,6 +34,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
@@ -556,10 +557,12 @@ public class IgniteImpl implements Ignite {
         try {
             lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
         } catch (NodeStoppingException e) {
-            assert false : "Unexpected exception: " + e;
+            throw new AssertionError("Unexpected exception", e);
         }
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
+
+        LOG.info("Local node configuration: {}", convertToHoconString(nodeConfigRegistry));
 
         NetworkConfiguration networkConfiguration = nodeConfigRegistry.getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
@@ -942,8 +945,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1496,6 +1499,8 @@ public class IgniteImpl implements Ignite {
                 .thenComposeAsync(v -> {
                     LOG.info("Components started, performing recovery");
 
+                    LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
+
                     return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
                 }, joinExecutor)
                 .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), joinExecutor)
@@ -2046,5 +2051,13 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public SystemDisasterRecoveryManager systemDisasterRecoveryManager() {
         return systemDisasterRecoveryManager;
+    }
+
+    /**
+     * Converts the entire configuration from the registry to a HOCON string without spaces, comments and quotes. For example,
+     * "ignite{clientConnector{connectTimeout=5000,idleTimeout=0}}".
+     */
+    private static String convertToHoconString(ConfigurationRegistry configRegistry) {
+        return HoconConverter.represent(configRegistry.superRoot(), List.of()).render(ConfigRenderOptions.concise().setJson(false));
     }
 }

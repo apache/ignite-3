@@ -467,7 +467,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             long[] timestamps = new long[readResults.size() + (readResults.get(0).isWriteIntent() ? -1 : 0)];
 
             UUID txId = null;
-            Integer commitTableId = null;
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
+            Integer commitTableOrZoneId = null;
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             int j = 0;
@@ -481,7 +482,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();
-                    commitTableId = readResult.commitTableId();
+                    commitTableOrZoneId = readResult.commitTableOrZoneId();
                     commitPartitionId = readResult.commitPartitionId();
                 } else {
                     timestamps[j++] = readResult.commitTimestamp().longValue();
@@ -494,7 +495,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                             .rowVersions(rowVersions)
                             .timestamps(timestamps)
                             .txId(txId)
-                            .commitTableId(commitTableId)
+                            .commitTableOrZoneId(commitTableOrZoneId)
                             .commitPartitionId(commitPartitionId)
                             .tableId(TABLE_ID)
                             .build()
@@ -532,7 +533,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 assertEquals(expReadResult.commitTimestamp(), actReadResult.commitTimestamp(), msg);
                 assertEquals(expReadResult.transactionId(), actReadResult.transactionId(), msg);
-                assertEquals(expReadResult.commitTableId(), actReadResult.commitTableId(), msg);
+                assertEquals(expReadResult.commitTableOrZoneId(), actReadResult.commitTableOrZoneId(), msg);
                 assertEquals(expReadResult.commitPartitionId(), actReadResult.commitPartitionId(), msg);
                 assertEquals(expReadResult.isWriteIntent(), actReadResult.isWriteIntent(), msg);
             }

@@ -107,12 +107,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
 
         // RAFT command handlers initialization.
-        finishTxCommandHandler = new FinishTxCommandHandler(
-                txStatePartitionStorage,
-                // TODO: IGNITE-24343 - use ZonePartitionId here.
-                new TablePartitionId(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
-                txManager
-        );
+        finishTxCommandHandler = new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager);
 
         writeIntentSwitchCommandHandler = new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager);
 

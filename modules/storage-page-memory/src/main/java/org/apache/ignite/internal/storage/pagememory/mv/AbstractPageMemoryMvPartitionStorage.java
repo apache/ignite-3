@@ -416,7 +416,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
@@ -426,7 +426,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             assert rowIsLocked(rowId);
 
             try {
-                AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableId, commitPartitionId, this);
+                AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 

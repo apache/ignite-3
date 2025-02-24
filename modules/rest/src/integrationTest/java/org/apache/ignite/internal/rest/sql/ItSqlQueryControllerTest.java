@@ -110,7 +110,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void shouldCancelSqlQuery() {
+    void shouldKillSqlQuery() {
         String sql = "SELECT x FROM TABLE(SYSTEM_RANGE(1, 100));";
 
         try (ResultSet<SqlRow> ignored = runQuery(sql)) {
@@ -124,7 +124,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
             assertThat(queryInfo, notNullValue());
 
-            cancelSqlQuery(client, queryInfo.id());
+            killSqlQuery(client, queryInfo.id());
 
             assertThrowsProblem(
                     () -> getSqlQuery(client, queryInfo.id()),
@@ -146,11 +146,11 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void shouldReturnProblemIfCancelNonExistingSqlQuery() {
+    void shouldReturnProblemIfKillNonExistingSqlQuery() {
         UUID queryId = UUID.randomUUID();
 
         assertThrowsProblem(
-                () -> cancelSqlQuery(client, queryId),
+                () -> killSqlQuery(client, queryId),
                 NOT_FOUND,
                 isProblem().withDetail("Sql query not found [queryId=" + queryId + "]")
         );
@@ -174,7 +174,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
         return client.toBlocking().retrieve(HttpRequest.GET("/queries/" + queryId), SqlQueryInfo.class);
     }
 
-    private static void cancelSqlQuery(HttpClient client, UUID queryId) {
+    private static void killSqlQuery(HttpClient client, UUID queryId) {
         client.toBlocking().exchange(DELETE("/queries/" + queryId));
     }
 }

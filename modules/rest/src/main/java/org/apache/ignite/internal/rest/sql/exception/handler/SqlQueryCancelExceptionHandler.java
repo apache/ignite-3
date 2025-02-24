@@ -25,16 +25,16 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.internal.rest.sql.exception.SqlQueryCancelException;
+import org.apache.ignite.internal.rest.sql.exception.SqlQueryKillException;
 
 /**
- * REST exception handler for {@link SqlQueryCancelException}.
+ * REST exception handler for {@link SqlQueryKillException}.
  */
 @Singleton
-@Requires(classes = {SqlQueryCancelException.class, ExceptionHandler.class})
-public class SqlQueryCancelExceptionHandler implements ExceptionHandler<SqlQueryCancelException, HttpResponse<? extends Problem>> {
+@Requires(classes = {SqlQueryKillException.class, ExceptionHandler.class})
+public class SqlQueryCancelExceptionHandler implements ExceptionHandler<SqlQueryKillException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, SqlQueryCancelException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, SqlQueryKillException exception) {
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.CONFLICT)
                         .detail(exception.getMessage()).build()

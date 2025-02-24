@@ -32,7 +32,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.transaction.TransactionApi;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
-import org.apache.ignite.internal.rest.transaction.exception.TransactionCancelException;
+import org.apache.ignite.internal.rest.transaction.exception.TransactionKillException;
 import org.apache.ignite.internal.rest.transaction.exception.TransactionNotFoundException;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
@@ -77,14 +77,13 @@ public class TransactionController implements TransactionApi, ResourceHolder {
     }
 
     @Override
-    public CompletableFuture<Void> cancelTransaction(UUID transactionId) {
-        // ToDo transaction cancelation is not implemented yet in KillHandlerRegistry https://issues.apache.org/jira/browse/IGNITE-24296
+    public CompletableFuture<Void> killTransaction(UUID transactionId) {
         try {
             return killHandlerRegistry.handler(CancellableOperationType.TRANSACTION).cancelAsync(transactionId.toString())
                     .thenApply(result -> handleOperationResult(transactionId, result));
         } catch (Exception e) {
-            LOG.error("Transaction {} can't be canceled.", transactionId, e);
-            return failedFuture(new TransactionCancelException(transactionId.toString()));
+            LOG.error("Transaction {} can't be killed.", transactionId, e);
+            return failedFuture(new TransactionKillException(transactionId.toString()));
         }
     }
 

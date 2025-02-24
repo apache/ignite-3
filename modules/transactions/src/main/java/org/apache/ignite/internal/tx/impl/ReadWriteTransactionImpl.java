@@ -33,7 +33,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
@@ -46,14 +45,14 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Commit partition updater. */
-    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
+    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ReplicationGroupId> COMMIT_PART_UPDATER =
+            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ReplicationGroupId.class, "commitPart");
 
     /** Enlisted partitions: partition id -> partition info. */
     private final Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlisted = new ConcurrentHashMap<>();
 
     /** A partition which stores the transaction state. */
-    private volatile TablePartitionId commitPart;
+    private volatile ReplicationGroupId commitPart;
 
     /** The lock protects the transaction topology from concurrent modification during finishing. */
     private final ReentrantReadWriteLock enlistPartitionLock = new ReentrantReadWriteLock();
@@ -85,13 +84,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
-        return COMMIT_PART_UPDATER.compareAndSet(this, null, tablePartitionId);
+    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+        return COMMIT_PART_UPDATER.compareAndSet(this, null, commitPartitionId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public TablePartitionId commitPartition() {
+    public ReplicationGroupId commitPartition() {
         return commitPart;
     }
 
