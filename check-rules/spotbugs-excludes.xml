@@ -250,7 +250,7 @@
     <Class name="org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil"/>
     <Or>
       <Field name="STABLE_ASSIGNMENTS_PREFIX_BYTES"/>
-      <Field name="PENDING_ASSIGNMENTS_PREFIX_BYTES"/>
+      <Field name="PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES"/>
       <Field name="PENDING_CHANGE_TRIGGER_PREFIX_BYTES"/>
     </Or>
   </Match>

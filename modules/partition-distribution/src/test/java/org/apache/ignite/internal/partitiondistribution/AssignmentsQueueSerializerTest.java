@@ -19,6 +19,9 @@ package org.apache.ignite.internal.partitiondistribution;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -61,10 +64,13 @@ class AssignmentsQueueSerializerTest {
         byte[] bytes = Base64.getDecoder().decode(ASSIGNMENTS_QUEUE_V1);
         AssignmentsQueue restoredAssignmentsQueue = VersionedSerialization.fromBytes(bytes, serializer);
 
+        assertFalse(restoredAssignmentsQueue.isEmpty());
         assertThat(restoredAssignmentsQueue.poll(), equalTo(testAssignments(true, false)));
         assertThat(restoredAssignmentsQueue.poll(), equalTo(testAssignments(false, true)));
         assertThat(restoredAssignmentsQueue.poll(), equalTo(testAssignments(false, false)));
-        assertThat(restoredAssignmentsQueue.poll(), equalTo(Assignments.EMPTY));
+
+        assertTrue(restoredAssignmentsQueue.isEmpty());
+        assertNull(restoredAssignmentsQueue.poll());
     }
 
     private static Assignments testAssignments(boolean force, boolean fromReset) {
