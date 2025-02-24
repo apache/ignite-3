@@ -613,7 +613,14 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAssignmentUnavailablePutGet() {
-        // TODO: Force unavailable assignment
+        initPrimaryReplicas(nullReplicas());
+
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        recordView.upsert(null, Tuple.create().set("ID", 123L));
+        Tuple res = recordView.get(null, Tuple.create().set("ID", 123L));
+
+        assertNotNull(res);
     }
 
     @Test
