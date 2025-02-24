@@ -88,7 +88,7 @@ public class DistributionZoneRebalanceEngine {
     private final DistributionZoneRebalanceEngineV2 distributionZoneRebalanceEngineV2;
 
     /** Special flag to skip rebalance on node recovery for tests. */
-    // TODO: IGNITE-23561 Remove it
+    // TODO: IGNITE-24607 Remove it
     @TestOnly
     public static final String SKIP_REBALANCE_TRIGGERS_RECOVERY = "IGNITE_SKIP_REBALANCE_TRIGGERS_RECOVERY";
 

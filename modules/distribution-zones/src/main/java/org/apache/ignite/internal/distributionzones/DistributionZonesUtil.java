@@ -570,6 +570,7 @@ public class DistributionZonesUtil {
     /**
      * Class representing data nodes' related values in Meta Storage.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24609
     public static class DataNodesHistoryContext {
         @Nullable
         private final DataNodesHistory dataNodesHistory;

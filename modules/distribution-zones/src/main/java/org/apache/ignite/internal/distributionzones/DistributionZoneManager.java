@@ -132,7 +132,7 @@ public class DistributionZoneManager extends
 
     /**
      * The logical topology mapped to the MS revision.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-23561 get rid of this map (or properly clean up it).
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-24608 get rid of this map (or properly clean up it).
      */
     private final ConcurrentSkipListMap<Long, Set<NodeWithAttributes>> logicalTopologyByRevision = new ConcurrentSkipListMap<>();
 
