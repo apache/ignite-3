@@ -2178,14 +2178,6 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
-    private int partitionIndexFromReplicationGroupId(ReplicationGroupId replicationGroupId) {
-        if (enabledColocation()) {
-            return ((ZonePartitionId) replicationGroupId).partitionId();
-        } else {
-            return ((TablePartitionId) replicationGroupId).partitionId();
-        }
-    }
-
     private static ReplicationGroupIdMessage serializeReplicationGroupId(ReplicationGroupId replicationGroupId) {
         return toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
     }
