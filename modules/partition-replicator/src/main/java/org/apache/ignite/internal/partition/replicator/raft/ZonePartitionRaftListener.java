@@ -33,6 +33,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateMin
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.WriteIntentSwitchCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;

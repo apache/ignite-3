@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft;
+package org.apache.ignite.internal.partition.replicator.raft.handlers;
 
 import java.io.Serializable;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.jetbrains.annotations.Nullable;
 
