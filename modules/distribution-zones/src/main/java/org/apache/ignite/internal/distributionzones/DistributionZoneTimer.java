@@ -153,6 +153,8 @@ public class DistributionZoneTimer {
 
         @Override
         protected void writeExternalData(DistributionZoneTimer object, IgniteDataOutput out) throws IOException {
+            // Using new TreeSet() because the order of elements is important: the serialized representation is compared during
+            // MetaStorageManager#invoke().
             out.writeVarInt(object.createTimestamp.longValue());
             out.writeVarInt(object.timeToWaitInSeconds);
             out.writeCollection(new TreeSet<>(object.nodes), NodeWithAttributesSerializer.INSTANCE::writeExternal);

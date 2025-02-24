@@ -124,6 +124,8 @@ public class DataNodesHistory {
 
         @Override
         protected void writeExternalData(DataNodesHistory object, IgniteDataOutput out) throws IOException {
+            // Using new TreeSet() because the order of elements is important: the serialized representation is compared during
+            // MetaStorageManager#invoke().
             out.writeMap(
                     object.history,
                     (k, out0) -> out0.writeLong(k.longValue()),
