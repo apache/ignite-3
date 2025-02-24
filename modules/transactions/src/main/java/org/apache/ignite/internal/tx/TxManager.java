@@ -161,7 +161,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             boolean commit,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId

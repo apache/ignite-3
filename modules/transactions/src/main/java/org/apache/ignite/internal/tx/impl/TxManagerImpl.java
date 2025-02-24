@@ -578,7 +578,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             boolean commitIntent,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
@@ -665,7 +665,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             boolean commit,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
@@ -704,7 +704,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      */
     private CompletableFuture<Void> durableFinish(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             boolean commit,
             Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
@@ -777,7 +777,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Void> makeFinishRequest(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             String primaryConsistentId,
             Long enlistmentConsistencyToken,
             boolean commit,

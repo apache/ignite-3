@@ -101,7 +101,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
         return true;
     }
 

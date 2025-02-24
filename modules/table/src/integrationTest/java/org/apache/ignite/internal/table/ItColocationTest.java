@@ -218,7 +218,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
-                    TablePartitionId commitPartition,
+                    ReplicationGroupId commitPartition,
                     boolean commitIntent,
                     Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId

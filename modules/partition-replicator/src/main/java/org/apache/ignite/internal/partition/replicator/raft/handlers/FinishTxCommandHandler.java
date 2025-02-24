@@ -32,7 +32,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -48,14 +48,14 @@ public class FinishTxCommandHandler {
     private static final IgniteLogger LOG = Loggers.forClass(FinishTxCommandHandler.class);
 
     private final TxStatePartitionStorage txStatePartitionStorage;
-    private final TablePartitionId replicationGroupId;
+    private final ReplicationGroupId replicationGroupId;
 
     private final RaftTxFinishMarker txFinishMarker;
 
     /** Constructor. */
     public FinishTxCommandHandler(
             TxStatePartitionStorage txStatePartitionStorage,
-            TablePartitionId replicationGroupId,
+            ReplicationGroupId replicationGroupId,
             TxManager txManager
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;

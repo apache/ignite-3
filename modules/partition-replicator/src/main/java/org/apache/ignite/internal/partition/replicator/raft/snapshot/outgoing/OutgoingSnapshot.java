@@ -414,7 +414,7 @@ public class OutgoingSnapshot {
         long[] commitTimestamps = new long[commitTimestampsCount];
 
         UUID transactionId = null;
-        Integer commitTableId = null;
+        Integer commitTableOrZoneId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
         for (int i = count - 1, j = 0; i >= 0; i--) {
@@ -434,7 +434,8 @@ public class OutgoingSnapshot {
                 assert i == 0 : rowVersionsN2O;
 
                 transactionId = version.transactionId();
-                commitTableId = version.commitTableId();
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
+                commitTableOrZoneId = version.commitTableOrZoneId();
                 commitPartitionId = version.commitPartitionId();
             } else {
                 commitTimestamps[j++] = version.commitTimestamp().longValue();
@@ -447,7 +448,7 @@ public class OutgoingSnapshot {
                 .rowVersions(rowVersions)
                 .timestamps(commitTimestamps)
                 .txId(transactionId)
-                .commitTableId(commitTableId)
+                .commitTableOrZoneId(commitTableOrZoneId)
                 .commitPartitionId(commitPartitionId)
                 .build();
     }
