@@ -242,7 +242,7 @@
     <!-- Public byte array constants, not expected to be modified. -->
     <Bug pattern="MS_MUTABLE_ARRAY"/>
     <Class name="org.apache.ignite.internal.distributionzones.DistributionZonesUtil"/>
-    <Field name="DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES "/>
+    <Field name="DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES"/>
   </Match>
   <Match>
     <!-- I literally have no idea why these checks fail. -->

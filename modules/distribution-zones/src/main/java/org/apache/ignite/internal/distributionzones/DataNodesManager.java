@@ -1181,7 +1181,7 @@ public class DataNodesManager {
      * @param zoneId Unique id of a zone.
      * @param timestamp Timestamp of an event that has triggered this method.
      */
-    private CompletableFuture<Void> removeDataNodesKeys(int zoneId, HybridTimestamp timestamp) {
+    private CompletableFuture<?> removeDataNodesKeys(int zoneId, HybridTimestamp timestamp) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -1213,8 +1213,7 @@ public class DataNodesManager {
                         } else {
                             LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
                         }
-                    })
-                    .thenCompose(ignored -> nullCompletedFuture());
+                    });
         } finally {
             busyLock.leaveBusy();
         }

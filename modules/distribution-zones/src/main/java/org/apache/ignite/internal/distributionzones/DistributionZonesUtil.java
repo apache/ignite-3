@@ -83,7 +83,7 @@ public class DistributionZonesUtil {
     public static final String DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpTimer.";
 
     /** Key prefix for zone's scale up timer, in {@code byte[]} representation. */
-            static final byte[] DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES =
+    static final byte[] DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX_BYTES =
             DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     /** Key prefix for zone's scale down timer. */
