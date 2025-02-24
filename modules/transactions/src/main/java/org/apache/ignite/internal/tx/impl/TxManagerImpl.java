@@ -880,7 +880,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             txStateVolatileStorage.start();
 
-            txViewProvider.init(txStateVolatileStorage.statesMap().values());
+            txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());
 
             orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
