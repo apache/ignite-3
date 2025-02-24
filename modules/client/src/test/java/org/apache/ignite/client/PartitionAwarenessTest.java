@@ -616,7 +616,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAssignmentUnavailableStreamer() {
-        // TODO: Force unavailable assignment
+        server.placementDriver().returnNull(true);
+        server2.placementDriver().returnNull(true);
+
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1)
                 .perPartitionParallelOperations(1)
@@ -704,6 +706,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             replicas = defaultReplicas();
         }
 
+        placementDriver.returnNull(false);
+        placementDriver.returnError(false);
         placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
     }
 
