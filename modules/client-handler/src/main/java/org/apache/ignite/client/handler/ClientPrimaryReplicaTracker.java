@@ -264,10 +264,7 @@ public class ClientPrimaryReplicaTracker {
             throw tableIdNotFoundException(tableId);
         }
 
-        int partitions = zone.partitions();
-        assert partitions > 0 : "Unexpected zone partitions: " + partitions + ", tableId=" + tableId + ", zoneId=" + table.zoneId();
-
-        return partitions;
+        return zone.partitions();
     }
 
     long maxStartTime() {
@@ -392,16 +389,12 @@ public class ClientPrimaryReplicaTracker {
         private final long timestamp;
 
         PrimaryReplicasResult(int partitions) {
-            assert partitions > 0 : "partitions = " + partitions;
-
             this.partitions = partitions;
             this.nodeNames = null;
             this.timestamp = 0;
         }
 
         PrimaryReplicasResult(List<String> nodeNames, long timestamp) {
-            assert !nodeNames.isEmpty() : "nodeNames is empty";
-
             this.partitions = nodeNames.size();
             this.nodeNames = nodeNames;
             this.timestamp = timestamp;
@@ -432,15 +425,15 @@ public class ClientPrimaryReplicaTracker {
             this.partitions = partitions;
         }
 
-        int catalogVersion() {
+        public int catalogVersion() {
             return catalogVersion;
         }
 
-        int tableId() {
+        public int tableId() {
             return tableId;
         }
 
-        int partitions() {
+        public int partitions() {
             return partitions;
         }
     }
