@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -863,6 +864,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
+    public Entry getLocally(ByteArray key) {
+        return inBusyLock(busyLock, () -> storage.get(key.bytes()));
+    }
+
+    @Override
     public Entry getLocally(ByteArray key, long revUpperBound) {
         return inBusyLock(busyLock, () -> storage.get(key.bytes(), revUpperBound));
     }
@@ -870,6 +876,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
         return inBusyLock(busyLock, () -> storage.range(startKey.bytes(), endKey == null ? null : endKey.bytes(), revUpperBound));
+    }
+
+    @Override
+    public List<Entry> getAllLocally(List<ByteArray> keys) {
+        var k = new ArrayList<byte[]>(keys.size());
+
+        for (int i = 0; i < keys.size(); i++) {
+            k.add(keys.get(i).bytes());
+        }
+
+        return inBusyLock(busyLock, () -> storage.getAll(k));
     }
 
     @Override
