@@ -618,8 +618,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAssignmentUnavailableStreamer() {
-        List<String> nullReplicas = IntStream.range(0, 4).mapToObj(i -> (String)null).collect(Collectors.toList());
-        initPrimaryReplicas(nullReplicas);
+        initPrimaryReplicas(nullReplicas());
 
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1)
@@ -708,7 +707,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             replicas = defaultReplicas();
         }
 
-        placementDriver.returnNull(false);
         placementDriver.returnError(false);
         placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
     }
@@ -719,6 +717,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static List<String> reversedReplicas() {
         return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
+    }
+
+    private static List<String> nullReplicas() {
+        return IntStream.range(0, 4).mapToObj(i -> (String) null).collect(Collectors.toList());
     }
 
     private static <A> ReceiverDescriptor<A> receiver() {
