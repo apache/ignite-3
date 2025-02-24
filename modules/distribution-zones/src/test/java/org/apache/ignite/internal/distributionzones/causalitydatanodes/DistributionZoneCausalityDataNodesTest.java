@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.cluster.management.topology.LogicalTopo
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -1252,9 +1251,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     fail();
                 }
             })
-            .thenRun(() -> {
-                latch.countDown();
+            .thenRun(latch::countDown)
+            .thenApply(ignored -> {
                 log.info("Test: latch counted down.");
+                return null;
             });
         };
     }
@@ -1575,10 +1575,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             for (EntryEvent event : evt.entryEvents()) {
                 Entry e = event.newEntry();
 
-                if (startsWith(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES)) {
+                if (startsWith(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(UTF_8))) {
                     revision = e.revision();
 
-                    zoneId = extractZoneId(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES);
+                    zoneId = extractZoneId(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(UTF_8));
 
                     byte[] dataNodesBytes = e.value();
 
