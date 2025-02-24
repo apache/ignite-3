@@ -19,7 +19,6 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -185,7 +184,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
     private static class ZoneResources {
         final TxStateStorage txStateStorage;
 
-        final Map<Integer, ZonePartitionResources> resourcesByPartitionId = new Int2ObjectOpenHashMap<>();
+        final Map<Integer, ZonePartitionResources> resourcesByPartitionId = new ConcurrentHashMap<>();
 
         ZoneResources(TxStateStorage txStateStorage) {
             this.txStateStorage = txStateStorage;

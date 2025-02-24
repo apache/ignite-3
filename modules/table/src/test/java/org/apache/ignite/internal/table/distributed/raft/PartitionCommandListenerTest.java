@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
@@ -588,7 +589,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         FinishTxCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
                 .txId(TestTransactionIds.newTransactionId())
                 .initiatorTime(hybridClock.now())
-                .partitionIds(List.of())
+                .partitions(List.of())
                 .build();
 
         commandListener.onWrite(List.of(
@@ -737,6 +738,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         WriteIntentSwitchCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                 .txId(TestTransactionIds.newTransactionId())
+                .tableIds(Set.of(1))
                 .initiatorTime(hybridClock.now())
                 .safeTime(hybridClock.now())
                 .build();
@@ -859,9 +861,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txId(txId)
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
+                .tableIds(Set.of(commitPartId.tableId()))
                 .initiatorTime(hybridClock.now())
                 .safeTime(hybridClock.now())
-                .build());
+                .build()
+        );
     }
 
     /**
@@ -900,9 +904,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txId(txId)
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
+                .tableIds(Set.of(commitPartId.tableId()))
                 .initiatorTime(hybridClock.now())
                 .safeTime(hybridClock.now())
-                .build());
+                .build()
+        );
     }
 
     /**
@@ -936,9 +942,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txId(txId)
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
+                .tableIds(Set.of(commitPartId.tableId()))
                 .initiatorTime(hybridClock.now())
                 .safeTime(hybridClock.now())
-                .build());
+                .build()
+        );
     }
 
     /**
@@ -986,6 +994,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txId(txId)
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
+                .tableIds(Set.of(defaultPartitionIdMessage().tableId()))
                 .initiatorTime(hybridClock.now())
                 .safeTime(hybridClock.now())
                 .build()));
@@ -1036,10 +1045,12 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         txIds.forEach(txId -> invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                 .txId(txId)
                 .commit(true)
+                .tableIds(Set.of(defaultPartitionIdMessage().tableId()))
                 .commitTimestamp(commitTimestamp)
                 .initiatorTime(hybridClock.now())
                 .safeTime(hybridClock.now())
-                .build()));
+                .build()
+        ));
     }
 
     /**
@@ -1115,6 +1126,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                         .txId(txId)
                         .commit(true)
                         .commitTimestamp(commitTimestamp)
+                        .tableIds(Set.of(defaultPartitionIdMessage().tableId()))
                         .initiatorTime(hybridClock.now())
                         .safeTime(hybridClock.now())
                         .build()));

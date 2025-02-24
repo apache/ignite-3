@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.systemviews;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -31,7 +30,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockMode;
@@ -42,7 +40,7 @@ import org.junit.jupiter.api.Test;
 /**
  * End-to-end tests to verify {@code LOCKS} system view.
  */
-public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
+public class ItLocksSystemViewTest extends AbstractSystemViewTest {
     private Set<String> nodeNames;
 
     private Set<String> lockModes;
@@ -54,8 +52,6 @@ public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
 
     @BeforeAll
     void beforeAll() {
-        await(systemViewManager().completeRegistration());
-
         nodeNames = CLUSTER.runningNodes()
                 .map(Ignite::name)
                 .collect(Collectors.toSet());

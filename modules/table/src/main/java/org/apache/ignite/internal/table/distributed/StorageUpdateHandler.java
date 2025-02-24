@@ -29,7 +29,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
@@ -98,7 +99,7 @@ public class StorageUpdateHandler {
     public void handleUpdate(
             UUID txId,
             UUID rowUuid,
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             @Nullable BinaryRow row,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
@@ -107,14 +108,11 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         storage.runConsistently(locker -> {
-            int commitTblId = commitPartitionId.tableId();
-            int commitPartId = commitPartitionId.partitionId();
             RowId rowId = new RowId(partitionId, rowUuid);
 
             tryProcessRow(
                     locker,
-                    commitTblId,
-                    commitPartId,
+                    (PartitionGroupId) commitPartitionId,
                     rowId,
                     txId,
                     row,
@@ -138,8 +136,7 @@ public class StorageUpdateHandler {
 
     private boolean tryProcessRow(
             Locker locker,
-            int commitTblId,
-            int commitPartId,
+            PartitionGroupId commitPartitionId,
             RowId rowId,
             UUID txId,
             @Nullable BinaryRow row,
@@ -161,7 +158,7 @@ public class StorageUpdateHandler {
         if (commitTs != null) {
             storage.addWriteCommitted(rowId, row, commitTs);
         } else {
-            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
 
             if (oldRow != null) {
                 assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
@@ -189,7 +186,7 @@ public class StorageUpdateHandler {
     public void handleUpdateAll(
             UUID txId,
             Map<UUID, TimedBinaryRow> rowsToUpdate,
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs,
@@ -198,9 +195,6 @@ public class StorageUpdateHandler {
         if (nullOrEmpty(rowsToUpdate)) {
             return;
         }
-
-        int commitTblId = commitPartitionId.tableId();
-        int commitPartId = commitPartitionId.partitionId();
 
         Iterator<Entry<UUID, TimedBinaryRow>> it = rowsToUpdate.entrySet().iterator();
         Entry<UUID, TimedBinaryRow> lastUnprocessedEntry = it.next();
@@ -211,8 +205,7 @@ public class StorageUpdateHandler {
                     txId,
                     trackWriteIntent,
                     commitTs,
-                    commitTblId,
-                    commitPartId,
+                    (PartitionGroupId) commitPartitionId,
                     it,
                     onApplication,
                     storageUpdateConfiguration.batchByteLength().value(),
@@ -226,8 +219,7 @@ public class StorageUpdateHandler {
             UUID txId,
             boolean trackWriteIntent,
             @Nullable HybridTimestamp commitTs,
-            int commitTblId,
-            int commitPartId,
+            PartitionGroupId commitPartitionId,
             Iterator<Entry<UUID, TimedBinaryRow>> it,
             @Nullable Runnable onApplication,
             int maxBatchLength,
@@ -251,8 +243,7 @@ public class StorageUpdateHandler {
 
                 boolean rowProcessed = tryProcessRow(
                         locker,
-                        commitTblId,
-                        commitPartId,
+                        commitPartitionId,
                         rowId,
                         txId,
                         row,

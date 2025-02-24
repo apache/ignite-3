@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandle
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -128,12 +130,16 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private final boolean enabledColocationFeature = enabledColocation();
+
+    private final RaftTxFinishMarker txFinishMarker;
+
     // Raft command handlers.
-    private final RaftTxFinishMarker txFinisher;
-
     private final FinishTxCommandHandler finishTxCommandHandler;
-
     private final MinimumActiveTxTimeCommandHandler minimumActiveTxTimeCommandHandler;
+    private final VacuumTxStatesCommandHandler vacuumTxStatesCommandHandler;
 
     /** Constructor. */
     public PartitionListener(
@@ -164,7 +170,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
-        txFinisher = new RaftTxFinishMarker(txManager);
+        txFinishMarker = new RaftTxFinishMarker(txManager);
+
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
                 tablePartitionId,
@@ -174,6 +181,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 storage,
                 tablePartitionId,
                 minTimeCollectorService);
+
+        vacuumTxStatesCommandHandler = new VacuumTxStatesCommandHandler(txStatePartitionStorage);
     }
 
     @Override
@@ -246,7 +255,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
-        IgniteBiTuple<Serializable, Boolean> result;
+        IgniteBiTuple<Serializable, Boolean> result = null;
 
         if (command instanceof UpdateCommand) {
             result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm, safeTimestamp);
@@ -263,10 +272,14 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
         } else if (command instanceof VacuumTxStatesCommand) {
-            result = handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
+            if (!enabledColocation()) {
+                result = vacuumTxStatesCommandHandler.handle((VacuumTxStatesCommand) command, commandIndex, commandTerm);
+            }
         } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
             result = minimumActiveTxTimeCommandHandler.handle((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex);
-        } else {
+        }
+
+        if (result == null) {
             throw new AssertionError("Unknown command type [command=" + command.toStringForLightLogging() + ']');
         }
 
@@ -322,7 +335,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
-                    cmd.commitPartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asReplicationGroupId(),
                     cmd.rowToUpdate(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
@@ -379,7 +392,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
-                    cmd.commitPartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asReplicationGroupId(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
                     cmd.full() ? safeTimestamp : null,
@@ -417,7 +430,11 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         UUID txId = cmd.txId();
 
-        txFinisher.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
+        if (!enabledColocationFeature) {
+            // When colocation feature is enabled, this object merely serves as a table processor invoked by zone-aware raft listener,
+            // which has already marked the transaction finished.
+            txFinishMarker.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
+        }
 
         storageUpdateHandler.switchWriteIntents(
                 txId,
@@ -626,28 +643,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
             return null;
         });
-
-        return new IgniteBiTuple<>(null, true);
-    }
-
-    /**
-     * Handler for {@link VacuumTxStatesCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Command index.
-     * @param commandTerm Command term.
-     */
-    private IgniteBiTuple<Serializable, Boolean>  handleVacuumTxStatesCommand(
-            VacuumTxStatesCommand cmd,
-            long commandIndex,
-            long commandTerm
-    ) {
-        // Skips the write command because the storage has already executed it.
-        if (commandIndex <= storage.lastAppliedIndex()) {
-            return new IgniteBiTuple<>(null, false);
-        }
-
-        txStatePartitionStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
 
         return new IgniteBiTuple<>(null, true);
     }
