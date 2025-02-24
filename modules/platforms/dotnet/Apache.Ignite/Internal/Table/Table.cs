@@ -208,10 +208,6 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var assignment = await GetPartitionAssignmentAsync().ConfigureAwait(false);
-            if (assignment.Length == 0)
-            {
-                return default;
-            }
 
             var partition = Math.Abs(colocationHash % assignment.Length);
             var nodeConsistentId = assignment[partition];

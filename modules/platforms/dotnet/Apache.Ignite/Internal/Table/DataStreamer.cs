@@ -217,7 +217,7 @@ internal static class DataStreamer
             var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
             writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
 
-            var partitionId = partitionCount <= 0 ? 0 : Math.Abs(tupleBuilder.GetHash() % partitionCount);
+            var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
 
             lock (batch)

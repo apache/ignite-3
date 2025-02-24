@@ -24,6 +24,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client partition primary replicas retrieval request.
@@ -38,7 +39,7 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
      */
-    public static CompletableFuture<Void> process(
+    public static @Nullable CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientPrimaryReplicaTracker tracker
@@ -50,7 +51,7 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             assert primaryReplicas != null : "Primary replicas == null";
 
             List<String> nodeNames = primaryReplicas.nodeNames();
-            if (nodeNames == null || nodeNames.isEmpty()) {
+            if (nodeNames == null) {
                 // Special case: assignment is not yet available, but we return the partition count.
                 out.packInt(primaryReplicas.partitions());
                 out.packBoolean(false);
