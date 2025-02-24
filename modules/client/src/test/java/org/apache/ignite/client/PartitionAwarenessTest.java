@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -606,6 +607,34 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         }
 
         fut.join();
+    }
+
+    @Test
+    public void testAssignmentUnavailablePutGet() {
+        // TODO: Force unavailable assignment
+    }
+
+    @Test
+    public void testAssignmentUnavailableStreamer() {
+        // TODO: Force unavailable assignment
+        DataStreamerOptions options = DataStreamerOptions.builder()
+                .pageSize(1)
+                .perPartitionParallelOperations(1)
+                .autoFlushInterval(50)
+                .build();
+
+        CompletableFuture<Void> fut;
+
+        RecordView<Tuple> recordView = defaultTable().recordView();
+        try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
+            fut = recordView.streamData(publisher, options);
+
+            for (int i = 0; i < 100; i++) {
+                publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", i)));
+            }
+        }
+
+        assertDoesNotThrow(fut::join);
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Transaction> op) {
