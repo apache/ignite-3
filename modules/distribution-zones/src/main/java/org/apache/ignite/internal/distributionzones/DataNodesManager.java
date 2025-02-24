@@ -1079,6 +1079,7 @@ public class DataNodesManager {
                     if (metaStorageOperation == null) {
                         return nullCompletedFuture();
                     } else {
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-24611
                         return metaStorageManager.invoke(metaStorageOperation.operation())
                                 .thenCompose(result -> {
                                     if (result.getAsBoolean()) {
