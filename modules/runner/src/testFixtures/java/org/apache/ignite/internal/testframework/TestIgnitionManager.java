@@ -116,17 +116,22 @@ public class TestIgnitionManager {
     }
 
     /**
-     * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
+     * Starts an Ignite node with an optional bootstrap configuration defined as a HOCON (Human-Optimized Config Object 
+     * Notation) configuration string.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
-     * REST endpoint is functional).
+     * <p>When this method returns, the node is partially started, meaning its REST endpoint is functional and it is ready 
+     * to accept the initialization command (e.g., for setting up the cluster).
      *
-     * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configStr Optional node configuration.
-     * @param workDir Path to the working directory.
-     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
-     *         complete.
-     * @throws IgniteException If error occurs while reading node configuration.
+     * @param nodeName The name of the node to start. Must not be {@code null} and must be unique within the cluster.
+     * @param configStr An optional configuration string for the node written in HOCON format. If {@code null}, the 
+     *                  default configuration will be used.
+     * @param workDir The path to the working directory for the node. This directory must exist and the application must 
+     *                have sufficient permissions to read from and write to it.
+     * @return A {@link CompletableFuture} that resolves to the fully initialized Ignite node with all components started and 
+     *         the cluster ready for further interactions.
+     * @throws IgniteException If an error occurs while reading or parsing the node configuration.
+     * @throws IllegalArgumentException If {@code nodeName} is {@code null} or invalid.
+     * @throws IOException If there are issues accessing or writing to the specified {@code workDir}.
      */
     public static IgniteServer startWithProductionDefaults(String nodeName, @Nullable String configStr, Path workDir) {
         return doStart(nodeName, configStr, workDir, false);
