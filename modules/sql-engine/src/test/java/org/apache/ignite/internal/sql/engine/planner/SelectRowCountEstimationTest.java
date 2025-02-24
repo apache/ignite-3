@@ -94,8 +94,12 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
     private static Stream<Arguments> pkSelectivity() {
         return Stream.of(
                 // partial pk
+                Arguments.of("SELECT CS_SOLD_DATE_SK, CS_ITEM_SK FROM CATALOG_SALES WHERE CS_ITEM_SK = 1", EQ_SELECTIVITY),
+                // partial pk
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1", EQ_SELECTIVITY),
                 // full pk, eq operations
+                Arguments.of("SELECT CS_SOLD_DATE_SK FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1",
+                        1.0 / TABLE_REAL_SIZE),
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1", 1.0 / TABLE_REAL_SIZE),
                 // full pk, comp operations
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER > 1",

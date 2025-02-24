@@ -421,6 +421,27 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    // Check plan immediately after table creation.
+    @Test
+    public void testComplexIndexConditionInitialTableCreate() {
+        try {
+            sql("CREATE TABLE TBL1 (id INT, name VARCHAR, depid INT, city VARCHAR, age INT, PRIMARY KEY USING SORTED (id))");
+            sql("CREATE INDEX NAME_IDX1 ON TBL1 (name DESC)");
+            sql("CREATE INDEX NAME_CITY_IDX1 ON TBL1 (name DESC, city DESC)");
+            sql("CREATE INDEX NAME_DEP_CITY_IDX1 ON TBL1 (name DESC, depid DESC, city DESC)");
+
+            insertData("TBL1", List.of("ID", "NAME", "DEPID", "CITY", "AGE"), new Object[][]{
+                            {1, "Mozart", 3, "Vienna", 33}
+                    });
+
+            assertQuery("SELECT * FROM TBL1 WHERE name='Mozart' AND depId=3 AND city='Vienna'")
+                    .matches(containsIndexScan("PUBLIC", "TBL1", "NAME_DEP_CITY_IDX1"))
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS TBL1");
+        }
+    }
+
     @Test
     public void testComplexIndexCondition4() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId=3 AND city='Leipzig'")
