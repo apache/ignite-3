@@ -61,7 +61,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -1155,11 +1154,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
-                        tx.enlist(tablePartId,
+                        tx.enlist(
+                                tablePartId,
                                 tableId,
-                                new IgniteBiTuple<>(
-                                        topSrvc.getByConsistentId(assignment.name()),
-                                        assignment.enlistmentConsistencyToken())
+                                topSrvc.getByConsistentId(assignment.name()),
+                                assignment.enlistmentConsistencyToken()
                         );
                     }
                 }

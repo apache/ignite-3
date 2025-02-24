@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -112,6 +113,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
@@ -444,7 +446,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.putForRebalance(txIds.get(i), new TxMeta(txState,  List.of(new TablePartitionId(tableId, PARTITION_ID)), CLOCK.now()));
+            List<EnlistedPartitionGroup> enlistedPartitions = List.of(
+                    new EnlistedPartitionGroup(new TablePartitionId(tableId, PARTITION_ID), Set.of(tableId))
+            );
+            storage.putForRebalance(txIds.get(i), new TxMeta(txState, enlistedPartitions, CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -462,7 +467,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             long[] timestamps = new long[readResults.size() + (readResults.get(0).isWriteIntent() ? -1 : 0)];
 
             UUID txId = null;
-            Integer commitTableId = null;
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
+            Integer commitTableOrZoneId = null;
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             int j = 0;
@@ -476,7 +482,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();
-                    commitTableId = readResult.commitTableId();
+                    commitTableOrZoneId = readResult.commitTableOrZoneId();
                     commitPartitionId = readResult.commitPartitionId();
                 } else {
                     timestamps[j++] = readResult.commitTimestamp().longValue();
@@ -489,7 +495,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                             .rowVersions(rowVersions)
                             .timestamps(timestamps)
                             .txId(txId)
-                            .commitTableId(commitTableId)
+                            .commitTableOrZoneId(commitTableOrZoneId)
                             .commitPartitionId(commitPartitionId)
                             .tableId(TABLE_ID)
                             .build()
@@ -527,7 +533,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 assertEquals(expReadResult.commitTimestamp(), actReadResult.commitTimestamp(), msg);
                 assertEquals(expReadResult.transactionId(), actReadResult.transactionId(), msg);
-                assertEquals(expReadResult.commitTableId(), actReadResult.commitTableId(), msg);
+                assertEquals(expReadResult.commitTableOrZoneId(), actReadResult.commitTableOrZoneId(), msg);
                 assertEquals(expReadResult.commitPartitionId(), actReadResult.commitPartitionId(), msg);
                 assertEquals(expReadResult.isWriteIntent(), actReadResult.isWriteIntent(), msg);
             }

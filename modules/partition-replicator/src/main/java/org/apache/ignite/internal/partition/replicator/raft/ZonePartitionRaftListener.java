@@ -30,6 +30,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
@@ -64,8 +65,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
-    /** Mapping table partition identifier to table request processor. */
-    private final Map<TablePartitionId, RaftTableProcessor> tableProcessors = new ConcurrentHashMap<>();
+    /** Mapping table ID to table request processor. */
+    private final Map<Integer, RaftTableProcessor> tableProcessors = new ConcurrentHashMap<>();
 
     private final PartitionsSnapshots partitionsSnapshots;
 
@@ -84,6 +85,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     // Raft command handlers.
     private final FinishTxCommandHandler finishTxCommandHandler;
+
+    private final WriteIntentSwitchCommandHandler writeIntentSwitchCommandHandler;
+
     private final VacuumTxStatesCommandHandler vacuumTxStatesCommandHandler;
 
     /** Constructor. */
@@ -103,12 +107,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
 
         // RAFT command handlers initialization.
-        finishTxCommandHandler = new FinishTxCommandHandler(
-                txStatePartitionStorage,
-                // TODO: IGNITE-24343 - use ZonePartitionId here.
-                new TablePartitionId(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
-                txManager
-        );
+        finishTxCommandHandler = new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager);
+
+        writeIntentSwitchCommandHandler = new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager);
 
         vacuumTxStatesCommandHandler = new VacuumTxStatesCommandHandler(txStatePartitionStorage);
     }
@@ -168,11 +169,24 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             } else if (command instanceof PrimaryReplicaChangeCommand) {
                 // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
                 // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
-                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
-            } else if (command instanceof TableAwareCommand) {
-                TablePartitionId tablePartitionId = ((TableAwareCommand) command).tablePartitionId().asTablePartitionId();
+                tableProcessors.values().forEach(listener -> listener.processCommand(command, commandIndex, commandTerm, safeTimestamp));
 
-                result = processTableAwareCommand(tablePartitionId, command, commandIndex, commandTerm, safeTimestamp);
+                result = new IgniteBiTuple<>(null, true);
+            } else if (command instanceof WriteIntentSwitchCommand) {
+                result = writeIntentSwitchCommandHandler.handle(
+                        (WriteIntentSwitchCommand) command,
+                        commandIndex,
+                        commandTerm,
+                        safeTimestamp
+                );
+            } else if (command instanceof TableAwareCommand) {
+                result = processTableAwareCommand(
+                        ((TableAwareCommand) command).tableId(),
+                        command,
+                        commandIndex,
+                        commandTerm,
+                        safeTimestamp
+                );
             } else if (command instanceof VacuumTxStatesCommand) {
                 result = vacuumTxStatesCommandHandler.handle((VacuumTxStatesCommand) command, commandIndex, commandTerm);
             } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
@@ -231,7 +245,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     /**
      * Redirects the command to a particular raft table processor for the given {@code tablePartitionId}.
      *
-     * @param tablePartitionId Table partition identifier.
+     * @param tableId ID of a table.
      * @param command Command to process.
      * @param commandIndex Command index.
      * @param commandTerm Command term.
@@ -239,13 +253,13 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
      */
     private IgniteBiTuple<Serializable, Boolean> processTableAwareCommand(
-            TablePartitionId tablePartitionId,
+            int tableId,
             WriteCommand command,
             long commandIndex,
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
-        return tableProcessors.get(tablePartitionId).processCommand(command, commandIndex, commandTerm, safeTimestamp);
+        return tableProcessors.get(tableId).processCommand(command, commandIndex, commandTerm, safeTimestamp);
     }
 
     @Override
@@ -289,7 +303,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 );
             }
 
-            RaftTableProcessor prev = tableProcessors.put(tablePartitionId, processor);
+            RaftTableProcessor prev = tableProcessors.put(tablePartitionId.tableId(), processor);
 
             assert prev == null : "Listener for table partition " + tablePartitionId + " already exists";
         }

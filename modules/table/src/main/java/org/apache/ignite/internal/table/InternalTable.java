@@ -27,7 +27,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -392,7 +391,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -464,7 +463,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
