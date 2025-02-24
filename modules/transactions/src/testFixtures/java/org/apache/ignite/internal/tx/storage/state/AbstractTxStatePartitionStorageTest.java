@@ -51,13 +51,13 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -157,9 +157,9 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         }
     }
 
-    private static List<ReplicationGroupId> generateEnlistedPartitions(int c) {
+    private static List<EnlistedPartitionGroup> generateEnlistedPartitions(int c) {
         return IntStream.range(0, c)
-                .mapToObj(partitionNumber -> new TablePartitionId(TABLE_ID, partitionNumber))
+                .mapToObj(partitionNumber -> new EnlistedPartitionGroup(new TablePartitionId(TABLE_ID, partitionNumber), Set.of(TABLE_ID)))
                 .collect(toList());
     }
 

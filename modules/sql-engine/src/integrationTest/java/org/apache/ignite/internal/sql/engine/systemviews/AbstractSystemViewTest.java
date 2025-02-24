@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.sql.engine.systemviews;
 
-import java.util.Set;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+
+import org.apache.ignite.internal.sql.engine.BaseSqlMultiStatementTest;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
- * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
- * or removes them (TxState.ABORTED).
+ * Base class for SQL system views integration tests.
  */
-@Transferable(TxMessageGroup.WRITE_INTENT_SWITCH_REQUEST)
-public interface WriteIntentSwitchReplicaRequest extends WriteIntentSwitchReplicaRequestBase {
-    /** IDs of tables in which the partition in question had write intents. */
-    Set<Integer> tableIds();
+public class AbstractSystemViewTest extends BaseSqlMultiStatementTest {
+    /** Await system view registration. */
+    @BeforeAll
+    protected void awaitSystemViewRegistration() {
+        await(systemViewManager().completeRegistration());
+    }
 }

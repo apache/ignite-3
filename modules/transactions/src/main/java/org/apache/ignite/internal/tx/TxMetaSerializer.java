@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -39,45 +39,84 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
     public static final TxMetaSerializer INSTANCE = new TxMetaSerializer();
 
     @Override
+    protected byte getProtocolVersion() {
+        return 2;
+    }
+
+    @Override
     protected void writeExternalData(TxMeta meta, IgniteDataOutput out) throws IOException {
+        boolean hasAnyZonePartitionIds = hasAnyZonePartitionIds(meta);
+        if (hasAnyZonePartitionIds) {
+            assert hasNoTablePartitionIds(meta) : "Both table-based and zone-based partition IDs: " + meta.enlistedPartitions();
+        }
+
+        out.writeBoolean(hasAnyZonePartitionIds);
+
         out.writeVarInt(meta.txState().ordinal());
 
         out.writeVarInt(meta.enlistedPartitions().size());
-        for (ReplicationGroupId partitionId : meta.enlistedPartitions()) {
-            PartitionGroupId partitionGroupId = (PartitionGroupId) partitionId;
+        for (EnlistedPartitionGroup enlistedPartitionGroup : meta.enlistedPartitions()) {
+            PartitionGroupId partitionGroupId = (PartitionGroupId) enlistedPartitionGroup.groupId();
 
             out.writeVarInt(partitionGroupId.objectId());
             out.writeVarInt(partitionGroupId.partitionId());
+            writeVarIntSet(enlistedPartitionGroup.tableIds(), out);
         }
 
         HybridTimestamp.write(meta.commitTimestamp(), out);
     }
 
+    private static boolean hasAnyZonePartitionIds(TxMeta meta) {
+        return meta.enlistedPartitions().stream()
+                .anyMatch(partition -> partition.groupId() instanceof ZonePartitionId);
+    }
+
+    private static boolean hasNoTablePartitionIds(TxMeta meta) {
+        return meta.enlistedPartitions().stream()
+                .noneMatch(partition -> partition.groupId() instanceof TablePartitionId);
+    }
+
     @Override
     protected TxMeta readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+        boolean usesZonePartitionIds;
+        if (protoVer >= 2) {
+            usesZonePartitionIds = in.readBoolean();
+        } else {
+            usesZonePartitionIds = false;
+        }
+
         TxState state = TxState.fromOrdinal(in.readVarIntAsInt());
-        List<ReplicationGroupId> enlistedPartitions = readEnlistedPartitions(in);
+        List<EnlistedPartitionGroup> enlistedPartitions = readEnlistedPartitions(in, protoVer, usesZonePartitionIds);
         HybridTimestamp commitTimestamp = HybridTimestamp.readNullableFrom(in);
 
         return new TxMeta(state, enlistedPartitions, commitTimestamp);
     }
 
-    private static List<ReplicationGroupId> readEnlistedPartitions(IgniteDataInput in) throws IOException {
+    private static List<EnlistedPartitionGroup> readEnlistedPartitions(IgniteDataInput in, byte protoVer, boolean usesZonePartitionIds)
+            throws IOException {
         int length = in.readVarIntAsInt();
 
-        List<ReplicationGroupId> enlistedPartitions = new ArrayList<>(length);
+        List<EnlistedPartitionGroup> enlistedPartitions = new ArrayList<>(length);
         for (int i = 0; i < length; i++) {
             int objectId = in.readVarIntAsInt();
             int partitionId = in.readVarIntAsInt();
 
-            enlistedPartitions.add(replicationGroupId(objectId, partitionId));
+            Set<Integer> tableIds;
+            if (protoVer >= 2) {
+                tableIds = readVarIntSet(in);
+            } else {
+                // In version 1 only table-based partitions were supported, so tableIds will be a singleton.
+                tableIds = Set.of(objectId);
+            }
+
+            enlistedPartitions.add(new EnlistedPartitionGroup(replicationGroupId(objectId, partitionId, usesZonePartitionIds), tableIds));
         }
 
         return enlistedPartitions;
     }
 
-    private static ReplicationGroupId replicationGroupId(int objectId, int partitionId) {
-        if (enabledColocation()) {
+    private static ReplicationGroupId replicationGroupId(int objectId, int partitionId, boolean usesZonePartitionIds) {
+        if (usesZonePartitionIds) {
             return new ZonePartitionId(objectId, partitionId);
         } else {
             return new TablePartitionId(objectId, partitionId);

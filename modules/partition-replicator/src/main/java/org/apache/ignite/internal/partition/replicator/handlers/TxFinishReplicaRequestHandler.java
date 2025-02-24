@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -55,10 +56,15 @@ import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
+import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
+import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.tx.TransactionException;
@@ -76,6 +82,8 @@ public class TxFinishReplicaRequestHandler {
 
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final ClockService clockService;
@@ -124,7 +132,7 @@ public class TxFinishReplicaRequestHandler {
      */
     public CompletableFuture<TransactionResult> handle(TxFinishReplicaRequest request) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-        Map<ReplicationGroupId, String> enlistedGroups = asReplicationGroupIdToStringMap(request.groups());
+        Map<ReplicationGroupId, PartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
 
         UUID txId = request.txId();
 
@@ -148,18 +156,20 @@ public class TxFinishReplicaRequestHandler {
         }
     }
 
-    private static Map<ReplicationGroupId, String> asReplicationGroupIdToStringMap(Map<ReplicationGroupIdMessage, String> messages) {
-        var result = new HashMap<ReplicationGroupId, String>(IgniteUtils.capacity(messages.size()));
+    private static Map<ReplicationGroupId, PartitionEnlistment> asReplicationGroupIdToPartitionMap(
+            Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> messages
+    ) {
+        var result = new HashMap<ReplicationGroupId, PartitionEnlistment>(IgniteUtils.capacity(messages.size()));
 
-        for (Entry<ReplicationGroupIdMessage, String> e : messages.entrySet()) {
-            result.put(e.getKey().asReplicationGroupId(), e.getValue());
+        for (Entry<ReplicationGroupIdMessage, PartitionEnlistmentMessage> e : messages.entrySet()) {
+            result.put(e.getKey().asReplicationGroupId(), e.getValue().asPartition());
         }
 
         return result;
     }
 
     private CompletableFuture<TransactionResult> finishAndCleanup(
-            Map<ReplicationGroupId, String> enlistedPartitions,
+            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -210,7 +220,10 @@ public class TxFinishReplicaRequestHandler {
             return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
         }
 
-        return finishTransaction(enlistedPartitions.keySet(), txId, commit, commitTimestamp)
+        List<EnlistedPartitionGroup> enlistedPartitionGroups = enlistedPartitions.entrySet().stream()
+                .map(entry -> new EnlistedPartitionGroup(entry.getKey(), entry.getValue().tableIds()))
+                .collect(toList());
+        return finishTransaction(enlistedPartitionGroups, txId, commit, commitTimestamp)
                 .thenCompose(txResult ->
                     txManager.cleanup(replicationGroupId, enlistedPartitions, commit, commitTimestamp, txId)
                             .thenApply(v -> txResult)
@@ -243,14 +256,14 @@ public class TxFinishReplicaRequestHandler {
     /**
      * Finishes a transaction. This operation is idempotent.
      *
-     * @param partitionIds Collection of enlisted partition groups.
+     * @param partitions Collection of enlisted partitions.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
      * @param commitTimestamp Commit timestamp, if applicable.
      * @return Future to wait of the finish.
      */
     private CompletableFuture<TransactionResult> finishTransaction(
-            Collection<ReplicationGroupId> partitionIds,
+            Collection<EnlistedPartitionGroup> partitions,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -265,7 +278,7 @@ public class TxFinishReplicaRequestHandler {
                         commit,
                         commitTimestamp,
                         catalogVersion,
-                        toPartitionIdMessage(partitionIds)
+                        toPartitionInfoMessages(partitions)
                 ))
                 .handle((txOutcome, ex) -> {
                     if (ex != null) {
@@ -300,7 +313,7 @@ public class TxFinishReplicaRequestHandler {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             int catalogVersion,
-            List<ReplicationGroupIdMessage> partitionIds
+            List<EnlistedPartitionGroupMessage> enlistedPartitions
     ) {
         HybridTimestamp now = clockService.now();
         FinishTxCommandBuilder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
@@ -308,7 +321,7 @@ public class TxFinishReplicaRequestHandler {
                 .commit(commit)
                 .initiatorTime(now)
                 .requiredCatalogVersion(catalogVersion)
-                .partitionIds(partitionIds);
+                .partitions(enlistedPartitions);
 
         if (commit) {
             finishTxCmdBldr.commitTimestamp(commitTimestamp);
@@ -317,14 +330,21 @@ public class TxFinishReplicaRequestHandler {
         return raftCommandApplicator.applyCommandWithExceptionHandling(finishTxCmdBldr.build());
     }
 
-    private static List<ReplicationGroupIdMessage> toPartitionIdMessage(Collection<ReplicationGroupId> partitionIds) {
-        List<ReplicationGroupIdMessage> list = new ArrayList<>(partitionIds.size());
+    private static List<EnlistedPartitionGroupMessage> toPartitionInfoMessages(Collection<EnlistedPartitionGroup> partitionIds) {
+        List<EnlistedPartitionGroupMessage> list = new ArrayList<>(partitionIds.size());
 
-        for (ReplicationGroupId partitionId : partitionIds) {
-            list.add(replicationGroupId(partitionId));
+        for (EnlistedPartitionGroup enlistedPartitionGroup : partitionIds) {
+            list.add(enlistedPartitionGroupMessage(enlistedPartitionGroup));
         }
 
         return list;
+    }
+
+    private static EnlistedPartitionGroupMessage enlistedPartitionGroupMessage(EnlistedPartitionGroup enlistedPartitionGroup) {
+        return TX_MESSAGES_FACTORY.enlistedPartitionGroupMessage()
+                .groupId(replicationGroupId(enlistedPartitionGroup.groupId()))
+                .tableIds(enlistedPartitionGroup.tableIds())
+                .build();
     }
 
     /**

@@ -17,40 +17,31 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import java.util.List;
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import java.util.Set;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 
 /**
- * Cleanup transaction message.
+ * Message for {@link EnlistedPartitionGroup}.
  */
-@Transferable(TxMessageGroup.TX_CLEANUP_MSG)
-public interface TxCleanupMessage extends TimestampAware {
+@Transferable(TxMessageGroup.ENLISTED_PARTITION_GROUP_MESSAGE)
+public interface EnlistedPartitionGroupMessage extends NetworkMessage {
     /**
-     * Gets a transaction id to resolve.
-     *
-     * @return Transaction id.
+     * Replication group ID of the partition.
      */
-    UUID txId();
+    ReplicationGroupIdMessage groupId();
 
     /**
-     * Returns replication groups aggregated by expected primary replica nodes.
-     * Null when this message is sent at recovery.
-     *
-     * @return Replication groups aggregated by expected primary replica nodes.
+     * IDs of tables for which the partition is enlisted.
      */
-    @Nullable List<EnlistedPartitionGroupMessage> groups();
+    Set<Integer> tableIds();
 
     /**
-     * Returns {@code True} if a commit request.
-     *
-     * @return {@code True} to commit.
+     * Converts this message to the corresponding {@link EnlistedPartitionGroup}.
      */
-    boolean commit();
-
-    /** Transaction commit timestamp. */
-    @Nullable HybridTimestamp commitTimestamp();
+    default EnlistedPartitionGroup asPartitionInfo() {
+        return new EnlistedPartitionGroup(groupId().asReplicationGroupId(), tableIds());
+    }
 }

@@ -19,17 +19,15 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -158,16 +156,14 @@ public interface TxManager extends IgniteComponent {
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state.
      * @param commit {@code true} if a commit requested.
-     * @param enlistedGroups Enlisted partition groups with consistency tokens.
-     * @param enlistedTableIds IDs of the tables taking part in the transaction.
+     * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
-            Set<Integer> enlistedTableIds,
+            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
 
@@ -177,7 +173,7 @@ public interface TxManager extends IgniteComponent {
      * <p>The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
      *
      * @param commitPartitionId Commit partition id.
-     * @param enlistedPartitions Map of partition groups to their primary nodes.
+     * @param enlistedPartitions Map of enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @param txId Transaction id.
@@ -185,7 +181,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, String> enlistedPartitions,
+            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -197,7 +193,7 @@ public interface TxManager extends IgniteComponent {
      * <p>The nodes to sends the request to are calculated by the placement driver.
      *
      * @param commitPartitionId Commit partition id.
-     * @param enlistedPartitions Enlisted partition groups.
+     * @param enlistedPartitions Enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @param txId Transaction id.
@@ -205,7 +201,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             TablePartitionId commitPartitionId,
-            Collection<ReplicationGroupId> enlistedPartitions,
+            Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

@@ -171,7 +171,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -642,9 +641,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             processAssignmentsOnRecovery(recoveryRevision);
 
-            metaStorageMgr.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES), pendingAssignmentsRebalanceListener);
-            metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
-            metaStorageMgr.registerPrefixWatch(new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES), assignmentsSwitchRebalanceListener);
+            if (!enabledColocation()) {
+                metaStorageMgr.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES), pendingAssignmentsRebalanceListener);
+                metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
+                metaStorageMgr.registerPrefixWatch(
+                        new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES),
+                        assignmentsSwitchRebalanceListener
+                );
+            }
 
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> onTableCreate((CreateTableEventParameters) parameters));
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters ->
@@ -878,6 +882,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
             mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
+
+            minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
             Function<RaftCommandRunner, ReplicaListener> createListener = raftClient -> createReplicaListener(
                     tablePartitionId,
@@ -1239,6 +1245,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean isRecovery,
             long assignmentsTimestamp
     ) {
+        if (enabledColocation()) {
+            return nullCompletedFuture();
+        }
+
         int tableId = table.tableId();
 
         var internalTbl = (InternalTableImpl) table.internalTable();
@@ -1307,20 +1317,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             indexMetaStorage,
                             topologyService.localMember().id(),
                             minTimeCollectorService
-                    ) {
-                        @Override
-                        public void onConfigurationCommitted(
-                                RaftGroupConfiguration config,
-                                long lastAppliedIndex,
-                                long lastAppliedTerm
-                        ) {
-                            // Disable this method if the Colocation feature is enabled, actual configuration will be propagated
-                            // manually by the Zone Raft Listener.
-                            if (!enabledColocation()) {
-                                super.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm);
-                            }
-                        }
-                    };
+                    );
 
                     minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
@@ -1541,9 +1538,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         busyLock.block();
 
-        metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
-        metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
-        metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
+        if (!enabledColocation()) {
+            metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
+            metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
+            metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
+        }
 
         cleanUpTablesResources(tables);
     }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import static java.util.stream.Collectors.toSet;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -64,8 +66,12 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
     @Nullable HybridTimestamp commitTimestamp();
 
     /** Enlisted partition groups aggregated by expected primary replica nodes. */
-    Map<ReplicationGroupIdMessage, String> groups();
+    Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> groups();
 
     /** IDs of tables enlisted in the transaction. */
-    Set<Integer> tableIds();
+    default Set<Integer> tableIds() {
+        return groups().values().stream()
+                .flatMap(partition -> partition.tableIds().stream())
+                .collect(toSet());
+    }
 }
