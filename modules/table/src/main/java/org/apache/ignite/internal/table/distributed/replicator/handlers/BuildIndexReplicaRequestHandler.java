@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -36,6 +38,10 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
  * Handler for {@link BuildIndexReplicaRequest}.
  */
 public class BuildIndexReplicaRequestHandler {
+    /** Factory to create RAFT command messages. */
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
     private final IndexMetaStorage indexMetaStorage;
 
     /** Read-write transaction operation tracker for building indexes. */
@@ -48,7 +54,7 @@ public class BuildIndexReplicaRequestHandler {
     private final ReplicationRaftCommandApplicator commandApplicator;
 
     /**
-     * Constructor.
+     * Creates a new instance of request handler.
      *
      * @param indexMetaStorage Index meta storage.
      * @param txRwOperationTracker Read-write transaction operation tracker for building indexes.
@@ -85,6 +91,16 @@ public class BuildIndexReplicaRequestHandler {
 
         return txRwOperationTracker.awaitCompleteTxRwOperations(registeredChangeInfo.catalogVersion())
                 .thenCompose(unused -> safeTime.waitFor(hybridTimestamp(buildingChangeInfo.activationTimestamp())))
-                .thenCompose(unused -> commandApplicator.applycommand(toBuildIndexCommand(request, buildingChangeInfo)));
+                .thenCompose(unused -> commandApplicator.applyCommand(toBuildIndexCommand(request, buildingChangeInfo)));
+    }
+
+    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
+                .indexId(request.indexId())
+                .rowIds(request.rowIds())
+                .finish(request.finish())
+                // We are sure that there will be no error here since the primary replica is sent the request to itself.
+                .requiredCatalogVersion(buildingChangeInfo.catalogVersion())
+                .build();
     }
 }

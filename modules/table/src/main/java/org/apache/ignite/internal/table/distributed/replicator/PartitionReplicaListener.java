@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.partitiondistribution.Assignments.fromB
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
@@ -116,7 +115,6 @@ import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPar
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessageBuilder;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -876,8 +874,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             return processReplicaSafeTimeSyncRequest(isPrimary);
         } else if (request instanceof BuildIndexReplicaRequest) {
-            buildIndexReplicaRequestHandler.handle((BuildIndexReplicaRequest) request);
-            return processBuildIndexReplicaRequest((BuildIndexReplicaRequest) request);
+            return buildIndexReplicaRequestHandler.handle((BuildIndexReplicaRequest) request);
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
             return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
@@ -3676,16 +3673,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         return localNode.id().equals(nodeId);
     }
 
-    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
-                .indexId(request.indexId())
-                .rowIds(request.rowIds())
-                .finish(request.finish())
-                // We are sure that there will be no error here since the primary replica is sent the request to itself.
-                .requiredCatalogVersion(buildingChangeInfo.catalogVersion())
-                .build();
-    }
-
     private CompletableFuture<?> processOperationRequestWithTxOperationManagementLogic(
             UUID senderId,
             ReplicaRequest request,
@@ -3852,22 +3839,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private CompletableFuture<?> processBuildIndexReplicaRequest(BuildIndexReplicaRequest request) {
-        IndexMeta indexMeta = indexMetaStorage.indexMeta(request.indexId());
-
-        if (indexMeta == null || indexMeta.isDropped()) {
-            // Index has been dropped.
-            return nullCompletedFuture();
-        }
-
-        MetaIndexStatusChange registeredChangeInfo = indexMeta.statusChange(REGISTERED);
-        MetaIndexStatusChange buildingChangeInfo = indexMeta.statusChange(BUILDING);
-
-        return txRwOperationTracker.awaitCompleteTxRwOperations(registeredChangeInfo.catalogVersion())
-                .thenCompose(unused -> safeTime.waitFor(hybridTimestamp(buildingChangeInfo.activationTimestamp())))
-                .thenCompose(unused -> raftCommandRunner.run(toBuildIndexCommand(request, buildingChangeInfo)));
     }
 
     private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {
