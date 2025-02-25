@@ -111,9 +111,8 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         assertEquals(3, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
-        assertEquals(PARTITIONS, replicas.nodeNames().size());
-        assertNull(replicas.nodeNames().get(0));
-        assertNull(replicas.nodeNames().get(1));
+        assertNull(replicas.nodeNames());
+        assertEquals(PARTITIONS, replicas.partitions());
     }
 
     @Test

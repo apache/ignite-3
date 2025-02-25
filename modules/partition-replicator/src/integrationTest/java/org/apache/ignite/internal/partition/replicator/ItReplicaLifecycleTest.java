@@ -33,12 +33,14 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -581,7 +583,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
             });
 
             // Read the key from another transaction to trigger write intent resolution, and so incrementing the estimated size.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24384 Perhaps, it should be reworked some way
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24360 Perhaps, it should be reworked some way
             // when the write intent resolution will be 're-implemented' using colocation feature.
             node.transactions().runInTransaction(tx -> {
                 keyValueView1.getAll(tx, kv1.keySet());
@@ -726,7 +728,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     private static InternalTable getInternalTable(Node node, String tableName) {
-        Table table = node.tableManager.table(tableName);
+        Table table = assertTimeoutPreemptively(Duration.ofSeconds(10), () -> node.tableManager.table(tableName));
 
         assertNotNull(table, tableName);
 

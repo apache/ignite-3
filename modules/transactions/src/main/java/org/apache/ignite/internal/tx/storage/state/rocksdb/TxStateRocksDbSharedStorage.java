@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
@@ -37,21 +35,19 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
-import org.rocksdb.Options;
-import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.WriteOptions;
 
 /**
- * Shared RocksDB storage instance to be used in {@link TxStateRocksDbStorage}. Exists to make "createTable" operation faster, as well
- * as reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed on per-table basis.
+ * Shared RocksDB storage instance to be used in {@link TxStateRocksDbStorage}. Exists to make "createTable" operation faster, as well as
+ * reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed on per-table basis.
  */
 public class TxStateRocksDbSharedStorage implements IgniteComponent {
     static {
@@ -59,7 +55,9 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     }
 
     /** Column family name for transaction states. */
-    private static final String TX_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, UTF_8);
+    private static final byte[] TX_STATE_CF_NAME = RocksDB.DEFAULT_COLUMN_FAMILY;
+
+    private static final byte[] TX_META_CF_NAME = "TX_META".getBytes(UTF_8);
 
     /** Transaction storage flush delay. */
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
@@ -73,9 +71,6 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
     /** Write options. */
     final WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
-
-    /** Read options for regular reads. */
-    final ReadOptions readOptions = new ReadOptions();
 
     /** Database path. */
     private final Path dbPath;
@@ -103,15 +98,18 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     /** Write-ahead log synchronizer. */
     private final LogSyncer logSyncer;
 
+    private volatile ColumnFamily txStateColumnFamily;
+
+    private volatile ColumnFamily txStateMetaColumnFamily;
+
     /**
      * Constructor.
      *
      * @param dbPath Database path.
-     * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking,
-     *      long or IO operations.
+     * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing
+     *         blocking, long or IO operations.
      * @param threadPool Thread pool for internal operations.
      * @param logSyncer Write-ahead log synchronizer.
-     *
      * @see RocksDbFlusher
      */
     public TxStateRocksDbSharedStorage(
@@ -127,12 +125,11 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
      * Constructor.
      *
      * @param dbPath Database path.
-     * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking,
-     *      long or IO operations.
+     * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing
+     *         blocking, long or IO operations.
      * @param threadPool Thread pool for internal operations.
      * @param logSyncer Write-ahead log synchronizer.
      * @param flushDelaySupplier Flush delay supplier.
-     *
      * @see RocksDbFlusher
      */
     public TxStateRocksDbSharedStorage(
@@ -191,32 +188,33 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
             this.dbOptions = new DBOptions()
                     .setCreateIfMissing(true)
+                    .setCreateMissingColumnFamilies(true)
                     .setAtomicFlush(true)
                     .setListeners(List.of(flusher.listener()))
                     // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
                     .setAvoidFlushDuringShutdown(true);
 
-            List<ColumnFamilyDescriptor> cfDescriptors;
-
-            try (Options opts = new Options()) {
-                cfDescriptors = RocksDB.listColumnFamilies(opts, dbPath.toAbsolutePath().toString())
-                        .stream()
-                        .map(nameBytes -> new ColumnFamilyDescriptor(nameBytes, new ColumnFamilyOptions()))
-                        .collect(toList());
-
-                cfDescriptors = cfDescriptors.isEmpty()
-                        ? List.of(new ColumnFamilyDescriptor(TX_STATE_CF.getBytes(UTF_8), new ColumnFamilyOptions()))
-                        : cfDescriptors;
-            }
+            List<ColumnFamilyDescriptor> cfDescriptors = columnFamilyDescriptors();
 
             List<ColumnFamilyHandle> cfHandles = new ArrayList<>(cfDescriptors.size());
 
             this.db = RocksDB.open(dbOptions, dbPath.toString(), cfDescriptors, cfHandles);
 
+            txStateColumnFamily = ColumnFamily.wrap(db, cfHandles.get(0));
+
+            txStateMetaColumnFamily = ColumnFamily.wrap(db, cfHandles.get(1));
+
             flusher.init(db, cfHandles);
         } catch (Exception e) {
             throw new IgniteInternalException(Common.INTERNAL_ERR, "Could not create transaction state storage", e);
         }
+    }
+
+    private static List<ColumnFamilyDescriptor> columnFamilyDescriptors() {
+        return List.of(
+                new ColumnFamilyDescriptor(TX_STATE_CF_NAME),
+                new ColumnFamilyDescriptor(TX_META_CF_NAME)
+        );
     }
 
     @Override
@@ -237,16 +235,23 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
         busyLock.block();
 
+        RocksDbFlusher flusher = this.flusher;
+
         List<AutoCloseable> resources = new ArrayList<>();
 
-        resources.add(flusher::stop);
-        resources.add(readOptions);
-        resources.add(writeOptions);
-        resources.add(dbOptions);
+        resources.add(flusher == null ? null : flusher::stop);
         resources.add(db);
-
-        reverse(resources);
+        resources.add(dbOptions);
+        resources.add(writeOptions);
 
         closeAll(resources);
+    }
+
+    public ColumnFamily txStateColumnFamily() {
+        return txStateColumnFamily;
+    }
+
+    public ColumnFamily txStateMetaColumnFamily() {
+        return txStateMetaColumnFamily;
     }
 }

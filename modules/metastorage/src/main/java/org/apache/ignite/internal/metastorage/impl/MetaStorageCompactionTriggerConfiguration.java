@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -29,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /** Configuration for metastorage compaction triggering based on distributed system properties. */
 public class MetaStorageCompactionTriggerConfiguration {
     /**
-     * Internal property that determines the interval between compaction initiations. (in milliseconds).
+     * Internal property that determines the interval between compaction initiations (in milliseconds).
      *
      * <p>Default value is {@link #INTERVAL_DEFAULT_VALUE}.</p>
      */
@@ -42,13 +43,11 @@ public class MetaStorageCompactionTriggerConfiguration {
      */
     public static final String DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME = "metastorageCompactionDataAvailabilityTime";
 
-    /** Default value for the {@link #INTERVAL_SYSTEM_PROPERTY_NAME}. */
-    // TODO: IGNITE-23280 Make default 1 minute
-    public static final long INTERVAL_DEFAULT_VALUE = Long.MAX_VALUE;
+    /** Default value for the {@link #INTERVAL_SYSTEM_PROPERTY_NAME} (in milliseconds). */
+    public static final long INTERVAL_DEFAULT_VALUE = TimeUnit.MINUTES.toMillis(1);
 
-    /** Default value for the {@link #DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME}. */
-    // TODO: IGNITE-23280 Make default 1 hour
-    public static final long DATA_AVAILABILITY_TIME_DEFAULT_VALUE = Long.MAX_VALUE;
+    /** Default value for the {@link #DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME} (in milliseconds). */
+    public static final long DATA_AVAILABILITY_TIME_DEFAULT_VALUE = TimeUnit.HOURS.toMillis(1);
 
     private final SystemDistributedConfiguration systemDistributedConfig;
 

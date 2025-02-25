@@ -91,7 +91,7 @@ public class PersistentTxStateVacuumizer {
      * @return A future, result is the set of successfully processed txn states and count of persistent states that were vacuumized.
      */
     public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
             // Should be changed to ZonePartitionId.
             Map<ReplicationGroupId, Set<VacuumizableTx>> txIds
     ) {
@@ -128,7 +128,7 @@ public class PersistentTxStateVacuumizer {
 
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                    // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+                                    // TODO https://issues.apache.org/jira/browse/IGNITE-22522
                                     // Should be changed to ZonePartitionId.
                                     .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                                     .transactionIds(filteredTxIds)

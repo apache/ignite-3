@@ -91,10 +91,11 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
             return catalog.tables().stream()
                     .flatMap(table -> table.columns().stream()
                             .map(columnDescriptor -> new ColumnWithTableId(
-                                    catalog.schema(table.schemaId()).name(),
-                                    table.name(),
-                                    table.id(),
-                                    columnDescriptor
+                                            catalog.schema(table.schemaId()).name(),
+                                            table.name(),
+                                            table.id(),
+                                            columnDescriptor,
+                                            table.columnIndex(columnDescriptor.name())
                                     )
                             )
                     )
@@ -114,6 +115,7 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("PREC", INT32, entry -> entry.descriptor.precision())
                 .addColumn("SCALE", INT32, entry -> entry.descriptor.scale())
                 .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
+                .addColumn("COLUMN_ORDINAL", INT32, entry -> entry.columnOrdinal)
                 .dataProvider(viewDataPublisher)
                 .build();
     }
@@ -123,12 +125,20 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         private final String tableName;
         private final String schema;
         private final int tableId;
+        private final int columnOrdinal;
 
-        private ColumnWithTableId(String schema, String tableName, int tableId, CatalogTableColumnDescriptor descriptor) {
+        private ColumnWithTableId(
+                String schema,
+                String tableName,
+                int tableId,
+                CatalogTableColumnDescriptor descriptor,
+                int columnOrdinal
+        ) {
             this.schema = schema;
             this.tableName = tableName;
             this.descriptor = descriptor;
             this.tableId = tableId;
+            this.columnOrdinal = columnOrdinal;
         }
     }
 

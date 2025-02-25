@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,6 +28,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -51,6 +53,8 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
@@ -72,6 +76,8 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     @BeforeAll
     static void beforeAll() {
@@ -222,6 +228,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                 .txId(UUID.randomUUID())
                 .commit(true)
+                .tableIds(Set.of(1))
                 .initiatorTime(clock.now())
                 .commitTimestamp(clock.now())
                 .build();
@@ -250,7 +257,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .commit(true)
                 .commitTimestamp(clock.now())
                 .initiatorTime(clock.now())
-                .partitionIds(grps)
+                .partitions(grps.stream().map(grp -> partitionGroupMessage(grp, Set.of(1))).collect(toList()))
                 .build();
 
         FinishTxCommand readCmd = copyCommand(cmd);
@@ -258,6 +265,13 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         assertEquals(cmd.txId(), readCmd.txId());
         assertEquals(cmd.commit(), readCmd.commit());
         assertEquals(cmd.commitTimestamp(), readCmd.commitTimestamp());
+    }
+
+    private static EnlistedPartitionGroupMessage partitionGroupMessage(ReplicationGroupIdMessage groupIdMessage, Set<Integer> tableIds) {
+        return TX_MESSAGES_FACTORY.enlistedPartitionGroupMessage()
+                .groupId(groupIdMessage)
+                .tableIds(tableIds)
+                .build();
     }
 
     private <T extends Command> T copyCommand(T cmd) {
@@ -269,7 +283,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
                     .txId(finishTxCommand.txId())
                     .commit(finishTxCommand.commit())
-                    .partitionIds(finishTxCommand.partitionIds())
+                    .partitions(finishTxCommand.partitions())
                     .commitTimestamp(finishTxCommand.commitTimestamp())
                     .initiatorTime(finishTxCommand.initiatorTime())
                     .build();
@@ -280,6 +294,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txId(writeIntentSwitchCommand.txId())
                     .commit(writeIntentSwitchCommand.commit())
                     .commitTimestamp(writeIntentSwitchCommand.commitTimestamp())
+                    .tableIds(Set.of(1))
                     .initiatorTime(writeIntentSwitchCommand.initiatorTime())
                     .build();
         } else if (cmd instanceof UpdateCommand) {

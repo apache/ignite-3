@@ -25,16 +25,16 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.internal.rest.transaction.exception.TransactionCancelException;
+import org.apache.ignite.internal.rest.transaction.exception.TransactionKillException;
 
 /**
- * REST exception handler for {@link TransactionCancelException}.
+ * REST exception handler for {@link TransactionKillException}.
  */
 @Singleton
-@Requires(classes = {TransactionCancelException.class, ExceptionHandler.class})
-public class TransactionCancelExceptionHandler implements ExceptionHandler<TransactionCancelException, HttpResponse<? extends Problem>> {
+@Requires(classes = {TransactionKillException.class, ExceptionHandler.class})
+public class TransactionCancelExceptionHandler implements ExceptionHandler<TransactionKillException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, TransactionCancelException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, TransactionKillException exception) {
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.CONFLICT)
                         .detail(exception.getMessage()).build()

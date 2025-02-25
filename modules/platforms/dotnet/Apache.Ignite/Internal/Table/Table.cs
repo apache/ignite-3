@@ -402,7 +402,14 @@ namespace Apache.Ignite.Internal.Table
                 var r = resBuf.GetReader();
 
                 var count = r.ReadInt32();
-                Debug.Assert(count > 0, $"Invalid partition count: {count}");
+                if (count <= 0)
+                {
+                    throw new IgniteException(
+                        Guid.NewGuid(),
+                        ErrorGroups.Common.Internal,
+                        "Invalid partition count returned by the server: " + count);
+                }
+
                 var res = new string?[count];
 
                 var assignmentAvailable = r.ReadBoolean();
