@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -32,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
@@ -130,7 +134,10 @@ public class SerializerRegistryBuilder {
             throws InvocationTargetException, InstantiationException, IllegalAccessException {
         Constructor<?>[] constructors = cls.getDeclaredConstructors();
 
+        System.out.println(">xxx> process " + cls);
+
         for (Constructor<?> constructor : constructors) {
+
             if (constructor.getParameterCount() == 0) {
                 // TODO should be avoided?
                 constructor.setAccessible(true);
@@ -180,6 +187,31 @@ public class SerializerRegistryBuilder {
 
         while (resources.hasMoreElements()) {
             URL resource = resources.nextElement();
+
+            // TODO rework this shit.
+            if ("jar".equals(resource.getProtocol())) {
+                // build jar file name, then loop through zipped entries
+                String jarFileName = URLDecoder.decode(resource.getFile(), StandardCharsets.UTF_8);
+                jarFileName = jarFileName.substring(5, jarFileName.indexOf('!'));
+                try (JarFile jf = new JarFile(jarFileName)) {
+                    Enumeration<JarEntry> jarEntries = jf.entries();
+                    while (jarEntries.hasMoreElements()) {
+                        String entryName = jarEntries.nextElement().getName();
+                        if (entryName.startsWith(path) && entryName.endsWith(".class")) {
+                            entryName = entryName.substring(path.length() + 1, entryName.lastIndexOf('.'));
+
+                            String clsName = packageName + "." + entryName.replace("/", ".");
+                            Class<?> clz = Class.forName(clsName);
+
+                            if (filter.test(clz)) {
+                                classes.add(clz);
+                            }
+                        }
+                    }
+                }
+
+                continue;
+            }
 
             List<Class<?>> dirClasses = findClasses(new File(resource.getFile()), packageName, filter);
 

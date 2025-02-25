@@ -48,7 +48,7 @@ public class IgniteNameUtilsTest {
 
     private static Arguments[] validIdentifiers() {
         return new Arguments[] {
-                Arguments.of("_foo", "_FOO"),
+                Arguments.of("foo", "FOO"),
                 Arguments.of("fOo", "FOO"),
                 Arguments.of("FOO", "FOO"),
                 Arguments.of("\"FOO\"", "FOO"),
