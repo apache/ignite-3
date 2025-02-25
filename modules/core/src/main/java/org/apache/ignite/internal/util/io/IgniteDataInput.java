@@ -29,7 +29,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntFunction;
 
 /**
  * Extended data input.
@@ -417,5 +420,62 @@ public interface IgniteDataInput extends DataInput {
          * @return the materialized object
          */
         T materialize(byte[] buffer, int offset, int length);
+    }
+
+    /**
+     * Reads a collection.
+     *
+     * @param collectionFunction Function that creates a collection with given initial capacity, if applicable.
+     * @param elementReader Function to read an element.
+     * @return Collection.
+     */
+    default <T, C extends Collection<T>> C readCollection(
+            IntFunction<C> collectionFunction,
+            ObjectReader<T> elementReader
+    ) throws IOException {
+        int size = readVarIntAsInt();
+
+        C collection = collectionFunction.apply(size);
+
+        for (int i = 0; i < size; i++) {
+            collection.add(elementReader.read(this));
+        }
+
+        return collection;
+    }
+
+    /**
+     * Reads a map.
+     *
+     * @param mapFunction Function that creates a map with given initial capacity, if applicable.
+     * @param keyReader Function to read a key.
+     * @param valueReader Function to read a value.
+     * @return Map.
+     */
+    default <K, C, V extends C, M extends Map<K, V>> M readMap(
+            IntFunction<M> mapFunction,
+            ObjectReader<K> keyReader,
+            ObjectReader<V> valueReader
+    ) throws IOException {
+        int size = readVarIntAsInt();
+
+        M map = mapFunction.apply(size);
+
+        for (int i = 0; i < size; i++) {
+            K key = keyReader.read(this);
+            V value = valueReader.read(this);
+
+            map.put(key, value);
+        }
+
+        return map;
+    }
+
+    /**
+     * Object reader interface.
+     */
+    @FunctionalInterface
+    interface ObjectReader<T> {
+        T read(IgniteDataInput in) throws IOException;
     }
 }

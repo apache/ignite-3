@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.network.ConstantClusterIdSupplier.withoutClusterId;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
@@ -35,7 +36,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.Mockito.mock;
@@ -110,9 +110,6 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         this.testInfo = testInfo;
     }
 
-    /**
-     * After each.
-     */
     @AfterEach
     final void tearDown() throws Exception {
         closeAll(startedManagers);
@@ -308,7 +305,26 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     public void testStartTwice() throws Exception {
         ConnectionManagerWrapper server = startManager(4000);
 
-        assertThrows(IgniteInternalException.class, server.connectionManager::start);
+        IgniteInternalException exception = (IgniteInternalException) assertThrows(
+                IgniteInternalException.class,
+                server.connectionManager::start,
+                "Attempted to start an already started connection manager"
+        );
+
+        assertEquals("IGN-CMN--1", exception.codeAsString());
+    }
+
+    @Test
+    public void testStartOnSamePort() throws Exception {
+        startManager(4000);
+
+        IgniteInternalException exception = (IgniteInternalException) assertThrows(
+                IgniteInternalException.class,
+                () -> startManager(4000),
+                "Failed to start the connection manager: Port 4000 is not available."
+        );
+
+        assertEquals("IGN-NETWORK-2", exception.codeAsString());
     }
 
     /**

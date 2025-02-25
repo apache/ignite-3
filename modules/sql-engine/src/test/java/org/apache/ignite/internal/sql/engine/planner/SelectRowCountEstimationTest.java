@@ -76,10 +76,18 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
     @ParameterizedTest
     @MethodSource("pkSelectivity")
     void testConditionWithPk(String sql, double selectivityFactor) {
-        // partial pk
         assertQuery(NODE, sql)
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .disableRules("TableScanToKeyValueGetRule", "LogicalIndexScanConverterRule")
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("pkSelectivity")
+    void testConditionWithPkNoUnion(String sql, double selectivityFactor) {
+        assertQuery(NODE, sql)
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .disableRules("TableScanToKeyValueGetRule", "LogicalIndexScanConverterRule", "ScanLogicalOrToUnionRule")
                 .check();
     }
 

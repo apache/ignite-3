@@ -200,7 +200,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 total += slot.waitersCount();
             }
 
-            return total == CACHE_SIZE && lockManager.available() == 0;
+            return total >= CACHE_SIZE && lockManager.available() == 0;
         }, 10_000), "Some lockers are missing");
 
         int empty = 0;

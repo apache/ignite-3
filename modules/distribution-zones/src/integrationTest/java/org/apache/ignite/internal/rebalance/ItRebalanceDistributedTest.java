@@ -1466,8 +1466,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     logicalTopologyService,
                     catalogManager,
-                    rebalanceScheduler,
-                    systemDistributedConfiguration
+                    systemDistributedConfiguration,
+                    clockService
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry

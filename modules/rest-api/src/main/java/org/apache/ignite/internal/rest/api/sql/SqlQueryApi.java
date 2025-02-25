@@ -79,15 +79,15 @@ public interface SqlQueryApi {
     );
 
     /**
-     * Cancels a specific sql query.
+     * Kills a specific sql query.
      *
      * @param queryId The unique identifier of the sql query.
-     * @return The result of the cancellation operation.
+     * @return The result of the kill operation.
      */
-    @Operation(summary = "Cancel sql query.", description = "Cancels a specific sql query identified by query id.")
+    @Operation(summary = "Kill sql query.", description = "Kills a specific sql query identified by query id.")
     @ApiResponse(
             responseCode = "200",
-            description = "Successfully cancelled the sql query.",
+            description = "Successfully killed the sql query.",
             content = @Content(mediaType = APPLICATION_JSON)
     )
     @ApiResponse(
@@ -101,7 +101,7 @@ public interface SqlQueryApi {
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
     )
     @Delete("queries/{queryId}")
-    CompletableFuture<Void> cancelQuery(
+    CompletableFuture<Void> killQuery(
             @Schema(name = "queryId", description = "The unique identifier of the sql query.", requiredMode = REQUIRED) UUID queryId
     );
 }

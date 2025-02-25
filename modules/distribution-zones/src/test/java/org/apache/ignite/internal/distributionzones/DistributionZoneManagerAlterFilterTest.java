@@ -22,21 +22,14 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -156,16 +149,13 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         int zoneId = getZoneId(zoneName);
 
-        if (ZONE_NAME.equals(zoneName)) {
-            assertNull(distributionZoneManager.zonesState().get(zoneId).scaleDownTask());
-        }
-
         topology.removeNodes(Set.of(C));
 
         // Check that scale down task was scheduled.
         assertTrue(
                 waitForCondition(
-                        () -> distributionZoneManager.zonesState().get(zoneId).scaleDownTask() != null,
+                        () -> distributionZoneManager.dataNodesManager().zoneTimers(zoneId) != null
+                                && distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleDown.taskIsScheduled(),
                         ZONE_MODIFICATION_AWAIT_TIMEOUT
                 )
         );
@@ -175,18 +165,12 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         alterZone(zoneName, null, null, newFilter);
 
-        // Node C is still in data nodes because altering a filter triggers only immediate scale up.
-        assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
-                zoneId, Set.of(C, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
-
-        // Check that scale down task is still scheduled.
-        assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
-
-        // Alter zone so we could check that node C is removed from data nodes.
-        alterZone(zoneName, INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, newFilter);
-
+        // Node C is removed from data nodes instantly.
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 zoneId, Set.of(D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
+
+        // Check that scale down task is not scheduled.
+        assertTrue(distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleDown.taskIsCancelled());
     }
 
     /**
@@ -206,16 +190,13 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         int zoneId = getZoneId(zoneName);
 
-        if (ZONE_NAME.equals(zoneName)) {
-            assertNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
-        }
-
         topology.putNode(D);
 
         // Check that scale up task was scheduled.
         assertTrue(
                 waitForCondition(
-                        () -> distributionZoneManager.zonesState().get(zoneId).scaleUpTask() != null,
+                        () -> distributionZoneManager.dataNodesManager().zoneTimers(zoneId) != null
+                            && distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleUp.taskIsScheduled(),
                         ZONE_MODIFICATION_AWAIT_TIMEOUT
                 )
         );
@@ -232,26 +213,16 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
                 List.of(DEFAULT_STORAGE_PROFILE)
         );
 
-        doAnswer(invocation -> {
-            If iif = invocation.getArgument(0);
+        topology.putNode(e);
 
-            // Emulate a situation when immediate timer was run after filter altering and new node was added, so timer was scheduled.
-            byte[] key = zoneScaleUpChangeTriggerKey(zoneId).bytes();
-
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
-
-                topology.putNode(e);
-            }
-            return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any(), any(), any());
-
-        // Check that node E, that was added while filter's altering, is not propagated to data nodes.
+        // Check that node E, that was added while filter's altering, is not instantly propagated to data nodes.
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 zoneId, Set.of(C, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
 
-        // Assert that scheduled timer was not canceled because of immediate scale up after filter altering.
-        assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
+        // Assert that scheduled timer was created because of node E addition.
+        assertTrue(
+                waitForCondition(() -> distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleUp.taskIsScheduled(), 2000)
+        );
 
         alterZone(zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, newFilter);
 
