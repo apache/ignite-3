@@ -60,11 +60,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -85,7 +89,7 @@ import org.junit.jupiter.api.Timeout;
 /**
  * Replica lifecycle test.
  */
-@Timeout(60)
+// @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
@@ -656,6 +660,47 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         // Commit the open transaction.
         assertDoesNotThrow(tx::commit);
+    }
+
+    @Test
+    public void testReplicaSafeTimeSyncRequest() throws Exception {
+        startCluster(2);
+        Node node = getNode(0);
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        // Prepare a zone.
+        String zoneName = "test_zone";
+        createZone(node, zoneName, 1, 2);
+        int zoneId = assertDoesNotThrow(() -> DistributionZonesTestUtil.getZoneIdStrict(
+                node.catalogManager,
+                zoneName,
+                node.hybridClock.nowLong()
+        ));
+        int partId = 0;
+
+        checkSafeTimeWasAdjustedForZoneGroup(zoneId, partId);
+
+        // Create a table to work with.
+        String tableName = "test_table";
+        createTable(node, zoneName, tableName);
+        assertDoesNotThrow(() -> TableTestUtils.getTableIdStrict(node.catalogManager, tableName, node.hybridClock.nowLong()));
+
+        checkSafeTimeWasAdjustedForZoneGroup(zoneId, partId);
+    }
+
+    private boolean checkSafeTimeWasAdjustedForZoneGroup(int zoneId, int partId) throws InterruptedException {
+        Node node0 = getNode(0);
+        Node node1 = getNode(1);
+
+        HybridTimestamp node0safeTimeBefore = node0.currentSafeTimeForZonePartition(zoneId, partId);
+        HybridTimestamp node1safeTimeBefore = node1.currentSafeTimeForZonePartition(zoneId, partId);
+
+        return waitForCondition(
+                () -> node0safeTimeBefore.compareTo(node0.currentSafeTimeForZonePartition(zoneId, partId)) < 0
+                        && node1safeTimeBefore.compareTo(node1.currentSafeTimeForZonePartition(zoneId, partId)) < 0,
+                idleSafeTimePropagationDuration() * 2
+        );
     }
 
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * RAFT listener for the zone partition.
@@ -172,6 +174,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 tableProcessors.values().forEach(listener -> listener.processCommand(command, commandIndex, commandTerm, safeTimestamp));
 
                 result = new IgniteBiTuple<>(null, true);
+            } else if (command instanceof SafeTimeSyncCommand) {
+                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else if (command instanceof WriteIntentSwitchCommand) {
                 result = writeIntentSwitchCommandHandler.handle(
                         (WriteIntentSwitchCommand) command,
@@ -239,7 +243,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             }
         });
 
-        return result;
+        return tableProcessors.isEmpty()
+            ? new IgniteBiTuple<>(null, true)
+            : result;
     }
 
     /**
@@ -340,5 +346,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
         }
+    }
+
+    @TestOnly
+    public HybridTimestamp currentSafeTime() {
+        return safeTimeTracker.current();
     }
 }
