@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
-import static java.lang.Math.max;
 import static java.util.concurrent.CompletableFuture.allOf;
 
 import java.util.Collection;
@@ -25,8 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.TrackerClosedException;
 
 /**
  * Handler for the {@link RaftGroupListener#onSnapshotSave} event.
@@ -34,20 +31,18 @@ import org.apache.ignite.internal.util.TrackerClosedException;
 public class OnSnapshotSaveHandler {
     private final TxStatePartitionStorage txStatePartitionStorage;
 
-    private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
-
-    public OnSnapshotSaveHandler(
-            TxStatePartitionStorage txStatePartitionStorage,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
-    ) {
+    public OnSnapshotSaveHandler(TxStatePartitionStorage txStatePartitionStorage) {
         this.txStatePartitionStorage = txStatePartitionStorage;
-        this.storageIndexTracker = storageIndexTracker;
     }
 
     /**
      * Called when {@link RaftGroupListener#onSnapshotSave} is triggered.
      */
-    public CompletableFuture<Void> onSnapshotSave(Collection<RaftTableProcessor> tableProcessors) {
+    public CompletableFuture<Void> onSnapshotSave(
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            Collection<RaftTableProcessor> tableProcessors
+    ) {
         // The max index here is required for local recovery and a possible scenario
         // of false node failure when we actually have all required data. This might happen because we use the minimal index
         // among storages on a node restart.
@@ -60,26 +55,9 @@ public class OnSnapshotSaveHandler {
         //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
         //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
         //      5) Node cannot finish local recovery.
+        tableProcessors.forEach(processor -> processor.lastApplied(lastAppliedIndex, lastAppliedTerm));
 
-        long maxPartitionLastAppliedIndex = tableProcessors.stream()
-                .mapToLong(RaftTableProcessor::lastAppliedIndex)
-                .max()
-                .orElse(0);
-
-        long maxPartitionLastAppliedTerm = tableProcessors.stream()
-                .mapToLong(RaftTableProcessor::lastAppliedTerm)
-                .max()
-                .orElse(0);
-
-        long maxLastAppliedIndex = max(maxPartitionLastAppliedIndex, txStatePartitionStorage.lastAppliedIndex());
-
-        long maxLastAppliedTerm = max(maxPartitionLastAppliedTerm, txStatePartitionStorage.lastAppliedTerm());
-
-        tableProcessors.forEach(processor -> processor.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm));
-
-        txStatePartitionStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
-
-        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
+        txStatePartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
         Stream<CompletableFuture<?>> flushFutures = Stream.concat(
                 tableProcessors.stream().map(RaftTableProcessor::flushStorage),
@@ -87,16 +65,5 @@ public class OnSnapshotSaveHandler {
         );
 
         return allOf(flushFutures.toArray(CompletableFuture[]::new));
-    }
-
-    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
-            PendingComparableValuesTracker<T, Void> tracker,
-            T newValue
-    ) {
-        try {
-            tracker.update(newValue, null);
-        } catch (TrackerClosedException ignored) {
-            // No-op.
-        }
     }
 }

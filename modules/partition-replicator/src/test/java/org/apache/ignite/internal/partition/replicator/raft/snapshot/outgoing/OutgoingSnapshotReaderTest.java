@@ -71,7 +71,8 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
 
         when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
         when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
-        when(partitionAccess2.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
+
+        when(txStateAccess.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
 
         doAnswer(invocation -> {
             OutgoingSnapshot snapshot = invocation.getArgument(1);
@@ -105,12 +106,12 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
 
         when(txStateAccess.lastAppliedTerm()).thenReturn(1L);
         lenient().when(partitionAccess1.lastAppliedTerm()).thenReturn(2L);
-        when(partitionAccess2.lastAppliedTerm()).thenReturn(3L);
+        lenient().when(partitionAccess2.lastAppliedTerm()).thenReturn(3L);
 
         try (var reader = new OutgoingSnapshotReader(snapshotStorage)) {
             SnapshotMeta meta = reader.load();
             assertEquals(10L, meta.lastIncludedIndex());
-            assertEquals(3L, meta.lastIncludedTerm());
+            assertEquals(1L, meta.lastIncludedTerm());
         }
     }
 }

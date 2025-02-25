@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
-import static java.lang.Math.max;
 import static java.util.Comparator.comparingInt;
 import static java.util.Comparator.comparingLong;
 import static java.util.stream.Collectors.toList;
@@ -62,6 +61,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMetaMessage;
@@ -201,32 +201,50 @@ public class OutgoingSnapshot {
     }
 
     private PartitionSnapshotMeta takeSnapshotMeta(int catalogVersion, Collection<PartitionMvStorageAccess> partitionStorages) {
-        // TODO: partitionsByTableId will be empty for zones without tables, need another way to get meta in that case,
-        //  see https://issues.apache.org/jira/browse/IGNITE-24517
-        PartitionMvStorageAccess partitionStorageWithMaxAppliedIndex = partitionStorages.stream()
-                .max(comparingLong(PartitionMvStorageAccess::lastAppliedIndex))
-                .orElseThrow();
-
-        RaftGroupConfiguration config = partitionStorageWithMaxAppliedIndex.committedGroupConfiguration();
-
-        assert config != null : "Configuration should never be null when installing a snapshot";
-
         Map<Integer, UUID> nextRowIdToBuildByIndexId = collectNextRowIdToBuildIndexes(
                 catalogService,
                 partitionStorages,
                 catalogVersion
         );
 
-        return snapshotMetaAt(
-                max(partitionStorageWithMaxAppliedIndex.lastAppliedIndex(), txState.lastAppliedIndex()),
-                max(partitionStorageWithMaxAppliedIndex.lastAppliedTerm(), txState.lastAppliedTerm()),
-                config,
-                catalogVersion,
-                nextRowIdToBuildByIndexId,
-                partitionStorageWithMaxAppliedIndex.leaseStartTime(),
-                partitionStorageWithMaxAppliedIndex.primaryReplicaNodeId(),
-                partitionStorageWithMaxAppliedIndex.primaryReplicaNodeName()
-        );
+        PartitionMvStorageAccess partitionStorageWithMaxAppliedIndex = partitionStorages.stream()
+                .max(comparingLong(PartitionMvStorageAccess::lastAppliedIndex))
+                .orElse(null);
+
+        if (partitionStorageWithMaxAppliedIndex == null
+                || txState.lastAppliedIndex() > partitionStorageWithMaxAppliedIndex.lastAppliedIndex()) {
+            RaftGroupConfiguration config = txState.committedGroupConfiguration();
+
+            assert config != null : "Configuration should never be null when installing a snapshot";
+
+            LeaseInfo leaseInfo = txState.leaseInfo();
+
+            return snapshotMetaAt(
+                    txState.lastAppliedIndex(),
+                    txState.lastAppliedTerm(),
+                    config,
+                    catalogVersion,
+                    nextRowIdToBuildByIndexId,
+                    leaseInfo == null ? 0 : leaseInfo.leaseStartTime(),
+                    leaseInfo == null ? null : leaseInfo.primaryReplicaNodeId(),
+                    leaseInfo == null ? null : leaseInfo.primaryReplicaNodeName()
+            );
+        } else {
+            RaftGroupConfiguration config = partitionStorageWithMaxAppliedIndex.committedGroupConfiguration();
+
+            assert config != null : "Configuration should never be null when installing a snapshot";
+
+            return snapshotMetaAt(
+                    partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
+                    partitionStorageWithMaxAppliedIndex.lastAppliedTerm(),
+                    config,
+                    catalogVersion,
+                    nextRowIdToBuildByIndexId,
+                    partitionStorageWithMaxAppliedIndex.leaseStartTime(),
+                    partitionStorageWithMaxAppliedIndex.primaryReplicaNodeId(),
+                    partitionStorageWithMaxAppliedIndex.primaryReplicaNodeName()
+            );
+        }
     }
 
     private List<PartitionMvStorageAccess> freezePartitionStorages(int catalogVersion) {
