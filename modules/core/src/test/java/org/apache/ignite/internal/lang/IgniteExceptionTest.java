@@ -208,7 +208,7 @@ public class IgniteExceptionTest {
         assertEquals(INTERNAL_ERR, ex.code());
 
         assertEquals(-1, ex.errorCode());
-        assertEquals("IGN-CMN--1", ex.codeAsString());
+        assertEquals("IGN-CMN-65535", ex.codeAsString());
 
         assertEquals(1, ex.groupCode());
         assertEquals("CMN", ex.groupName());

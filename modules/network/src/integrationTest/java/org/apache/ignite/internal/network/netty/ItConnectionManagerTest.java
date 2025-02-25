@@ -311,7 +311,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                 "Attempted to start an already started connection manager"
         );
 
-        assertEquals("IGN-CMN--1", exception.codeAsString());
+        assertEquals("IGN-CMN-65535", exception.codeAsString());
     }
 
     @Test

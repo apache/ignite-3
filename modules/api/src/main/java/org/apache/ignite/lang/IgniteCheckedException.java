@@ -189,7 +189,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      * @return Full error code in a human-readable format.
      */
     public String codeAsString() {
-        return errorPrefix + "-" + groupName() + '-' + errorCode();
+        return errorPrefix + "-" + groupName() + '-' + Short.toUnsignedInt(errorCode());
     }
 
     /**
