@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readP
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.CP_BUF_FILL_THRESHOLD;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -2183,7 +2184,18 @@ public class PersistentPageMemory implements PageMemory {
      * Checks if the Checkpoint Buffer is currently close to exhaustion.
      */
     public boolean isCpBufferOverflowThresholdExceeded() {
-        return writeThrottle != null && writeThrottle.isCpBufferOverflowThresholdExceeded();
+        if (writeThrottle != null) {
+            return writeThrottle.isCpBufferOverflowThresholdExceeded();
+        }
+
+        assert started;
+
+        PagePool checkpointPool = this.checkpointPool;
+
+        //noinspection NumericCastThatLosesPrecision
+        int checkpointBufLimit = (int) (checkpointPool.pages() * CP_BUF_FILL_THRESHOLD);
+
+        return checkpointPool.size() > checkpointBufLimit;
     }
 
     /** Returns {@code true} if a page replacement has occurred at least once. */
