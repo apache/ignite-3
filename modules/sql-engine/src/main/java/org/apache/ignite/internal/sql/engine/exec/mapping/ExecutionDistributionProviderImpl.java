@@ -38,9 +38,11 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.util.CompletableFutures;
 
 /** Execution nodes information provider. */
 public class ExecutionDistributionProviderImpl implements ExecutionDistributionProvider {
@@ -73,6 +75,19 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         return collectAssignments(table, operationTime, includeBackups);
     }
 
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> forZone(
+            HybridTimestamp operationTime,
+            IgniteTable table,
+            boolean includeBackups
+    ) {
+        int zoneId = table.zoneId();
+
+        int partitions = table.partitions();
+
+        return collectAssignmentsForZone(zoneId, partitions, operationTime, includeBackups);
+    }
+
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
     private CompletableFuture<List<TokenizedAssignments>> collectAssignments(
@@ -81,7 +96,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         int partitions = table.partitions();
 
         if (includeBackups) {
-            List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
+            List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
 
             for (int p = 0; p < partitions; p++) {
                 replicationGroupIds.add(new TablePartitionId(table.id(), p));
@@ -107,6 +122,38 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
                 .map(CompletableFuture::join)
                 .collect(Collectors.toList())
         );
+    }
+
+    // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
+    /** Get primary replicas for zone. */
+    private CompletableFuture<List<TokenizedAssignments>> collectAssignmentsForZone(
+            int zoneId,
+            int partitions,
+            HybridTimestamp operationTime,
+            boolean includeBackups
+    ) {
+        if (includeBackups) {
+            List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
+
+            for (int partitionId = 0; partitionId < partitions; partitionId++) {
+                replicationGroupIds.add(new ZonePartitionId(zoneId, partitionId));
+            }
+
+            return allReplicas(replicationGroupIds, operationTime);
+        }
+
+        List<CompletableFuture<TokenizedAssignments>> result = new ArrayList<>(partitions);
+
+        // No need to wait all partitions after pruning was implemented.
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            ReplicationGroupId replicationGroupId = new ZonePartitionId(zoneId, partitionId);
+
+            CompletableFuture<TokenizedAssignments> partitionAssignment = primaryReplica(replicationGroupId, operationTime);
+
+            result.add(partitionAssignment);
+        }
+
+        return CompletableFutures.allOfToList(result.toArray(new CompletableFuture[0]));
     }
 
     private CompletableFuture<TokenizedAssignments> primaryReplica(
@@ -137,7 +184,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
     }
 
     private CompletableFuture<List<TokenizedAssignments>> allReplicas(
-            List<TablePartitionId> replicationGroupIds,
+            List<ReplicationGroupId> replicationGroupIds,
             HybridTimestamp operationTime
     ) {
         return placementDriver.getAssignments(

@@ -27,6 +27,9 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
  * Table representation as object in SQL schema.
  */
 public interface IgniteTable extends IgniteDataSource {
+    /** Distribution zone id. */
+    int zoneId();
+
     /**
      * Checks whether it is possible to update a column with a given index.
      *
