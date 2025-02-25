@@ -223,7 +223,7 @@ class IndexBuilder implements ManuallyCloseable {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    // TODO TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
     public void stopBuildingTableIndexes(int tableId, int partitionId) {
         stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
     }

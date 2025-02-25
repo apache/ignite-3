@@ -59,6 +59,7 @@ import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutExce
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -103,6 +104,8 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+    // It makes sense to change ReplicationGroupId to ZonePartitionId.
     private final Set<ReplicationGroupId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
@@ -175,7 +178,9 @@ class IndexBuildController implements ManuallyCloseable {
                 int partitionId;
                 boolean needToProcessPartition;
 
-                if (enabledColocation) {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+                // Remove TablePartitionId check.
+                if (primaryReplicationGroupId instanceof ZonePartitionId) {
                     ZonePartitionId zoneReplicaId = (ZonePartitionId) primaryReplicationGroupId;
                     zoneId = zoneReplicaId.zoneId();
                     partitionId = zoneReplicaId.partitionId();
@@ -225,11 +230,10 @@ class IndexBuildController implements ManuallyCloseable {
     private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                // This assert is added for testing purposes, at least for now.
-                assert (enabledColocation() && parameters.groupId() instanceof ZonePartitionId)
-                        || (!enabledColocation() && parameters.groupId() instanceof TablePartitionId) :
-                        "Primary replica ID must be of type ZonePartitionId if colocation is enabled, "
-                                + "otherwise it must be of type TablePartitionId";
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+                // Need to remove TablePartitionId check here and below.
+                assert parameters.groupId() instanceof ZonePartitionId || parameters.groupId() instanceof TablePartitionId :
+                        "Primary replica ID must be of type ZonePartitionId or TablePartitionId";
 
                 primaryReplicaIds.add(parameters.groupId());
 
@@ -237,7 +241,9 @@ class IndexBuildController implements ManuallyCloseable {
                 // metastore thread.
                 Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-                if (enabledColocation()) {
+                if (parameters.groupId() instanceof ZonePartitionId) {
+                    assert enabledColocation() : "Primary replica ID must be of type ZonePartitionId";
+
                     ZonePartitionId primaryReplicaId = (ZonePartitionId) parameters.groupId();
 
                     CatalogZoneDescriptor zoneDescriptor = catalog.zone(primaryReplicaId.zoneId());
@@ -321,9 +327,7 @@ class IndexBuildController implements ManuallyCloseable {
                     scheduleBuildIndex(
                             tableDescriptor.zoneId(),
                             tableDescriptor.id(),
-                            enabledColocation()
-                                    ? ((ZonePartitionId) primaryReplicaId).partitionId()
-                                    : ((TablePartitionId) primaryReplicaId).partitionId(),
+                            ((PartitionGroupId) primaryReplicaId).partitionId(),
                             indexDescriptor,
                             mvTableStorage,
                             enlistmentConsistencyToken(replicaMeta));
@@ -331,9 +335,7 @@ class IndexBuildController implements ManuallyCloseable {
                     scheduleBuildIndexAfterDisasterRecovery(
                             tableDescriptor.zoneId(),
                             tableDescriptor.id(),
-                            enabledColocation()
-                                    ? ((ZonePartitionId) primaryReplicaId).partitionId()
-                                    : ((TablePartitionId) primaryReplicaId).partitionId(),
+                            ((PartitionGroupId) primaryReplicaId).partitionId(),
                             indexDescriptor,
                             mvTableStorage,
                             enlistmentConsistencyToken(replicaMeta)
@@ -352,7 +354,9 @@ class IndexBuildController implements ManuallyCloseable {
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
     ) {
-        assert enabledColocation()
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+        // Remove TablePartitionId check.
+        assert primaryReplicaId instanceof ZonePartitionId
                 ? ((ZonePartitionId) primaryReplicaId).zoneId() == zoneId
                         && ((ZonePartitionId) primaryReplicaId).partitionId() == partitionId
                 : ((TablePartitionId) primaryReplicaId).tableId() == tableId
@@ -383,7 +387,10 @@ class IndexBuildController implements ManuallyCloseable {
     private void stopBuildingIndexesIfPrimaryExpired(ReplicationGroupId replicaId) {
         if (primaryReplicaIds.remove(replicaId)) {
             // Primary replica is no longer current, we need to stop building indexes for it.
-            if (enabledColocation()) {
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+            // Remove TablePartitionId check.
+            if (replicaId instanceof ZonePartitionId) {
                 ZonePartitionId zoneId = (ZonePartitionId) replicaId;
                 indexBuilder.stopBuildingZoneIndexes(zoneId.zoneId(), zoneId.partitionId());
             } else {
