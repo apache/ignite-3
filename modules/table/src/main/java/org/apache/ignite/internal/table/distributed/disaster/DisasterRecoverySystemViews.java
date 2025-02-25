@@ -51,7 +51,13 @@ class DisasterRecoverySystemViews {
                 .addColumn("SCHEMA_NAME", STRING, state -> state.schemaName)
                 .addColumn("TABLE_NAME", STRING, state -> state.tableName)
                 .addColumn("PARTITION_ID", INT32, state -> state.partitionId)
+                .addColumn("PARTITION_STATE", STRING, state -> state.state.name())
+                .addColumn("ZONE_ID", INT32, state -> state.zoneId)
+                .addColumn("SCHEMA_ID", INT32, state -> state.schemaId)
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("STATE", STRING, state -> state.state.name())
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(systemViewPublisher(() -> globalPartitionStatesAsync(manager)))
                 .build();
     }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.systemviews;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -65,9 +66,14 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
     public void testMetadata() {
         assertQuery("SELECT * FROM SYSTEM.LOCKS")
                 .columnMetadata(
-                        new MetadataMatcher().name("OWNING_NODE_ID").type(ColumnType.STRING).nullable(false),
+                        new MetadataMatcher().name("OWNING_NODE_ID").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
+                                .nullable(false),
+                        new MetadataMatcher().name("TRANSACTION_ID").type(ColumnType.STRING).precision(36).nullable(true),
+                        new MetadataMatcher().name("OBJECT_ID").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("LOCK_MODE").type(ColumnType.STRING).precision(2).nullable(true),
+
+                        // Legacy columns.
                         new MetadataMatcher().name("TX_ID").type(ColumnType.STRING).nullable(true),
-                        new MetadataMatcher().name("OBJECT_ID").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("MODE").type(ColumnType.STRING).nullable(true)
                 )
                 // RO tx doesn't take locks.

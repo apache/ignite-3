@@ -41,45 +41,25 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
     public void tablesViewMetadataTest() {
         assertQuery("SELECT * FROM SYSTEM.TABLES")
                 .columnMetadata(
-                        new MetadataMatcher()
-                                .name("SCHEMA")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
+                        new MetadataMatcher().name("SCHEMA_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("TABLE_NAME").precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("TABLE_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("TABLE_PK_INDEX_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("ZONE_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("STORAGE_PROFILE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("NAME")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
+                        new MetadataMatcher().name("TABLE_COLOCATION_COLUMNS").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true),
+                        new MetadataMatcher().name("SCHEMA_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("ZONE_ID").type(ColumnType.INT32).nullable(true),
 
-                        new MetadataMatcher()
-                                .name("ID")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("PK_INDEX_ID")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("ZONE")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("STORAGE_PROFILE")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("COLOCATION_KEY_INDEX")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true)
+                        // Legacy column.
+                        new MetadataMatcher().name("SCHEMA").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("PK_INDEX_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("COLOCATION_KEY_INDEX").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH),
+                        new MetadataMatcher().name("ZONE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true)
                 )
                 .check();
     }
@@ -103,60 +83,25 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
     public void tableColumnsViewMetadataTest() {
         assertQuery("SELECT * FROM SYSTEM.TABLE_COLUMNS")
                 .columnMetadata(
-                        new MetadataMatcher()
-                                .name("SCHEMA")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true),
+                        new MetadataMatcher().name("SCHEMA_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("TABLE_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("TABLE_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("COLUMN_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("COLUMN_TYPE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("IS_NULLABLE_COLUMN").type(ColumnType.BOOLEAN).precision(1).nullable(true),
+                        new MetadataMatcher().name("COLUMN_PRECISION").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("COLUMN_SCALE").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("COLUMN_LENGTH").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("COLUMN_ORDINAL").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCHEMA_ID").type(ColumnType.INT32).nullable(true),
 
-                        new MetadataMatcher()
-                                .name("TABLE_NAME")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("TABLE_ID")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("COLUMN_NAME")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("TYPE")
-                                .type(ColumnType.STRING)
-                                .precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("NULLABLE")
-                                .type(ColumnType.BOOLEAN)
-                                .precision(1)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("PREC")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("SCALE")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("LENGTH")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("COLUMN_ORDINAL")
-                                .type(ColumnType.INT32)
-                                .nullable(true)
+                        // Legacy columns.
+                        new MetadataMatcher().name("SCHEMA").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("TYPE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("NULLABLE").type(ColumnType.BOOLEAN).precision(1).nullable(true),
+                        new MetadataMatcher().name("PREC").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCALE").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("LENGTH").type(ColumnType.INT32).nullable(true)
                 )
                 .check();
     }

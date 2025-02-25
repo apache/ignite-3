@@ -77,26 +77,36 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
     }
 
     @Test
-    public void singleStatement() {
-        String query = "SELECT * FROM SQL_QUERIES ORDER BY START_TIME";
-
-        // Verify metadata.
-        assertQuery(query)
-                .withDefaultSchema("SYSTEM")
+    public void testMetadata() {
+        assertQuery("SELECT * FROM SYSTEM.SQL_QUERIES")
                 .columnMetadata(
                         new MetadataMatcher().name("INITIATOR_NODE").type(ColumnType.STRING).nullable(false),
+                        new MetadataMatcher().name("QUERY_ID").type(ColumnType.STRING).precision(36).nullable(true),
+                        new MetadataMatcher().name("QUERY_PHASE").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("QUERY_TYPE").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("QUERY_DEFAULT_SCHEMA").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("SQL").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("QUERY_START_TIME").type(ColumnType.TIMESTAMP).nullable(true),
+                        new MetadataMatcher().name("TRANSACTION_ID").type(ColumnType.STRING).precision(36).nullable(true),
+                        new MetadataMatcher().name("PARENT_QUERY_ID").type(ColumnType.STRING).precision(36).nullable(true),
+                        new MetadataMatcher().name("QUERY_STATEMENT_ORDINAL").type(ColumnType.INT32).nullable(true),
+
+                        // Legacy columns.
                         new MetadataMatcher().name("ID").type(ColumnType.STRING).precision(36).nullable(true),
                         new MetadataMatcher().name("PHASE").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("TYPE").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("SCHEMA").type(ColumnType.STRING).nullable(true),
-                        new MetadataMatcher().name("SQL").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("START_TIME").type(ColumnType.TIMESTAMP).nullable(true),
-                        new MetadataMatcher().name("TRANSACTION_ID").type(ColumnType.STRING).precision(36).nullable(true),
                         new MetadataMatcher().name("PARENT_ID").type(ColumnType.STRING).precision(36).nullable(true),
                         new MetadataMatcher().name("STATEMENT_NUM").type(ColumnType.INT32).nullable(true)
                 )
                 .returnRowCount(1)
                 .check();
+    }
+
+    @Test
+    public void singleStatement() {
+        String query = "SELECT * FROM SQL_QUERIES ORDER BY START_TIME";
 
         Ignite initiator = CLUSTER.aliveNode();
 

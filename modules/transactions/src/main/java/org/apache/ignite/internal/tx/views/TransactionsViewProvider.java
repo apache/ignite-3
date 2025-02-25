@@ -72,11 +72,19 @@ public class TransactionsViewProvider {
         return SystemViews.<TxInfo>nodeViewBuilder()
                 .name("TRANSACTIONS")
                 .nodeNameColumnAlias("COORDINATOR_NODE_ID")
+                .<String>addColumn("TRANSACTION_STATE", stringType, tx -> tx.state)
+                .<String>addColumn("TRANSACTION_ID", stringType, tx -> tx.id)
+                .<Instant>addColumn("TRANSACTION_START_TIME", timestampType, tx -> tx.startTime)
+                .<String>addColumn("TRANSACTION_TYPE", stringType, tx -> tx.type)
+                .<String>addColumn("TRANSACTION_PRIORITY", stringType, tx -> tx.priority)
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .<String>addColumn("STATE", stringType, tx -> tx.state)
                 .<String>addColumn("ID", stringType, tx -> tx.id)
                 .<Instant>addColumn("START_TIME", timestampType, tx -> tx.startTime)
                 .<String>addColumn("TYPE", stringType, tx -> tx.type)
                 .<String>addColumn("PRIORITY", stringType, tx -> tx.priority)
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(dataProvider)
                 .build();
     }

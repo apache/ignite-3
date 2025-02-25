@@ -934,8 +934,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         states.computeIfAbsent(tablePartitionId, key ->
                 new GlobalPartitionState(
+                        zoneDescriptor.id(),
                         zoneDescriptor.name(),
-                        schemaDescriptor.name(),
+                        schemaDescriptor.id(), schemaDescriptor.name(),
                         key.tableId(),
                         catalog.table(key.tableId()).name(),
                         key.partitionId(),
@@ -977,7 +978,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         LocalPartitionState anyLocalState = map.values().iterator().next();
         return new GlobalPartitionState(
+                zoneDescriptor.id(),
                 zoneDescriptor.name(),
+                schemaDescriptor.id(),
                 schemaDescriptor.name(),
                 anyLocalState.tableId,
                 anyLocalState.tableName,
