@@ -579,6 +579,16 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public void close() {
+        StorageState currentState = state.get();
+
+        if (currentState == StorageState.CLOSED) {
+            return;
+        }
+
+        if (currentState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(currentState, createStorageInfo());
+        }
+
         if (!transitionToTerminalState(StorageState.CLOSED)) {
             return;
         }
