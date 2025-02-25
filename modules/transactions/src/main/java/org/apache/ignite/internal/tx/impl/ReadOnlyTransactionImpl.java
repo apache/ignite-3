@@ -152,6 +152,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         return txFuture;
     }
 
+
     @Override
     public boolean isFinishingOrFinished() {
         return finishGuard.get();
