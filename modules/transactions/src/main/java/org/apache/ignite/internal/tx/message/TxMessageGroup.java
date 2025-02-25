@@ -22,8 +22,11 @@ import org.apache.ignite.internal.network.annotations.MessageGroup;
 /**
  * Message types for transactions.
  */
-@MessageGroup(groupType = 5, groupName = "TxMessages")
+@MessageGroup(groupType = TxMessageGroup.GROUP_TYPE, groupName = "TxMessages")
 public class TxMessageGroup {
+    /** Transaction messages group type. */
+    public static final short GROUP_TYPE = 5;
+
     /**
      * Message type for {@link TxFinishReplicaRequest}.
      */

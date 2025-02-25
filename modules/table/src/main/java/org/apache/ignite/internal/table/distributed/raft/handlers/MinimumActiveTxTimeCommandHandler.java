@@ -18,16 +18,19 @@
 package org.apache.ignite.internal.table.distributed.raft.handlers;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * RAFT command handler that process {@link UpdateMinimumActiveTxBeginTimeCommand} commands.
  */
-public class MinimumActiveTxTimeCommandHandler {
+public class MinimumActiveTxTimeCommandHandler extends AbstractCommandHandler<UpdateMinimumActiveTxBeginTimeCommand> {
     /** Data storage to which the command will be applied. */
     private final PartitionDataStorage storage;
 
@@ -58,14 +61,13 @@ public class MinimumActiveTxTimeCommandHandler {
         this.minTimeCollectorService = minTimeCollectorService;
     }
 
-    /**
-     * Handles {@link UpdateMinimumActiveTxBeginTimeCommand} command.
-     *
-     * @param command Command to be processed.
-     * @param commandIndex Command index.
-     * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
-     */
-    public IgniteBiTuple<Serializable, Boolean> handle(UpdateMinimumActiveTxBeginTimeCommand command, long commandIndex) {
+    @Override
+    protected IgniteBiTuple<Serializable, Boolean> handleInternally(
+            UpdateMinimumActiveTxBeginTimeCommand command,
+            long commandIndex,
+            long commandTerm,
+            @Nullable HybridTimestamp safeTimestamp
+    ) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return new IgniteBiTuple<>(null, false);
