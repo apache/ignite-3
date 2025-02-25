@@ -19,27 +19,21 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A catalog snapshot entry.
  */
-public class SnapshotEntry implements UpdateLogEvent {
-    public static final CatalogObjectSerializer<SnapshotEntry> SERIALIZER = new SnapshotEntrySerializer();
-
+public class SnapshotEntry implements MarshallableEntry {
     private final int version;
     private final long activationTime;
     private final int objectIdGenState;
@@ -60,7 +54,7 @@ public class SnapshotEntry implements UpdateLogEvent {
     /**
      * Constructs the object.
      */
-    private SnapshotEntry(
+    SnapshotEntry(
             int version,
             long activationTime,
             int objectIdGenState,
@@ -81,6 +75,26 @@ public class SnapshotEntry implements UpdateLogEvent {
      */
     public int version() {
         return version;
+    }
+
+    public long activationTime() {
+        return activationTime;
+    }
+
+    public int objectIdGenState() {
+        return objectIdGenState;
+    }
+
+    public CatalogZoneDescriptor[] zones() {
+        return zones;
+    }
+
+    public CatalogSchemaDescriptor[] schemas() {
+        return schemas;
+    }
+
+    public @Nullable Integer defaultZoneId() {
+        return defaultZoneId;
     }
 
     /**
@@ -124,43 +138,5 @@ public class SnapshotEntry implements UpdateLogEvent {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /** Serializer for {@link SnapshotEntry}. */
-    private static class SnapshotEntrySerializer implements CatalogObjectSerializer<SnapshotEntry> {
-        @Override
-        public SnapshotEntry readFrom(IgniteDataInput input) throws IOException {
-            int catalogVersion = input.readVarIntAsInt();
-            long activationTime = input.readLong();
-            int objectIdGenState = input.readVarIntAsInt();
-
-            CatalogZoneDescriptor[] zones =
-                    CatalogSerializationUtils.readArray(CatalogZoneDescriptor.SERIALIZER, input, CatalogZoneDescriptor.class);
-
-            CatalogSchemaDescriptor[] schemas =
-                    CatalogSerializationUtils.readArray(CatalogSchemaDescriptor.SERIALIZER, input, CatalogSchemaDescriptor.class);
-
-            Integer defaultZoneId = null;
-            if (input.readBoolean()) {
-                defaultZoneId = input.readVarIntAsInt();
-            }
-
-            return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas, defaultZoneId);
-        }
-
-        @Override
-        public void writeTo(SnapshotEntry entry, IgniteDataOutput output) throws IOException {
-            output.writeVarInt(entry.version);
-            output.writeLong(entry.activationTime);
-            output.writeVarInt(entry.objectIdGenState);
-
-            CatalogSerializationUtils.writeArray(entry.zones, CatalogZoneDescriptor.SERIALIZER, output);
-            CatalogSerializationUtils.writeArray(entry.schemas, CatalogSchemaDescriptor.SERIALIZER, output);
-
-            output.writeBoolean(entry.defaultZoneId != null);
-            if (entry.defaultZoneId != null) {
-                output.writeVarInt(entry.defaultZoneId);
-            }
-        }
     }
 }

@@ -81,8 +81,72 @@ version stored by `catalog.version` key, and apply those updates entries once ag
 
 #### Update log entries serialization
 
-Update log entries are serialized by custom marshallers (see 
+Update log entry contains an hierarchical structure of objects.
+
+For example, `NewSchemaEntry` contains `CatalogSchemaDescriptor` which
+contains `CatalogTableDescriptor` which contains
+`CatalogTableColumnDescriptor` and so on.
+
+<details>
+  <summary>NewSchemaEntry hierarchy example</summary>
+
+* NewSchemaEntry
+  * CatalogSchemaDescriptor
+    * CatalogTableDescriptor[]
+      * CatalogTableSchemaVersions
+        * CatalogTableColumnDescriptor
+      * CatalogTableColumnDescriptor\[\]
+      *  ...
+  * ...
+  * CatalogIndexDescriptor\[\]
+</details>
+
+To simplify versioning of catalog objects, each serializable catalog object must implement  
+[MarshallableEntry](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/MarshallableEntry.java)
+which allows the serializer to understand what type is being (de)serialized.
+
+For each serializable object, there must be an external serializer that implements the 
+[CatalogObjectSerializer](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogObjectSerializer.java)
+interface and is marked with the 
+[CatalogSerializer](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogSerializer.java) annotation.
+This annotation specifies the serializer version and the object type, and this information is used to dynamically
+build a registry of all existing serializers
+[CatalogEntrySerializerProvider](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogEntrySerializerProvider.java)
+
+When serializing an object, a header is written for it consisting of the  object type (2 bytes) and the serializer version (1-3 bytes).
+
 [UpdateLogMarshaller](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/UpdateLogMarshaller.java)
-and [MarshallableEntry](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/MarshallableEntry.java)
-for details). At the moment, backward compatibility is preserved by increasing the version of the protocol,
-but more sophisticated approach may be introduced later.
+is the entry point for catalog object serialization.
+
+Overall serialization format looks as follow
+
+| Field description                   | type   |
+|-------------------------------------|--------|
+| PROTOCOL VERSION<sup>[1]</sup>      | short  | 
+| Object type                         | short  |
+| Object serialization format version | varint |
+| Object payload                      | ...    |
+
+<sup>[1]</sup> The current description corresponds to protocol version 2.
+
+##### Serialization versioning rules
+
+-   The serializer version is incremented by 1.
+
+-   Each serializer must be annotated with
+    `@CatalogSerializer(type=N, version=N, since="X.X.X")`. This
+    annotation will is used to build registry of all serializers. The
+    version in `since` field is used to understand which
+    serializers are already in use in the "released version" and whose
+    data format should not change. For example, all currently existing
+    catalog serializers is marked as `since 3.0.0`.
+
+##### Limitations of current serialization protocol
+
+-   Serialization protocol doesn’t support forward compatibility
+
+-   For consistency, each array/collection object is written with a
+    header (type + serializer version), even if all elements have the
+    same type (for example `CatalogSchemaDescriptor`.`indexes` has
+    elements for which different serializers with different versions
+    must be used).

@@ -53,8 +53,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -169,12 +172,76 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 break;
 
             case NEW_SCHEMA:
-                checkSerialization(new NewSchemaEntry(new CatalogSchemaDescriptor(
-                        0, "S", new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0], 0)));
+                checkSerialization(new NewSchemaEntry(newSchemaDescriptor("PUBLIC")));
                 break;
 
             case DROP_SCHEMA:
                 checkSerialization(new DropSchemaEntry(1));
+                break;
+
+            case DESCRIPTOR_HASH_INDEX:
+                checkSerialization(newHashIndexDescriptor("foo"));
+                break;
+
+            case DESCRIPTOR_SORTED_INDEX:
+                checkSerialization(newSortedIndexDescriptor("foo"));
+                break;
+
+            case DESCRIPTOR_INDEX_COLUMN:
+                checkSerialization(new CatalogIndexColumnDescriptor("C1", CatalogColumnCollation.ASC_NULLS_FIRST));
+                break;
+
+            case DESCRIPTOR_SCHEMA:
+                checkSerialization(newSchemaDescriptor("my_schema1"));
+                break;
+
+            case DESCRIPTOR_STORAGE_PROFILE:
+                checkSerialization(new CatalogStorageProfileDescriptor("profile1"));
+                break;
+
+            case DESCRIPTOR_STORAGE_PROFILES:
+                checkSerialization(new CatalogStorageProfilesDescriptor(List.of(
+                        new CatalogStorageProfileDescriptor("profile1"),
+                        new CatalogStorageProfileDescriptor("profile2")
+                )));
+                break;
+
+            case DESCRIPTOR_SYSTEM_VIEW:
+                CatalogTableColumnDescriptor column = newCatalogTableColumnDescriptor("column", null);
+                CatalogSystemViewDescriptor view = new CatalogSystemViewDescriptor(1, 2, "sys_view", List.of(column), SystemViewType.NODE);
+
+                checkSerialization(view);
+                break;
+
+            case DESCRIPTOR_TABLE:
+                checkSerialization(newTableDescriptor("some_table", List.of(newCatalogTableColumnDescriptor("c1", null))));
+                break;
+
+            case DESCRIPTOR_TABLE_COLUMN:
+                checkSerialization(newCatalogTableColumnDescriptor("c1", null));
+                break;
+
+            case DESCRIPTOR_TABLE_VERSION:
+                checkSerialization(new TableVersion(List.of(newCatalogTableColumnDescriptor("column", null))));
+                break;
+
+            case DESCRIPTOR_TABLE_SCHEMA_VERSIONS:
+                TableVersion ver1 = new TableVersion(List.of(
+                        newCatalogTableColumnDescriptor("column1", null)
+                ));
+
+                TableVersion ver2 = new TableVersion(List.of(
+                        newCatalogTableColumnDescriptor("column1", null),
+                        newCatalogTableColumnDescriptor("column2", null)
+                ));
+
+                checkSerialization(new CatalogTableSchemaVersions(ver1, ver2));
+                break;
+
+            case DESCRIPTOR_ZONE:
+                CatalogStorageProfilesDescriptor profiles =
+                        new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
+                checkSerialization(newCatalogZoneDescriptor("myZone", profiles));
                 break;
 
             default:
@@ -388,15 +455,19 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         BDDAssertions.assertThat(deserialized).usingRecursiveComparison().isEqualTo(entry);
     }
 
-    private VersionedUpdate serialize(VersionedUpdate update) {
+    private <T extends MarshallableEntry> T serialize(T update) {
         byte[] bytes = marshaller.marshall(update);
-        return (VersionedUpdate) marshaller.unmarshall(bytes);
+        return (T) marshaller.unmarshall(bytes);
     }
 
     private void checkSerialization(UpdateEntry ... entry) {
         VersionedUpdate update = newVersionedUpdate(entry);
 
         assertVersionedUpdate(update, serialize(update));
+    }
+
+    private void checkSerialization(MarshallableEntry entry) {
+        BDDAssertions.assertThat(entry).usingRecursiveComparison().isEqualTo(serialize(entry));
     }
 
     private static void assertVersionedUpdate(VersionedUpdate expected, VersionedUpdate update) {
@@ -481,5 +552,30 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 colCols,
                 "default"
         );
+    }
+
+
+    private CatalogSchemaDescriptor newSchemaDescriptor(String name) {
+        CatalogIndexDescriptor[] indexes = {
+                newSortedIndexDescriptor("idx11"),
+                newHashIndexDescriptor("idx21")
+        };
+
+        CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
+        CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
+
+        List<CatalogTableColumnDescriptor> columns = List.of(col1, col2);
+
+        CatalogTableDescriptor[] tables = {
+                newTableDescriptor("Table1", columns),
+                newTableDescriptor("Table2", columns)
+        };
+
+        CatalogSystemViewDescriptor[] views = {
+                new CatalogSystemViewDescriptor(1, 2, "view1", columns, SystemViewType.NODE),
+                new CatalogSystemViewDescriptor(1, 2, "view2", columns, SystemViewType.CLUSTER)
+        };
+
+        return new CatalogSchemaDescriptor(1, name, tables, indexes, views, 3);
     }
 }

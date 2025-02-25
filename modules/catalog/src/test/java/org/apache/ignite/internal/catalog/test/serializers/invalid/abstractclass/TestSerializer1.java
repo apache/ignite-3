@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage;
+package org.apache.ignite.internal.catalog.test.serializers.invalid.abstractclass;
 
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 
 /**
- * Update log event.
+ * A test serializer that cannot be instantiated.
  */
-public interface UpdateLogEvent extends MarshallableEntry {
+@CatalogSerializer(version = 1, type = MarshallableEntryType.ALTER_COLUMN, since = "3.0.0")
+public abstract class TestSerializer1 implements CatalogObjectSerializer<Object> {
 }

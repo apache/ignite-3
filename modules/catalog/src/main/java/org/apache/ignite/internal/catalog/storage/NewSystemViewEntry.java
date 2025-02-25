@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.storage;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
@@ -32,18 +31,13 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateSystemViewEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes addition of a new system view.
  */
 public class NewSystemViewEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<NewSystemViewEntry> SERIALIZER = new NewSystemViewEntrySerializer();
-
     private final CatalogSystemViewDescriptor descriptor;
 
     /**
@@ -53,6 +47,10 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
      */
     public NewSystemViewEntry(CatalogSystemViewDescriptor descriptor) {
         this.descriptor = descriptor;
+    }
+
+    public CatalogSystemViewDescriptor descriptor() {
+        return descriptor;
     }
 
     @Override
@@ -107,22 +105,5 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link NewSystemViewEntry}.
-     */
-    private static class NewSystemViewEntrySerializer implements CatalogObjectSerializer<NewSystemViewEntry> {
-        @Override
-        public NewSystemViewEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogSystemViewDescriptor descriptor = CatalogSystemViewDescriptor.SERIALIZER.readFrom(input);
-
-            return new NewSystemViewEntry(descriptor);
-        }
-
-        @Override
-        public void writeTo(NewSystemViewEntry entry, IgniteDataOutput output) throws IOException {
-            CatalogSystemViewDescriptor.SERIALIZER.writeTo(entry.descriptor, output);
-        }
     }
 }

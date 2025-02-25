@@ -50,8 +50,8 @@ import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
-import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -461,12 +461,16 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+        public CompletableFuture<Void> handle(MarshallableEntry event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             if (event instanceof SnapshotEntry) {
                 return handle((SnapshotEntry) event);
             }
 
-            return handle((VersionedUpdate) event, metaStorageUpdateTimestamp, causalityToken);
+            if (event instanceof VersionedUpdate) {
+                return handle((VersionedUpdate) event, metaStorageUpdateTimestamp, causalityToken);
+            }
+
+            throw new UnsupportedOperationException("Unexpected update log entry " + event.getClass().getCanonicalName());
         }
 
         private CompletableFuture<Void> handle(SnapshotEntry event) {

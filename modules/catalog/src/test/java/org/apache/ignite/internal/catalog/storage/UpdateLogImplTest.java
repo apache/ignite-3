@@ -42,7 +42,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
-import org.apache.ignite.internal.catalog.storage.VersionedUpdate.VersionedUpdateSerializer;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdateSerializers.VersionedUpdateSerializerV1;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
@@ -109,7 +109,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         restartMetastore();
 
-        var actualUpdates = new ArrayList<UpdateLogEvent>();
+        var actualUpdates = new ArrayList<MarshallableEntry>();
 
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
@@ -143,7 +143,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         restartMetastore();
 
-        var actualUpdates = new ArrayList<UpdateLogEvent>();
+        var actualUpdates = new ArrayList<MarshallableEntry>();
 
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
@@ -151,7 +151,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        List<UpdateLogEvent> expectedUpdates = List.of(
+        List<MarshallableEntry> expectedUpdates = List.of(
                 snapshotEntryOfVersion(2),
                 singleEntryUpdateOfVersion(3)
         );
@@ -415,7 +415,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
     private static class TestEntrySerializerProvider implements CatalogEntrySerializerProvider {
         @Override
-        public CatalogObjectSerializer<MarshallableEntry> get(int id) {
+        public CatalogObjectSerializer<MarshallableEntry> get(int version, int id) {
             CatalogObjectSerializer<? extends MarshallableEntry> serializer;
 
             if (id < 0) {
@@ -437,12 +437,17 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
                     }
                 };
             } else if (id == MarshallableEntryType.VERSIONED_UPDATE.id()) {
-                serializer = new VersionedUpdateSerializer(this);
+                serializer = new VersionedUpdateSerializerV1(this);
             } else {
-                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(id);
+                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(1, id);
             }
 
             return (CatalogObjectSerializer<MarshallableEntry>) serializer;
+        }
+
+        @Override
+        public int latestSerializerVersion(int typeId) {
+            throw new UnsupportedOperationException();
         }
     }
 }
