@@ -23,6 +23,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -72,6 +73,7 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
     /**
      * Serializer for {@link DropIndexEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DROP_INDEX, since = "3.0.0")
     private static class DropIndexEntrySerializer implements CatalogObjectSerializer<DropIndexEntry> {
         @Override
         public DropIndexEntry readFrom(IgniteDataInput input) throws IOException {

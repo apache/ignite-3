@@ -20,6 +20,9 @@ package org.apache.ignite.internal.catalog.descriptors;
 import java.io.IOException;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -27,7 +30,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 /**
  * Indexed column descriptor.
  */
-public class CatalogIndexColumnDescriptor {
+public class CatalogIndexColumnDescriptor implements MarshallableEntry {
     public static final CatalogObjectSerializer<CatalogIndexColumnDescriptor> SERIALIZER = new IndexColumnDescriptorSerializer();
 
     private final String name;
@@ -47,12 +50,18 @@ public class CatalogIndexColumnDescriptor {
         return collation;
     }
 
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_INDEX_COLUMN.id();
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
     }
 
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_INDEX_COLUMN, since = "3.0.0")
     private static class IndexColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexColumnDescriptor> {
         @Override
         public CatalogIndexColumnDescriptor readFrom(IgniteDataInput input) throws IOException {

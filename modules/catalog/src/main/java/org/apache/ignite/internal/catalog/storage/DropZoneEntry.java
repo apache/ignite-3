@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -88,6 +89,7 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link DropZoneEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DROP_ZONE, since = "3.0.0")
     private static class DropZoneEntrySerializer implements CatalogObjectSerializer<DropZoneEntry> {
         @Override
         public DropZoneEntry readFrom(IgniteDataInput input) throws IOException {

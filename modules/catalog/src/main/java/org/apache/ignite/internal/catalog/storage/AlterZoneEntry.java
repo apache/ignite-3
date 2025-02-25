@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -102,6 +103,7 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link AlterZoneEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.ALTER_ZONE, since = "3.0.0")
     private static class AlterZoneEntrySerializer implements CatalogObjectSerializer<AlterZoneEntry> {
         @Override
         public AlterZoneEntry readFrom(IgniteDataInput input) throws IOException {

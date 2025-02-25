@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -142,6 +144,7 @@ public class CatalogTableColumnDescriptor {
     /**
      * Serializer for {@link CatalogTableColumnDescriptor}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN, since = "3.0.0")
     private static class TableColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
         @Override
         public CatalogTableColumnDescriptor readFrom(IgniteDataInput input) throws IOException {

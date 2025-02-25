@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeList;
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -31,6 +31,8 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -288,6 +290,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     /**
      * Serializer for {@link CatalogTableDescriptor}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_TABLE, since = "3.0.0")
     private static class TableDescriptorSerializer implements CatalogObjectSerializer<CatalogTableDescriptor> {
         @Override
         public CatalogTableDescriptor readFrom(IgniteDataInput input) throws IOException {

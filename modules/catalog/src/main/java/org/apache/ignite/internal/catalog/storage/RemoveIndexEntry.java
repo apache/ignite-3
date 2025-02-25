@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -96,6 +97,7 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link RemoveIndexEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.REMOVE_INDEX, since = "3.0.0")
     private static class RemoveIndexEntrySerializer implements CatalogObjectSerializer<RemoveIndexEntry> {
         @Override
         public RemoveIndexEntry readFrom(IgniteDataInput input) throws IOException {

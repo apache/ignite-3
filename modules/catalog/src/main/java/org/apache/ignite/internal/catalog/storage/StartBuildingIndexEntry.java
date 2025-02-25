@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -56,6 +57,7 @@ public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry impl
     /**
      * Serializer for {@link StartBuildingIndexEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.START_BUILDING_INDEX, since = "3.0.0")
     private static class StartBuildingIndexEntrySerializer implements CatalogObjectSerializer<StartBuildingIndexEntry> {
         @Override
         public StartBuildingIndexEntry readFrom(IgniteDataInput input) throws IOException {

@@ -18,20 +18,23 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readStringCollection;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readStringCollection;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeStringCollection;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Hash index descriptor. */
-public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
+public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor implements MarshallableEntry {
     public static final CatalogObjectSerializer<CatalogHashIndexDescriptor> SERIALIZER = new HashIndexDescriptorSerializer();
 
     private final List<String> columns;
@@ -110,11 +113,18 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
         return columns;
     }
 
+
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_HASH_IDNEX.id();
+    }
+
     @Override
     public String toString() {
         return S.toString(CatalogHashIndexDescriptor.class, this, super.toString());
     }
 
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_HASH_IDNEX, since = "3.0.0")
     private static class HashIndexDescriptorSerializer implements CatalogObjectSerializer<CatalogHashIndexDescriptor> {
         @Override
         public CatalogHashIndexDescriptor readFrom(IgniteDataInput input) throws IOException {

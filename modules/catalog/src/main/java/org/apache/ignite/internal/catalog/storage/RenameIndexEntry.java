@@ -33,6 +33,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -121,6 +122,7 @@ public class RenameIndexEntry implements UpdateEntry {
         return S.toString(this);
     }
 
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.RENAME_INDEX, since = "3.0.0")
     private static class RenameIndexEntrySerializer implements CatalogObjectSerializer<RenameIndexEntry> {
         @Override
         public RenameIndexEntry readFrom(IgniteDataInput input) throws IOException {

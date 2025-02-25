@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSc
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeList;
 
 import java.io.IOException;
 import java.util.List;
@@ -35,6 +35,7 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -117,6 +118,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link NewColumnsEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.NEW_COLUMN, since = "3.0.0")
     private static class NewColumnsEntrySerializer implements CatalogObjectSerializer<NewColumnsEntry> {
         @Override
         public NewColumnsEntry readFrom(IgniteDataInput in) throws IOException {

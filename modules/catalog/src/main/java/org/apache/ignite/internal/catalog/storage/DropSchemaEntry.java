@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -75,6 +76,7 @@ public class DropSchemaEntry implements UpdateEntry {
     /**
      * Serializer for {@link DropSchemaEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DROP_SCHEMA, since = "3.0.0")
     private static class DropSchemaSerializer implements CatalogObjectSerializer<DropSchemaEntry> {
         @Override
         public DropSchemaEntry readFrom(IgniteDataInput input) throws IOException {

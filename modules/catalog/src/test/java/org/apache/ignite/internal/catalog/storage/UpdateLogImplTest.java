@@ -415,7 +415,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
     private static class TestEntrySerializerProvider implements CatalogEntrySerializerProvider {
         @Override
-        public CatalogObjectSerializer<MarshallableEntry> get(int id) {
+        public CatalogObjectSerializer<MarshallableEntry> get(int version, int id) {
             CatalogObjectSerializer<? extends MarshallableEntry> serializer;
 
             if (id < 0) {
@@ -439,10 +439,15 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
             } else if (id == MarshallableEntryType.VERSIONED_UPDATE.id()) {
                 serializer = new VersionedUpdateSerializer(this);
             } else {
-                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(id);
+                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(1, id);
             }
 
             return (CatalogObjectSerializer<MarshallableEntry>) serializer;
+        }
+
+        @Override
+        public int latestSerializerVersion(int typeId) {
+            throw new UnsupportedOperationException();
         }
     }
 }

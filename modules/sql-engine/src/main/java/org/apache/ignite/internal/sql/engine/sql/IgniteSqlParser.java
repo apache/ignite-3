@@ -126,6 +126,8 @@ public final class IgniteSqlParser  {
 
             return mode.createResult(list, dynamicParamsCount);
         } catch (SqlParseException e) {
+            e.printStackTrace();
+
             throw convertException(e);
         } finally {
             InternalIgniteSqlParser.dynamicParamCount.set(null);

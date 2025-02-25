@@ -27,8 +27,9 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -127,6 +128,7 @@ public class SnapshotEntry implements UpdateLogEvent {
     }
 
     /** Serializer for {@link SnapshotEntry}. */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.SNAPSHOT, since = "3.0.0")
     private static class SnapshotEntrySerializer implements CatalogObjectSerializer<SnapshotEntry> {
         @Override
         public SnapshotEntry readFrom(IgniteDataInput input) throws IOException {

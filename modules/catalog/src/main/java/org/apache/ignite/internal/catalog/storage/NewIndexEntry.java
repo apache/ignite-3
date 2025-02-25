@@ -31,8 +31,9 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -107,6 +108,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link NewIndexEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.NEW_INDEX, since = "3.0.0")
     private static class NewIndexEntrySerializer implements CatalogObjectSerializer<NewIndexEntry> {
         @Override
         public NewIndexEntry readFrom(IgniteDataInput input) throws IOException {

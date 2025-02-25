@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSc
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeStringCollection;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.io.IOException;
@@ -36,8 +36,9 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -120,6 +121,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link DropColumnsEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DROP_COLUMN, since = "3.0.0")
     private static class DropColumnEntrySerializer implements CatalogObjectSerializer<DropColumnsEntry> {
         @Override
         public DropColumnsEntry readFrom(IgniteDataInput input) throws IOException {

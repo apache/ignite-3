@@ -90,7 +90,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
             output.writeShort(update.typeId());
 
-            serializers.get(update.typeId()).writeTo(update, output);
+            serializers.get(1, update.typeId()).writeTo(update, output);
 
             return output.array();
         } catch (Throwable t) {
@@ -101,16 +101,18 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     @Override
     public UpdateLogEvent unmarshall(byte[] bytes) {
         try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
-            int version = input.readShort();
+            int protoVersion = input.readShort();
 
-            if (version > PROTOCOL_VERSION) {
-                throw new IllegalStateException(format("An object could not be deserialized because it was using "
-                        + "a newer version of the serialization protocol [objectVersion={}, supported={}]", version, PROTOCOL_VERSION));
+            switch (protoVersion) {
+                case 1:
+                    int typeId = input.readShort();
+
+                    return (UpdateLogEvent) serializers.get(1, typeId).readFrom(input);
+
+                default:
+                    throw new IllegalStateException(format("An object could not be deserialized because it was using a newer"
+                            + " version of the serialization protocol [objectVersion={}, supported={}]", protoVersion, PROTOCOL_VERSION));
             }
-
-            int typeId = input.readShort();
-
-            return (UpdateLogEvent) serializers.get(typeId).readFrom(input);
         } catch (Throwable t) {
             throw new CatalogMarshallerException(t);
         }
