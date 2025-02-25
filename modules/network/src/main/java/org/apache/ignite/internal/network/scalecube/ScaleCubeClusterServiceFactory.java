@@ -181,7 +181,11 @@ public class ScaleCubeClusterServiceFactory {
                         messageFactory
                 );
 
-                ClusterConfig clusterConfig = clusterConfig(configView.membership());
+                ClusterConfig clusterConfig = clusterConfig(configView.membership())
+                        .memberId(launchId.toString())
+                        .memberAlias(consistentId)
+                        .metadataCodec(METADATA_CODEC);
+
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
                 ClusterImpl cluster = new ClusterImpl(clusterConfig)
                         .handler(cl -> new ClusterMessageHandler() {
@@ -190,15 +194,10 @@ public class ScaleCubeClusterServiceFactory {
                                 topologyService.onMembershipEvent(event);
                             }
                         })
-                        .config(opts -> opts
-                                .memberId(launchId.toString())
-                                .memberAlias(consistentId)
-                                .metadataCodec(METADATA_CODEC)
-                        )
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
-                Member localMember = createLocalMember(scalecubeLocalAddress, launchId, clusterConfig);
+                Member localMember = createLocalMember(scalecubeLocalAddress, clusterConfig);
                 ClusterNode localNode = new ClusterNodeImpl(
                         UUID.fromString(localMember.id()),
                         consistentId,
@@ -212,14 +211,14 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService.setCluster(cluster);
                 messagingService.setConnectionManager(connectionMgr);
 
+                // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
+                var localMembershipEvent = createAdded(localMember, null, System.currentTimeMillis());
+                topologyService.onMembershipEvent(localMembershipEvent);
+
                 cluster.startAwait();
 
                 assert cluster.member().equals(localMember) : "Expected local member from cluster " + cluster.member()
                         + " to be equal to the precomputed one " + localMember;
-
-                // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
-                topologyService.onMembershipEvent(localMembershipEvent);
 
                 this.cluster = cluster;
 
@@ -301,8 +300,8 @@ public class ScaleCubeClusterServiceFactory {
         return Address.create(host, addr.getPort());
     }
 
-    // This is copied from ClusterImpl#creeateLocalMember() and adjusted to always use launchId as member ID.
-    private Member createLocalMember(Address address, UUID launchId, ClusterConfig config) {
+    // This is copied from ClusterImpl#createLocalMember().
+    private Member createLocalMember(Address address, ClusterConfig config) {
         int port = Optional.ofNullable(config.externalPort()).orElse(address.port());
 
         // calculate local member cluster address
@@ -312,10 +311,11 @@ public class ScaleCubeClusterServiceFactory {
                         .orElseGet(() -> Address.create(address.host(), port));
 
         return new Member(
-                launchId.toString(),
+                config.memberId(),
                 config.memberAlias(),
                 memberAddress,
-                config.membershipConfig().namespace());
+                config.membershipConfig().namespace()
+        );
     }
 
     /**
