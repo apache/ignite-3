@@ -193,6 +193,7 @@ import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -359,6 +360,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
+    private final BuildIndexReplicaRequestHandler buildIndexReplicaRequestHandler;
 
     /**
      * The constructor.
@@ -455,6 +457,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,
+                raftCommandApplicator);
+
+        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
+                indexMetaStorage,
+                txRwOperationTracker,
+                safeTime,
                 raftCommandApplicator);
 
         prepareIndexBuilderTxRwOperationTracker();
@@ -863,7 +871,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return nullCompletedFuture();
         } else if (request instanceof TxFinishReplicaRequest) {
-            return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request);
+            if (!enabledColocation()) {
+                return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request);
+            }
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
             return processWriteIntentSwitchAction((WriteIntentSwitchReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
@@ -875,6 +885,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             return processReplicaSafeTimeSyncRequest(isPrimary);
         } else if (request instanceof BuildIndexReplicaRequest) {
+            buildIndexReplicaRequestHandler.handle((BuildIndexReplicaRequest) request);
             return processBuildIndexReplicaRequest((BuildIndexReplicaRequest) request);
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
             return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
