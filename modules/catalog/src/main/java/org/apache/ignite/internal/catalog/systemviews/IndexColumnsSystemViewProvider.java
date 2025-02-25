@@ -87,7 +87,7 @@ public class IndexColumnsSystemViewProvider implements CatalogSystemViewProvider
                 .addColumn("INDEX_NAME", STRING, col -> col.container.indexName)
                 .addColumn("COLUMN_NAME", STRING, col -> col.columnName)
                 .addColumn("COLUMN_ORDINAL", INT32, col -> col.columnOrdinal)
-                .addColumn("COLLATION", STRING, col -> col.columnCollation)
+                .addColumn("COLUMN_COLLATION", STRING, col -> col.columnCollation)
                 .dataProvider(viewDataPublisher)
                 .build();
 

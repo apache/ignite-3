@@ -90,7 +90,7 @@ public class ItIndexColumnsSystemViewTest extends AbstractSystemViewTest {
                                 .type(ColumnType.INT32)
                                 .nullable(true),
                         new MetadataMatcher()
-                                .name("COLLATION")
+                                .name("COLUMN_COLLATION")
                                 .type(ColumnType.STRING)
                                 .precision(CatalogUtils.DEFAULT_VARLEN_LENGTH)
                                 .nullable(true)
