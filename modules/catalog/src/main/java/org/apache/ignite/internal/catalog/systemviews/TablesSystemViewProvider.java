@@ -69,10 +69,10 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("SCHEMA_NAME", STRING, entry -> entry.schemaName)
                 .addColumn("TABLE_NAME", STRING, entry -> entry.table.name())
                 .addColumn("TABLE_ID", INT32, entry -> entry.table.id())
-                .addColumn("PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
+                .addColumn("TABLE_PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
                 .addColumn("ZONE_NAME", STRING, entry -> entry.zoneName)
                 .addColumn("STORAGE_PROFILE", STRING, entry -> entry.table.storageProfile())
-                .addColumn("COLOCATION_KEY_INDEX", STRING, entry -> concatColumns(entry.table.colocationColumns()))
+                .addColumn("TABLE_COLOCATION_COLUMNS", STRING, entry -> concatColumns(entry.table.colocationColumns()))
                 .addColumn("SCHEMA_ID", INT32, entry -> entry.table.schemaId())
                 .addColumn("ZONE_ID", INT32, entry -> entry.table.zoneId())
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
@@ -80,8 +80,9 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("SCHEMA", STRING, entry -> entry.schemaName)
                 .addColumn("NAME", STRING, entry -> entry.table.name())
                 .addColumn("ID", INT32, entry -> entry.table.id())
+                .addColumn("PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
+                .addColumn("COLOCATION_KEY_INDEX", STRING, entry -> concatColumns(entry.table.colocationColumns()))
                 .addColumn("ZONE", STRING, entry -> entry.zoneName)
-                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(viewDataPublisher)
                 .build();
     }
@@ -94,65 +95,66 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
     }
 
     private static SystemView<?> getTableColumnsSystemView(Supplier<Catalog> catalogSupplier) {
-        Iterable<ColumnWithTableId> viewData = () -> {
+        Iterable<ColumnMetadata> viewData = () -> {
             Catalog catalog = catalogSupplier.get();
 
             return catalog.tables().stream()
                     .flatMap(table -> table.columns().stream()
-                            .map(columnDescriptor -> new ColumnWithTableId(
+                            .map(columnDescriptor -> new ColumnMetadata(
                                             catalog.schema(table.schemaId()).name(),
-                                            table.name(),
-                                            table.id(),
-                                            columnDescriptor,
-                                            table.columnIndex(columnDescriptor.name())
+                                            table,
+                                            columnDescriptor
                                     )
                             )
                     )
                     .iterator();
         };
 
-        Publisher<ColumnWithTableId> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
+        Publisher<ColumnMetadata> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
 
-        return SystemViews.<ColumnWithTableId>clusterViewBuilder()
+        return SystemViews.<ColumnMetadata>clusterViewBuilder()
                 .name("TABLE_COLUMNS")
                 .addColumn("SCHEMA_NAME", STRING, entry -> entry.schema)
-                .addColumn("TABLE_NAME", STRING, entry -> entry.tableName)
-                .addColumn("TABLE_ID", INT32, entry -> entry.tableId)
-                .addColumn("COLUMN_NAME", STRING, entry -> entry.descriptor.name())
-                .addColumn("TYPE", STRING, entry -> entry.descriptor.type().name())
-                .addColumn("NULLABLE", BOOLEAN, entry -> entry.descriptor.nullable())
-                .addColumn("PRECISION", INT32, entry -> entry.descriptor.precision())
-                .addColumn("SCALE", INT32, entry -> entry.descriptor.scale())
-                .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
-                .addColumn("COLUMN_ORDINAL", INT32, entry -> entry.columnOrdinal)
+                .addColumn("TABLE_NAME", STRING, entry -> entry.tableDescriptor.name())
+                .addColumn("TABLE_ID", INT32, entry -> entry.tableDescriptor.id())
+                .addColumn("COLUMN_NAME", STRING, entry -> entry.columnDescriptor.name())
+                .addColumn("COLUMN_TYPE", STRING, entry -> entry.columnDescriptor.type().name())
+                .addColumn("IS_NULLABLE_COLUMN", BOOLEAN, entry -> entry.columnDescriptor.nullable())
+                .addColumn("COLUMN_PRECISION", INT32, entry -> entry.columnDescriptor.precision())
+                .addColumn("COLUMN_SCALE", INT32, entry -> entry.columnDescriptor.scale())
+                .addColumn("COLUMN_LENGTH", INT32, entry -> entry.columnDescriptor.length())
+                .addColumn("COLUMN_ORDINAL", INT32, ColumnMetadata::columnOrdinal)
+                .addColumn("SCHEMA_ID", INT32, entry -> entry.tableDescriptor.schemaId())
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
                 //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("SCHEMA", STRING, entry -> entry.schema)
-                .addColumn("PREC", INT32, entry -> entry.descriptor.precision())
+                .addColumn("TYPE", STRING, entry -> entry.columnDescriptor.type().name())
+                .addColumn("NULLABLE", BOOLEAN, entry -> entry.columnDescriptor.nullable())
+                .addColumn("PREC", INT32, entry -> entry.columnDescriptor.precision())
+                .addColumn("SCALE", INT32, entry -> entry.columnDescriptor.scale())
+                .addColumn("LENGTH", INT32, entry -> entry.columnDescriptor.length())
                 // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(viewDataPublisher)
                 .build();
     }
 
-    private static class ColumnWithTableId {
-        private final CatalogTableColumnDescriptor descriptor;
-        private final String tableName;
+    private static class ColumnMetadata {
+        private final CatalogTableColumnDescriptor columnDescriptor;
         private final String schema;
-        private final int tableId;
-        private final int columnOrdinal;
+        private final CatalogTableDescriptor tableDescriptor;
 
-        private ColumnWithTableId(
+        private ColumnMetadata(
                 String schema,
-                String tableName,
-                int tableId,
-                CatalogTableColumnDescriptor descriptor,
-                int columnOrdinal
+                CatalogTableDescriptor tableDescriptor,
+                CatalogTableColumnDescriptor columnDescriptor
         ) {
             this.schema = schema;
-            this.tableName = tableName;
-            this.descriptor = descriptor;
-            this.tableId = tableId;
-            this.columnOrdinal = columnOrdinal;
+            this.columnDescriptor = columnDescriptor;
+            this.tableDescriptor = tableDescriptor;
+        }
+
+        int columnOrdinal() {
+            return tableDescriptor.columnIndex(columnDescriptor.name());
         }
     }
 

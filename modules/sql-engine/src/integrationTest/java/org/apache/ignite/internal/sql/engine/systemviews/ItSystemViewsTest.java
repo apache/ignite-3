@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.systemviews;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.systemviews.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEWS;
 import static org.apache.ignite.internal.sql.engine.systemviews.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEW_COLUMNS;
@@ -73,46 +74,16 @@ public class ItSystemViewsTest extends AbstractSystemViewTest {
     public void systemViewsViewMetadataTest() {
         assertQuery(format("SELECT * FROM {}", SYSTEM_VIEWS.canonicalName()))
                 .columnMetadata(
-                        new MetadataMatcher()
-                                .name("VIEW_ID")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
+                        new MetadataMatcher().name("VIEW_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCHEMA_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("VIEW_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("VIEW_TYPE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
 
-                        new MetadataMatcher()
-                                .name("SCHEMA_NAME")
-                                .type(ColumnType.STRING)
-                                .precision(Short.MAX_VALUE)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("VIEW_NAME")
-                                .type(ColumnType.STRING)
-                                .precision(Short.MAX_VALUE)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("TYPE")
-                                .type(ColumnType.STRING)
-                                .precision(Short.MAX_VALUE)
-                                .nullable(true),
-
-                        // Legacy column.
-                        new MetadataMatcher()
-                                .name("ID")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-                        // Legacy column.
-                        new MetadataMatcher()
-                                .name("SCHEMA")
-                                .type(ColumnType.STRING)
-                                .precision(Short.MAX_VALUE)
-                                .nullable(true),
-                        // Legacy column.
-                        new MetadataMatcher()
-                                .name("NAME")
-                                .type(ColumnType.STRING)
-                                .precision(Short.MAX_VALUE)
-                                .nullable(true)
+                        // Legacy columns.
+                        new MetadataMatcher().name("ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCHEMA").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("TYPE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true)
                 )
                 .check();
     }
@@ -121,49 +92,21 @@ public class ItSystemViewsTest extends AbstractSystemViewTest {
     public void systemViewColumnsViewMetadataTest() {
         assertQuery(format("SELECT * FROM {}", SYSTEM_VIEW_COLUMNS.canonicalName()))
                 .columnMetadata(
-                        new MetadataMatcher()
-                                .name("VIEW_ID")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("VIEW_NAME")
-                                .type(ColumnType.STRING)
-                                .precision(Short.MAX_VALUE)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("TYPE")
-                                .type(ColumnType.STRING)
-                                .precision(Short.MAX_VALUE)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("NULLABLE")
-                                .type(ColumnType.BOOLEAN)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("PRECISION")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("SCALE")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
-
-                        new MetadataMatcher()
-                                .name("LENGTH")
-                                .type(ColumnType.INT32)
-                                .nullable(true),
+                        new MetadataMatcher().name("VIEW_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("VIEW_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("COLUMN_TYPE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("IS_NULLABLE_COLUMN").type(ColumnType.BOOLEAN).nullable(true),
+                        new MetadataMatcher().name("COLUMN_PRECISION").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("COLUMN_SCALE").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("COLUMN_LENGTH").type(ColumnType.INT32).nullable(true),
 
                         // Legacy column.
-                        new MetadataMatcher()
-                                .name("NAME")
-                                .type(ColumnType.STRING)
-                                .precision(Short.MAX_VALUE)
-                                .nullable(true)
+                        new MetadataMatcher().name("NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("TYPE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("NULLABLE").type(ColumnType.BOOLEAN).nullable(true),
+                        new MetadataMatcher().name("PRECISION").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCALE").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("LENGTH").type(ColumnType.INT32).nullable(true)
                 )
                 .check();
     }

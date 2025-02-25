@@ -52,17 +52,24 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
         return SystemViews.<ZoneWithDefaultMarker>clusterViewBuilder()
                 .name("ZONES")
                 .addColumn("ZONE_NAME", STRING, wrapper -> wrapper.zone.name())
+                .addColumn("ZONE_PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
+                .addColumn("ZONE_REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
+                .addColumn("ZONE_AUTO_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
+                .addColumn("ZONE_AUTO_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
+                .addColumn("ZONE_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
+                .addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
+                .addColumn("ZONE_CONSISTENCY_MODE", STRING, wrapper -> wrapper.zone.consistencyMode().name())
+                .addColumn("ZONE_ID", INT32, wrapper -> wrapper.zone.id())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
+                .addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
                 .addColumn("PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
                 .addColumn("REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
                 .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
                 .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
                 .addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
-                .addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
                 .addColumn("CONSISTENCY_MODE", STRING, wrapper -> wrapper.zone.consistencyMode().name())
-                .addColumn("ZONE_ID", INT32, wrapper -> wrapper.zone.id())
-                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
-                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
-                .addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(SubscriptionUtils.fromIterable(() -> {
                             Catalog catalog = catalogSupplier.get();
                             CatalogZoneDescriptor defaultZone = catalog.defaultZone();
@@ -84,7 +91,7 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
 
                         return profiles.stream().map(profile ->
                                 new ZoneWithProfile(
-                                        zone.name(),
+                                        zone,
                                         profile.storageProfile(),
                                         Objects.equals(profile.storageProfile(), defaultProfile.storageProfile())
                                 )
@@ -94,9 +101,10 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
 
         return SystemViews.<ZoneWithProfile>clusterViewBuilder()
                 .name("ZONE_STORAGE_PROFILES")
-                .addColumn("ZONE_NAME", STRING, zone -> zone.zoneName)
+                .addColumn("ZONE_NAME", STRING, zone -> zone.descriptor.name())
                 .addColumn("STORAGE_PROFILE", STRING, zone -> zone.profileName)
                 .addColumn("IS_DEFAULT_PROFILE", BOOLEAN, zone -> zone.isDefaultProfile)
+                .addColumn("ZONE_ID", INT32, zone -> zone.descriptor.id())
                 .dataProvider(SubscriptionUtils.fromIterable(viewData))
                 .build();
     }
@@ -116,12 +124,12 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
      * Wraps a zone and a one of storage profile of the zone.
      */
     private static class ZoneWithProfile {
-        private final String zoneName;
+        private final CatalogZoneDescriptor descriptor;
         private final String profileName;
         private final boolean isDefaultProfile;
 
-        private ZoneWithProfile(String zoneName, String profileName, boolean defaultProfile) {
-            this.zoneName = zoneName;
+        private ZoneWithProfile(CatalogZoneDescriptor zone, String profileName, boolean defaultProfile) {
+            this.descriptor = zone;
             this.profileName = profileName;
             this.isDefaultProfile = defaultProfile;
         }
