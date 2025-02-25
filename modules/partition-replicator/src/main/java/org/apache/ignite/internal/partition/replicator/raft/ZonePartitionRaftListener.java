@@ -19,8 +19,6 @@ package org.apache.ignite.internal.partition.replicator.raft;
 
 import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -31,10 +29,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.WriteIntentSwitchCommandHandler;
@@ -53,6 +53,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -88,7 +89,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
     // Raft command handlers.
-    private final Int2ObjectMap<AbstractCommandHandler<? extends WriteCommand>> commandHandlers = new Int2ObjectOpenHashMap<>();
+    private final CommandHandlers commandHandlers = new CommandHandlers();
 
     /** Constructor. */
     public ZonePartitionRaftListener(
@@ -107,9 +108,18 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
 
         // RAFT command handlers initialization.
-        commandHandlers.put(Commands.FINISH_TX, new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager));
-        commandHandlers.put(Commands.WRITE_INTENT_SWITCH, new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager));
-        commandHandlers.put(VACUUM_TX_STATE_COMMAND, new VacuumTxStatesCommandHandler(txStatePartitionStorage));
+        commandHandlers.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                Commands.FINISH_TX,
+                new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager));
+        commandHandlers.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                Commands.WRITE_INTENT_SWITCH,
+                new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager));
+        commandHandlers.addHandler(
+                TxMessageGroup.GROUP_TYPE,
+                VACUUM_TX_STATE_COMMAND,
+                new VacuumTxStatesCommandHandler(txStatePartitionStorage));
     }
 
     @Override
@@ -179,7 +189,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else {
-                AbstractCommandHandler<? extends WriteCommand> commandHandler = commandHandlers.get(command.messageType());
+                AbstractCommandHandler<? extends WriteCommand> commandHandler =
+                        commandHandlers.handler(command.groupType(), command.messageType());
 
                 if (commandHandler == null) {
                     LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");

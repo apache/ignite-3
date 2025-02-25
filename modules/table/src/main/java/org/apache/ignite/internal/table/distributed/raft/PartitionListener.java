@@ -20,6 +20,9 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.GROUP_TYPE;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
@@ -29,8 +32,6 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
@@ -58,6 +58,7 @@ import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandle
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -87,6 +88,7 @@ import org.apache.ignite.internal.table.distributed.raft.handlers.MinimumActiveT
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -139,7 +141,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     private final RaftTxFinishMarker txFinishMarker;
 
     // Raft command handlers.
-    private final Int2ObjectMap<AbstractCommandHandler<? extends WriteCommand>> commandHandlers = new Int2ObjectOpenHashMap<>();
+    private final CommandHandlers commandHandlers = new CommandHandlers();
 
     /** Constructor. */
     public PartitionListener(
@@ -172,15 +174,22 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
         txFinishMarker = new RaftTxFinishMarker(txManager);
 
-        commandHandlers.put(Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND, new MinimumActiveTxTimeCommandHandler(
+        commandHandlers.addHandler(GROUP_TYPE, UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND, new MinimumActiveTxTimeCommandHandler(
                 storage,
                 tablePartitionId,
                 minTimeCollectorService
         ));
 
         if (!enabledColocation()) {
-            commandHandlers.put(Commands.FINISH_TX, new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager));
-            commandHandlers.put(VACUUM_TX_STATE_COMMAND, new VacuumTxStatesCommandHandler(txStatePartitionStorage));
+            commandHandlers.addHandler(
+                    GROUP_TYPE,
+                    FINISH_TX,
+                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager));
+
+            commandHandlers.addHandler(
+                    TxMessageGroup.GROUP_TYPE,
+                    VACUUM_TX_STATE_COMMAND,
+                    new VacuumTxStatesCommandHandler(txStatePartitionStorage));
         }
     }
 
@@ -256,7 +265,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     ) {
         IgniteBiTuple<Serializable, Boolean> result = null;
 
-        AbstractCommandHandler<? extends WriteCommand> commandHandler = commandHandlers.get(command.messageType());
+        AbstractCommandHandler<? extends WriteCommand> commandHandler = commandHandlers.handler(command.groupType(), command.messageType());
+
         if (commandHandler != null) {
             result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof UpdateCommand) {
