@@ -45,7 +45,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -68,12 +67,10 @@ import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDri
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.Member;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -88,7 +85,6 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteException;
@@ -207,10 +203,8 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         ));
     }
 
-    private Node addNodeToCluster(Function<ReplicaRequest, ReplicationGroupId> requestConverter) {
+    private Node addNodeToCluster() {
         Node node = newNode(new NetworkAddress("localhost", BASE_PORT + cluster.size()), nodeFinder);
-
-        node.setRequestConverter(requestConverter);
 
         cluster.add(node);
 
@@ -294,8 +288,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
-        setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -388,11 +380,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        Function<ReplicaRequest, ReplicationGroupId> requestConverter =
-                requestConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
-
         cluster.forEach(node -> {
-            node.setRequestConverter(requestConverter);
             node.waitForMetadataCompletenessAtNow();
         });
 
@@ -413,7 +401,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
             truncateLogOnEveryNode(zonePartitionId);
         }
 
-        Node newNode = addNodeToCluster(requestConverter);
+        Node newNode = addNodeToCluster();
 
         // Wait for the rebalance to kick in.
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));
@@ -459,10 +447,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        Function<ReplicaRequest, ReplicationGroupId> requestConverter = requestConverter(zonePartitionId, new TablePartitionId(tableId, 0));
-
         cluster.forEach(node -> {
-            node.setRequestConverter(requestConverter);
             node.waitForMetadataCompletenessAtNow();
         });
 
@@ -479,7 +464,7 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
 
         cluster.remove(0);
 
-        node = addNodeToCluster(requestConverter);
+        node = addNodeToCluster();
 
         node.waitForMetadataCompletenessAtNow();
 
@@ -502,8 +487,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
-        setupTableIdToZoneIdConverter(zonePartitionId, new TablePartitionId(tableId1, 0), new TablePartitionId(tableId2, 0));
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -588,28 +571,6 @@ public class ItZoneDataReplicationTest extends IgniteAbstractTest {
         assertThat(txStatePartitionStorage, is(notNullValue()));
 
         return txStatePartitionStorage;
-    }
-
-    private void setupTableIdToZoneIdConverter(ZonePartitionId zonePartitionId, TablePartitionId... tablePartitionIds) {
-        Function<ReplicaRequest, ReplicationGroupId> requestConverter = requestConverter(zonePartitionId, tablePartitionIds);
-
-        cluster.forEach(node -> node.setRequestConverter(requestConverter));
-    }
-
-    private static Function<ReplicaRequest, ReplicationGroupId> requestConverter(
-            ZonePartitionId zonePartitionId, TablePartitionId... tablePartitionIds
-    ) {
-        Set<ReplicationGroupId> tablePartitionIdsSet = Set.of(tablePartitionIds);
-
-        return request ->  {
-            ReplicationGroupId replicationGroupId = request.groupId().asReplicationGroupId();
-
-            if (tablePartitionIdsSet.contains(replicationGroupId) && !(request instanceof WriteIntentSwitchReplicaRequest)) {
-                return zonePartitionId;
-            } else {
-                return replicationGroupId;
-            }
-        };
     }
 
     private void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {

@@ -209,7 +209,7 @@ Fragment#0 root
     Project
       CorrelatedNestedLoopJoin
         Receiver(sourceFragment=1, exchange=1, distribution=single)
-        ReduceHashAggregate
+        ColocatedHashAggregate
           Receiver(sourceFragment=2, exchange=2, distribution=single)
 
 Fragment#1
@@ -229,8 +229,7 @@ Fragment#2 correlated
   pruningMetadata: [3=[{0=$cor1.ID}]]
   tree:
     Sender(targetFragment=0, exchange=2, distribution=single)
-      MapHashAggregate
-        TableScan(name=PUBLIC.T2_N0N1N2, source=3, partitions=3, distribution=random)
+      TableScan(name=PUBLIC.T2_N0N1N2, source=3, partitions=3, distribution=random)
 ---
 # Pass partition pruning metadata to correlated joins.
 N0
@@ -249,7 +248,7 @@ Fragment#0 root
           Project
             CorrelatedNestedLoopJoin
               Receiver(sourceFragment=2, exchange=2, distribution=single)
-              ReduceHashAggregate
+              ColocatedHashAggregate
                 Receiver(sourceFragment=3, exchange=3, distribution=single)
 
 Fragment#1
@@ -279,8 +278,7 @@ Fragment#3 correlated
   pruningMetadata: [4=[{0=$cor3.ID}]]
   tree:
     Sender(targetFragment=0, exchange=3, distribution=single)
-      MapHashAggregate
-        TableScan(name=PUBLIC.T2_N0N1N2, source=4, partitions=3, distribution=random)
+      TableScan(name=PUBLIC.T2_N0N1N2, source=4, partitions=3, distribution=random)
 ---
 # Pass partition pruning metadata to correlated joins one layer deep.
 N0

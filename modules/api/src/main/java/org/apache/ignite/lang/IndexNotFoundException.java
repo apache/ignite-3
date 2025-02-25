@@ -17,10 +17,9 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
-
 import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Index;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Exception is thrown when the specified index is not found.
@@ -29,11 +28,10 @@ public class IndexNotFoundException extends IgniteException {
     /**
      * Creates an exception with the given index name.
      *
-     * @param schemaName Schema name.
      * @param indexName Index name.
      */
-    public IndexNotFoundException(String schemaName, String indexName) {
-        super(Index.INDEX_NOT_FOUND_ERR, "Index does not exist [name=" + canonicalName(schemaName, indexName) + ']');
+    public IndexNotFoundException(QualifiedName indexName) {
+        super(Index.INDEX_NOT_FOUND_ERR, "Index does not exist [name=" + indexName.toCanonicalForm() + ']');
     }
 
     /**

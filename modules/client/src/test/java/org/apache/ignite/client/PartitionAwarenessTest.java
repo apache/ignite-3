@@ -216,8 +216,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testCustomColocationKey() {
         RecordView<Tuple> recordView = table(FakeIgniteTables.TABLE_COLOCATION_KEY).recordView();
 
-        assertOpOnNode("server-2", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 4L)));
-        assertOpOnNode("server-1", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 8L)));
+        assertOpOnNode("server-2", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO1", "0").set("COLO2", 4L)));
+        assertOpOnNode("server-1", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO1", "0").set("COLO2", 8L)));
     }
 
     @Test
