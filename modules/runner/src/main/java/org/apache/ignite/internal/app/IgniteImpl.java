@@ -945,8 +945,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1498,6 +1498,8 @@ public class IgniteImpl implements Ignite {
                 }, joinExecutor)
                 .thenComposeAsync(v -> {
                     LOG.info("Components started, performing recovery");
+
+                    LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
 
                     return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
                 }, joinExecutor)

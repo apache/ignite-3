@@ -26,17 +26,26 @@ public class AlterZoneEventParameters extends CatalogEventParameters {
 
     private final CatalogZoneDescriptor zoneDescriptor;
 
+    private final CatalogZoneDescriptor previousDescriptor;
+
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
      * @param zoneDescriptor Newly created distribution zone descriptor.
+     * @param previousDescriptor Previous distribution zone descriptor.
      */
-    public AlterZoneEventParameters(long causalityToken, int catalogVersion, CatalogZoneDescriptor zoneDescriptor) {
+    public AlterZoneEventParameters(
+            long causalityToken,
+            int catalogVersion,
+            CatalogZoneDescriptor zoneDescriptor,
+            CatalogZoneDescriptor previousDescriptor
+    ) {
         super(causalityToken, catalogVersion);
 
         this.zoneDescriptor = zoneDescriptor;
+        this.previousDescriptor = previousDescriptor;
     }
 
     /**
@@ -44,5 +53,12 @@ public class AlterZoneEventParameters extends CatalogEventParameters {
      */
     public CatalogZoneDescriptor zoneDescriptor() {
         return zoneDescriptor;
+    }
+
+    /**
+     * Gets previous distribution zone descriptor.
+     */
+    public CatalogZoneDescriptor previousDescriptor() {
+        return previousDescriptor;
     }
 }
