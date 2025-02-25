@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -792,7 +793,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "CHAR length 0 must be between 1 and 65536",
+                "CHAR length 0 must be between 1 and 2147483647",
                 () -> sql("SELECT CAST(1 AS CHAR(0))")
         );
 
@@ -801,7 +802,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARCHAR length 0 must be between 1 and 65536",
+                "VARCHAR length 0 must be between 1 and 2147483647",
                 () -> sql("SELECT CAST(1 AS VARCHAR(0))")
         );
 
@@ -809,14 +810,14 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "BINARY length 0 must be between 1 and 65536",
+                "BINARY length 0 must be between 1 and 2147483647",
                 () -> sql("SELECT CAST(x'0101' AS BINARY(0))")
         );
         // Varbinary
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARBINARY length 0 must be between 1 and 65536",
+                "VARBINARY length 0 must be between 1 and 2147483647",
                 () -> sql("SELECT CAST(x'0101' AS VARBINARY(0))")
         );
     }
@@ -826,29 +827,29 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         // Char
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "CHAR length 100000000 must be between 1 and 65536",
-                () -> sql("SELECT CAST(1 AS CHAR(100000000))")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(1 AS CHAR(2147483648))")
         );
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "VARCHAR length 100000000 must be between 1 and 65536",
-                () -> sql("SELECT CAST(1 AS VARCHAR(100000000))")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(1 AS VARCHAR(2147483648))")
         );
 
         // Binary
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "VARBINARY length 100000000 must be between 1 and 65536",
-                () -> sql("SELECT CAST(x'01' AS VARBINARY(100000000))")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(x'01' AS VARBINARY(2147483648))")
         );
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "BINARY length 100000000 must be between 1 and 65536",
-                () -> sql("SELECT CAST(x'01' AS BINARY(100000000))")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(x'01' AS BINARY(2147483648))")
         );
 
         // Decimal

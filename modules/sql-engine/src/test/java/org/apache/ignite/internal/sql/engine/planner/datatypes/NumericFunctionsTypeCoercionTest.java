@@ -1153,18 +1153,18 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                 TestBuilders.table()
                         .name("T")
                         .distribution(IgniteDistributions.single())
-                        .addColumn("C1", NativeTypes.STRING)
+                        .addColumn("C1", NativeTypes.stringOf(32))
                         .addColumn("C2", pair.first())
                         .addColumn("C3", pair.second())
                         .build()
         );
 
-        RelDataType varchar = Commons.typeFactory().createSqlType(SqlTypeName.VARCHAR);
+        RelDataType varchar = Commons.typeFactory().createSqlType(SqlTypeName.VARCHAR, 64);
 
         {
             List<Matcher<RexNode>> args = List.of(
-                    ofTypeWithoutCast(NativeTypes.STRING),
-                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.stringOf(32)),
+                    ofTypeWithoutCast(NativeTypes.stringOf(32)),
                     arg1
             );
 
@@ -1174,8 +1174,8 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
 
         {
             List<Matcher<RexNode>> args = List.of(
-                    ofTypeWithoutCast(NativeTypes.STRING),
-                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.stringOf(32)),
+                    ofTypeWithoutCast(NativeTypes.stringOf(32)),
                     arg1,
                     arg2
             );

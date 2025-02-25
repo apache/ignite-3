@@ -301,13 +301,10 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @CsvSource(value = {
             // Negative values are rejected by the parser
             // Char
-            "VARCHAR(0); VARCHAR length 0 must be between 1 and 65536",
-            "VARCHAR(100000000); VARCHAR length 100000000 must be between 1 and 65536",
+            "VARCHAR(0); VARCHAR length 0 must be between 1 and 2147483647",
             // Binary
-            "BINARY(0); BINARY length 0 must be between 1 and 65536",
-            "BINARY(100000000); BINARY length 100000000 must be between 1 and 65536",
-            "VARBINARY(0); VARBINARY length 0 must be between 1 and 65536",
-            "VARBINARY(100000000); VARBINARY length 100000000 must be between 1 and 65536",
+            "BINARY(0); BINARY length 0 must be between 1 and 2147483647",
+            "VARBINARY(0); VARBINARY length 0 must be between 1 and 2147483647",
             // Decimal
             "DECIMAL(0); DECIMAL precision 0 must be between 1 and 32767",
             "DECIMAL(100000000); DECIMAL precision 100000000 must be between 1 and 32767",
@@ -333,13 +330,10 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @CsvSource(value = {
             // Negative values are rejected by the parser
             // Char
-            "VARCHAR(0); VARCHAR length 0 must be between 1 and 65536",
-            "VARCHAR(100000000); VARCHAR length 100000000 must be between 1 and 65536",
+            "VARCHAR(0); VARCHAR length 0 must be between 1 and 2147483647",
             // Binary
-            "BINARY(0); BINARY length 0 must be between 1 and 65536",
-            "BINARY(100000000); BINARY length 100000000 must be between 1 and 65536",
-            "VARBINARY(0); VARBINARY length 0 must be between 1 and 65536",
-            "VARBINARY(100000000); VARBINARY length 100000000 must be between 1 and 65536",
+            "BINARY(0); BINARY length 0 must be between 1 and 2147483647",
+            "VARBINARY(0); VARBINARY length 0 must be between 1 and 2147483647",
             // Decimal
             "DECIMAL(0); DECIMAL precision 0 must be between 1 and 32767",
             "DECIMAL(100000000); DECIMAL precision 100000000 must be between 1 and 32767",

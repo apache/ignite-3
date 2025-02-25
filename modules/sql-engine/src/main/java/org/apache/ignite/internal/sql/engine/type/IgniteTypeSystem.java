@@ -67,6 +67,11 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
     @Override
     public int getMaxPrecision(SqlTypeName typeName) {
         switch (typeName) {
+            case CHAR:
+            case VARCHAR:
+            case BINARY:
+            case VARBINARY:
+                return CatalogUtils.MAX_VARLEN_LENGTH;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
             case TIMESTAMP:

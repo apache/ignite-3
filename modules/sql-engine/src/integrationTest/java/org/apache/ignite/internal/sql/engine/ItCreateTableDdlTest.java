@@ -523,19 +523,19 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARCHAR length 0 must be between 1 and 65536. [column=ID]",
+                "VARCHAR length 0 must be between 1 and 2147483647. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARCHAR(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "BINARY length 0 must be between 1 and 65536. [column=ID]",
+                "BINARY length 0 must be between 1 and 2147483647. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "VARBINARY length 0 must be between 1 and 65536. [column=ID]",
+                "VARBINARY length 0 must be between 1 and 2147483647. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
         );
     }
@@ -602,23 +602,23 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         // Char
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "VARCHAR length 10000000 must be between 1 and 65536. [column=VAL]",
-                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR(10000000) )")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR(2147483648) )")
         );
 
         // Binary
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "BINARY length 10000000 must be between 1 and 65536. [column=VAL]",
-                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(10000000) )")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(2147483648) )")
         );
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "VARBINARY length 10000000 must be between 1 and 65536. [column=VAL]",
-                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARBINARY(10000000) )")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARBINARY(2147483648) )")
         );
 
         // Decimal
