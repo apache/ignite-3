@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -106,6 +107,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link NewTableEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.NEW_TABLE, since = "3.0.0")
     private static class NewTableEntrySerializer implements CatalogObjectSerializer<NewTableEntry> {
         @Override
         public NewTableEntry readFrom(IgniteDataInput input) throws IOException {

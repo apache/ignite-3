@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readArray;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeArray;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -27,7 +27,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -35,7 +38,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /** Schema definition contains database schema objects. */
-public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
+public class CatalogSchemaDescriptor extends CatalogObjectDescriptor implements MarshallableEntry {
     public static final CatalogObjectSerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
 
     private final CatalogTableDescriptor[] tables;
@@ -114,6 +117,11 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     }
 
     @Override
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_SCHEMA.id();
+    }
+
+    @Override
     public String toString() {
         return S.toString(CatalogSchemaDescriptor.class, this, super.toString());
     }
@@ -121,6 +129,7 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     /**
      * Serializer for {@link CatalogSchemaDescriptor}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_SCHEMA, since = "3.0.0")
     private static class SchemaDescriptorSerializer implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
         @Override
         public CatalogSchemaDescriptor readFrom(IgniteDataInput input) throws IOException {

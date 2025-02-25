@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -60,6 +61,7 @@ public class NewSchemaEntry implements UpdateEntry {
         return MarshallableEntryType.NEW_SCHEMA.id();
     }
 
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.NEW_SCHEMA, since = "3.0.0")
     private static class Serializer implements CatalogObjectSerializer<NewSchemaEntry> {
         @Override
         public NewSchemaEntry readFrom(IgniteDataInput input) throws IOException {

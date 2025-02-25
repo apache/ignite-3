@@ -33,6 +33,7 @@ import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -117,6 +118,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link AlterColumnEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.ALTER_COLUMN, since = "3.0.0")
     private static class AlterColumnEntrySerializer implements CatalogObjectSerializer<AlterColumnEntry> {
         @Override
         public AlterColumnEntry readFrom(IgniteDataInput input) throws IOException {

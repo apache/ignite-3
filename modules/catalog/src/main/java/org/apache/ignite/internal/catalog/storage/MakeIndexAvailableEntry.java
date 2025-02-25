@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -56,6 +57,7 @@ public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry impl
     /**
      * Serializer for {@link MakeIndexAvailableEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.MAKE_INDEX_AVAILABLE, since = "3.0.0")
     private static class MakeIndexAvailableEntrySerializer implements CatalogObjectSerializer<MakeIndexAvailableEntry> {
         @Override
         public MakeIndexAvailableEntry readFrom(IgniteDataInput input) throws IOException {

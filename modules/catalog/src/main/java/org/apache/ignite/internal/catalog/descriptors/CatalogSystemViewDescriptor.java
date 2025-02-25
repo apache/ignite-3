@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeList;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -183,6 +185,7 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
     /**
      * Serializer for {@link CatalogSystemViewDescriptor}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_SYSTEM_VIEW, since = "3.0.0")
     private static class SystemViewDescriptorSerializer implements CatalogObjectSerializer<CatalogSystemViewDescriptor> {
         @Override
         public CatalogSystemViewDescriptor readFrom(IgniteDataInput input) throws IOException {

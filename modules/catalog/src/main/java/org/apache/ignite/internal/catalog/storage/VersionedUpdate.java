@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -102,6 +103,7 @@ public class VersionedUpdate implements UpdateLogEvent {
     }
 
     /** Serializer for {@link VersionedUpdate}. */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.VERSIONED_UPDATE, since = "3.0.0")
     public static class VersionedUpdateSerializer implements CatalogObjectSerializer<VersionedUpdate> {
         private final CatalogEntrySerializerProvider serializers;
 
@@ -120,7 +122,7 @@ public class VersionedUpdate implements UpdateLogEvent {
             for (int i = 0; i < size; i++) {
                 short entryTypeId = (short) input.readVarIntAsInt();
 
-                CatalogObjectSerializer<MarshallableEntry> serializer = serializers.get(entryTypeId);
+                CatalogObjectSerializer<MarshallableEntry> serializer = serializers.get(1, entryTypeId);
 
                 entries.add((UpdateEntry) serializer.readFrom(input));
             }
@@ -137,7 +139,7 @@ public class VersionedUpdate implements UpdateLogEvent {
             for (UpdateEntry entry : update.entries()) {
                 output.writeVarInt(entry.typeId());
 
-                serializers.get(entry.typeId()).writeTo(entry, output);
+                serializers.get(1, entry.typeId()).writeTo(entry, output);
             }
         }
     }

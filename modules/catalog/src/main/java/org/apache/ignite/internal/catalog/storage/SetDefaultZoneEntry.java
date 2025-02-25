@@ -23,6 +23,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -84,6 +85,7 @@ public class SetDefaultZoneEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link SetDefaultZoneEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.SET_DEFAULT_ZONE, since = "3.0.0")
     private static class SetDefaultZoneEntrySerializer implements CatalogObjectSerializer<SetDefaultZoneEntry> {
         @Override
         public SetDefaultZoneEntry readFrom(IgniteDataInput input) throws IOException {

@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUS
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -210,6 +212,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     /**
      * Serializer for {@link CatalogZoneDescriptor}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_ZONE, since = "3.0.0")
     private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
         @Override
         public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {

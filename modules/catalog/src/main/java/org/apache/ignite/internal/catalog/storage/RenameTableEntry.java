@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -89,6 +90,7 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link RenameTableEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.RENAME_TABLE, since = "3.0.0")
     private static class RenameTableEntrySerializer implements CatalogObjectSerializer<RenameTableEntry> {
         @Override
         public RenameTableEntry readFrom(IgniteDataInput input) throws IOException {

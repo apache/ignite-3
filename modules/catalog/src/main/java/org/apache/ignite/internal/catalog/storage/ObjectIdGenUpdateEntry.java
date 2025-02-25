@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -74,6 +75,7 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
     /**
      * Serializer for {@link ObjectIdGenUpdateEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.ID_GENERATOR, since = "3.0.0")
     private static class ObjectIdGenUpdateEntrySerializer implements CatalogObjectSerializer<ObjectIdGenUpdateEntry> {
         @Override
         public ObjectIdGenUpdateEntry readFrom(IgniteDataInput input) throws IOException {

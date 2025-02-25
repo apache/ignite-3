@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -103,6 +104,7 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link DropTableEntry}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DROP_TABLE, since = "3.0.0")
     private static class DropTableEntrySerializer implements CatalogObjectSerializer<DropTableEntry> {
         @Override
         public DropTableEntry readFrom(IgniteDataInput input) throws IOException {

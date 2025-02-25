@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage.serialization;
+package org.apache.ignite.internal.catalog.storage.serialization.utils;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -29,6 +29,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -139,6 +142,7 @@ public class CatalogSerializationUtils {
         }
     }
 
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_INDEX, since = "3.0.0")
     private static class IndexDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexDescriptor> {
         @Override
         public CatalogIndexDescriptor readFrom(IgniteDataInput input) throws IOException {

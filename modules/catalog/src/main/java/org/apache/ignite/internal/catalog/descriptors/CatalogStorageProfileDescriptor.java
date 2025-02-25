@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -75,6 +77,7 @@ public class CatalogStorageProfileDescriptor {
     /**
      * Serializer for {@link CatalogStorageProfilesDescriptor}.
      */
+    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_STORAGE_PROFILE, since = "3.0.0")
     private static class StorageProfileDescriptorSerializer implements CatalogObjectSerializer<CatalogStorageProfileDescriptor> {
         @Override
         public CatalogStorageProfileDescriptor readFrom(IgniteDataInput input) throws IOException {
