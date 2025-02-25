@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
+import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -117,25 +119,29 @@ public class TxCleanupRequestHandler {
     private void processTxCleanup(TxCleanupMessage txCleanupMessage, ClusterNode sender, @Nullable Long correlationId) {
         assert correlationId != null;
 
-        Map<ReplicationGroupId, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
+        Map<EnlistedPartitionGroup, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
 
         // These cleanups will all be local.
-        List<ReplicationGroupIdMessage> groups = txCleanupMessage.groups();
+        @Nullable List<EnlistedPartitionGroupMessage> partitionMessagess = txCleanupMessage.groups();
 
-        if (groups != null) {
-            Set<ReplicationGroupId> groupSet = asTablePartitionIdSet(groups);
+        if (partitionMessagess != null) {
+            List<EnlistedPartitionGroup> partitions = asPartitionsList(partitionMessagess);
 
-            trackPartitions(txCleanupMessage.txId(), groupSet, sender);
+            trackPartitions(
+                    txCleanupMessage.txId(),
+                    partitions.stream().map(EnlistedPartitionGroup::groupId).collect(Collectors.toSet()),
+                    sender
+            );
 
-            for (ReplicationGroupId group : groupSet) {
+            for (EnlistedPartitionGroup partition : partitions) {
                 CompletableFuture<Void> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
-                        group,
+                        partition,
                         txCleanupMessage.txId(),
                         txCleanupMessage.commit(),
                         txCleanupMessage.commitTimestamp()
                 ).thenAccept(this::processWriteIntentSwitchResponse);
 
-                writeIntentSwitches.put(group, future);
+                writeIntentSwitches.put(partition, future);
             }
         }
         // First trigger the cleanup to properly release the locks if we know all affected partitions on this node.
@@ -287,13 +293,13 @@ public class TxCleanupRequestHandler {
                 .build();
     }
 
-    private static Set<ReplicationGroupId> asTablePartitionIdSet(List<ReplicationGroupIdMessage> messages) {
-        var set = new HashSet<ReplicationGroupId>(IgniteUtils.capacity(messages.size()));
+    private static List<EnlistedPartitionGroup> asPartitionsList(List<EnlistedPartitionGroupMessage> messages) {
+        var list = new ArrayList<EnlistedPartitionGroup>(IgniteUtils.capacity(messages.size()));
 
-        for (ReplicationGroupIdMessage message : messages) {
-            set.add(message.asReplicationGroupId());
+        for (EnlistedPartitionGroupMessage message : messages) {
+            list.add(message.asPartitionInfo());
         }
 
-        return set;
+        return list;
     }
 }

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -45,7 +45,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      */
     public TxStateMetaAbandoned(
             UUID txCoordinatorId,
-            TablePartitionId commitPartitionId
+            ReplicationGroupId commitPartitionId
     ) {
         super(ABANDONED, txCoordinatorId, commitPartitionId, null, null, null);
 
@@ -66,12 +66,14 @@ public class TxStateMetaAbandoned extends TxStateMeta {
             ReplicaMessagesFactory replicaMessagesFactory,
             TxMessagesFactory txMessagesFactory
     ) {
-        TablePartitionId tablePartitionId = commitPartitionId();
+        ReplicationGroupId commitPartitionId = commitPartitionId();
 
         return txMessagesFactory.txStateMetaAbandonedMessage()
                 .txState(txState())
                 .txCoordinatorId(txCoordinatorId())
-                .commitPartitionId(tablePartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, tablePartitionId))
+                .commitPartitionId(
+                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
+                )
                 .commitTimestamp(commitTimestamp())
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
@@ -100,7 +102,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
     public int hashCode() {
         int result = super.hashCode();
 
-        result = 31 * result + (int) (lastAbandonedMarkerTs ^ (lastAbandonedMarkerTs >>> 32));
+        result = 31 * result + Long.hashCode(lastAbandonedMarkerTs);
 
         return result;
     }

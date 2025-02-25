@@ -55,4 +55,9 @@ public interface CheckpointProgress {
      * written.
      */
     @Nullable CheckpointDirtyPages pagesToWrite();
+
+    /**
+     * Returns a number of written checkpoint pages.
+     */
+    int writtenPages();
 }

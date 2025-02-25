@@ -135,7 +135,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
                     ? null : (BitSet) primaryKeys.clone()));
         }
 
-        List<RexNode> operandsToProcess = otherOperands.isEmpty() ? call.getOperands() : otherOperands;
+        List<RexNode> operandsToProcess = andConsist ? otherOperands : call.getOperands();
 
         for (RexNode node : operandsToProcess) {
             RexNode ref = getLocalRef(node);

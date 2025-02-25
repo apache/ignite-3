@@ -35,14 +35,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -129,10 +128,10 @@ public class TransactionInflights {
                 ReadWriteTxContext txContext = (ReadWriteTxContext) ctxEntry.getValue();
 
                 if (txContext.isTxFinishing()) {
-                    IgniteBiTuple<ClusterNode, Long> nodeAndToken = txContext.enlistedGroups.get(groupId);
+                    PendingTxPartitionEnlistment enlistment = txContext.enlistedGroups.get(groupId);
 
-                    if (nodeAndToken != null) {
-                        txContext.cancelWaitingInflights(groupId, nodeAndToken.get2());
+                    if (enlistment != null) {
+                        txContext.cancelWaitingInflights(groupId, enlistment.consistencyToken());
                     }
                 }
             }
@@ -151,7 +150,7 @@ public class TransactionInflights {
         });
     }
 
-    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new ReadWriteTxContext(placementDriver, clockService, false); // No writes enlisted.
@@ -187,7 +186,7 @@ public class TransactionInflights {
 
         abstract void onInflightsRemoved();
 
-        abstract void finishTx(@Nullable Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups, boolean timeoutExceeded);
+        abstract void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded);
 
         abstract boolean isTxFinishing();
 
@@ -221,7 +220,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(@Nullable Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups, boolean timeoutExceeded) {
+        public void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded) {
             markedFinished = true;
         }
 
@@ -250,7 +249,7 @@ public class TransactionInflights {
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
         private final PlacementDriver placementDriver;
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
-        private volatile Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
+        private volatile Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups;
         private final ClockService clockService;
         private volatile boolean timeoutExceeded;
 
@@ -309,12 +308,12 @@ public class TransactionInflights {
 
                 int cntr = 0;
 
-                for (Map.Entry<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
+                for (Map.Entry<ReplicationGroupId, PendingTxPartitionEnlistment> e : enlistedGroups.entrySet()) {
                     futures[cntr++] = placementDriver.getPrimaryReplica(e.getKey(), now)
                             .thenApply(replicaMeta -> {
-                                Long enlistmentConsistencyToken = e.getValue().get2();
+                                long enlistmentConsistencyToken = e.getValue().consistencyToken();
 
-                                if (replicaMeta == null || !enlistmentConsistencyToken.equals(replicaMeta.getStartTime().longValue())) {
+                                if (replicaMeta == null || enlistmentConsistencyToken != replicaMeta.getStartTime().longValue()) {
                                     return failedFuture(new PrimaryReplicaExpiredException(e.getKey(), enlistmentConsistencyToken, null,
                                             replicaMeta));
                                 }
@@ -337,7 +336,7 @@ public class TransactionInflights {
             return waitRepFut;
         }
 
-        void cancelWaitingInflights(TablePartitionId groupId, Long enlistmentConsistencyToken) {
+        void cancelWaitingInflights(TablePartitionId groupId, long enlistmentConsistencyToken) {
             waitRepFut.completeExceptionally(new PrimaryReplicaExpiredException(groupId, enlistmentConsistencyToken, null, null));
         }
 
@@ -349,7 +348,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups, boolean timeoutExceeded) {
+        public void finishTx(Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded) {
             this.enlistedGroups = enlistedGroups;
             this.timeoutExceeded = timeoutExceeded;
             finishInProgressFuture = new CompletableFuture<>();

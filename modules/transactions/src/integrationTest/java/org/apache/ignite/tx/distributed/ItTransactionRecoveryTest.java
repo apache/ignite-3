@@ -47,7 +47,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -64,7 +63,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -87,6 +85,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -740,14 +739,13 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl txCrdNode2 = unwrapIgniteImpl(node(0));
 
-        TablePartitionId commitPartition = ((InternalTransaction) rwTx1).commitPartition();
+        ReplicationGroupId commitPartition = ((InternalTransaction) rwTx1).commitPartition();
         CompletableFuture<Void> finish2 = txCrdNode2.txManager().finish(
                 HybridTimestampTracker.atomicTracker(null),
                 commitPartition,
                 false,
                 false,
-                Map.of(commitPartition, new IgniteBiTuple<>(txCrdNode2.node(), 0L)),
-                Set.of(commitPartition.tableId()),
+                Map.of(commitPartition, new PendingTxPartitionEnlistment(txCrdNode2.node().name(), 0L)),
                 rwTx1Id
         );
 

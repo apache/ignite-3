@@ -22,15 +22,15 @@ import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Thrown when sql query cancel failed.
+ * Thrown when sql query kill failed.
  */
-public class SqlQueryCancelException extends IgniteInternalException {
+public class SqlQueryKillException extends IgniteInternalException {
     /**
      * Constructor.
      *
      * @param queryId Sql query id.
      */
-    public SqlQueryCancelException(String queryId) {
-        super(ILLEGAL_ARGUMENT_ERR, "Sql query can not be canceled [queryId=" + queryId + ']');
+    public SqlQueryKillException(String queryId) {
+        super(ILLEGAL_ARGUMENT_ERR, "Sql query can not be killed [queryId=" + queryId + ']');
     }
 }

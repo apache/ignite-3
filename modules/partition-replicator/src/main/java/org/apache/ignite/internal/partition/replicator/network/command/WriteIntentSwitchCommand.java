@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -34,4 +35,7 @@ public interface WriteIntentSwitchCommand extends PartitionCommand {
 
     /** Transaction commit timestamp. */
     @Nullable HybridTimestamp commitTimestamp();
+
+    /** IDs of tables in which the partition in question had write intents. */
+    Set<Integer> tableIds();
 }

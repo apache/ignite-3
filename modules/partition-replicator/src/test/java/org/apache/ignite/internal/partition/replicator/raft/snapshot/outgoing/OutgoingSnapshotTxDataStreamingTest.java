@@ -19,6 +19,8 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.singleton;
 import static java.util.Collections.emptyIterator;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
@@ -34,7 +36,9 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -53,6 +57,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartition
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -84,10 +89,16 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     private final TablePartitionId partition1Id = new TablePartitionId(1, 1);
     private final TablePartitionId partition2Id = new TablePartitionId(2, 2);
 
-    private final TxMeta meta1 = new TxMeta(TxState.ABORTED, List.of(partition1Id), clock.now());
-    private final TxMeta meta2 = new TxMeta(TxState.COMMITTED, List.of(partition1Id, partition2Id), clock.now());
+    private final TxMeta meta1 = new TxMeta(TxState.ABORTED, tableEnlistedPartitions(partition1Id), clock.now());
+    private final TxMeta meta2 = new TxMeta(TxState.COMMITTED, tableEnlistedPartitions(partition1Id, partition2Id), clock.now());
 
     private final PartitionKey partitionKey = new TablePartitionKey(1, 1);
+
+    private static List<EnlistedPartitionGroup> tableEnlistedPartitions(TablePartitionId... tablePartitionIds) {
+        return Arrays.stream(tablePartitionIds)
+                .map(tablePartitionId -> new EnlistedPartitionGroup(tablePartitionId, Set.of(tablePartitionId.tableId())))
+                .collect(toUnmodifiableList());
+    }
 
     @BeforeEach
     void createTestInstance() {
@@ -117,13 +128,16 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
         TxMeta txMeta0 = response.txMeta().get(0).asTxMeta();
 
         assertThat(txMeta0.txState(), is(TxState.ABORTED));
-        assertThat(txMeta0.enlistedPartitions(), contains(partition1Id));
+        assertThat(txMeta0.enlistedPartitions().stream().map(EnlistedPartitionGroup::groupId).collect(toList()), contains(partition1Id));
         assertThat(txMeta0.commitTimestamp(), is(meta1.commitTimestamp()));
 
         TxMeta txMeta1 = response.txMeta().get(1).asTxMeta();
 
         assertThat(txMeta1.txState(), is(TxState.COMMITTED));
-        assertThat(txMeta1.enlistedPartitions(), contains(partition1Id, partition2Id));
+        assertThat(
+                txMeta1.enlistedPartitions().stream().map(EnlistedPartitionGroup::groupId).collect(toList()),
+                contains(partition1Id, partition2Id)
+        );
         assertThat(txMeta1.commitTimestamp(), is(meta2.commitTimestamp()));
     }
 

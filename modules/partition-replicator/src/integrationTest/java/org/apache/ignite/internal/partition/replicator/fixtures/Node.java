@@ -315,7 +315,7 @@ public class Node {
         );
 
         Path configPath = dir.resolve("config");
-        TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
+        TestIgnitionManager.writeConfigurationFileApplyingTestDefaults(configPath);
 
         nodeCfgMgr = new ConfigurationManager(
                 List.of(NodeConfiguration.KEY),
@@ -613,8 +613,8 @@ public class Node {
                 metaStorageManager,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

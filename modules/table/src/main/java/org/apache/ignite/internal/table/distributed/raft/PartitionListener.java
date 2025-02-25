@@ -130,8 +130,13 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private final boolean enabledColocationFeature = enabledColocation();
+
+    private final RaftTxFinishMarker txFinishMarker;
+
     // Raft command handlers.
-    private final RaftTxFinishMarker txFinisher;
     private final FinishTxCommandHandler finishTxCommandHandler;
     private final MinimumActiveTxTimeCommandHandler minimumActiveTxTimeCommandHandler;
     private final VacuumTxStatesCommandHandler vacuumTxStatesCommandHandler;
@@ -165,7 +170,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
-        txFinisher = new RaftTxFinishMarker(txManager);
+        txFinishMarker = new RaftTxFinishMarker(txManager);
 
         finishTxCommandHandler = new FinishTxCommandHandler(
                 txStatePartitionStorage,
@@ -330,7 +335,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
-                    cmd.commitPartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asReplicationGroupId(),
                     cmd.rowToUpdate(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
@@ -387,7 +392,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
-                    cmd.commitPartitionId().asTablePartitionId(),
+                    cmd.commitPartitionId().asReplicationGroupId(),
                     !cmd.full(),
                     () -> storage.lastApplied(commandIndex, commandTerm),
                     cmd.full() ? safeTimestamp : null,
@@ -425,7 +430,11 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         UUID txId = cmd.txId();
 
-        txFinisher.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
+        if (!enabledColocationFeature) {
+            // When colocation feature is enabled, this object merely serves as a table processor invoked by zone-aware raft listener,
+            // which has already marked the transaction finished.
+            txFinishMarker.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
+        }
 
         storageUpdateHandler.switchWriteIntents(
                 txId,

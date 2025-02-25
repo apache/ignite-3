@@ -168,6 +168,14 @@ public interface MetaStorageManager extends IgniteComponent {
     List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
+     * Returns a latest entry for the given key locally. See also {@link #getLocally(ByteArray, long)}.
+     *
+     * @param key Key.
+     * @return Entry.
+     */
+    Entry getLocally(ByteArray key);
+
+    /**
      * Returns an entry for the given key and the revision upper bound locally.
      *
      * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
@@ -242,6 +250,13 @@ public interface MetaStorageManager extends IgniteComponent {
      * @throws CompactedException If the {@code revUpperBound} is less than or equal to the last compacted one.
      */
     Cursor<Entry> getLocally(ByteArray startKey, @Nullable ByteArray endKey, long revUpperBound);
+
+    /**
+     * Returns a future of getting latest entries corresponding to the given keys from the metastorage locally.
+     *
+     * @param keys List of keys (must not be empty).
+     */
+    List<Entry> getAllLocally(List<ByteArray> keys);
 
     /**
      * Returns cursor by entries which correspond to the given key prefix and bounded by revision number locally.

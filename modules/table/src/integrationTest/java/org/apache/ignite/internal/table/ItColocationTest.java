@@ -62,7 +62,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -107,6 +106,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -218,11 +218,10 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
-                    TablePartitionId commitPartition,
+                    ReplicationGroupId commitPartition,
                     boolean commitIntent,
                     boolean timeoutExceeded,
-                    Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
-                    Set<Integer> enlistedTableIds,
+                    Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();
@@ -264,7 +263,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         }
 
         Answer<CompletableFuture<?>> clo = invocation -> {
-            ClusterNode node = invocation.getArgument(0);
+            String nodeName = invocation.getArgument(0);
+            ClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
             TablePartitionIdMessage commitPartId = toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(2, 0));
@@ -308,8 +308,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         .build());
             }
         };
-        when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(clo);
-        when(replicaService.invokeRaw(any(ClusterNode.class), any())).thenAnswer(
+        when(replicaService.invoke(any(String.class), any())).thenAnswer(clo);
+        when(replicaService.invokeRaw(any(String.class), any())).thenAnswer(
                 invocation -> clo.answer(invocation).thenApply(res -> new TimestampAwareReplicaResponse() {
                     @Override
                     public @Nullable Object result() {
@@ -360,6 +360,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 null,
                 mock(StreamerReceiverRunner.class)
         );
+    }
+
+    private static ClusterNode clusterNodeByName(String nodeName) {
+        assertThat(nodeName, is(DummyInternalTableImpl.LOCAL_NODE.name()));
+
+        return DummyInternalTableImpl.LOCAL_NODE;
     }
 
     private static BinaryRowMessage binaryRowMessage(ByteBuffer tupleBuffer, SchemaVersionAwareReplicaRequest request) {

@@ -521,6 +521,17 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertThat(e.getMessage(), Matchers.containsString("Division by zero"));
     }
 
+    @Test
+    public void testClientSqlRowToString() {
+        AsyncResultSet<SqlRow> resultSet = client().sql()
+                .executeAsync(null, "select 1 as num, 'hello' as str")
+                .join();
+
+        SqlRow row = resultSet.currentPage().iterator().next();
+
+        assertEquals("ClientSqlRow [NUM=1, STR=hello]", row.toString());
+    }
+
     private static class Pojo {
         public int num;
 

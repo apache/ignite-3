@@ -77,7 +77,6 @@ import org.jetbrains.annotations.Nullable;
  *     in the {@link MetaStorageManager#deployWatches}.</li>
  * </ul>
  */
-// TODO: IGNITE-23280 Turn on compaction
 public class MetaStorageCompactionTrigger implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTrigger.class);
 
