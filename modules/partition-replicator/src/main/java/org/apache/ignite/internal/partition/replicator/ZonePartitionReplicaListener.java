@@ -213,7 +213,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            // return replicaSafeTimeSyncRequestHandler.handle((ReplicaSafeTimeSyncRequest) request);
+            return replicaSafeTimeSyncRequestHandler.handle((ReplicaSafeTimeSyncRequest) request);
         } else {
             LOG.warn("Non table request is not supported by the zone partition yet " + request);
         }

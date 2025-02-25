@@ -229,7 +229,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             }
         });
 
-        return result;
+        return tableProcessors.isEmpty()
+            ? new IgniteBiTuple<>(null, true)
+            : result;
     }
 
     /**
