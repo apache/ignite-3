@@ -444,7 +444,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
         replicaTxFinishMarker = new ReplicaTxFinishMarker(txManager);
-        txRecoveryEngine = new TxRecoveryEngine(txManager, clusterNodeResolver, replicationGroupId, this::createAbandonedTxRecoveryEnlistment);
+        txRecoveryEngine = new TxRecoveryEngine(
+                txManager,
+                clusterNodeResolver,
+                replicationGroupId,
+                this::createAbandonedTxRecoveryEnlistment
+        );
 
         txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
                 txStatePartitionStorage,
