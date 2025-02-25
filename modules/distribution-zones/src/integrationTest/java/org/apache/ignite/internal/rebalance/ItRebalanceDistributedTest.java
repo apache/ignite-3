@@ -125,6 +125,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -259,7 +260,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -1039,7 +1039,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         )));
     }
 
-    private @NotNull Node getLeaseholderNodeForPartition(Node node, int partId) {
+    private Node getLeaseholderNodeForPartition(Node node, int partId) {
         Set<Assignment> assignments = getPartitionClusterNodes(node, partId);
 
         String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();
@@ -1194,7 +1194,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             ClientConnectorExtensionConfigurationSchema.class,
                             StorageExtensionConfigurationSchema.class,
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
-                            VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
+                            VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class,
+                            SystemLocalExtensionConfigurationSchema.class
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
@@ -1203,7 +1204,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
-            TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
+            TestIgnitionManager.writeConfigurationFileApplyingTestDefaults(configPath);
 
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NodeConfiguration.KEY),
@@ -1464,8 +1465,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     logicalTopologyService,
                     catalogManager,
-                    rebalanceScheduler,
-                    systemDistributedConfiguration
+                    systemDistributedConfiguration,
+                    clockService
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry

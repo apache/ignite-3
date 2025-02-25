@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,6 +33,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -608,6 +611,42 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         fut.join();
     }
 
+    @Test
+    public void testAssignmentUnavailablePutGet() {
+        initPrimaryReplicas(nullReplicas());
+
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        recordView.upsert(null, Tuple.create().set("ID", 123L));
+        Tuple res = recordView.get(null, Tuple.create().set("ID", 123L));
+
+        assertNotNull(res);
+    }
+
+    @Test
+    public void testAssignmentUnavailableStreamer() {
+        initPrimaryReplicas(nullReplicas());
+
+        DataStreamerOptions options = DataStreamerOptions.builder()
+                .pageSize(1)
+                .perPartitionParallelOperations(1)
+                .autoFlushInterval(50)
+                .build();
+
+        CompletableFuture<Void> fut;
+
+        RecordView<Tuple> recordView = defaultTable().recordView();
+        try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
+            fut = recordView.streamData(publisher, options);
+
+            for (long i = 0; i < 100; i++) {
+                publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", i)));
+            }
+        }
+
+        assertDoesNotThrow(fut::join);
+    }
+
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Transaction> op) {
         assertOpOnNodeNoTx(expectedNode, expectedOp, op);
         assertOpOnNodeWithTx(expectedNode, expectedOp, op);
@@ -675,6 +714,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             replicas = defaultReplicas();
         }
 
+        placementDriver.returnError(false);
         placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
     }
 
@@ -684,6 +724,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static List<String> reversedReplicas() {
         return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
+    }
+
+    private static List<String> nullReplicas() {
+        return IntStream.range(0, 4).mapToObj(i -> (String) null).collect(Collectors.toList());
     }
 
     private static <A> ReceiverDescriptor<A> receiver() {

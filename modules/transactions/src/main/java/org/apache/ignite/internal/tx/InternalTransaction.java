@@ -20,9 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -39,12 +37,12 @@ public interface InternalTransaction extends Transaction {
     UUID id();
 
     /**
-     * Returns enlisted primary replica node associated with given replication group.
+     * Returns enlisted partition information.
      *
      * @param replicationGroupId Replication group ID.
-     * @return Enlisted primary replica node and consistency token associated with given replication group.
+     * @return Enlisted partition information.
      */
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId);
+    PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId);
 
     /**
      * Returns a transaction state.
@@ -56,30 +54,31 @@ public interface InternalTransaction extends Transaction {
     /**
      * Assigns a partition id to store the transaction state.
      *
-     * @param tablePartitionId Commit partition group id.
+     * @param commitPartitionId Commit partition group id.
      * @return True if the partition was assigned as committed, false otherwise.
      */
-    boolean assignCommitPartition(TablePartitionId tablePartitionId);
+    boolean assignCommitPartition(ReplicationGroupId commitPartitionId);
 
     /**
      * Gets a partition id that stores the transaction state.
      *
      * @return Partition id.
      */
-    TablePartitionId commitPartition();
+    ReplicationGroupId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.
      *
      * @param replicationGroupId Replication group id to enlist.
      * @param tableId Table ID for enlistment.
-     * @param nodeAndConsistencyToken Primary replica cluster node and consistency token to enlist for given replication group.
-     * @return {@code True} if a partition is enlisted into the transaction.
+     * @param primaryNode Primary replica cluster node.
+     * @param consistencyToken Consistency token to enlist for given replication group.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(
+    void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+            ClusterNode primaryNode,
+            long consistencyToken
     );
 
     /**

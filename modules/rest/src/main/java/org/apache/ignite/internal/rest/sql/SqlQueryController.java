@@ -32,7 +32,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
-import org.apache.ignite.internal.rest.sql.exception.SqlQueryCancelException;
+import org.apache.ignite.internal.rest.sql.exception.SqlQueryKillException;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
@@ -77,13 +77,13 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     }
 
     @Override
-    public CompletableFuture<Void> cancelQuery(UUID queryId) {
+    public CompletableFuture<Void> killQuery(UUID queryId) {
         try {
             return killHandlerRegistry.handler(CancellableOperationType.QUERY).cancelAsync(queryId.toString())
                     .thenApply(result -> handleOperationResult(queryId, result));
         } catch (Exception e) {
-            LOG.error("Sql query {} can't be canceled.", queryId, e);
-            return failedFuture(new SqlQueryCancelException(queryId.toString()));
+            LOG.error("Sql query {} can't be killed.", queryId, e);
+            return failedFuture(new SqlQueryKillException(queryId.toString()));
         }
     }
 

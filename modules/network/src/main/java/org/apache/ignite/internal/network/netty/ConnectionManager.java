@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -271,7 +272,12 @@ public class ConnectionManager implements ChannelCreationListener {
             LOG.info("Server started [address={}]", server.address());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            throw new IgniteInternalException("Failed to start the connection manager: " + cause.getMessage(), cause);
+
+            throw new IgniteInternalException(
+                    extractCodeFrom(cause),
+                    "Failed to start the connection manager: " + cause.getMessage(),
+                    cause
+            );
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 

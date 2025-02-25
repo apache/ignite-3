@@ -100,7 +100,7 @@ class PartitionCommandsMarshallerImplTest {
         long time = System.currentTimeMillis();
         return tableMessagesFactory.finishTxCommand()
                 .txId(UUID.randomUUID())
-                .partitionIds(List.of())
+                .partitions(List.of())
                 .initiatorTime(HybridTimestamp.hybridTimestamp(time))
                 .safeTime(HybridTimestamp.hybridTimestamp(time))
                 .requiredCatalogVersion(requiredCatalogVersion)

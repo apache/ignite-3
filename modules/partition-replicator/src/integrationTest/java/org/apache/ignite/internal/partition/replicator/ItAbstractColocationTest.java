@@ -29,11 +29,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
@@ -45,8 +45,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
@@ -68,107 +68,115 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(ConfigurationExtension.class)
-@ExtendWith(ExecutorServiceExtension.class)
-@ExtendWith(SystemPropertiesExtension.class)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
+
+/**
+ * Base class for tests that require a cluster with zone replication.
+ */
+@ExtendWith(ConfigurationExtension.class)
+@ExtendWith(SystemPropertiesExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    private static final int NODE_COUNT = 3;
-
     private static final int BASE_PORT = 20_000;
-
-    private static final String HOST = "localhost";
-
-    private static final List<NetworkAddress> NODE_ADDRESSES = IntStream.range(0, NODE_COUNT)
-            .mapToObj(i -> new NetworkAddress(HOST, BASE_PORT + i))
-            .collect(toList());
-
-    private static final StaticNodeFinder NODE_FINDER = new StaticNodeFinder(NODE_ADDRESSES);
 
     static final int AWAIT_TIMEOUT_MILLIS = 10_000;
 
-    @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
-    private static NodeAttributesConfiguration nodeAttributes1;
-
-    @InjectConfiguration("mock.nodeAttributes: {region = EU, storage = SSD}")
-    private static NodeAttributesConfiguration nodeAttributes2;
-
-    @InjectConfiguration("mock.nodeAttributes: {region = UK, storage = SSD}")
-    private static NodeAttributesConfiguration nodeAttributes3;
+    @InjectConfiguration
+    private SystemLocalConfiguration systemConfiguration;
 
     @InjectConfiguration
-    private static TransactionConfiguration txConfiguration;
+    private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private static SystemLocalConfiguration systemConfiguration;
-
-    @InjectConfiguration
-    private static ReplicationConfiguration replicationConfiguration;
-
-    @InjectConfiguration
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    private NodeAttributesConfiguration defaultNodeAttributesConfiguration;
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
-    private static StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     @InjectConfiguration
     GcConfiguration gcConfiguration;
 
-    @InjectExecutorService
-    private static ScheduledExecutorService scheduledExecutorService;
+    @InjectConfiguration
+    TransactionConfiguration txConfiguration;
 
-    private static List<NodeAttributesConfiguration> nodeAttributesConfigurations;
-
-    final Map<Integer, Node> nodes = new HashMap<>();
+    final List<Node> cluster = new ArrayList<>();
 
     // TODO Remove https://issues.apache.org/jira/browse/IGNITE-24375
     final TestPlacementDriver placementDriver = new TestPlacementDriver();
 
-    @BeforeAll
-    static void beforeAll() {
-        nodeAttributesConfigurations = List.of(nodeAttributes1, nodeAttributes2, nodeAttributes3);
+    private NodeFinder nodeFinder;
+
+    private TestInfo testInfo;
+
+    @BeforeEach
+    void setUp(TestInfo testInfo) {
+        this.testInfo = testInfo;
     }
 
     @AfterEach
-    void after() throws Exception {
-        closeAll(nodes.values().parallelStream().map(node -> node::stop));
+    void tearDown() throws Exception {
+        closeAll(cluster.parallelStream().map(node -> node::stop));
     }
 
-    void startNodes(TestInfo testInfo, int amount) throws NodeStoppingException, InterruptedException {
-        startNodes(testInfo, amount, null);
+    void startCluster(int size) throws Exception {
+        startCluster(size, null, null);
     }
 
-    void startNodes(
-            TestInfo testInfo,
-            int amount,
-            @Nullable Node.InvokeInterceptor invokeInterceptor
-    ) throws NodeStoppingException, InterruptedException {
-        IntStream.range(0, amount).forEach(i -> newNode(testInfo, i, invokeInterceptor));
+    void startCluster(int size, List<NodeAttributesConfiguration> customAttributes) throws Exception {
+        assertThat(customAttributes.size(), equalTo(size));
 
-        assert nodes.size() == amount : "Not all amount of nodes were created.";
+        startCluster(size, null, customAttributes);
+    }
 
-        nodes.values().stream().parallel().forEach(Node::start);
+    void startCluster(
+            int size,
+            @Nullable Node.InvokeInterceptor invokeInterceptor,
+            @Nullable List<NodeAttributesConfiguration> customAttributes
+    ) throws Exception {
+        List<NetworkAddress> addresses = IntStream.range(0, size)
+                .mapToObj(i -> new NetworkAddress("localhost", BASE_PORT + i))
+                .collect(toList());
 
-        Node node0 = getNode(0);
+        nodeFinder = new StaticNodeFinder(addresses);
+
+        boolean hasCustomAttributes = customAttributes != null;
+
+        IntStream.range(0, size)
+                .mapToObj(i -> newNode(
+                        addresses.get(i),
+                        nodeFinder,
+                        invokeInterceptor,
+                        hasCustomAttributes ? customAttributes.get(i) : defaultNodeAttributesConfiguration))
+                .forEach(cluster::add);
+
+        cluster.parallelStream().forEach(Node::start);
+
+        Node node0 = cluster.get(0);
 
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
         placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
 
-        nodes.values().forEach(Node::waitWatches);
+        cluster.forEach(Node::waitWatches);
 
         assertThat(
-                allOf(nodes.values().stream().map(n -> n.cmgManager.onJoinReady()).toArray(CompletableFuture[]::new)),
+                allOf(cluster.stream().map(n -> n.cmgManager.onJoinReady()).toArray(CompletableFuture[]::new)),
                 willCompleteSuccessfully()
         );
 
@@ -178,19 +186,20 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
                     assertThat(logicalTopologyFuture, willCompleteSuccessfully());
 
-                    return logicalTopologyFuture.join().nodes().size() == amount;
+                    return logicalTopologyFuture.join().nodes().size() == cluster.size();
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
     }
 
-
-    Node startNode(TestInfo testInfo, int idx) {
-        return startNode(testInfo, idx, null);
+    protected Node addNodeToCluster() {
+        return addNodeToCluster(cluster.size());
     }
 
-    private Node startNode(TestInfo testInfo, int idx, @Nullable Node.InvokeInterceptor invokeInterceptor) {
-        Node node = newNode(testInfo, idx, invokeInterceptor);
+    Node addNodeToCluster(int idx) {
+        Node node = newNode(new NetworkAddress("localhost", BASE_PORT + idx), nodeFinder);
+
+        cluster.add(node);
 
         node.start();
 
@@ -206,19 +215,28 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
         node.stop();
 
-        nodes.remove(idx);
+        cluster.remove(idx);
     }
 
-    private Node newNode(TestInfo testInfo, int idx, @Nullable Node.InvokeInterceptor invokeInterceptor) {
-        var node = new Node(
+    private Node newNode(NetworkAddress address, NodeFinder nodeFinder) {
+        return newNode(address, nodeFinder, null, defaultNodeAttributesConfiguration);
+    }
+
+    private Node newNode(
+            NetworkAddress address,
+            NodeFinder nodeFinder,
+            @Nullable Node.InvokeInterceptor invokeInterceptor,
+            NodeAttributesConfiguration nodeAttributesConfiguration
+    ) {
+        return new Node(
                 testInfo,
-                NODE_ADDRESSES.get(idx),
-                NODE_FINDER,
+                address,
+                nodeFinder,
                 workDir,
                 placementDriver,
                 systemConfiguration,
                 raftConfiguration,
-                nodeAttributesConfigurations.get(idx),
+                nodeAttributesConfiguration,
                 storageConfiguration,
                 metaStorageConfiguration,
                 replicationConfiguration,
@@ -227,18 +245,6 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 invokeInterceptor,
                 gcConfiguration
         );
-
-        nodes.put(idx, node);
-
-        return node;
-    }
-
-    Node getNode(int nodeIndex) {
-        return nodes.get(nodeIndex);
-    }
-
-    Node getNode(String nodeName) {
-        return nodes.values().stream().filter(n -> n.name.equals(nodeName)).findFirst().orElseThrow();
     }
 
     static void createZone(Node node, String zoneName, int partitions, int replicas) {
@@ -269,6 +275,14 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 ),
                 List.of("key")
         );
+    }
+
+    Node getNode(int nodeIndex) {
+        return cluster.get(nodeIndex);
+    }
+
+    Node getNode(String nodeName) {
+        return cluster.stream().filter(n -> n.name.equals(nodeName)).findFirst().orElseThrow();
     }
 
     void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {

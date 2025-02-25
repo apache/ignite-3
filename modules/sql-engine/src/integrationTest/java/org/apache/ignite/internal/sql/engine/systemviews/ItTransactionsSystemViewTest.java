@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.systemviews;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransactionsImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -31,7 +30,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -41,21 +39,15 @@ import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * End-to-end tests to verify {@code TRANSACTIONS} system view.
  */
-public class ItTransactionsSystemViewTest extends BaseSqlIntegrationTest {
+public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
     @Override
     protected int initialNodes() {
         return 2;
-    }
-
-    @BeforeAll
-    void beforeAll() {
-        await(systemViewManager().completeRegistration());
     }
 
     @Test
@@ -115,11 +107,15 @@ public class ItTransactionsSystemViewTest extends BaseSqlIntegrationTest {
 
         Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
-        Object[] expected = makeExpectedRow((InternalTransaction) tx, nodeIdToName);
-        List<List<Object>> resultRow = sql(tx, "SELECT * FROM SYSTEM.TRANSACTIONS");
+        try {
+            Object[] expected = makeExpectedRow((InternalTransaction) tx, nodeIdToName);
+            List<List<Object>> resultRow = sql(tx, "SELECT * FROM SYSTEM.TRANSACTIONS");
 
-        assertThat(resultRow, hasSize(1));
-        assertThat(resultRow.get(0), equalTo(Arrays.asList(expected)));
+            assertThat(resultRow, hasSize(1));
+            assertThat(resultRow.get(0), equalTo(Arrays.asList(expected)));
+        } finally {
+            tx.rollback();
+        }
     }
 
     private static Object[] makeExpectedRow(InternalTransaction tx, Map<UUID, String> nodeIdToName) {

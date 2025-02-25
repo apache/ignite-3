@@ -84,6 +84,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -774,6 +775,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         assert serverPeer != null;
 
+        var disruptorConfig = new RaftNodeDisruptorConfiguration("cmg", 1);
+
         try {
             RaftGroupService service = raftManager.startRaftGroupNodeAndWaitNodeReady(
                     raftNodeId(serverPeer),
@@ -786,10 +789,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             clusterIdStore
                     ),
                     this::onElectedAsLeader,
+                    disruptorConfig,
                     raftGroupOptionsConfigurer
             );
 
-            return completedFuture(new CmgRaftService(service, clusterService, logicalTopology));
+            return completedFuture(new CmgRaftService(service, clusterService.topologyService(), logicalTopology));
         } catch (Exception e) {
             return failedFuture(e);
         }

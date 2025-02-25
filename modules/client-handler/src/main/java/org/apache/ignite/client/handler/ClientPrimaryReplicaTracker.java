@@ -225,6 +225,7 @@ public class ClientPrimaryReplicaTracker {
         }
 
         List<String> res = new ArrayList<>(partitions);
+        boolean hasKnown = false;
 
         for (int partition = 0; partition < partitions; partition++) {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
@@ -240,9 +241,10 @@ public class ClientPrimaryReplicaTracker {
             }
 
             res.add(holder.nodeName);
+            hasKnown = true;
         }
 
-        return new PrimaryReplicasResult(res, currentMaxStartTime);
+        return hasKnown ? new PrimaryReplicasResult(res, currentMaxStartTime) : null;
     }
 
     private CompletableFuture<Integer> partitionsAsync(int tableId, HybridTimestamp timestamp) {

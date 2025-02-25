@@ -153,7 +153,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
 
-    private static final int ZONE_ID = 2;
+    /** ID of the zone to which the corresponding table belongs. */
+    public static final int ZONE_ID = 2;
 
     private static final int PART_ID = 0;
 
@@ -313,39 +314,19 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         ClusterNode node = invocationOnMock.getArgument(0);
 
                         return replicaListener.invoke(invocationOnMock.getArgument(1), node.id())
-                                .thenApply(r -> new TimestampAwareReplicaResponse() {
-                                    @Override
-                                    public @Nullable Object result() {
-                                        return r.result();
-                                    }
-
-                                    @Override
-                                    public @Nullable HybridTimestamp timestamp() {
-                                        return CLOCK.now();
-                                    }
-
-                                    @Override
-                                    public MessageSerializer<NetworkMessage> serializer() {
-                                        return null;
-                                    }
-
-                                    @Override
-                                    public short messageType() {
-                                        return 0;
-                                    }
-
-                                    @Override
-                                    public short groupType() {
-                                        return 0;
-                                    }
-
-                                    @Override
-                                    public NetworkMessage clone() {
-                                        return null;
-                                    }
-                                });
+                                .thenApply(DummyInternalTableImpl::dummyTimestampAwareResponse);
                     })
                     .when(replicaSvc).invokeRaw(any(ClusterNode.class), any());
+
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        String nodeConsistenId = invocationOnMock.getArgument(0);
+                        UUID nodeId = deriveUuidFrom(nodeConsistenId);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId)
+                                .thenApply(DummyInternalTableImpl::dummyTimestampAwareResponse);
+                    })
+                    .when(replicaSvc).invokeRaw(anyString(), any());
         }
 
         AtomicLong raftIndex = new AtomicLong(1);
@@ -525,6 +506,40 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
             assertThat(svc.run(primaryReplicaChangeCommand), willCompleteSuccessfully());
         }
+    }
+
+    private static TimestampAwareReplicaResponse dummyTimestampAwareResponse(ReplicaResult r) {
+        return new TimestampAwareReplicaResponse() {
+            @Override
+            public @Nullable Object result() {
+                return r.result();
+            }
+
+            @Override
+            public @Nullable HybridTimestamp timestamp() {
+                return CLOCK.now();
+            }
+
+            @Override
+            public MessageSerializer<NetworkMessage> serializer() {
+                return null;
+            }
+
+            @Override
+            public short messageType() {
+                return 0;
+            }
+
+            @Override
+            public short groupType() {
+                return 0;
+            }
+
+            @Override
+            public NetworkMessage clone() {
+                return null;
+            }
+        };
     }
 
     /**

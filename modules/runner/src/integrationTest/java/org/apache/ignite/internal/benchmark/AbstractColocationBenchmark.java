@@ -111,7 +111,7 @@ public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
     public void nodeSetUp() throws Exception {
         boolean colocationFeatureEnabled = enableColocationFeature();
 
-        // Enable/disable collocation feature.
+        // Enable/disable colocation feature.
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationFeatureEnabled));
 
         // Start the cluster and initialize it.

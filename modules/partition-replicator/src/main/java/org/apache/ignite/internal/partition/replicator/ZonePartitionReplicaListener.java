@@ -29,14 +29,18 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.WriteIntentSwitchRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -45,9 +49,14 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
+import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -58,16 +67,22 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
-    private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
+    // tableId -> tableProcessor.
+    private final Map<Integer, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
     /** Raft client. */
     private final RaftCommandRunner raftClient;
 
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
 
+    private final ZonePartitionId replicationGroupId;
+
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
+    private final WriteIntentSwitchRequestHandler writeIntentSwitchRequestHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
+    private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
+    private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
 
     /**
      * The constructor.
@@ -83,14 +98,20 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ValidationSchemasSource validationSchemasSource,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
+            LeasePlacementDriver placementDriver,
+            ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
+            ClusterNode localNode,
             ZonePartitionId replicationGroupId
     ) {
         this.raftClient = raftClient;
 
         this.raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
 
+        this.replicationGroupId = replicationGroupId;
+
         // Request handlers initialization.
+
         txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
                 txStatePartitionStorage,
                 clockService,
@@ -101,9 +122,45 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 raftClient,
                 replicationGroupId);
 
+        writeIntentSwitchRequestHandler = new WriteIntentSwitchRequestHandler(
+                replicas::get,
+                clockService,
+                schemaSyncService,
+                catalogService,
+                txManager,
+                raftClient,
+                replicationGroupId
+        );
+
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,
-                raftCommandApplicator);
+                raftCommandApplicator
+        );
+
+        vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
+
+        txStateCommitPartitionReplicaRequestHandler = new TxStateCommitPartitionReplicaRequestHandler(
+                txStatePartitionStorage,
+                placementDriver,
+                txManager,
+                clockService,
+                clusterNodeResolver,
+                replicationGroupId,
+                localNode,
+                new TxRecoveryEngine(
+                        txManager,
+                        clusterNodeResolver,
+                        replicationGroupId,
+                        ZonePartitionReplicaListener::createAbandonedTxRecoveryEnlistment
+                )
+        );
+    }
+
+    private static PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
+        // Enlistment consistency token is not required for the rollback, so it is 0L.
+        // Passing an empty set of table IDs as we don't know which tables were enlisted; this is ok as the corresponding write intents
+        // can still be resolved later when reads stumble upon them.
+        return new PendingTxPartitionEnlistment(node.name(), 0L);
     }
 
     @Override
@@ -134,6 +191,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         if (request instanceof TxFinishReplicaRequest) {
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                     .thenApply(res -> new ReplicaResult(res, null));
+        } else if (request instanceof WriteIntentSwitchReplicaRequest) {
+            return writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
+        } else if (request instanceof TxStateCommitPartitionRequest) {
+            return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request);
         }
 
         return processZoneReplicaRequest(request, isPrimary, senderId, leaseStartTime);
@@ -163,21 +224,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ReplicaResult> processTableAwareRequest(ReplicaRequest request, UUID senderId) {
         assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
 
-        int partitionId;
-
-        ReplicationGroupId replicationGroupId = request.groupId().asReplicationGroupId();
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Refine this code when the zone based replication will be done.
-        if (replicationGroupId instanceof  TablePartitionId) {
-            partitionId = ((TablePartitionId) replicationGroupId).partitionId();
-        } else if (replicationGroupId instanceof ZonePartitionId) {
-            partitionId = ((ZonePartitionId) replicationGroupId).partitionId();
-        } else {
-            throw new IllegalArgumentException("Requests with replication group type "
-                    + request.groupId().getClass() + " is not supported");
-        }
-
-        return replicas.get(new TablePartitionId(((TableAware) request).tableId(), partitionId))
+        return replicas.get(((TableAware) request).tableId())
                 .invoke(request, senderId);
     }
 
@@ -198,7 +245,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     ) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-24526
         // Need to move the necessary part of PartitionReplicaListener#processRequest request processing here
-        if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
+
+        if (request instanceof VacuumTxStateReplicaRequest) {
+            return vacuumTxStateReplicaRequestHandler.handle((VacuumTxStateReplicaRequest) request);
+        } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             LOG.debug("Non table request is not supported by the zone partition yet " + request);
@@ -220,7 +270,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param replicaListener Table replica listener.
      */
     public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
-        replicas.put(partitionId, replicaListener.apply(raftClient));
+        replicas.put(partitionId.tableId(), replicaListener.apply(raftClient));
     }
 
     /**
@@ -229,18 +279,18 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @return Table replicas listeners.
      */
     @VisibleForTesting
-    public Map<TablePartitionId, ReplicaListener> tableReplicaListeners() {
+    public Map<Integer, ReplicaListener> tableReplicaListeners() {
         return replicas;
     }
 
     @Override
     public void onShutdown() {
-        replicas.forEach((id, listener) -> {
+        replicas.forEach((tableId, listener) -> {
                     try {
                         listener.onShutdown();
                     } catch (Throwable th) {
                         LOG.error("Error during table partition listener stop for [tableId="
-                                        + id.tableId() + ", partitionId=" + id.partitionId() + "].",
+                                        + tableId + ", partitionId=" + replicationGroupId.partitionId() + "].",
                                 th
                         );
                     }
