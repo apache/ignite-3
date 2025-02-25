@@ -102,9 +102,11 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     /** Internal table to test. */
     DummyInternalTableImpl internalTbl;
 
-    PlacementDriver placementDriver;
+    protected final int zoneId = DummyInternalTableImpl.ZONE_ID;
 
-    ClusterNodeResolver clusterNodeResolver;
+    private PlacementDriver placementDriver;
+
+    protected ClusterNodeResolver clusterNodeResolver;
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.

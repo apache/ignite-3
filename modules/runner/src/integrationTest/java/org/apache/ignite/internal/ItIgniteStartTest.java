@@ -18,10 +18,12 @@
 package org.apache.ignite.internal;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.typesafe.config.parser.ConfigDocument;
@@ -32,6 +34,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
@@ -96,6 +99,23 @@ class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
         assertDoesNotThrow(() -> cluster.startNode(1));
 
         assertThat(registration0.registrationFuture(), willCompleteSuccessfully());
+    }
+
+    @Test
+    void testStartOnSameNetworkPort() {
+        IgniteException exception = (IgniteException) assertThrows(
+                IgniteException.class,
+                () -> cluster.startAndInitWithUpdateBootstrapConfig(
+                        2,
+                        nodeBootstrapConfig ->
+                                ConfigDocumentFactory.parseString(nodeBootstrapConfig)
+                                        .withValueText("ignite.network.port", Integer.toString(ClusterConfiguration.DEFAULT_BASE_PORT))
+                                        .render()
+                ),
+                "Unable to start [node="
+        );
+
+        assertEquals("IGN-NETWORK-2", exception.codeAsString());
     }
 
     private static void waitTill1NodeValidateItselfWithCmg(ServerRegistration registration) throws InterruptedException {

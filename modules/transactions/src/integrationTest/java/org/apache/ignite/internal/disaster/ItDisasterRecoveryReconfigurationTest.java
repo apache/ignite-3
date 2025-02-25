@@ -659,6 +659,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 0, 1, 4);
 
+        log.info("Test: stopping nodes.");
+
         stopNodesInParallel(1, 4);
         waitForScale(node0, 3);
 

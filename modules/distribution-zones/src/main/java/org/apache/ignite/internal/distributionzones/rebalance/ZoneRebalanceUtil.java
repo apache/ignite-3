@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -55,7 +54,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
-import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -512,27 +510,6 @@ public class ZoneRebalanceUtil {
         var zonePartitionIdString = toStringWithoutPrefix(key, prefix.length);
 
         return ZonePartitionId.fromString(zonePartitionIdString);
-    }
-
-    /**
-     * Extract zone id from a metastorage key {@link DistributionZonesUtil#zoneDataNodesKey()}.
-     *
-     * @param key Key.
-     * @return Table id.
-     */
-    public static int extractZoneIdDataNodes(byte[] key) {
-        return Integer.parseInt(toStringWithoutPrefix(key, DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES.length));
-    }
-
-    /**
-     * Checks if an error is recoverable, so we can retry a rebalance intent.
-     *
-     * @param t The throwable.
-     * @return {@code True} if this is a recoverable exception.
-     */
-    public static boolean recoverable(Throwable t) {
-        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
-        return true;
     }
 
     /**

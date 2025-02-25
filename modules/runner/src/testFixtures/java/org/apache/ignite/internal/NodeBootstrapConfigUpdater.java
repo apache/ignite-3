@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.transaction.exception;
+package org.apache.ignite.internal;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+/** Boot configuration updater before starting the node. */
+@FunctionalInterface
+public interface NodeBootstrapConfigUpdater {
+    String update(String config);
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
-
-/**
- * Thrown when transaction cancel failed.
- */
-public class TransactionCancelException extends IgniteInternalException {
-    /**
-     * Constructor.
-     *
-     * @param transactionId Transaction id.
-     */
-    public TransactionCancelException(String transactionId) {
-        super(ILLEGAL_ARGUMENT_ERR, "Transaction can not be canceled [transactionId=" + transactionId + ']');
+    /** Returns an updater that does nothing. */
+    static NodeBootstrapConfigUpdater noop() {
+        return config -> config;
     }
 }

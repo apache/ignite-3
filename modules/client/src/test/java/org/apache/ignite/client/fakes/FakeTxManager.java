@@ -97,7 +97,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+            public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
                 return false;
             }
 
@@ -206,7 +206,7 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             boolean commit,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId

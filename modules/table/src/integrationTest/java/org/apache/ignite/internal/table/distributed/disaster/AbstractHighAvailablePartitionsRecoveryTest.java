@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -52,7 +54,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -63,7 +64,11 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
-import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZoneTimer;
+import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -387,40 +392,51 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         assertThat(changeFuture, willCompleteSuccessfully());
     }
 
-    final long waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(
-            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopologyUpdate
+    final long waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(
+            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopologyReduction
     ) throws InterruptedException {
         int zoneId = zoneIdByName(gatewayNode.catalogManager(), zoneName);
 
-        AtomicLong revision = new AtomicLong();
-
         assertTrue(waitForCondition(() -> {
-            var state = gatewayNode
-                    .distributionZoneManager()
-                    .zonesState()
-                    .get(zoneId);
+            Entry e = gatewayNode.metaStorageManager().getLocally(zoneScaleDownTimerKey(zoneId));
 
-            if (state != null) {
-                var lastEntry = state.topologyAugmentationMap().lastEntry();
-
-                var isTheSameAsTarget = lastEntry.getValue().nodes()
-                        .stream()
-                        .map(Node::nodeName)
-                        .collect(Collectors.toUnmodifiableSet())
-                        .equals(targetTopologyUpdate);
-
-                if (isTheSameAsTarget) {
-                    revision.set(lastEntry.getKey());
-                }
-
-                return isTheSameAsTarget;
+            if (e == null || e.value() == null) {
+                return false;
             }
-            return false;
+
+            DistributionZoneTimer scaleDownTimer = DistributionZoneTimerSerializer.deserialize(e.value());
+
+            return scaleDownTimer.nodes().stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(Collectors.toUnmodifiableSet())
+                    .containsAll(targetTopologyReduction);
         }, 10_000));
 
-        assert revision.get() != 0;
+        return gatewayNode.metaStorageManager().appliedRevision();
+    }
 
-        return revision.get();
+    long waitForRev(
+            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopology
+    ) throws InterruptedException {
+        int zoneId = zoneIdByName(gatewayNode.catalogManager(), zoneName);
+
+        assertTrue(waitForCondition(() -> {
+            Entry e = gatewayNode.metaStorageManager().getLocally(zoneDataNodesHistoryKey(zoneId));
+
+            if (e == null || e.value() == null) {
+                return false;
+            }
+
+            DataNodesHistory history = DataNodesHistorySerializer.deserialize(e.value());
+
+            return history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes()
+                    .stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(Collectors.toSet())
+                    .equals(targetTopology);
+        }, 10_000));
+
+        return gatewayNode.metaStorageManager().appliedRevision();
     }
 
     private void awaitForAllNodesTableGroupInitialization(Set<Integer> tableIds, int replicas) throws InterruptedException {

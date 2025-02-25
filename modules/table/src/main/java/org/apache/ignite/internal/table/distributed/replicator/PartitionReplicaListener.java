@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.fromBytes;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
@@ -157,6 +158,7 @@ import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -167,6 +169,7 @@ import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaReques
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -542,7 +545,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
                         PENDING,
                         req.coordinatorId(),
-                        req.commitPartitionId().asTablePartitionId(),
+                        req.commitPartitionId().asReplicationGroupId(),
                         null,
                         old == null ? null : old.tx()
                 ));
@@ -845,7 +848,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
                     PENDING,
                     req.coordinatorId(),
-                    req.commitPartitionId().asTablePartitionId(),
+                    req.commitPartitionId().asReplicationGroupId(),
                     null,
                     old == null ? null : old.tx()
             ));
@@ -2098,8 +2101,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             assert Objects.equals(wi.transactionId(), writeIntent.transactionId())
                     : "Unexpected write intent, tx1=" + writeIntent.transactionId() + ", tx2=" + wi.transactionId();
 
-            assert Objects.equals(wi.commitTableId(), writeIntent.commitTableId())
-                    : "Unexpected write intent, commitTableId1=" + writeIntent.commitTableId() + ", commitTableId2=" + wi.commitTableId();
+            assert Objects.equals(wi.commitTableOrZoneId(), writeIntent.commitTableOrZoneId())
+                    : "Unexpected write intent, commitTableOrZoneId1=" + writeIntent.commitTableOrZoneId()
+                            + ", commitTableId2=" + wi.commitTableOrZoneId();
 
             assert wi.commitPartitionId() == writeIntent.commitPartitionId()
                     : "Unexpected write intent, commitPartitionId1=" + writeIntent.commitPartitionId()
@@ -2154,7 +2158,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<ReplicaResult> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request, Long leaseStartTime) {
         UUID txId = request.transactionId();
-        TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
+        ReplicationGroupId commitPartitionId = request.commitPartitionId().asReplicationGroupId();
         List<BinaryRow> searchRows = request.binaryRows();
 
         assert commitPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
@@ -2426,10 +2430,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<?> processMultiEntryAction(ReadWriteMultiRowPkReplicaRequest request, Long leaseStartTime) {
         UUID txId = request.transactionId();
-        TablePartitionId committedPartitionId = request.commitPartitionId().asTablePartitionId();
+        ReplicationGroupId commitPartitionId = request.commitPartitionId().asReplicationGroupId();
         List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
 
-        assert committedPartitionId != null || request.requestType() == RW_GET_ALL
+        assert commitPartitionId != null || request.requestType() == RW_GET_ALL
                 : "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
@@ -2549,7 +2553,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Executes an Update command.
      *
-     * @param tablePartId {@link TablePartitionId} object.
+     * @param commitPartitionId Commit partition ID.
      * @param rowUuid Row UUID.
      * @param row Row.
      * @param lastCommitTimestamp The timestamp of the last committed entry for the row.
@@ -2560,7 +2564,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
     private CompletableFuture<CommandApplicationResult> applyUpdateCommand(
-            TablePartitionId tablePartId,
+            ReplicationGroupId commitPartitionId,
             UUID rowUuid,
             @Nullable BinaryRow row,
             @Nullable HybridTimestamp lastCommitTimestamp,
@@ -2573,7 +2577,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         assert leaseStartTime != null : format("Lease start time is null for UpdateCommand [txId={}].", txId);
 
         UpdateCommand cmd = updateCommand(
-                tablePartId,
+                commitPartitionId,
                 rowUuid,
                 row,
                 lastCommitTimestamp,
@@ -2591,7 +2595,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdate(
                         cmd.txId(),
                         cmd.rowUuid(),
-                        cmd.commitPartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asReplicationGroupId(),
                         cmd.rowToUpdate(),
                         true,
                         null,
@@ -2624,7 +2628,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         storageUpdateHandler.handleUpdate(
                                 cmd.txId(),
                                 cmd.rowUuid(),
-                                cmd.commitPartitionId().asTablePartitionId(),
+                                cmd.commitPartitionId().asReplicationGroupId(),
                                 cmd.rowToUpdate(),
                                 false,
                                 null,
@@ -2660,7 +2664,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             Long leaseStartTime
     ) {
         return applyUpdateCommand(
-                request.commitPartitionId().asTablePartitionId(),
+                request.commitPartitionId().asReplicationGroupId(),
                 rowUuid,
                 row,
                 lastCommitTimestamp,
@@ -2686,7 +2690,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<CommandApplicationResult> applyUpdateAllCommand(
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
-            TablePartitionIdMessage commitPartitionId,
+            ReplicationGroupIdMessage commitPartitionId,
             UUID txId,
             boolean full,
             UUID txCoordinatorId,
@@ -2713,7 +2717,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdateAll(
                         cmd.txId(),
                         cmd.rowsToUpdate(),
-                        cmd.commitPartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asReplicationGroupId(),
                         true,
                         null,
                         null,
@@ -2726,7 +2730,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 storageUpdateHandler.handleUpdateAll(
                         cmd.txId(),
                         cmd.rowsToUpdate(),
-                        cmd.commitPartitionId().asTablePartitionId(),
+                        cmd.commitPartitionId().asReplicationGroupId(),
                         true,
                         null,
                         null,
@@ -2759,7 +2763,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     storageUpdateHandler.handleUpdateAll(
                             cmd.txId(),
                             cmd.rowsToUpdate(),
-                            cmd.commitPartitionId().asTablePartitionId(),
+                            cmd.commitPartitionId().asReplicationGroupId(),
                             false,
                             null,
                             safeTs,
@@ -2831,7 +2835,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ReplicaResult> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request, Long leaseStartTime) {
         UUID txId = request.transactionId();
         BinaryRow searchRow = request.binaryRow();
-        TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
+        ReplicationGroupId commitPartitionId = request.commitPartitionId().asReplicationGroupId();
 
         assert commitPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
 
@@ -3030,7 +3034,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ReplicaResult> processSingleEntryAction(ReadWriteSingleRowPkReplicaRequest request, Long leaseStartTime) {
         UUID txId = request.transactionId();
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
-        TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
+        ReplicationGroupId commitPartitionId = request.commitPartitionId().asReplicationGroupId();
 
         assert commitPartitionId != null || request.requestType() == RW_GET :
                 "Commit partition is null [type=" + request.requestType() + ']';
@@ -3058,7 +3062,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
-                                            request.commitPartitionId().asTablePartitionId(),
+                                            request.commitPartitionId().asReplicationGroupId(),
                                             rowId.uuid(),
                                             null,
                                             lastCommitTime,
@@ -3083,7 +3087,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
-                                            request.commitPartitionId().asTablePartitionId(),
+                                            request.commitPartitionId().asReplicationGroupId(),
                                             rowId.uuid(),
                                             null,
                                             lastCommitTime,
@@ -3300,7 +3304,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ReplicaResult> processTwoEntriesAction(ReadWriteSwapRowReplicaRequest request, Long leaseStartTime) {
         BinaryRow newRow = request.newBinaryRow();
         BinaryRow expectedRow = request.oldBinaryRow();
-        TablePartitionIdMessage commitPartitionId = request.commitPartitionId();
+        ReplicationGroupIdMessage commitPartitionId = request.commitPartitionId();
 
         assert commitPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
 
@@ -3322,7 +3326,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     .thenCompose(catalogVersion -> awaitCleanup(rowIdLock.get1(), catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
-                                                    commitPartitionId.asTablePartitionId(),
+                                                    commitPartitionId.asReplicationGroupId(),
                                                     rowIdLock.get1().uuid(),
                                                     newRow,
                                                     lastCommitTime,
@@ -3581,7 +3585,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return transactionStateResolver.resolveTxState(
                         txId,
-                        new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
+                        new TablePartitionId(writeIntent.commitTableOrZoneId(), writeIntent.commitPartitionId()),
                         timestamp)
                 .thenApply(transactionMeta -> {
                     if (isFinalState(transactionMeta.txState())) {
@@ -3646,7 +3650,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private UpdateCommand updateCommand(
-            TablePartitionId tablePartId,
+            ReplicationGroupId commitPartitionId,
             UUID rowUuid,
             @Nullable BinaryRow row,
             @Nullable HybridTimestamp lastCommitTimestamp,
@@ -3659,7 +3663,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         UpdateCommandBuilder bldr = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(replicationGroupId))
-                .commitPartitionId(tablePartitionId(tablePartId))
+                .commitPartitionId(replicationGroupIdMessage(commitPartitionId))
                 .rowUuid(rowUuid)
                 .txId(txId)
                 .full(full)
@@ -3694,7 +3698,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private UpdateAllCommand updateAllCommand(
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
-            TablePartitionIdMessage commitPartitionId,
+            ReplicationGroupIdMessage commitPartitionId,
             UUID transactionId,
             HybridTimestamp initiatorTime,
             boolean full,
@@ -3731,6 +3735,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     public static TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
         return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartId);
+    }
+
+    private static ReplicationGroupIdMessage replicationGroupIdMessage(ReplicationGroupId groupId) {
+        return toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, groupId);
     }
 
     /**

@@ -144,7 +144,13 @@ public class Cluster {
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
     public void startAndInit(int nodeCount, int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
-        startAndInit(nodeCount, cmgNodes, clusterConfiguration.defaultNodeBootstrapConfigTemplate(), initParametersConfigurator);
+        startAndInit(
+                nodeCount,
+                cmgNodes,
+                clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
+                initParametersConfigurator,
+                NodeBootstrapConfigUpdater.noop()
+        );
     }
 
     /**
@@ -160,7 +166,13 @@ public class Cluster {
             String nodeBootstrapConfigTemplate,
             Consumer<InitParametersBuilder> initParametersConfigurator
     ) {
-        startAndInit(nodeCount, new int[] { 0 }, nodeBootstrapConfigTemplate, initParametersConfigurator);
+        startAndInit(
+                nodeCount,
+                new int[] { 0 },
+                nodeBootstrapConfigTemplate,
+                initParametersConfigurator,
+                NodeBootstrapConfigUpdater.noop()
+        );
     }
 
     /**
@@ -171,12 +183,14 @@ public class Cluster {
      * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started
      *     with this call.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     * @param nodeBootstrapConfigUpdater Boot configuration updater before starting the node.
      */
     private void startAndInit(
             int nodeCount,
             int[] cmgNodes,
             String nodeBootstrapConfigTemplate,
-            Consumer<InitParametersBuilder> initParametersConfigurator
+            Consumer<InitParametersBuilder> initParametersConfigurator,
+            NodeBootstrapConfigUpdater nodeBootstrapConfigUpdater
     ) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
@@ -185,7 +199,7 @@ public class Cluster {
         initialClusterSize = nodeCount;
 
         List<ServerRegistration> nodeRegistrations = IntStream.range(0, nodeCount)
-                .mapToObj(nodeIndex -> startEmbeddedNode(nodeIndex, nodeBootstrapConfigTemplate))
+                .mapToObj(nodeIndex -> startEmbeddedNode(nodeIndex, nodeBootstrapConfigTemplate, nodeBootstrapConfigUpdater))
                 .collect(toList());
 
         List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
@@ -209,6 +223,22 @@ public class Cluster {
     }
 
     /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
+     * @param nodeBootstrapConfigUpdater Boot configuration updater before starting the node.
+     */
+    public void startAndInitWithUpdateBootstrapConfig(int nodeCount, NodeBootstrapConfigUpdater nodeBootstrapConfigUpdater) {
+        startAndInit(
+                nodeCount,
+                new int[]{0},
+                clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
+                builder -> {},
+                nodeBootstrapConfigUpdater
+        );
+    }
+
+    /**
      * Starts a cluster node with the default bootstrap config template.
      *
      * @param nodeIndex Index of the node to start.
@@ -226,16 +256,32 @@ public class Cluster {
      * @return Started server and its registration future.
      */
     public ServerRegistration startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
+        return startEmbeddedNode(nodeIndex, nodeBootstrapConfigTemplate, NodeBootstrapConfigUpdater.noop());
+    }
+
+    /**
+     * Starts a cluster node.
+     *
+     * @param nodeIndex Index of the node to start.
+     * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
+     * @param nodeBootstrapConfigUpdater Boot configuration updater before starting the node.
+     * @return Started server and its registration future.
+     */
+    public ServerRegistration startEmbeddedNode(
+            int nodeIndex,
+            String nodeBootstrapConfigTemplate,
+            NodeBootstrapConfigUpdater nodeBootstrapConfigUpdater
+    ) {
         String nodeName = nodeName(nodeIndex);
 
-        String config = IgniteStringFormatter.format(
+        String config = nodeBootstrapConfigUpdater.update(IgniteStringFormatter.format(
                 nodeBootstrapConfigTemplate,
                 port(nodeIndex),
                 seedAddressesString(),
                 clusterConfiguration.baseClientPort() + nodeIndex,
                 httpPort(nodeIndex),
                 clusterConfiguration.baseHttpsPort() + nodeIndex
-        );
+        ));
 
         IgniteServer node = TestIgnitionManager.start(
                 nodeName,

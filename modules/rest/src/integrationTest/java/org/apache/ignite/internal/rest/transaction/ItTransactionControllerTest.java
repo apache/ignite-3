@@ -44,8 +44,9 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Integration tests for {@link TransactionController}.
@@ -131,14 +132,30 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24296")
     void shouldReturnProblemIfCancelNonExistingTransaction() {
         UUID transactionId = UUID.randomUUID();
 
         assertThrowsProblem(
-                () -> cancelTransaction(client, transactionId),
+                () -> killTransaction(client, transactionId),
                 NOT_FOUND,
                 isProblem().withDetail("Transaction not found [transactionId=" + transactionId + "]")
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldKillTransaction(boolean readOnly) {
+        Transaction tx = node(0).transactions().begin(new TransactionOptions().readOnly(readOnly));
+
+        TransactionInfo transactionInfo = getTransaction(client, ((InternalTransaction) tx).id());
+        assertThat(transactionInfo, notNullValue());
+
+        killTransaction(client, transactionInfo.id());
+
+        assertThrowsProblem(
+                () -> getTransaction(client, transactionInfo.id()),
+                NOT_FOUND,
+                isProblem().withDetail("Transaction not found [transactionId=" + transactionInfo.id() + "]")
         );
     }
 
@@ -153,7 +170,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
         return client.toBlocking().retrieve(HttpRequest.GET("/" + transactionId), TransactionInfo.class);
     }
 
-    private static void cancelTransaction(HttpClient client, UUID transactionId) {
+    private static void killTransaction(HttpClient client, UUID transactionId) {
         client.toBlocking().exchange(DELETE("/" + transactionId));
     }
 }

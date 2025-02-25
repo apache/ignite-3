@@ -174,8 +174,9 @@ public class RebalanceUtil {
             // All complicated logic here is needed because we want to return back to stable nodes
             // that are returned back after majority is lost and stable was narrowed.
             // Let's consider example:
+            // scale down big enough (for example, infinite)
             // stable = [A, B, C], dataNodes = [A, B, C]
-            // B, C left, stable = [A], dataNodes = [A, B, C]
+            // B, C left, stable = [A] due to partition reset, dataNodes = [A, B, C]
             // B returned, we want stable = [A, B], but in terms of data nodes they are not changed and equal [A, B, C]
             // So, because scale up mechanism in this case won't adjust stable, we need to add B to stable manually.
             // General idea is to filter offline nodes from data nodes, but we need to be careful and do not remove nodes

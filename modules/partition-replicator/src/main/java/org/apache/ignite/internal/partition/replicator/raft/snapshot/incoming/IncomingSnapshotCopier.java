@@ -531,10 +531,17 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         if (entryIndex == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
             assert entry.txId() != null;
-            assert entry.commitTableId() != null;
+            assert entry.commitTableOrZoneId() != null;
             assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-            partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId(), snapshotCatalogVersion);
+            partition.addWrite(
+                    rowId,
+                    binaryRow,
+                    entry.txId(),
+                    entry.commitTableOrZoneId(),
+                    entry.commitPartitionId(),
+                    snapshotCatalogVersion
+            );
         } else {
             // Writes committed version.
             partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[entryIndex]), snapshotCatalogVersion);
