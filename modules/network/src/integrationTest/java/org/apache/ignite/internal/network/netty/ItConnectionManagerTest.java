@@ -422,7 +422,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         assertTrue(
                 waitForCondition(
                         () -> acceptor.channels().values().stream().anyMatch(acceptorSender
-                                -> acceptorSender.consistentId().equals(opener.consistentId)
+                                -> acceptorSender.launchId().equals(opener.launchId)
                                         && acceptorSender.channelId() == senderFromOpener.channelId()),
                         TimeUnit.SECONDS.toMillis(10)
                 ),
@@ -551,7 +551,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     new NetworkAddress(manager.localAddress().getHostName(), port)
             ));
 
-            var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory, consistentId);
+            var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory, launchId);
 
             startedManagers.add(wrapper);
 
@@ -568,12 +568,16 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         private final NettyBootstrapFactory nettyFactory;
 
-        private final String consistentId;
+        private final UUID launchId;
 
-        ConnectionManagerWrapper(ConnectionManager connectionManager, NettyBootstrapFactory nettyFactory, String consistentId) {
+        ConnectionManagerWrapper(
+                ConnectionManager connectionManager,
+                NettyBootstrapFactory nettyFactory,
+                UUID launchId
+        ) {
             this.connectionManager = connectionManager;
             this.nettyFactory = nettyFactory;
-            this.consistentId = consistentId;
+            this.launchId = launchId;
         }
 
         @Override
@@ -587,13 +591,13 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient) {
             return connectionManager.channel(
-                    recipient.consistentId,
+                    recipient.launchId,
                     ChannelType.DEFAULT,
                     recipient.connectionManager.localAddress()
             );
         }
 
-        Map<ConnectorKey<String>, NettySender> channels() {
+        Map<ConnectorKey<UUID>, NettySender> channels() {
             return connectionManager.channels();
         }
     }
