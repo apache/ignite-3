@@ -217,7 +217,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
         ScheduledFuture<?> newScheduledFuture = scheduledThreadPool.schedule(
                 () -> updateLowWatermark(createNewLowWatermarkCandidate()),
-                lowWatermarkConfig.updateInterval().value(),
+                5000,
                 TimeUnit.MILLISECONDS
         );
 
@@ -229,7 +229,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     HybridTimestamp createNewLowWatermarkCandidate() {
         HybridTimestamp now = clockService.now();
 
-        return now.subtractPhysicalTime(lowWatermarkConfig.dataAvailabilityTime().value() + clockService.maxClockSkewMillis());
+        long dataAvailTimeMillis = 5000L;
+        return now.subtractPhysicalTime(dataAvailTimeMillis + clockService.maxClockSkewMillis());
     }
 
     private void setLowWatermark(HybridTimestamp newLowWatermark) {
