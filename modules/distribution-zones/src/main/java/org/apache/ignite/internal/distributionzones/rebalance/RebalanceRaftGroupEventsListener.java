@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchAppendKey;
@@ -58,6 +58,7 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -271,7 +272,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         try {
-            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(tablePartitionId);
+            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsQueueKey(tablePartitionId);
             ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(tablePartitionId);
             ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(tablePartitionId);
             ByteArray switchReduceKey = switchReduceKey(tablePartitionId);
@@ -301,7 +302,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
 
-            Assignments pendingAssignments = readAssignments(pendingEntry);
+            Assignments pendingAssignments = pendingEntry.value() == null
+                    ? Assignments.EMPTY
+                    : AssignmentsQueue.fromBytes(pendingEntry.value()).poll();
             Set<Assignment> retrievedPending = pendingAssignments.nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
@@ -367,8 +370,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Update failCase;
 
             byte[] stableFromRaftByteArray = newStableAssignments.toBytes();
-            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition, catalogTimestamp);
-            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction, catalogTimestamp);
+            byte[] additionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingAddition, catalogTimestamp));
+            byte[] reductionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingReduction, catalogTimestamp));
             byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce, catalogTimestamp);
             byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend, catalogTimestamp);
 
@@ -398,7 +401,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
                     successCase = ops(
                             put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                            put(pendingPartAssignmentsKey, plannedEntry.value()),
+                            put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
                             remove(plannedPartAssignmentsKey),
                             assignmentChainChangeOp
                     ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);

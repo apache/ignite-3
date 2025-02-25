@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
@@ -41,6 +41,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,8 +97,8 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
         if (currentPending != null) {
             assertThat(
                     metaStorageManager.put(
-                            pendingPartAssignmentsKey(tablePartitionId),
-                            Assignments.toBytes(currentPending, assignmentsTimestamp)
+                            pendingPartAssignmentsQueueKey(tablePartitionId),
+                            AssignmentsQueue.toBytes(Assignments.of(currentPending, assignmentsTimestamp))
                     ),
                     willCompleteSuccessfully()
             );
@@ -108,7 +109,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
                         GroupUpdateRequest.prepareMsInvokeClosure(
                                 tablePartitionId,
                                 longToBytesKeepingOrder(expectedPendingChangeTriggerKey),
-                                Assignments.toBytes(pending, assignmentsTimestamp),
+                                AssignmentsQueue.toBytes(Assignments.of(pending, assignmentsTimestamp)),
                                 null
                         )
                 ),

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.rebalance;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -38,7 +38,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -126,7 +126,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         Integer tableId = getTableId(unwrapIgniteImpl(node(0)).catalogManager(), "TEST", new HybridClockImpl().nowLong());
         unwrapIgniteImpl(node(0))
                 .metaStorageManager()
-                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, PARTITION_ID))).join();
+                .remove(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, PARTITION_ID))).join();
 
         restartNode(1);
         restartNode(2);
@@ -172,7 +172,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         Integer tableId = getTableId(unwrapIgniteImpl(node(0)).catalogManager(), "TEST", new HybridClockImpl().nowLong());
         unwrapIgniteImpl(node(0))
                 .metaStorageManager()
-                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, PARTITION_ID))).join();
+                .remove(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, PARTITION_ID))).join();
 
         restartNode(1);
         restartNode(2);
@@ -219,14 +219,14 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                         PARTITION_ID
                 );
         long pendingsKeysRevisionBeforeRecovery = unwrapIgniteImpl(node(0)).metaStorageManager()
-                .get(pendingPartAssignmentsKey(tablePartitionId))
+                .get(pendingPartAssignmentsQueueKey(tablePartitionId))
                 .get(10, TimeUnit.SECONDS).revision();
 
 
         startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         long pendingsKeysRevisionAfterRecovery = unwrapIgniteImpl(node(0)).metaStorageManager()
-                .get(pendingPartAssignmentsKey(tablePartitionId))
+                .get(pendingPartAssignmentsQueueKey(tablePartitionId))
                 .get(10, TimeUnit.SECONDS).revision();
 
         // Check that recovered node doesn't produce new rebalances for already processed triggers.
@@ -245,8 +245,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
             int partitionNumber
     ) {
         return metaStorageManager
-                .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+                .get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partitionNumber)))
+                .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
     }
 
     private static boolean containsPartition(Ignite node) {

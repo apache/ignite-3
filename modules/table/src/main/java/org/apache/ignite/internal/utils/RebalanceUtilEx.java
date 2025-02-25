@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.utils;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
@@ -46,6 +46,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /**
@@ -138,11 +139,11 @@ public class RebalanceUtilEx {
 
         Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), partitions, replicas);
 
-        ByteArray pendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray pendingKey = pendingPartAssignmentsQueueKey(partId);
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments, assignmentsTimestamp);
+        byte[] pendingByteArray = AssignmentsQueue.toBytes(Assignments.of(pendingAssignments, assignmentsTimestamp));
         byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);

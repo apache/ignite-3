@@ -21,9 +21,9 @@ import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -69,6 +69,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -132,8 +133,8 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         );
 
         Entry pendingEntry = new EntryImpl(
-                pendingPartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
-                Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(pendingNode.name())).toBytes(),
+                pendingPartAssignmentsQueueKey(new TablePartitionId(1, 0)).bytes(),
+                AssignmentsQueue.toBytes(Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(pendingNode.name()))),
                 1,
                 clock.now()
         );
@@ -149,7 +150,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
         when(metaStorageManager.prefixLocally(eq(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
                 .thenReturn(Cursor.fromIterable(List.of(stableEntry)));
-        when(metaStorageManager.prefixLocally(eq(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES)), anyLong()))
                 .thenReturn(Cursor.fromIterable(List.of(pendingEntry)));
 
         when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, List.of(stableNode))));
