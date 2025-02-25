@@ -166,6 +166,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 null,
                 (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
                 checkpointManager.checkpointTimeoutLock(),
+                () -> null,
                 PAGE_SIZE,
                 new OffheapReadWriteLock(128)
         );

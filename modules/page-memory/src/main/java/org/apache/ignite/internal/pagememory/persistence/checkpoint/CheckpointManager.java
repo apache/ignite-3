@@ -243,6 +243,10 @@ public class CheckpointManager {
         return checkpointer.scheduleCheckpoint(delayMillis, reason);
     }
 
+    public @Nullable CheckpointProgress currentCheckpointProgress() {
+        return checkpointer.currentCheckpointProgress();
+    }
+
     /**
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
