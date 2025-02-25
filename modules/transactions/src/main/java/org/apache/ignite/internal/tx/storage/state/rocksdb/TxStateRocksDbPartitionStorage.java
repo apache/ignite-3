@@ -425,8 +425,10 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionDependingOnStorageState();
+        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.REBALANCE);
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState);
         }
 
         busyLock.block();
@@ -511,8 +513,10 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public CompletableFuture<Void> clear() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
-            throwExceptionDependingOnStorageState();
+        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.CLEANUP);
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState);
         }
 
         // We changed the status and wait for all current operations (together with cursors) with the storage to be completed.
@@ -577,12 +581,14 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
      * @return {@code True} if the storage was successfully closed, otherwise the storage has already been closed.
      */
     private boolean tryToCloseStorageAndResources() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
+        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.CLOSED);
 
-            assert state == StorageState.CLOSED : state;
-
+        if (prevState == StorageState.CLOSED) {
             return false;
+        }
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState);
         }
 
         busyLock.block();
@@ -607,9 +613,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         );
     }
 
-    private void throwExceptionDependingOnStorageState() {
-        StorageState state = this.state.get();
-
+    private void throwExceptionDependingOnStorageState(StorageState state) {
         switch (state) {
             case CLOSED:
                 throw new IgniteInternalException(
@@ -637,7 +641,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     private <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState();
+            throwExceptionDependingOnStorageState(state.get());
         }
 
         try {

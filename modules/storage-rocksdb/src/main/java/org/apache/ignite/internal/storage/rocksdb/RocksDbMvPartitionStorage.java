@@ -1190,6 +1190,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private void transitionToDestroyedOrClosedState(StorageState targetState) {
+        StorageState currentState = state.get();
+
+        if (currentState == targetState) {
+            return;
+        }
+
+        if (currentState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(currentState, createStorageInfo());
+        }
+
         if (!transitionToTerminalState(targetState, state)) {
             return;
         }
