@@ -68,7 +68,7 @@ public interface PagesWriteThrottlePolicy {
     /**
      * Callback to apply throttling delay.
      *
-     * @param isPageInCheckpoint flag indicating if current page is in scope of current checkpoint.
+     * @param isPageInCheckpoint Flag indicating if current page is in scope of current checkpoint.
      */
     void onMarkDirty(boolean isPageInCheckpoint);
 

@@ -42,8 +42,8 @@ class ExponentialBackoff {
     /**
      * Constructs a new instance with the given parameters.
      *
-     * @param startingBackoffNanos duration of first backoff in nanoseconds
-     * @param backoffRatio         each next duration will be this times longer
+     * @param startingBackoffNanos Duration of first backoff in nanoseconds.
+     * @param backoffRatio Each next duration will be this times longer.
      */
     public ExponentialBackoff(long startingBackoffNanos, double backoffRatio) {
         this.startingBackoffNanos = startingBackoffNanos;
@@ -54,7 +54,7 @@ class ExponentialBackoff {
      * Returns next backoff duration (in nanoseconds). As a side effect, increments the backoff counter so that
      * next call will return a longer duration.
      *
-     * @return next backoff duration in nanoseconds
+     * @return Next backoff duration in nanoseconds.
      */
     public long nextDuration() {
         int exponent = exponentialBackoffCounter.getAndIncrement();
@@ -65,7 +65,7 @@ class ExponentialBackoff {
      * Resets the exponential backoff counter so that next call to {@link #nextDuration()}
      * will return {@link #startingBackoffNanos}.
      *
-     * @return {@code true} iff this backoff was not already in a reset state
+     * @return {@code true} iff this backoff was not already in a reset state.
      */
     public boolean reset() {
         int oldValue = exponentialBackoffCounter.getAndSet(0);

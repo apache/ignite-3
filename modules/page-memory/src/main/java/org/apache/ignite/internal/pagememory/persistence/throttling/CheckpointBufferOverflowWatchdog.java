@@ -31,7 +31,7 @@ class CheckpointBufferOverflowWatchdog {
     /**
      * Creates a new instance.
      *
-     * @param pageMemory page memory to use
+     * @param pageMemory Page memory to use.
      */
     CheckpointBufferOverflowWatchdog(PersistentPageMemory pageMemory) {
         this.pageMemory = pageMemory;
@@ -42,7 +42,7 @@ class CheckpointBufferOverflowWatchdog {
      * {@link PagesWriteThrottlePolicy#CP_BUF_FILL_THRESHOLD} of the buffer is filled) and, hence, writer threads need
      * to be throttled.
      *
-     * @return {@code true} iff Checkpoint Buffer is in danger zone
+     * @return {@code true} iff Checkpoint Buffer is in danger zone.
      */
     boolean isInDangerZone() {
         int checkpointBufLimit = (int) (pageMemory.maxCheckpointBufferPages() * CP_BUF_FILL_THRESHOLD);

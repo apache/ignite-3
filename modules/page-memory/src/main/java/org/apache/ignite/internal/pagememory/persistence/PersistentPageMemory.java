@@ -47,8 +47,10 @@ import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMi
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
+import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
+import static org.apache.ignite.internal.util.GridUnsafe.incrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
@@ -103,7 +105,6 @@ import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPa
 import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -163,7 +164,8 @@ public class PersistentPageMemory implements PageMemory {
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
 
-    private final Supplier<CheckpointProgress> checkpointProgressSupplier;
+    /** The supplier of checkpoint progress. */
+    private final Supplier<@Nullable CheckpointProgress> checkpointProgressSupplier;
 
     /** Page manager. */
     private final PageReadWriteManager pageStoreManager;
@@ -211,7 +213,7 @@ public class PersistentPageMemory implements PageMemory {
     private volatile @Nullable PagePool checkpointPool;
 
     /** Pages write throttle. */
-    private final PagesWriteThrottlePolicy writeThrottle;
+    private final @Nullable PagesWriteThrottlePolicy writeThrottle;
 
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
@@ -246,7 +248,7 @@ public class PersistentPageMemory implements PageMemory {
             @Nullable PageChangeTracker changeTracker,
             WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
-            Supplier<CheckpointProgress> checkpointProgressSupplier,
+            Supplier<@Nullable CheckpointProgress> checkpointProgressSupplier,
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
             OffheapReadWriteLock rwLock
@@ -286,6 +288,7 @@ public class PersistentPageMemory implements PageMemory {
 
         delayedPageReplacementTracker = new DelayedPageReplacementTracker(pageSize, flushDirtyPageForReplacement, LOG, sizes.length - 1);
 
+        // TODO IGNITE-24548 Use this initialization code.
         //        new PagesWriteThrottle(
         //                this,
         //                checkpointProgressSupplier,
@@ -1478,13 +1481,13 @@ public class PersistentPageMemory implements PageMemory {
         private void acquirePage(long absPtr) {
             PageHeader.acquirePage(absPtr);
 
-            GridUnsafe.incrementAndGetInt(acquiredPagesPtr);
+            incrementAndGetInt(acquiredPagesPtr);
         }
 
         private void releasePage(long absPtr) {
             PageHeader.releasePage(absPtr);
 
-            GridUnsafe.decrementAndGetInt(acquiredPagesPtr);
+            decrementAndGetInt(acquiredPagesPtr);
         }
 
         /**

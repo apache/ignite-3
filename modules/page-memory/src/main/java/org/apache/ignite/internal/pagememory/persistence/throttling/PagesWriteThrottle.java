@@ -66,7 +66,7 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
      * @param pageMemory Page memory.
      * @param cpProgress Database manager.
      * @param stateChecker checkpoint lock state checker.
-     * @param throttleOnlyPagesInCheckpoint If true, throttle will only protect from checkpoint buffer overflow.
+     * @param throttleOnlyPagesInCheckpoint If {@code true}, throttle will only protect from checkpoint buffer overflow.
      */
     public PagesWriteThrottle(
             PersistentPageMemory pageMemory,
@@ -84,7 +84,6 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
                 : "cpProgress must be not null if ratio based throttling mode is used";
     }
 
-    /** {@inheritDoc} */
     @Override public void onMarkDirty(boolean isPageInCheckpoint) {
         assert stateChecker.checkpointLockIsHeldByThread();
 
@@ -106,13 +105,13 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
             int cpTotalPages = progress.currentCheckpointPagesCount();
 
             if (cpWrittenPages == cpTotalPages) {
-                // Checkpoint is already in fsync stage, increasing maximum ratio of dirty pages to 3/4
+                // Checkpoint is already in fsync stage, increasing maximum ratio of dirty pages to 3/4.
                 shouldThrottle = pageMemory.shouldThrottle(0.75);
             } else {
                 double dirtyRatioThreshold = ((double) cpWrittenPages) / cpTotalPages;
 
-                // Starting with 0.05 to avoid throttle right after checkpoint start
-                // 7/12 is maximum ratio of dirty pages
+                // Starting with 0.05 to avoid throttle right after checkpoint start.
+                // 7/12 is maximum ratio of dirty pages.
                 dirtyRatioThreshold = (dirtyRatioThreshold * 0.95 + 0.05) * 7 / 12;
 
                 shouldThrottle = pageMemory.shouldThrottle(dirtyRatioThreshold);
@@ -157,7 +156,6 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
         }
     }
 
-    /** {@inheritDoc} */
     @Override public void wakeupThrottledThreads() {
         if (!isCpBufferOverflowThresholdExceeded()) {
             inCheckpointProtection.resetBackoff();
@@ -170,17 +168,14 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
         cpBufThrottledThreads.values().forEach(LockSupport::unpark);
     }
 
-    /** {@inheritDoc} */
     @Override public void onBeginCheckpoint() {
     }
 
-    /** {@inheritDoc} */
     @Override public void onFinishCheckpoint() {
         inCheckpointProtection.resetBackoff();
         notInCheckpointProtection.resetBackoff();
     }
 
-    /** {@inheritDoc} */
     @Override public boolean isCpBufferOverflowThresholdExceeded() {
         return cpBufferWatchdog.isInDangerZone();
     }
