@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToDestroyedState;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxMetaSerializer;
 import org.apache.ignite.internal.tx.TxState;
@@ -375,9 +377,9 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public void destroy() {
-        if (!tryToCloseStorageAndResources()) {
-            return;
-        }
+        transitionToDestroyedState(state);
+
+        closeStorageAndResources();
 
         try (WriteBatch writeBatch = new WriteBatch()) {
             clearStorageData(writeBatch);
@@ -420,13 +422,25 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public void close() {
-        tryToCloseStorageAndResources();
+        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.CLOSED);
+
+        if (prevState.isTerminal()) {
+            return;
+        }
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState);
+        }
+
+        closeStorageAndResources();
     }
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionDependingOnStorageState();
+        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.REBALANCE);
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState);
         }
 
         busyLock.block();
@@ -511,8 +525,10 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public CompletableFuture<Void> clear() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
-            throwExceptionDependingOnStorageState();
+        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.CLEANUP);
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState);
         }
 
         // We changed the status and wait for all current operations (together with cursors) with the storage to be completed.
@@ -571,27 +587,12 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         metaStorage.clear(writeBatch);
     }
 
-    /**
-     * Tries to close the storage with resources if it hasn't already been closed.
-     *
-     * @return {@code True} if the storage was successfully closed, otherwise the storage has already been closed.
-     */
-    private boolean tryToCloseStorageAndResources() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
-
-            assert state == StorageState.CLOSED : state;
-
-            return false;
-        }
-
+    private void closeStorageAndResources() {
         busyLock.block();
 
         RocksUtils.closeAll(iterators);
 
         iterators.clear();
-
-        return true;
     }
 
     private void throwExceptionIfStorageInProgressOfRebalance() {
@@ -607,9 +608,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         );
     }
 
-    private void throwExceptionDependingOnStorageState() {
-        StorageState state = this.state.get();
-
+    private void throwExceptionDependingOnStorageState(StorageState state) {
         switch (state) {
             case CLOSED:
                 throw new IgniteInternalException(
@@ -622,6 +621,11 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
                         format("Storage is in the process of cleanup: [{}]", createStorageInfo())
+                );
+            case DESTROYED:
+                throw new IgniteInternalException(
+                        TX_STATE_STORAGE_ERR,
+                        format("Storage has been destroyed: [{}]", createStorageInfo())
                 );
             default:
                 throw new IgniteInternalException(
@@ -637,7 +641,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     private <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState();
+            throwExceptionDependingOnStorageState(state.get());
         }
 
         try {
@@ -645,23 +649,6 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * Storage states.
-     */
-    private enum StorageState {
-        /** Storage is running. */
-        RUNNABLE,
-
-        /** Storage is in the process of being closed or has already closed. */
-        CLOSED,
-
-        /** Storage is in the process of being rebalanced. */
-        REBALANCE,
-
-        /** Storage is in the process of cleanup. */
-        CLEANUP
     }
 
     /**
