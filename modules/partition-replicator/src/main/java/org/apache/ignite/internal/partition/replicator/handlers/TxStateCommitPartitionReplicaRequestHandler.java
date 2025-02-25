@@ -28,7 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
-import org.apache.ignite.internal.partition.replicator.TxRecovery;
+import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -55,7 +55,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
     private final ReplicationGroupId replicationGroupId;
     private final ClusterNode localNode;
 
-    private final TxRecovery txRecovery;
+    private final TxRecoveryEngine txRecoveryEngine;
 
     /** Constructor. */
     public TxStateCommitPartitionReplicaRequestHandler(
@@ -66,7 +66,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
             ClusterNodeResolver clusterNodeResolver,
             ReplicationGroupId replicationGroupId,
             ClusterNode localNode,
-            TxRecovery txRecovery
+            TxRecoveryEngine txRecoveryEngine
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.placementDriver = placementDriver;
@@ -75,7 +75,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
         this.clusterNodeResolver = clusterNodeResolver;
         this.replicationGroupId = replicationGroupId;
         this.localNode = localNode;
-        this.txRecovery = txRecovery;
+        this.txRecoveryEngine = txRecoveryEngine;
     }
 
     /**
@@ -164,7 +164,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                 // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
                 // that as the coordinator (or information about it) is missing, there is  no need to wait a finish request from
                 // tx coordinator, the transaction can't be committed at all.
-                return txRecovery.triggerTxRecovery(txId, localNode.id())
+                return txRecoveryEngine.triggerTxRecovery(txId, localNode.id())
                         .handle((v, ex) ->
                                 CompletableFuture.<TransactionMeta>completedFuture(txManager.stateMeta(txId)))
                         .thenCompose(v -> v);

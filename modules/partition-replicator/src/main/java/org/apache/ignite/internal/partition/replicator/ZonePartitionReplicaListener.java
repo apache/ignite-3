@@ -147,7 +147,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 clusterNodeResolver,
                 replicationGroupId,
                 localNode,
-                new TxRecovery(
+                new TxRecoveryEngine(
                         txManager,
                         clusterNodeResolver,
                         replicationGroupId,

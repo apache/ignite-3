@@ -33,7 +33,7 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Transaction recovery logic.
  */
-public class TxRecovery {
+public class TxRecoveryEngine {
     private final TxManager txManager;
     private final ClusterNodeResolver clusterNodeResolver;
 
@@ -41,7 +41,7 @@ public class TxRecovery {
     private final Function<ClusterNode, PendingTxPartitionEnlistment> abandonedTxRecoveryEnlistmentFactory;
 
     /** Constructor. */
-    public TxRecovery(
+    public TxRecoveryEngine(
             TxManager txManager,
             ClusterNodeResolver clusterNodeResolver,
             ReplicationGroupId replicationGroupId,

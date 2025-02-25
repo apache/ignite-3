@@ -109,7 +109,7 @@ import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
-import org.apache.ignite.internal.partition.replicator.TxRecovery;
+import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
@@ -356,7 +356,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinishMarker replicaTxFinishMarker;
-    private final TxRecovery txRecovery;
+    private final TxRecoveryEngine txRecoveryEngine;
 
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
@@ -444,7 +444,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
         replicaTxFinishMarker = new ReplicaTxFinishMarker(txManager);
-        txRecovery = new TxRecovery(txManager, clusterNodeResolver, replicationGroupId, this::createAbandonedTxRecoveryEnlistment);
+        txRecoveryEngine = new TxRecoveryEngine(txManager, clusterNodeResolver, replicationGroupId, this::createAbandonedTxRecoveryEnlistment);
 
         txFinishReplicaRequestHandler = new TxFinishReplicaRequestHandler(
                 txStatePartitionStorage,
@@ -471,7 +471,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 clusterNodeResolver,
                 replicationGroupId,
                 localNode,
-                txRecovery
+                txRecoveryEngine
         );
 
         prepareIndexBuilderTxRwOperationTracker();
@@ -645,12 +645,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         // Check whether a transaction has already been finished.
         if (txMeta != null && isFinalState(txMeta.txState())) {
             // Tx recovery message is processed on the commit partition.
-            return txRecovery.runCleanupOnNode(replicationGroupId, txId, senderId);
+            return txRecoveryEngine.runCleanupOnNode(replicationGroupId, txId, senderId);
         }
 
         LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
 
-        return txRecovery.triggerTxRecovery(txId, senderId);
+        return txRecoveryEngine.triggerTxRecovery(txId, senderId);
     }
 
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {
