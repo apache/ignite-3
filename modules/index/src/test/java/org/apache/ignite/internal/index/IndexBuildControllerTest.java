@@ -29,9 +29,12 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAM
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getZoneIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -65,18 +68,25 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** For {@link IndexBuildController} testing. */
+@ExtendWith(WorkDirectoryExtension.class)
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 10;
 
@@ -146,6 +156,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         createIndex(INDEX_NAME);
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -156,6 +167,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -177,6 +189,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         startBuildingIndex(indexId(INDEX_NAME));
 
         verify(indexBuilder).scheduleBuildIndex(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -187,6 +200,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -222,6 +236,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder).scheduleBuildIndex(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -232,6 +247,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(PK_INDEX_NAME)),
@@ -265,6 +281,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         createTable(catalogManager, tableName, COLUMN_NAME);
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
@@ -275,6 +292,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
@@ -301,7 +319,11 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", randomUUID(), clock.now());
 
-        verify(indexBuilder).stopBuildingIndexes(tableId(), PARTITION_ID);
+        if (enabledColocation()) {
+            verify(indexBuilder).stopBuildingZoneIndexes(zoneId(TABLE_NAME), PARTITION_ID);
+        } else {
+            verify(indexBuilder).stopBuildingTableIndexes(tableId(), PARTITION_ID);
+        }
     }
 
     @Test
@@ -317,6 +339,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 anyInt(),
@@ -327,6 +350,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId(TABLE_NAME)),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId0),
@@ -368,6 +392,10 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return tableId(TABLE_NAME);
     }
 
+    private int zoneId(String tableName) {
+        return getZoneIdStrict(catalogManager, tableName, clock.nowLong());
+    }
+
     private int tableId(String tableName) {
         return getTableIdStrict(catalogManager, tableName, clock.nowLong());
     }
@@ -376,8 +404,12 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
     }
 
-    private TablePartitionId replicaId(int partitionId) {
-        return new TablePartitionId(tableId(), partitionId);
+    private ReplicationGroupId replicaId(int partitionId) {
+        if (enabledColocation()) {
+            return new ZonePartitionId(zoneId(TABLE_NAME), partitionId);
+        } else {
+            return new TablePartitionId(tableId(), partitionId);
+        }
     }
 
     private ReplicaMeta replicaMetaForOneSecond(String leaseholder, UUID leaseholderId, HybridTimestamp startTime) {
@@ -386,7 +418,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 leaseholderId,
                 startTime,
                 startTime.addPhysicalTime(1_000),
-                new TablePartitionId(tableId(), PARTITION_ID)
+                enabledColocation() ? new ZonePartitionId(zoneId(TABLE_NAME), PARTITION_ID) : new TablePartitionId(tableId(), PARTITION_ID)
         );
     }
 }

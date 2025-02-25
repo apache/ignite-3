@@ -221,6 +221,7 @@ class IndexBuildTask {
 
         TablePartitionId tablePartitionId = new TablePartitionId(taskId.getTableId(), taskId.getPartitionId());
 
+        // TODO IGNITE-24388 Need to update request to include the zone idx.
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
                 .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                 .indexId(taskId.getIndexId())
@@ -240,8 +241,8 @@ class IndexBuildTask {
 
     private String createCommonIndexInfo() {
         return IgniteStringFormatter.format(
-                "tableId={}, partitionId={}, indexId={}",
-                taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
+                "zoneId = {}, tableId={}, partitionId={}, indexId={}",
+                taskId.getZoneId(), taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
         );
     }
 

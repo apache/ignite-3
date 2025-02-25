@@ -362,6 +362,10 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         return TableTestUtils.getTableIdStrict(catalogManager, tableName, clock.nowLong());
     }
 
+    private int zoneId(String tableName) {
+        return TableTestUtils.getZoneIdStrict(catalogManager, tableName, clock.nowLong());
+    }
+
     private boolean isIndexAvailable(String indexName) {
         return TableTestUtils.getIndexStrict(catalogManager, indexName, clock.nowLong()).status() == AVAILABLE;
     }
@@ -399,6 +403,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         });
 
         indexBuilder.scheduleBuildIndex(
+                zoneId(TABLE_NAME),
                 tableId(TABLE_NAME),
                 partitionId,
                 indexId,
