@@ -108,7 +108,7 @@ docker compose up -d
 You can also run the CLI within the Docker:
 
 ```shell
-docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
+docker run -it --rm --net ignite3_default apacheignite/ignite:3.0.0 cli
 ```
 
 ```
