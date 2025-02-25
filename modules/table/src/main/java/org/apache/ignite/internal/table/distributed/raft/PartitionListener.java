@@ -26,8 +26,11 @@ import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -46,15 +49,15 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -84,7 +87,6 @@ import org.apache.ignite.internal.table.distributed.raft.handlers.MinimumActiveT
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
-import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -137,9 +139,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     private final RaftTxFinishMarker txFinishMarker;
 
     // Raft command handlers.
-    private final FinishTxCommandHandler finishTxCommandHandler;
-    private final MinimumActiveTxTimeCommandHandler minimumActiveTxTimeCommandHandler;
-    private final VacuumTxStatesCommandHandler vacuumTxStatesCommandHandler;
+    private final Int2ObjectMap<AbstractCommandHandler<? extends WriteCommand>> commandHandlers = new Int2ObjectOpenHashMap<>();
 
     /** Constructor. */
     public PartitionListener(
@@ -172,17 +172,16 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
         txFinishMarker = new RaftTxFinishMarker(txManager);
 
-        finishTxCommandHandler = new FinishTxCommandHandler(
-                txStatePartitionStorage,
-                tablePartitionId,
-                txManager);
-
-        minimumActiveTxTimeCommandHandler = new MinimumActiveTxTimeCommandHandler(
+        commandHandlers.put(Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND, new MinimumActiveTxTimeCommandHandler(
                 storage,
                 tablePartitionId,
-                minTimeCollectorService);
+                minTimeCollectorService
+        ));
 
-        vacuumTxStatesCommandHandler = new VacuumTxStatesCommandHandler(txStatePartitionStorage);
+        if (!enabledColocation()) {
+            commandHandlers.put(Commands.FINISH_TX, new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager));
+            commandHandlers.put(VACUUM_TX_STATE_COMMAND, new VacuumTxStatesCommandHandler(txStatePartitionStorage));
+        }
     }
 
     @Override
@@ -257,12 +256,13 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     ) {
         IgniteBiTuple<Serializable, Boolean> result = null;
 
-        if (command instanceof UpdateCommand) {
+        AbstractCommandHandler<? extends WriteCommand> commandHandler = commandHandlers.get(command.messageType());
+        if (commandHandler != null) {
+            result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
+        } else if (command instanceof UpdateCommand) {
             result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof UpdateAllCommand) {
             result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
-        } else if (command instanceof FinishTxCommand) {
-            result = finishTxCommandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof WriteIntentSwitchCommand) {
             result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
         } else if (command instanceof SafeTimeSyncCommand) {
@@ -271,12 +271,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             result = handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
-        } else if (command instanceof VacuumTxStatesCommand) {
-            if (!enabledColocation()) {
-                result = vacuumTxStatesCommandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
-            }
-        } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-            result = minimumActiveTxTimeCommandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
         }
 
         if (result == null) {
