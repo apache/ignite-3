@@ -88,6 +88,7 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
                 (fullPageId, buf, tag) -> {
                 },
                 mockCheckpointTimeoutLock(true),
+                () -> null,
                 PAGE_SIZE,
                 offheapReadWriteLock
         );

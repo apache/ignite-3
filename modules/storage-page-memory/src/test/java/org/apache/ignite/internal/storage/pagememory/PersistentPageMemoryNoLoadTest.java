@@ -466,6 +466,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 null,
                 flushDirtyPageForReplacement,
                 checkpointManager == null ? mockCheckpointTimeoutLock(true) : checkpointManager.checkpointTimeoutLock(),
+                checkpointManager == null ? () -> null : checkpointManager::currentCheckpointProgress,
                 PAGE_SIZE,
                 new OffheapReadWriteLock(128)
         );
