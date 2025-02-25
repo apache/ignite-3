@@ -130,7 +130,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -509,7 +508,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         }
     }
 
-    private static @NotNull TimestampAwareReplicaResponse dummyTimestampAwareResponse(ReplicaResult r) {
+    private static TimestampAwareReplicaResponse dummyTimestampAwareResponse(ReplicaResult r) {
         return new TimestampAwareReplicaResponse() {
             @Override
             public @Nullable Object result() {

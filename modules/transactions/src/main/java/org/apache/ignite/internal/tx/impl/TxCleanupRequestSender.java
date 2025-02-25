@@ -36,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -139,7 +138,7 @@ public class TxCleanupRequestSender {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId) {
+    public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
         return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null);
     }
 
