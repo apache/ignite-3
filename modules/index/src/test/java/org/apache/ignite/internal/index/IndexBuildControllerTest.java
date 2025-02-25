@@ -392,12 +392,12 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return tableId(TABLE_NAME);
     }
 
-    private int zoneId(String tableName) {
-        return getZoneIdStrict(catalogManager, tableName, clock.nowLong());
-    }
-
     private int tableId(String tableName) {
         return getTableIdStrict(catalogManager, tableName, clock.nowLong());
+    }
+
+    private int zoneId(String tableName) {
+        return getZoneIdStrict(catalogManager, tableName, clock.nowLong());
     }
 
     private int indexId(String indexName) {
