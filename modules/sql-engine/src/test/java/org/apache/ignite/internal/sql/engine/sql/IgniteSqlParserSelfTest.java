@@ -18,11 +18,16 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -159,6 +164,37 @@ public class IgniteSqlParserSelfTest {
         SqlParserPos pos = statement.getParserPosition();
 
         assertEquals(statement.clone(pos).toString(), statement.toString());
+    }
+
+    @ParameterizedTest
+    @MethodSource("unsupportedStatements")
+    public void testRejectUnsupportedStatements(String stmt, String error) {
+        CalciteContextException err1 = assertThrows(CalciteContextException.class,
+                () -> IgniteSqlParser.parse(stmt, StatementParseResult.MODE));
+        assertThat(err1.getMessage(), containsString("Unexpected statement: " + error));
+
+        assertThrows(CalciteContextException.class, () -> IgniteSqlParser.parse(stmt, ScriptParseResult.MODE));
+    }
+
+    private static Stream<Arguments> unsupportedStatements() {
+        return Stream.of(
+                Arguments.of("ALTER SYSTEM SET identifier = expression", "ALTER SYSTEM"),
+                Arguments.of("ALTER SYSTEM RESET identifier", "ALTER SYSTEM"),
+                Arguments.of("ALTER SYSTEM RESET ALL", "ALTER SYSTEM"),
+
+                Arguments.of("ALTER SESSION SET identifier = expression", "ALTER SESSION"),
+                Arguments.of("ALTER SESSION RESET identifier", "ALTER SESSION"),
+                Arguments.of("ALTER SESSION RESET ALL", "ALTER SESSION"),
+
+                Arguments.of("DESCRIBE DATABASE db", "DESCRIBE SCHEMA"),
+                Arguments.of("DESCRIBE CATALOG cat", "DESCRIBE SCHEMA"),
+                Arguments.of("DESCRIBE SCHEMA db.cat.s", "DESCRIBE SCHEMA"),
+                Arguments.of("DESCRIBE TABLE db.cat.s.t", "DESCRIBE TABLE"),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24630 DESCRIBE <statement> is converted to EXPLAIN PLAN FOR
+                // Arguments.of("DESCRIBE STATEMENT SELECT 1", "EXPLAIN PLAN"),
+
+                Arguments.of("UPSERT INTO t (a, b, c) SELECT 1, 2, 3", "UPSERT INTO")
+        );
     }
 
     @ParameterizedTest

@@ -48,6 +48,8 @@ import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImp
 import org.apache.ignite.internal.generated.query.calcite.sql.ParseException;
 import org.apache.ignite.internal.generated.query.calcite.sql.Token;
 import org.apache.ignite.internal.generated.query.calcite.sql.TokenMgrError;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.SqlException;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -118,6 +120,9 @@ public final class IgniteSqlParser  {
             for (int i = 0; i < list.size(); i++) {
                 SqlNode original = list.get(i);
                 SqlNode node = fixNodesIfNecessary(original);
+
+                validateTopLevelNode(node);
+
                 list.set(i, node);
             }
 
@@ -129,6 +134,22 @@ public final class IgniteSqlParser  {
             throw convertException(e);
         } finally {
             InternalIgniteSqlParser.dynamicParamCount.set(null);
+        }
+    }
+
+    private static void validateTopLevelNode(SqlNode node) {
+        boolean knownType = Commons.getQueryType(node) != null;
+
+        if (!knownType) {
+            String sqlString = node.toString();
+            // Extract first two tokens of a statement for an error message:
+            // DESCRIBE TABLE t -> DESCRIBE TABLE
+            // UPSERT INTO t (a, b) -> UPSERT INTO
+            int index1 = sqlString.indexOf(' ');
+            int index2 = index1 > 0 ? sqlString.indexOf(' ', index1 + 1) : index1;
+            String sql = sqlString.substring(0, index2);
+
+            throw SqlUtil.newContextException(node.getParserPosition(), IgniteResource.INSTANCE.unexpectedStatement(sql));
         }
     }
 
@@ -217,7 +238,7 @@ public final class IgniteSqlParser  {
             );
         }
 
-        return new SqlException(STMT_PARSE_ERR, "Failed to parse query: " + message);
+        return new SqlException(STMT_PARSE_ERR, "Failed to parse query: " + message, ex);
     }
 
     private static final class InternalIgniteSqlParser extends IgniteSqlParserImpl {
