@@ -99,12 +99,10 @@ public class LargeBinaryBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Group("kv_rw_ro")
     @Benchmark
-    public void kvRwRoWriter(SharedState sharedState) throws InterruptedException {
+    public void kvRwRoWriter(SharedState sharedState) {
         int id = sharedState.id.incrementAndGet();
 
         keyValueView.put(null, id, localBytes);
-
-        randomDelay();
     }
 
     /**
@@ -112,23 +110,19 @@ public class LargeBinaryBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Group("kv_rw_ro")
     @Benchmark
-    public void kvRwRoReader(SharedState sharedState, Blackhole bh) throws InterruptedException {
+    public void kvRwRoReader(SharedState sharedState, Blackhole bh) {
         int id = ThreadLocalRandom.current().nextInt(sharedState.id.get() + 1);
         bh.consume(keyValueView.getNullable(null, id));
-
-        randomDelay();
     }
 
     /**
      * Benchmark for write-only KV put workload.
      */
     @Benchmark
-    public void kvRwOnly(SharedState sharedState) throws InterruptedException {
+    public void kvRwOnly(SharedState sharedState) {
         int id = sharedState.id.incrementAndGet();
 
         keyValueView.put(null, id, localBytes);
-
-        randomDelay();
     }
 
     // SQL
@@ -138,14 +132,12 @@ public class LargeBinaryBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Group("sql_rw_ro")
     @Benchmark
-    public void sqlRwRoWriter(SharedState sharedState, Blackhole bh) throws InterruptedException {
+    public void sqlRwRoWriter(SharedState sharedState, Blackhole bh) {
         int id = sharedState.id.incrementAndGet();
 
         try (ResultSet<SqlRow> rs = sql.execute(null, "INSERT INTO t VALUES(?, ?)", id, localBytes)) {
             bh.consume(rs);
         }
-
-        randomDelay();
     }
 
     /**
@@ -153,28 +145,24 @@ public class LargeBinaryBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Group("sql_rw_ro")
     @Benchmark
-    public void sqlRwRoReader(SharedState sharedState, Blackhole bh) throws InterruptedException {
+    public void sqlRwRoReader(SharedState sharedState, Blackhole bh) {
         int id = ThreadLocalRandom.current().nextInt(sharedState.id.get() + 1);
 
         try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT val FROM t WHERE id=?", id)) {
             bh.consume(rs.hasNext());
         }
-
-        randomDelay();
     }
 
     /**
      * Benchmark for write-only SQL insert workload.
      */
     @Benchmark
-    public void sqlRwOnly(SharedState sharedState, Blackhole bh) throws InterruptedException {
+    public void sqlRwOnly(SharedState sharedState, Blackhole bh) {
         int id = sharedState.id.incrementAndGet();
 
         try (ResultSet<SqlRow> rs = sql.execute(null, "INSERT INTO t VALUES(?, ?)", id, localBytes)) {
             bh.consume(rs);
         }
-
-        randomDelay();
     }
 
     /**
@@ -199,10 +187,5 @@ public class LargeBinaryBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int nodes() {
         return clusterSize;
-    }
-
-    private static void randomDelay() throws InterruptedException {
-        int millis = ThreadLocalRandom.current().nextInt(1, 10);
-        TimeUnit.MILLISECONDS.sleep(millis);
     }
 }
