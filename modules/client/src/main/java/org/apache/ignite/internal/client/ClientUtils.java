@@ -197,6 +197,11 @@ public class ClientUtils {
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientOperationType.PRIMARY_REPLICAS_GET;
 
+            case ClientOp.SQL_CANCEL_EXEC:
+                // The request is used to cancel queries initiated with a particular connection,
+                // and these requests are terminated when the connection is lost.
+                return null;
+
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
                 throw new UnsupportedOperationException("Invalid op code: " + opCode);
