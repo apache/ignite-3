@@ -52,6 +52,7 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -74,6 +75,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -984,11 +986,24 @@ public class PartitionReplicaLifecycleManager extends
         )
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
-        if (shouldStopLocalServices) {
-            return clientUpdateFuture.thenCompose(v -> weakStopAndDestroyPartition(zonePartitionId, revision));
-        } else {
+        if (!shouldStopLocalServices) {
             return clientUpdateFuture;
         }
+
+        return clientUpdateFuture.thenCompose(v -> replicaMgr.weakStopReplica(
+                zonePartitionId,
+                WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
+                () -> stopPartitionInternal(
+                        zonePartitionId,
+                        replicaWasStopped -> {
+                            if (replicaWasStopped) {
+                                zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
+                            }
+                        },
+                        LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                        revision
+                ).thenApply(replicaWasStopped -> null)
+        ));
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
@@ -1316,42 +1331,44 @@ public class PartitionReplicaLifecycleManager extends
         return Assignments.fromBytes(entry.value());
     }
 
-    private CompletableFuture<Void> weakStopAndDestroyPartition(ZonePartitionId zonePartitionId, long revision) {
-        return replicaMgr.weakStopReplica(
-                zonePartitionId,
-                WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopPartition(zonePartitionId).thenCompose(replicaWasStopped -> {
-                    if (!replicaWasStopped) {
-                        return nullCompletedFuture();
-                    }
-
-                    zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
-
-                    return fireEvent(
-                            LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
-                            new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
-                    );
-                })
-        );
-    }
-
     /**
+     * TODO: write a proper javadoc.
      * Stops all resources associated with a given partition, like replicas and partition trackers.
      *
      * @param zonePartitionId Partition ID.
      * @return Future that will be completed after all resources have been closed and the future's result answers was replica was stopped
      *      correctly or not.
      */
-    private CompletableFuture<Boolean> stopPartition(ZonePartitionId zonePartitionId) {
+    private CompletableFuture<Boolean> stopPartitionInternal(
+            ZonePartitionId zonePartitionId,
+            @Nullable Consumer<Boolean> afterReplicaStopAction,
+            @Nullable LocalPartitionReplicaEvent afterReplicaStoppedEvent,
+            @Nullable Long afterReplicaStoppedEventRevision
+    ) {
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             try {
                 return replicaMgr.stopReplica(zonePartitionId)
-                        .thenApply((replicaWasStopped) -> {
-                            if (replicaWasStopped) {
-                                replicationGroupIds.remove(zonePartitionId);
+                        .thenCompose((replicaWasStopped) -> {
+                            if (afterReplicaStopAction != null) {
+                                afterReplicaStopAction.accept(replicaWasStopped);
                             }
 
-                            return replicaWasStopped;
+                            if (!replicaWasStopped) {
+                                return falseCompletedFuture();
+                            }
+
+                            replicationGroupIds.remove(zonePartitionId);
+
+                            if (afterReplicaStoppedEvent != null) {
+                                assert afterReplicaStoppedEventRevision != null;
+
+                                return fireEvent(
+                                        afterReplicaStoppedEvent,
+                                        new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision)
+                                ).thenApply(v -> true);
+                            }
+
+                            return trueCompletedFuture();
                         });
             } catch (NodeStoppingException e) {
                 // No-op.
@@ -1367,8 +1384,12 @@ public class PartitionReplicaLifecycleManager extends
      */
     private void cleanUpPartitionsResources(Set<ZonePartitionId> partitionIds) {
         CompletableFuture<?>[] stopPartitionsFuture = partitionIds.stream()
-                .map(this::stopPartition)
-                .toArray(CompletableFuture[]::new);
+                .map(zonePartitionId -> stopPartitionInternal(
+                        zonePartitionId,
+                        null,
+                        LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
+                        -1L
+                )).toArray(CompletableFuture[]::new);
 
         try {
             allOf(stopPartitionsFuture).get(30, TimeUnit.SECONDS);
