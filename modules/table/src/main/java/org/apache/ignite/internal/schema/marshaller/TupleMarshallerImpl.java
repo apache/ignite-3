@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -113,9 +115,18 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             gatherStatistics(part, tuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != tuple.columnCount()) {
+                var knownColumnNames = valuesWithStatistics.values.keySet().stream()
+                        .sorted()
+                        .collect(Collectors.joining(","));
+
+                var actualColumnNames = IntStream.range(0, tuple.columnCount())
+                        .mapToObj(tuple::columnName)
+                        .sorted()
+                        .collect(Collectors.joining(","));
+
                 throw new SchemaMismatchException(
-                        String.format("Tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
-                                schema.version(), extraColumnNames(tuple, schema)));
+                        String.format("Tuple doesn't match schema: schemaVersion=%s, extraColumns=%s, knownColumns=%s, actualColumns=%s",
+                                schema.version(), extraColumnNames(tuple, schema), knownColumnNames, actualColumnNames));
             }
 
             return buildRow(part, valuesWithStatistics);

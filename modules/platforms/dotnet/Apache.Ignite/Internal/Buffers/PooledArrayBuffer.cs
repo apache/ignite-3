@@ -115,6 +115,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             _index = _prefixSize;
             Offset = 0;
+            _buffer.AsSpan().Clear();
         }
 
         /// <inheritdoc/>
