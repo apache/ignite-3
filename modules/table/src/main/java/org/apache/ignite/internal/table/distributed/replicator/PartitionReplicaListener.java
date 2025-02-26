@@ -279,7 +279,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final int tableId;
 
-    // Despite the fact that it's correct to use replicationGroupId as lock key it's better to preserver slightly higher lock granularity.
+    // Despite the fact that it's correct to use replicationGroupId as lock key it's better to preserve slightly higher lock granularity.
     private final TablePartitionId tableLockKey;
 
     /** Primary key index. */
