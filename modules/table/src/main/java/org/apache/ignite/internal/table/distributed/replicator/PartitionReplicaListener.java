@@ -240,15 +240,15 @@ import org.jetbrains.annotations.Nullable;
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
     /**
-     * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock.
-     * This causes the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
+     * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock. This causes
+     * the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
      *
      * <p>A RAFT snapshot of a partition consists of MV data, TX state data and metadata (which includes RAFT applied index).
      * Here, the 'slight' inconsistency is that MV data might be ahead of the snapshot meta (namely, RAFT applied index) and TX state data.
      *
      * <p>This listener by its nature cannot advance RAFT applied index (as it works out of the RAFT framework). This alone makes
-     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency,
-     * we don't need to take the partition snapshots read lock as well.
+     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency, we don't need to take the
+     * partition snapshots read lock as well.
      *
      * <p>The inconsistency does not cause any real problems because it is further resolved.
      * <ul>
@@ -520,7 +520,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 assert !enabledColocation() : "Unexpected method call within colocation enabled.";
 
                 txManager.cleanup(
-                        // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId.
+                        // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId
                         (TablePartitionId) replicationGroupId,
                         txMeta.enlistedPartitions(),
                         txMeta.txState() == COMMITTED,
@@ -788,8 +788,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Request.
      * @param isPrimary Whether the current replica is primary.
      * @param opStartTsIfDirectRo Start timestamp in case of direct RO tx.
-     * @param lst Lease start time of the current lease that was active at the moment of the start of request processing,
-     *     in the case of {@link PrimaryReplicaRequest}, otherwise should be {@code null}.
+     * @param lst Lease start time of the current lease that was active at the moment of the start of request processing, in the
+     *         case of {@link PrimaryReplicaRequest}, otherwise should be {@code null}.
      * @return Future.
      */
     private CompletableFuture<?> processOperationRequest(
@@ -1998,7 +1998,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             assert Objects.equals(wi.commitTableOrZoneId(), writeIntent.commitTableOrZoneId())
                     : "Unexpected write intent, commitTableOrZoneId1=" + writeIntent.commitTableOrZoneId()
-                            + ", commitTableId2=" + wi.commitTableOrZoneId();
+                    + ", commitTableId2=" + wi.commitTableOrZoneId();
 
             assert wi.commitPartitionId() == writeIntent.commitPartitionId()
                     : "Unexpected write intent, commitPartitionId1=" + writeIntent.commitPartitionId()
@@ -3274,8 +3274,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Replica request.
      * @return Future with {@link IgniteBiTuple} containing {@code boolean} (whether the replica is primary) and the start time of current
-     *     lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
-     *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
+     *         lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
+     *         lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
         HybridTimestamp current = clockService.current();
@@ -3451,12 +3451,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                   () -> storageUpdateHandler.switchWriteIntents(
-                           txId,
-                           txState == COMMITTED,
-                           commitTimestamp,
-                           indexIdsAtRwTxBeginTsOrNull(txId)
-                   )
+                    () -> storageUpdateHandler.switchWriteIntents(
+                            txId,
+                            txState == COMMITTED,
+                            commitTimestamp,
+                            indexIdsAtRwTxBeginTsOrNull(txId)
+                    )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
@@ -3752,8 +3752,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * For an operation of an RO transaction, attempts to lock LWM on current node (either if the operation is not direct,
-     * or if it's direct and concerns more than one key), and does nothing for other types of requests.
+     * For an operation of an RO transaction, attempts to lock LWM on current node (either if the operation is not direct, or if it's direct
+     * and concerns more than one key), and does nothing for other types of requests.
      *
      * <p>If lock attempt fails, throws an exception with a specific error code ({@link Transactions#TX_STALE_READ_ONLY_OPERATION_ERR}).
      *
@@ -3766,8 +3766,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Request that is being handled.
      * @param opStartTsIfDirectRo Timestamp of operation start if the operation is a direct RO operation, {@code null} otherwise.
-     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that shoiuld be used to lock LWM,
-     *     or {@code null} if LWM doesn't need to be locked..
+     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that shoiuld be used to lock LWM, or
+     *         {@code null} if LWM doesn't need to be locked..
      */
     private @Nullable UUID tryToLockLwmIfNeeded(ReplicaRequest request, @Nullable HybridTimestamp opStartTsIfDirectRo) {
         UUID txIdToLockLwm;

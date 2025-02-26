@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator.network.command;
 
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 
 /**
  * Defines a class of commands bound to a partition of a particular table.
