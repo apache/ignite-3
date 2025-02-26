@@ -1187,8 +1187,7 @@ public class Replicator implements ThreadId.OnError {
                 r.setState(State.Probe);
                 notifyReplicatorStatusListener(r, ReplicatorEvent.ERROR, status);
                 if (status.getRaftError() != RaftError.ESHUTDOWN && ++r.consecutiveErrorTimes % 10 == 0) {
-                    LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
-                        r.consecutiveErrorTimes, status);
+                    logFailToIssueRpc(status, r);
                 }
                 // TODO https://issues.apache.org/jira/browse/IGNITE-14837
                 // Consider using discovery instead of constant probing.
@@ -1237,6 +1236,17 @@ public class Replicator implements ThreadId.OnError {
             if (doUnlock) {
                 id.unlock();
             }
+        }
+    }
+
+    private static void logFailToIssueRpc(Status status, Replicator r) {
+        if (status.getRaftError() == RaftError.ENOENT) {
+            // Maybe the target node was not able to start yet, no need to WARN here.
+            LOG.info("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
+                r.consecutiveErrorTimes, status);
+        } else {
+            LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
+                r.consecutiveErrorTimes, status);
         }
     }
 
@@ -1427,8 +1437,7 @@ public class Replicator implements ThreadId.OnError {
             }
             notifyReplicatorStatusListener(r, ReplicatorEvent.ERROR, status);
             if (status.getRaftError() != RaftError.ESHUTDOWN && ++r.consecutiveErrorTimes % 10 == 0) {
-                LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
-                    r.consecutiveErrorTimes, status);
+                logFailToIssueRpc(status, r);
             }
             r.resetInflights();
             r.setState(State.Probe);
