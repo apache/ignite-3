@@ -165,12 +165,12 @@ class IndexBuildController implements ManuallyCloseable {
             assert indexDescriptor != null : "Failed to find an index descriptor for the specified index [indexId="
                     + parameters.indexId() + "].";
 
+            // TODO add assertion for the table descriptor.
             CatalogZoneDescriptor zoneDescriptor = catalog.zone(catalog.table(indexDescriptor.tableId()).zoneId());
 
             assert zoneDescriptor != null : "Failed to find a zone descriptor for the specified table [indexId="
                     + parameters.indexId() + ", tableId=" + indexDescriptor.tableId() + "].";
 
-            boolean enabledColocation = enabledColocation();
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
             for (ReplicationGroupId primaryReplicationGroupId : primaryReplicaIds) {

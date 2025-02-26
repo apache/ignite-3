@@ -484,6 +484,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 safeTime,
                 raftCommandApplicator);
 
+        // TODO Please consider to extract the following code to a separate class BuildIndexEventListener.
+        // see indexBuildingCatalogEventListener
         prepareIndexBuilderTxRwOperationTracker();
     }
 
