@@ -19,7 +19,6 @@ package org.apache.ignite.internal.partition.replicator.raft.handlers;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -28,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * @see AbstractCommandHandler
  */
 public class CommandHandlers {
-    private final Map<MessageId, AbstractCommandHandler<? extends WriteCommand>> handlers = new HashMap<>();
+    private final Map<MessageId, AbstractCommandHandler<?>> handlers = new HashMap<>();
 
     /**
      * Adds a command handler to the collection.
@@ -52,7 +51,7 @@ public class CommandHandlers {
      * @param messageType Message type identifier.
      * @return Command handler.
      */
-    public @Nullable AbstractCommandHandler<? extends WriteCommand> handler(short messageGroup, short messageType) {
+    public @Nullable AbstractCommandHandler<?> handler(short messageGroup, short messageType) {
         return handlers.get(new MessageId(messageGroup, messageType));
     }
 

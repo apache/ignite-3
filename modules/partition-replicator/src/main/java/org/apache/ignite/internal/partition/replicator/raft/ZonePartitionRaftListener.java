@@ -189,7 +189,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else {
-                AbstractCommandHandler<? extends WriteCommand> commandHandler =
+                AbstractCommandHandler<?> commandHandler =
                         commandHandlers.handler(command.groupType(), command.messageType());
 
                 if (commandHandler == null) {

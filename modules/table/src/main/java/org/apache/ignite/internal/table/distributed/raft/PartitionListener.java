@@ -265,7 +265,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     ) {
         IgniteBiTuple<Serializable, Boolean> result = null;
 
-        AbstractCommandHandler<? extends WriteCommand> commandHandler = commandHandlers.handler(command.groupType(), command.messageType());
+        AbstractCommandHandler<?> commandHandler = commandHandlers.handler(command.groupType(), command.messageType());
 
         if (commandHandler != null) {
             result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
