@@ -162,7 +162,7 @@ public class ZoneRebalanceUtil {
 
         Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
 
-        Set<Assignment> partAssignments;
+        Set<Assignment> targetAssignmentSet;
 
         if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
             // All complicated logic here is needed because we want to return back to stable nodes
@@ -189,20 +189,20 @@ public class ZoneRebalanceUtil {
                 }
             }
 
-            partAssignments = resultingAssignments;
+            targetAssignmentSet = resultingAssignments;
         } else {
-            partAssignments = calculatedAssignments;
+            targetAssignmentSet = calculatedAssignments;
         }
 
-        boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
+        boolean isNewAssignments = !zoneCfgPartAssignments.equals(targetAssignmentSet);
 
-        Assignments partAssignmentsPlanned = Assignments.of(partAssignments, assignmentsTimestamp);
+        Assignments targetAssignments = Assignments.of(targetAssignmentSet, assignmentsTimestamp);
         AssignmentsQueue partAssignmentsPendingQueue = pendingAssignmentsCalculator()
                 .stable(Assignments.of(zoneCfgPartAssignments, assignmentsTimestamp))
-                .planned(partAssignmentsPlanned)
+                .target(targetAssignments)
                 .toQueue();
 
-        byte[] partAssignmentsPlannedBytes = partAssignmentsPlanned.toBytes();
+        byte[] partAssignmentsPlannedBytes = targetAssignments.toBytes();
         byte[] partAssignmentsPendingBytes = partAssignmentsPendingQueue.toBytes();
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
@@ -275,7 +275,7 @@ public class ZoneRebalanceUtil {
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, zone={}/{}, newVal={}]",
                             partAssignmentsPlannedKey, partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -283,7 +283,7 @@ public class ZoneRebalanceUtil {
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, zone={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -292,7 +292,7 @@ public class ZoneRebalanceUtil {
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, zone={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -300,7 +300,7 @@ public class ZoneRebalanceUtil {
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, zone={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;

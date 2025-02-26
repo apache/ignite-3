@@ -20,11 +20,11 @@ package org.apache.ignite.internal.partitiondistribution;
 import java.util.Objects;
 
 /**
- * Calculates the pending assignments queue between current stable and planned assignments.
+ * Calculates the pending assignments queue between current stable and target assignments.
  */
 public class PendingAssignmentsCalculator {
     private Assignments stable;
-    private Assignments planned;
+    private Assignments target;
 
     private PendingAssignmentsCalculator() {}
 
@@ -41,23 +41,23 @@ public class PendingAssignmentsCalculator {
     }
 
     /**
-     * Planned assignments.
+     * Target assignments.
      */
-    public PendingAssignmentsCalculator planned(Assignments planned) {
-        this.planned = planned;
+    public PendingAssignmentsCalculator target(Assignments target) {
+        this.target = target;
         return this;
     }
 
     /**
-     * Calculates the pending assignments queue between current stable and planned assignments.
+     * Calculates the pending assignments queue between current stable and target assignments.
      */
     public AssignmentsQueue toQueue() {
         assert stable != null;
-        assert planned != null;
+        assert target != null;
 
         // naive version with only one configuration switch, calculation will be changed during IGNITE-23790 epic
-        AssignmentsQueue queue = new AssignmentsQueue(planned);
-        assert Objects.equals(queue.peekLast(), planned) : "Planned assignments should be equal to the last element in the queue";
+        AssignmentsQueue queue = new AssignmentsQueue(target);
+        assert Objects.equals(queue.peekLast(), target) : "Target assignments should be equal to the last element in the queue";
         return queue;
     }
 }

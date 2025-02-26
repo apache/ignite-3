@@ -20,7 +20,7 @@ Every algorithm phase has the following main sections:
 ## New metastore keys
 For further steps, we should introduce some new metastore keys:
 - `partition.assignments.stable` - the list of peers, which process operations for a partition at the current moment.
-- `partition.assignments.pending` - the queue of list of peers, where current rebalance move the partition.
+- `partition.assignments.pending` - the queue of lists of peers, where current rebalance move the partition. Queue is needed in cases when multiple configuration switches during one rebalance are required.
 - `partition.assignments.planned` - the list of peers, which will be used for new rebalance, when current will be finished.
 
 Also, we will need the utility key:
@@ -50,7 +50,7 @@ onReplicaNumberChange:
 metastoreInvoke: // atomic metastore call through multi-invoke api
     if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
-            partition.assignments.pending = calcPartAssignments() 
+            partition.assignments.pending = partAssignmentsPendingQueue
             partition.change.trigger.revision = event.revision
         else:
             if partition.assignments.pending != partAssignmentsPendingQueue

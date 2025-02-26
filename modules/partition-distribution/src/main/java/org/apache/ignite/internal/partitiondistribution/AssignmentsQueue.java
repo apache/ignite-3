@@ -53,20 +53,22 @@ public class AssignmentsQueue implements Iterable<Assignments> {
     }
 
     /**
-     * Retrieves and removes the head of this queue, or returns {@code Assignments.EMPTY} if this queue is empty.
+     * Retrieves and removes the head of this queue.
      *
-     * @return the head of this queue, or {@code Assignments.EMPTY} if this queue is empty
+     * @return the head of this queue
      */
     public @Nullable Assignments poll() {
+        assert !queue.isEmpty() : "Assignments queue must contain at least one assignment.";
         return queue.poll();
     }
 
     /**
-     * Retrieves, but does not remove, the last element of this queue, or returns {@code Assignments.EMPTY} if this queue is empty.
+     * Retrieves, but does not remove, the last element of this queue.
      *
-     * @return the tail of this queue, or {@code Assignments.EMPTY} if this queue is empty
+     * @return the tail of this queue
      */
     public @Nullable Assignments peekLast() {
+        assert !queue.isEmpty() : "Assignments queue must contain at least one assignment.";
         return queue.peekLast();
     }
 

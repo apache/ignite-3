@@ -168,7 +168,7 @@ public class RebalanceUtil {
 
         Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
 
-        Set<Assignment> partAssignments;
+        Set<Assignment> targetAssignmentSet;
 
         if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
             // All complicated logic here is needed because we want to return back to stable nodes
@@ -196,20 +196,20 @@ public class RebalanceUtil {
                 }
             }
 
-            partAssignments = resultingAssignments;
+            targetAssignmentSet = resultingAssignments;
         } else {
-            partAssignments = calculatedAssignments;
+            targetAssignmentSet = calculatedAssignments;
         }
 
-        boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
+        boolean isNewAssignments = !tableCfgPartAssignments.equals(targetAssignmentSet);
 
-        Assignments partAssignmentsPlanned = Assignments.of(partAssignments, assignmentsTimestamp);
+        Assignments targetAssignments = Assignments.of(targetAssignmentSet, assignmentsTimestamp);
         AssignmentsQueue partAssignmentsPendingQueue = pendingAssignmentsCalculator()
                 .stable(Assignments.of(tableCfgPartAssignments, assignmentsTimestamp))
-                .planned(partAssignmentsPlanned)
+                .target(targetAssignments)
                 .toQueue();
 
-        byte[] partAssignmentsPlannedBytes = partAssignmentsPlanned.toBytes();
+        byte[] partAssignmentsPlannedBytes = targetAssignments.toBytes();
         byte[] partAssignmentsPendingQueueBytes = partAssignmentsPendingQueue.toBytes();
 
 
@@ -283,7 +283,7 @@ public class RebalanceUtil {
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
                             partAssignmentsPlannedKey, partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -291,7 +291,7 @@ public class RebalanceUtil {
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -300,7 +300,7 @@ public class RebalanceUtil {
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -308,7 +308,7 @@ public class RebalanceUtil {
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;

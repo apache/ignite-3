@@ -20,7 +20,7 @@ package org.apache.ignite.internal.partitiondistribution;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDateTime;
@@ -70,7 +70,7 @@ class AssignmentsQueueSerializerTest {
         assertThat(restoredAssignmentsQueue.poll(), equalTo(testAssignments(false, false)));
 
         assertTrue(restoredAssignmentsQueue.isEmpty());
-        assertNull(restoredAssignmentsQueue.poll());
+        assertThrows(AssertionError.class, restoredAssignmentsQueue::poll);
     }
 
     private static Assignments testAssignments(boolean force, boolean fromReset) {

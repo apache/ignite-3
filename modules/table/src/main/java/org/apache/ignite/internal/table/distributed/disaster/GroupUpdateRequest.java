@@ -341,7 +341,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                 longToBytesKeepingOrder(revision),
                 pendingAssignmentsCalculator()
                         .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
-                        .planned(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
+                        .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
                         .toQueue().toBytes(),
                 // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                 isProposedPendingEqualsProposedPlanned
