@@ -219,7 +219,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @return Full error code in a human-readable format.
      */
     public String codeAsString() {
-        return errorPrefix + "-" + groupName() + '-' + errorCode();
+        return errorPrefix + "-" + groupName() + '-' + Short.toUnsignedInt(errorCode());
     }
 
     /**
