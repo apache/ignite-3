@@ -188,10 +188,14 @@ class IndexBuildController implements ManuallyCloseable {
                     needToProcessPartition = zoneReplicaId.zoneId() == zoneDescriptor.id();
                 } else {
                     TablePartitionId partitionReplicaId = (TablePartitionId) primaryReplicationGroupId;
-                    zoneId = catalog.table(partitionReplicaId.tableId()).zoneId();
-                    partitionId = partitionReplicaId.partitionId();
-
                     needToProcessPartition = partitionReplicaId.tableId() == indexDescriptor.tableId();
+
+                    if (needToProcessPartition) {
+                        zoneId = catalog.table(partitionReplicaId.tableId()).zoneId();
+                        partitionId = partitionReplicaId.partitionId();
+                    } else {
+                        continue;
+                    }
                 }
 
                 if (needToProcessPartition) {

@@ -227,7 +227,6 @@ class IndexBuildTask {
                 ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(taskId.getZoneId(), taskId.getPartitionId()))
                 : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()));
 
-        // TODO IGNITE-24388 Need to update the request to include the zone idx.
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
                 .groupId(groupIdMessage)
                 .tableId(taskId.getTableId())
