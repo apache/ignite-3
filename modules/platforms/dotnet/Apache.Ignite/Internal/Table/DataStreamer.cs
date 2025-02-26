@@ -350,7 +350,6 @@ internal static class DataStreamer
                     }
                     catch (Exception e) when (e.Message.Contains("Failed to get column value", StringComparison.Ordinal))
                     {
-                        // TODO: Print all items, print buffer contents
                         var itemsStr = string.Join(", ", items.Take(count).Select(x => x.ToString()));
                         var bufStr = string.Join(", ", buf.GetMemory().ToArray());
 
