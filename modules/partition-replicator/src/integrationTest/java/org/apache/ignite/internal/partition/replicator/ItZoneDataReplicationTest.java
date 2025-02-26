@@ -58,8 +58,8 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // Create a zone with a single partition on every node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
 
-        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
@@ -149,14 +149,12 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // Create a zone with a single partition on every node + one extra replica for the upcoming node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
 
-        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        cluster.forEach(node -> {
-            node.waitForMetadataCompletenessAtNow();
-        });
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 
@@ -217,13 +215,11 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // is persistent, so the data can be restored.
         int zoneId = createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
 
-        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        cluster.forEach(node -> {
-            node.waitForMetadataCompletenessAtNow();
-        });
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 

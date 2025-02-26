@@ -56,6 +56,8 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -114,6 +116,12 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private SqlLocalConfiguration sqlLocalConfiguration;
+
+    @InjectConfiguration
+    private SqlDistributedConfiguration sqlDistributedConfiguration;
 
     final List<Node> cluster = new ArrayList<>();
 
@@ -192,10 +200,6 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
         ));
     }
 
-    protected Node addNodeToCluster() {
-        return addNodeToCluster(cluster.size());
-    }
-
     Node addNodeToCluster(int idx) {
         Node node = newNode(new NetworkAddress("localhost", BASE_PORT + idx), nodeFinder);
 
@@ -243,7 +247,9 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 txConfiguration,
                 scheduledExecutorService,
                 invokeInterceptor,
-                gcConfiguration
+                gcConfiguration,
+                sqlLocalConfiguration,
+                sqlDistributedConfiguration
         );
     }
 

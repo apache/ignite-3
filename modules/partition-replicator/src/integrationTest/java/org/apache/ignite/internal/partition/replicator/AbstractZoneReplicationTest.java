@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -55,6 +56,8 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -78,11 +81,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 20_000;
 
-    protected static final String TEST_ZONE_NAME = "TEST_ZONE";
+    static final String TEST_ZONE_NAME = "TEST_ZONE";
 
-    protected static final String TEST_TABLE_NAME1 = "TEST_TABLE_1";
+    static final String TEST_TABLE_NAME1 = "TEST_TABLE_1";
 
-    protected static final String TEST_TABLE_NAME2 = "TEST_TABLE_2";
+    static final String TEST_TABLE_NAME2 = "TEST_TABLE_2";
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
@@ -110,10 +113,16 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static GcConfiguration gcConfiguration;
 
+    @InjectConfiguration
+    private SqlLocalConfiguration sqlLocalConfiguration;
+
+    @InjectConfiguration
+    private SqlDistributedConfiguration sqlDistributedConfiguration;
+
     @InjectExecutorService
     private static ScheduledExecutorService scheduledExecutorService;
 
-    protected final List<Node> cluster = new ArrayList<>();
+    final List<Node> cluster = new ArrayList<>();
 
     private final TestPlacementDriver placementDriver = new TestPlacementDriver();
 
@@ -131,7 +140,7 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
         closeAll(cluster.parallelStream().map(node -> node::stop));
     }
 
-    protected void startCluster(int size) throws Exception {
+    void startCluster(int size) throws Exception {
         List<NetworkAddress> addresses = IntStream.range(0, size)
                 .mapToObj(i -> new NetworkAddress("localhost", BASE_PORT + i))
                 .collect(toList());
@@ -169,7 +178,7 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
         ));
     }
 
-    protected Node addNodeToCluster() {
+    Node addNodeToCluster() {
         Node node = newNode(new NetworkAddress("localhost", BASE_PORT + cluster.size()), nodeFinder);
 
         cluster.add(node);
@@ -199,15 +208,17 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
                 txConfiguration,
                 scheduledExecutorService,
                 null,
-                gcConfiguration
+                gcConfiguration,
+                sqlLocalConfiguration,
+                sqlDistributedConfiguration
         );
     }
 
-    protected int createZone(String zoneName, int partitions, int replicas) {
+    int createZone(String zoneName, int partitions, int replicas) {
         return createZoneWithProfile(zoneName, partitions, replicas, DEFAULT_STORAGE_PROFILE);
     }
 
-    protected int createZoneWithProfile(String zoneName, int partitions, int replicas, String profile) {
+    int createZoneWithProfile(String zoneName, int partitions, int replicas, String profile) {
         Node node = cluster.get(0);
 
         createZoneWithStorageProfile(
@@ -218,10 +229,11 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
                 profile
         );
 
-        return getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        Integer zoneId = getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        return requireNonNull(zoneId, "No zone found with name " + zoneName);
     }
 
-    protected int createTable(String zoneName, String tableName) {
+    int createTable(String zoneName, String tableName) {
         Node node = cluster.get(0);
 
         TableTestUtils.createTable(
@@ -230,16 +242,17 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
                 zoneName,
                 tableName,
                 List.of(
-                        ColumnParams.builder().name("key").type(INT32).build(),
-                        ColumnParams.builder().name("val").type(INT32).nullable(true).build()
+                        ColumnParams.builder().name("KEY").type(INT32).build(),
+                        ColumnParams.builder().name("VAL").type(INT32).nullable(true).build()
                 ),
-                List.of("key")
+                List.of("KEY")
         );
 
-        return getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+        Integer tableId = getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+        return requireNonNull(tableId, "No table found with name " + tableName);
     }
 
-    protected void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {
+    void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {
         ClusterNode newPrimaryReplicaNode = node.clusterService.topologyService().localMember();
 
         HybridTimestamp leaseStartTime = node.hybridClock.now();

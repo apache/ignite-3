@@ -79,6 +79,7 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
@@ -134,6 +135,12 @@ import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationS
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfigurationSchema;
+import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
+import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -142,6 +149,8 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -267,6 +276,10 @@ public class Node {
 
     private final CatalogCompactionRunner catalogCompactionRunner;
 
+    private final SystemViewManager systemViewManager;
+
+    private final SqlQueryProcessor sqlQueryProcessor;
+
     /** Interceptor for {@link MetaStorageManager#invoke} calls. */
     @FunctionalInterface
     public interface InvokeInterceptor {
@@ -290,7 +303,9 @@ public class Node {
             TransactionConfiguration transactionConfiguration,
             ScheduledExecutorService scheduledExecutorService,
             @Nullable InvokeInterceptor invokeInterceptor,
-            GcConfiguration gcConfiguration
+            GcConfiguration gcConfiguration,
+            SqlLocalConfiguration sqlLocalConfiguration,
+            SqlDistributedConfiguration sqlDistributedConfiguration
     ) {
         this.invokeInterceptor = invokeInterceptor;
 
@@ -726,11 +741,42 @@ public class Node {
                 registry,
                 lowWatermark
         );
+
+        systemViewManager = new SystemViewManagerImpl(name, catalogManager);
+
+        sqlQueryProcessor = new SqlQueryProcessor(
+                clusterService,
+                logicalTopologyService,
+                tableManager,
+                schemaManager,
+                dataStorageMgr,
+                replicaSvc,
+                clockService,
+                schemaSyncService,
+                catalogManager,
+                new NoOpMetricManager(),
+                systemViewManager,
+                failureManager,
+                placementDriver,
+                sqlDistributedConfiguration,
+                sqlLocalConfiguration,
+                transactionInflights,
+                txManager,
+                lowWatermark,
+                threadPoolsManager.commonScheduler(),
+                new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),
+                mock(EventLog.class)
+        );
     }
 
     public IgniteTransactions transactions() {
         IgniteTransactionsImpl transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
         return new PublicApiThreadingIgniteTransactions(transactions, ForkJoinPool.commonPool());
+    }
+
+    public IgniteSql sql() {
+        IgniteSqlImpl igniteSql = new IgniteSqlImpl(sqlQueryProcessor, observableTimestampTracker);
+        return new PublicApiThreadingIgniteSql(igniteSql, ForkJoinPool.commonPool());
     }
 
     public void waitForMetadataCompletenessAtNow() {
@@ -776,7 +822,9 @@ public class Node {
                 partitionReplicaLifecycleManager,
                 tableManager,
                 indexManager,
-                resourceVacuumManager
+                resourceVacuumManager,
+                systemViewManager,
+                sqlQueryProcessor
         )).thenComposeAsync(componentFuts -> {
             CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                     .thenCompose(rev -> allOf(
