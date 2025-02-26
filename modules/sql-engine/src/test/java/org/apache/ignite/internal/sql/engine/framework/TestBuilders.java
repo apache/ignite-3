@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -1806,18 +1807,13 @@ public class TestBuilders {
                 IgniteTable table,
                 boolean includeBackups
         ) {
-            AssignmentsProvider provider = owningNodesByTableName.apply(table.name());
+            AssignmentsProvider provider;
 
-            return getAssignments(provider, table, includeBackups);
-        }
-
-        @Override
-        public CompletableFuture<List<TokenizedAssignments>> forZone(
-                HybridTimestamp operationTime,
-                IgniteTable table,
-                boolean includeBackups
-        ) {
-            AssignmentsProvider provider = owningNodesByZone.apply(table.zoneId());
+            if (enabledColocation()) {
+                provider = owningNodesByTableName.apply(table.name());
+            } else {
+                provider = owningNodesByZone.apply(table.zoneId());
+            }
 
             return getAssignments(provider, table, includeBackups);
         }
@@ -1832,11 +1828,14 @@ public class TestBuilders {
                         new AssertionError("AssignmentsProvider is not configured for table " + table.name())
                 );
             }
-            List<List<String>> owningNodes = provider.get(table.partitions(), includeBackups);
 
-            if (nullOrEmpty(owningNodes) || owningNodes.size() != table.partitions()) {
+            int partitions = table.partitions();
+
+            List<List<String>> owningNodes = provider.get(partitions, includeBackups);
+
+            if (nullOrEmpty(owningNodes) || owningNodes.size() != partitions) {
                 throw new AssertionError("Configured AssignmentsProvider returns less assignment than expected "
-                        + "[table=" + table.name() + ", expectedNumberOfPartitions=" + table.partitions()
+                        + "[table=" + table.name() + ", expectedNumberOfPartitions=" + partitions
                         + ", returnedAssignmentSize=" + (owningNodes == null ? "<null>" : owningNodes.size()) + "]");
             }
 

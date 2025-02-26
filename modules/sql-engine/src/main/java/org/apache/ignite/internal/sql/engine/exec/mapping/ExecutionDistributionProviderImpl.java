@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -72,20 +73,15 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
             IgniteTable table,
             boolean includeBackups
     ) {
-        return collectAssignments(table, operationTime, includeBackups);
-    }
+        if (enabledColocation()) {
+            int zoneId = table.zoneId();
 
-    @Override
-    public CompletableFuture<List<TokenizedAssignments>> forZone(
-            HybridTimestamp operationTime,
-            IgniteTable table,
-            boolean includeBackups
-    ) {
-        int zoneId = table.zoneId();
+            int partitions = table.partitions();
 
-        int partitions = table.partitions();
-
-        return collectAssignmentsForZone(zoneId, partitions, operationTime, includeBackups);
+            return collectAssignmentsForZone(zoneId, partitions, operationTime, includeBackups);
+        } else {
+            return collectAssignments(table, operationTime, includeBackups);
+        }
     }
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925

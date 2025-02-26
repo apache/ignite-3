@@ -41,30 +41,6 @@ public interface ExecutionDistributionProvider {
     );
 
     /**
-     * Retrieves the execution target for a specified zone.
-     *
-     * <p>
-     * An execution target specifies the nodes involved in executing operations for a particular table in a given zone,
-     * ensuring consistent results across multiple calls when provided with the same operation time.
-     * This method allows optional inclusion of backup replicas in the target.
-     * </p>
-     *
-     * @param operationTime The logical timestamp of the operation, used to ensure consistent results
-     *                      across different method invocations.
-     * @param table The table for which the execution target is being created.
-     * @param includeBackups A flag indicating whether to include backup replicas in the execution target.
-     *                       If {@code true}, both primary and backup replicas are included; otherwise,
-     *                       only primary replicas are considered.
-     * @return A {@link CompletableFuture} representing the resulting execution target.
-     */
-
-    CompletableFuture<List<TokenizedAssignments>> forZone(
-            HybridTimestamp operationTime,
-            IgniteTable table,
-            boolean includeBackups
-    );
-
-    /**
      * Returns a distribution for a given view.
      *
      * @param view A view to create execution target for.
