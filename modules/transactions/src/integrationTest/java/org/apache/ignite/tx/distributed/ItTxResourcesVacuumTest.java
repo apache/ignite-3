@@ -180,6 +180,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24633")
     public void testVacuum() throws InterruptedException {
         // We should test the TTL-triggered vacuum.
         setTxResourceTtl(1);
@@ -357,7 +358,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "0")
-    @Disabled
     public void testVacuumWithCleanupDelay() throws InterruptedException {
         IgniteImpl node = anyNode();
 
