@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -212,9 +213,13 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         Objects.requireNonNull(query);
 
         try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, cancellationToken, query, arguments).join());
-        } catch (CompletionException e) {
+            return new SyncResultSetAdapter<>(executeAsync(transaction, cancellationToken, query, arguments).get());
+        } catch (ExecutionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw ExceptionUtils.sneakyThrow(e);
         }
     }
 
