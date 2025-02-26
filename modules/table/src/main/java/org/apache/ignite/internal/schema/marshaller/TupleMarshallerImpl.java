@@ -356,6 +356,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 col.validate(val);
             } catch (IndexOutOfBoundsException t) {
+                // Looks like .NET client sends a corrupted tuple.
+                // Let's dump the raw data and examine. Compare to a correct tuple.
                 throw new MarshallerException(
                         "Failed to get column value " + col.name() + ", schema " + schema.version() + ", tuple " + tuple, t);
             }
