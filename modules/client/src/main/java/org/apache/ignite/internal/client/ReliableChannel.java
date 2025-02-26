@@ -933,16 +933,16 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     private void logFailedEstablishConnection(ClientChannelHolder ch, Throwable err) {
-        String logMessage = "Failed to establish connection to " + ch.chCfg.getAddress() + ": " + err.getMessage();
+        String logMessage = "Failed to establish connection to {}: {}";
 
-        if (log.isDebugEnabled() || isLogFailedEstablishConnectionException(err)) {
-            log.warn(logMessage, err);
+        if (isLogFailedEstablishConnectionException(err)) {
+            log.warn(logMessage, err, ch.chCfg.getAddress(), err.getMessage());
         } else {
-            log.info(logMessage);
+            log.info(logMessage, ch.chCfg.getAddress(), err.getMessage());
         }
     }
 
     private static boolean isLogFailedEstablishConnectionException(Throwable err) {
-        return hasCauseOrSuppressed(err, "Connection refused", ConnectException.class);
+        return !hasCauseOrSuppressed(err, "Connection refused", ConnectException.class);
     }
 }
