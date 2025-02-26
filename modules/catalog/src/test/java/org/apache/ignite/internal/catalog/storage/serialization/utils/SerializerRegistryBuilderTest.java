@@ -92,16 +92,16 @@ public class SerializerRegistryBuilderTest {
     void testScanClasspath() throws Exception {
         List<String> packageName = packageName("valid");
 
+        SerializerRegistryBuilder builder = new SerializerRegistryBuilder(packageName, null);
+
         {
-            List<Class<?>> classes = SerializerRegistryBuilder.scanClasspaths(packageName,
-                    cls -> cls.getSimpleName().startsWith("TestSerializer"));
+            List<Class<?>> classes = builder.scanClasspaths(cls -> cls.getSimpleName().startsWith("TestSerializer"));
 
             assertThat(classes, containsInAnyOrder(TestSerializer1.class, TestSerializer2.class));
         }
 
         {
-            List<Class<?>> classes = SerializerRegistryBuilder.scanClasspaths(packageName,
-                    cls -> cls.getSimpleName().contains("NotSerializer"));
+            List<Class<?>> classes = builder.scanClasspaths(cls -> cls.getSimpleName().contains("NotSerializer"));
 
             assertThat(classes, contains(TestNotSerializer.class));
         }
