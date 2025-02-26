@@ -27,21 +27,15 @@ import org.jetbrains.annotations.Nullable;
  * @see AbstractCommandHandler
  */
 public class CommandHandlers {
-    private final Map<MessageId, AbstractCommandHandler<?>> handlers = new HashMap<>();
+    private final Map<MessageId, AbstractCommandHandler<?>> handlers;
 
     /**
-     * Adds a command handler to the collection.
+     * Creates a new instance of the command handlers collection.
      *
-     * @param messageGroup Message group identifier.
-     * @param messageType Message type identifier.
-     * @param handler Command handler.
+     * @param handlers Command handlers.
      */
-    public void addHandler(short messageGroup, short messageType, AbstractCommandHandler<?> handler) {
-        MessageId id = new MessageId(messageGroup, messageType);
-
-        assert !handlers.containsKey(id) : "Handler already exists [messageGroup=" + messageGroup + ", messageType=" + messageType + "].";
-
-        handlers.put(id, handler);
+    private CommandHandlers(Map<MessageId, AbstractCommandHandler<?>> handlers) {
+        this.handlers = handlers;
     }
 
     /**
@@ -84,6 +78,47 @@ public class CommandHandlers {
             result = 31 * result + messageType;
 
             return result;
+        }
+    }
+
+    /**
+     * Creates a new instance of the command handlers collection.
+     */
+    public static class Builder {
+        private final Map<MessageId, AbstractCommandHandler<?>> handlers = new HashMap<>();
+
+        /**
+         * Adds a command handler to the collection.
+         *
+         * @param messageGroup Message group identifier.
+         * @param messageType Message type identifier.
+         * @param handler Command handler.
+         * @throws IllegalArgumentException If a handler for the specified message group and message type already exists.
+         */
+        public Builder addHandler(
+                short messageGroup,
+                short messageType,
+                AbstractCommandHandler<?> handler
+        ) throws IllegalArgumentException {
+            MessageId id = new MessageId(messageGroup, messageType);
+
+            if (handlers.containsKey(id)) {
+                throw new IllegalArgumentException("Handler already exists [messageGroup=" + messageGroup
+                        + ", messageType=" + messageType + "].");
+            }
+
+            handlers.put(id, handler);
+
+            return this;
+        }
+
+        /**
+         * Builds a new instance of the command handlers collection.
+         *
+         * @return Command handlers collection.
+         */
+        public CommandHandlers build() {
+            return new CommandHandlers(handlers);
         }
     }
 }

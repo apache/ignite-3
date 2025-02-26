@@ -141,7 +141,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     private final RaftTxFinishMarker txFinishMarker;
 
     // Raft command handlers.
-    private final CommandHandlers commandHandlers = new CommandHandlers();
+    private final CommandHandlers commandHandlers;
 
     /** Constructor. */
     public PartitionListener(
@@ -174,23 +174,26 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
         txFinishMarker = new RaftTxFinishMarker(txManager);
 
-        commandHandlers.addHandler(GROUP_TYPE, UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND, new MinimumActiveTxTimeCommandHandler(
+        CommandHandlers.Builder commandHandlersBuilder = new CommandHandlers.Builder();
+        commandHandlersBuilder.addHandler(GROUP_TYPE, UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND, new MinimumActiveTxTimeCommandHandler(
                 storage,
                 tablePartitionId,
                 minTimeCollectorService
         ));
 
         if (!enabledColocation()) {
-            commandHandlers.addHandler(
+            commandHandlersBuilder.addHandler(
                     GROUP_TYPE,
                     FINISH_TX,
                     new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager));
 
-            commandHandlers.addHandler(
+            commandHandlersBuilder.addHandler(
                     TxMessageGroup.GROUP_TYPE,
                     VACUUM_TX_STATE_COMMAND,
                     new VacuumTxStatesCommandHandler(txStatePartitionStorage));
         }
+
+        this.commandHandlers = commandHandlersBuilder.build();
     }
 
     @Override

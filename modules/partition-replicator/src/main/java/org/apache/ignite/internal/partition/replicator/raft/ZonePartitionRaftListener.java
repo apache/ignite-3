@@ -89,7 +89,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
     // Raft command handlers.
-    private final CommandHandlers commandHandlers = new CommandHandlers();
+    private final CommandHandlers commandHandlers;
 
     /** Constructor. */
     public ZonePartitionRaftListener(
@@ -108,18 +108,20 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
 
         // RAFT command handlers initialization.
-        commandHandlers.addHandler(
-                PartitionReplicationMessageGroup.GROUP_TYPE,
-                Commands.FINISH_TX,
-                new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager));
-        commandHandlers.addHandler(
-                PartitionReplicationMessageGroup.GROUP_TYPE,
-                Commands.WRITE_INTENT_SWITCH,
-                new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager));
-        commandHandlers.addHandler(
-                TxMessageGroup.GROUP_TYPE,
-                VACUUM_TX_STATE_COMMAND,
-                new VacuumTxStatesCommandHandler(txStatePartitionStorage));
+        this.commandHandlers = new CommandHandlers.Builder()
+                .addHandler(
+                        PartitionReplicationMessageGroup.GROUP_TYPE,
+                        Commands.FINISH_TX,
+                        new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager))
+                .addHandler(
+                        PartitionReplicationMessageGroup.GROUP_TYPE,
+                        Commands.WRITE_INTENT_SWITCH,
+                        new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager))
+                .addHandler(
+                        TxMessageGroup.GROUP_TYPE,
+                        VACUUM_TX_STATE_COMMAND,
+                        new VacuumTxStatesCommandHandler(txStatePartitionStorage))
+                .build();
     }
 
     @Override
