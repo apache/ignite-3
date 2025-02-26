@@ -578,10 +578,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     public void testScanWithUpperBound() throws Exception {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1).appendInt(5).build()));
-        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1).appendInt(9).build()));
+        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(
+                new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(5).build())
+        );
+        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(
+                new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(9).build())
+        );
 
         int soredIndexId = getSortedIndexId();
 
@@ -1040,20 +1042,24 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
+        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(
+                new TransactionOptions().timeoutMillis(10_000).readOnly(readOnly)
+        );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
+                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS)
+        );
 
         tx.enlist(
                 tblPartId,
                 tblPartId.tableId(),
-                ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
-                        .findFirst().orElseThrow(),
+                ignite.clusterNodes().stream().filter(
+                        n -> n.name().equals(primaryReplica.getLeaseholder())
+                ).findFirst().orElseThrow(),
                 primaryReplica.getStartTime().longValue()
         );
 

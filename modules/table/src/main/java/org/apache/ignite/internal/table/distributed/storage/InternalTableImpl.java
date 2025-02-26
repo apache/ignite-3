@@ -380,7 +380,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = actualTx.timeout();
+                    long timeout = getTimeout(actualTx);
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -394,6 +394,23 @@ public class InternalTableImpl implements InternalTable {
 
             return completedFuture(r);
         }).thenCompose(identity());
+    }
+
+    private long getTimeout(InternalTransaction tx) {
+        // TODO
+        if (tx.isReadOnly()) {
+            return tx.timeout();
+        }
+
+        if (tx.timeout() == 0) {
+            return 1_000;
+        }
+
+        if (tx.implicit()) {
+            return 3_000;
+        }
+
+        return tx.timeout();
     }
 
     /**
@@ -502,7 +519,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = actualTx.timeout();
+                    long timeout = getTimeout(actualTx);
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1198,7 +1215,7 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
-                long timeout = tx.timeout();
+                long timeout = getTimeout(tx);
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
