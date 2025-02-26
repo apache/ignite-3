@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -37,6 +38,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * Tests to verify {@link ParserServiceImpl}.
  */
+@SuppressWarnings("ThrowableNotThrown")
 public class ParserServiceImplTest {
     enum Statement {
         QUERY("SELECT * FROM my_table", SqlQueryType.QUERY),
@@ -78,6 +80,20 @@ public class ParserServiceImplTest {
         assertThat(firstCall.toString(), is(secondCall.toString()));
     }
 
+    @ParameterizedTest
+    @EnumSource(Statement.class)
+    void scriptResultReturnedByServiceCreateNewInstanceOfTreeForSingleStatementQueries(Statement statement) {
+        ParserServiceImpl service = new ParserServiceImpl();
+
+        ParsedResult result = service.parseScript(statement.text).get(0);
+
+        SqlNode firstCall = result.parsedTree();
+        SqlNode secondCall = result.parsedTree();
+
+        assertNotSame(firstCall, secondCall);
+        assertThat(firstCall.toString(), is(secondCall.toString()));
+    }
+
     /**
      * Checks the parsing of a query containing multiple statements.
      *
@@ -100,7 +116,6 @@ public class ParserServiceImplTest {
 
         String multiStatementQuery = buf.toString();
 
-        //noinspection ThrowableNotThrown
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Multiple statements are not allowed",
@@ -115,8 +130,17 @@ public class ParserServiceImplTest {
             ParsedResult singleStatementResult = service.parse(statements.get(i).text);
 
             assertThat(result.queryType(), equalTo(statements.get(i).type));
-            assertThat(result.parsedTree(), notNullValue());
-            assertThat(result.parsedTree().toString(), equalTo(singleStatementResult.parsedTree().toString()));
+
+            SqlNode parsedTree = result.parsedTree();
+
+            assertThrowsWithCause(
+                    result::parsedTree,
+                    IllegalStateException.class,
+                    "Parsed result of script is not reusable"
+            );
+
+            assertThat(parsedTree, notNullValue());
+            assertThat(parsedTree.toString(), equalTo(singleStatementResult.parsedTree().toString()));
             assertThat(result.normalizedQuery(), equalTo(singleStatementResult.normalizedQuery()));
             assertThat(result.originalQuery(), equalTo(singleStatementResult.normalizedQuery()));
         }
