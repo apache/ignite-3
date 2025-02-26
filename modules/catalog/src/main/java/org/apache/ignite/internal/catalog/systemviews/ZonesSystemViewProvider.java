@@ -54,9 +54,9 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
                 .addColumn("ZONE_NAME", STRING, wrapper -> wrapper.zone.name())
                 .addColumn("ZONE_PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
                 .addColumn("ZONE_REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
-                .addColumn("ZONE_AUTO_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
-                .addColumn("ZONE_AUTO_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
-                .addColumn("ZONE_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
+                .addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
                 .addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
                 .addColumn("ZONE_CONSISTENCY_MODE", STRING, wrapper -> wrapper.zone.consistencyMode().name())
                 .addColumn("ZONE_ID", INT32, wrapper -> wrapper.zone.id())
@@ -65,9 +65,6 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
                 .addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
                 .addColumn("PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
                 .addColumn("REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
-                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
-                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
-                .addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
                 .addColumn("CONSISTENCY_MODE", STRING, wrapper -> wrapper.zone.consistencyMode().name())
                 // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(SubscriptionUtils.fromIterable(() -> {

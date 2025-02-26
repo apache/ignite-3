@@ -54,8 +54,8 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
         );
 
-        assertQuery("SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, ZONE_AUTO_SCALE_UP, "
-                + "ZONE_AUTO_SCALE_DOWN, ZONE_NODES_FILTER, IS_DEFAULT_ZONE, ZONE_CONSISTENCY_MODE FROM SYSTEM.ZONES").returns(
+        assertQuery("SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, DATA_NODES_AUTO_ADJUST_SCALE_UP, DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "
+                + "DATA_NODES_FILTER, IS_DEFAULT_ZONE, ZONE_CONSISTENCY_MODE FROM SYSTEM.ZONES").returns(
                 catalog.defaultZone().name(),
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
@@ -234,10 +234,9 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                         new MetadataMatcher().name("ZONE_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
                         new MetadataMatcher().name("ZONE_PARTITIONS").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("ZONE_REPLICAS").type(ColumnType.INT32).nullable(true),
-                        new MetadataMatcher().name("ZONE_AUTO_SCALE_UP").type(ColumnType.INT32).nullable(true),
-                        new MetadataMatcher().name("ZONE_AUTO_SCALE_DOWN").type(ColumnType.INT32).nullable(true),
-                        new MetadataMatcher().name("ZONE_NODES_FILTER").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true),
+                        new MetadataMatcher().name("DATA_NODES_AUTO_ADJUST_SCALE_UP").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("DATA_NODES_AUTO_ADJUST_SCALE_DOWN").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("DATA_NODES_FILTER").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH),
                         new MetadataMatcher().name("IS_DEFAULT_ZONE").type(ColumnType.BOOLEAN).nullable(true),
                         new MetadataMatcher().name("ZONE_CONSISTENCY_MODE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true),
@@ -247,9 +246,6 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                         new MetadataMatcher().name("NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
                         new MetadataMatcher().name("PARTITIONS").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("REPLICAS").type(ColumnType.INT32).nullable(true),
-                        new MetadataMatcher().name("DATA_NODES_AUTO_ADJUST_SCALE_UP").type(ColumnType.INT32).nullable(true),
-                        new MetadataMatcher().name("DATA_NODES_AUTO_ADJUST_SCALE_DOWN").type(ColumnType.INT32).nullable(true),
-                        new MetadataMatcher().name("DATA_NODES_FILTER").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH),
                         new MetadataMatcher().name("CONSISTENCY_MODE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
                                 .nullable(true)
                 )
