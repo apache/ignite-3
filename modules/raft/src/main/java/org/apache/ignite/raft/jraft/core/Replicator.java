@@ -1239,14 +1239,14 @@ public class Replicator implements ThreadId.OnError {
         }
     }
 
-    private static void logFailToIssueRpc(Status status, Replicator r) {
+    private static void logFailToIssueRpc(Status status, Replicator replicator) {
         if (status.getRaftError() == RaftError.ENOENT) {
             // Maybe the target node was not able to start yet, no need to WARN here.
-            LOG.info("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
-                r.consecutiveErrorTimes, status);
+            LOG.info("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", replicator.options.getPeerId(),
+                replicator.consecutiveErrorTimes, status);
         } else {
-            LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
-                r.consecutiveErrorTimes, status);
+            LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", replicator.options.getPeerId(),
+                replicator.consecutiveErrorTimes, status);
         }
     }
 
