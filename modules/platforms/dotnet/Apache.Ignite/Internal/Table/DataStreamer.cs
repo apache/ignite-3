@@ -353,7 +353,9 @@ internal static class DataStreamer
                         var itemsStr = string.Join(", ", items.Take(count).Select(x => x.ToString()));
                         var bufStr = string.Join(", ", buf.GetWrittenMemory().ToArray());
 
-                        throw new InvalidOperationException($"Corrupted data: items=[{itemsStr}], buf=[{bufStr}]");
+                        // TODO
+                        // Corrupted data: items=[DataStreamerItem { Data = IgniteTuple { KEY = 27 }, OperationType = Put }], buf=[212, 8, 0, 196, 3, 0, 1, 10, 0, 0, 0, 0, 0...
+                        throw new InvalidOperationException($"Corrupted data: schema={schema.Version}, items=[{itemsStr}], buf=[{bufStr}]");
                     }
                 }
             }
