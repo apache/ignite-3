@@ -48,7 +48,9 @@ class IgniteExceptionHandlerTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> igniteExceptions() {
         UUID traceId = UUID.randomUUID();
-        String humanReadableCode = ErrorGroups.IGNITE_ERR_PREFIX + "-" + COMMON_ERR_GROUP.name() + '-' + extractErrorCode(INTERNAL_ERR);
+        String humanReadableCode = ErrorGroups.IGNITE_ERR_PREFIX + "-"
+                + COMMON_ERR_GROUP.name() + '-'
+                + Short.toUnsignedInt(extractErrorCode(INTERNAL_ERR));
 
         var invalidParams = List.of(
                 new InvalidParam("key1", "Some issue1"),

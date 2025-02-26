@@ -261,8 +261,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> columnTypesLength() {
         Stream<Arguments> types = Stream.of(
-                Arguments.of(STRING, 1, 65536),
-                Arguments.of(BYTE_ARRAY, 1, 65536)
+                Arguments.of(STRING, 1, Integer.MAX_VALUE),
+                Arguments.of(BYTE_ARRAY, 1, Integer.MAX_VALUE)
         );
 
         Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())

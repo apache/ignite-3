@@ -79,6 +79,7 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -179,6 +180,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24633")
     public void testVacuum() throws InterruptedException {
         // We should test the TTL-triggered vacuum.
         setTxResourceTtl(1);

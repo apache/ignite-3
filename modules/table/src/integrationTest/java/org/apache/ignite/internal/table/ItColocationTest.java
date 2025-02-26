@@ -149,6 +149,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private static final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
+    private static final int TABLE_ID = 2;
+
     /** Dummy internal table for tests. */
     private static InternalTable intTable;
 
@@ -233,7 +235,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
         int zoneId = 1;
-        int tblId = 2;
 
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
@@ -258,7 +259,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(new TablePartitionId(tblId, i), r);
+            groupRafts.put(new TablePartitionId(TABLE_ID, i), r);
         }
 
         Answer<CompletableFuture<?>> clo = invocation -> {
@@ -266,7 +267,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             ClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
-            TablePartitionIdMessage commitPartId = toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(2, 0));
+            TablePartitionIdMessage commitPartId =
+                    toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(TABLE_ID, 0));
 
             RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
 
@@ -282,7 +284,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         );
 
                 return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                        .tablePartitionId(commitPartId)
+                        .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .messageRowsToUpdate(rows)
                         .txId(UUID.randomUUID())
@@ -295,7 +297,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
                 return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                        .tablePartitionId(commitPartId)
+                        .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .rowUuid(UUID.randomUUID())
                         .messageRowToUpdate(PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
@@ -344,7 +346,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         intTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "TEST"),
                 zoneId, // zone id.
-                tblId, // table id.
+                TABLE_ID, // table id.
                 PARTS, // number of partitions.
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
