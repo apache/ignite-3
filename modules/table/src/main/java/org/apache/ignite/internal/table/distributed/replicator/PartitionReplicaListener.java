@@ -479,6 +479,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txRecoveryEngine);
 
         buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
+                partId,
                 indexMetaStorage,
                 txRwOperationTracker,
                 safeTime,

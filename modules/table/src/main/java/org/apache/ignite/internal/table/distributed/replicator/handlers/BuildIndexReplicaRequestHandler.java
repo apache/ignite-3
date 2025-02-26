@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replicator.handlers;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -28,6 +29,8 @@ import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApp
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
@@ -41,6 +44,11 @@ public class BuildIndexReplicaRequestHandler {
     /** Factory to create RAFT command messages. */
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
+
+    /** Factory for creating replica command messages. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private final int partitionId;
 
     private final IndexMetaStorage indexMetaStorage;
 
@@ -56,17 +64,20 @@ public class BuildIndexReplicaRequestHandler {
     /**
      * Creates a new instance of request handler.
      *
+     * @param partitionId Partition ID.
      * @param indexMetaStorage Index meta storage.
      * @param txRwOperationTracker Read-write transaction operation tracker for building indexes.
      * @param safeTime Safe time.
      * @param commandApplicator Applicator that applies RAFT command that is created by this handler.
      */
     public BuildIndexReplicaRequestHandler(
+            int partitionId,
             IndexMetaStorage indexMetaStorage,
             IndexBuilderTxRwOperationTracker txRwOperationTracker,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             ReplicationRaftCommandApplicator commandApplicator
     ) {
+        this.partitionId = partitionId;
         this.indexMetaStorage = indexMetaStorage;
         this.txRwOperationTracker = txRwOperationTracker;
         this.safeTime = safeTime;
@@ -94,9 +105,10 @@ public class BuildIndexReplicaRequestHandler {
                 .thenCompose(unused -> commandApplicator.applyCommand(toBuildIndexCommand(request, buildingChangeInfo)));
     }
 
-    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
+    private BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
                 .indexId(request.indexId())
+                .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(request.tableId(), partitionId)))
                 .rowIds(request.rowIds())
                 .finish(request.finish())
                 // We are sure that there will be no error here since the primary replica is sent the request to itself.
