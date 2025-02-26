@@ -23,6 +23,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -346,6 +347,14 @@ internal static class DataStreamer
                     catch (Exception e) when (e.CausedByUnmappedColumns() && schemaVersion == null)
                     {
                         schemaVersion = Table.SchemaVersionForceLatest;
+                    }
+                    catch (Exception e) when (e.Message.Contains("Failed to get column value", StringComparison.Ordinal))
+                    {
+                        // TODO: Print all items, print buffer contents
+                        var itemsStr = string.Join(", ", items.Take(count).Select(x => x.ToString()));
+                        var bufStr = string.Join(", ", buf.GetMemory().ToArray());
+
+                        throw new InvalidOperationException($"Corrupted data: items=[{itemsStr}], buf=[{bufStr}]");
                     }
                 }
             }
