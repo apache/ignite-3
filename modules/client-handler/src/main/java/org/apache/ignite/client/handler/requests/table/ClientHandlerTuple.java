@@ -127,4 +127,10 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
         List<Column> columns = keyOnly ? schema.keyColumns() : schema.columns();
         return columns.get(binaryTupleIndex);
     }
+
+    @Override
+    public String toString() {
+        return "ClientHandlerTuple [schema=" + schema.version() + ", keyOnly=" + keyOnly + ", noValueSet=" + noValueSet
+                + ", binaryTuple=" + binaryTuple + "]";
+    }
 }

@@ -356,7 +356,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 col.validate(val);
             } catch (IndexOutOfBoundsException t) {
-                throw new MarshallerException("Failed to get column value " + col.name() + ", schema " + schema.version(), t);
+                throw new MarshallerException(
+                        "Failed to get column value " + col.name() + ", schema " + schema.version() + ", tuple " + tuple, t);
             }
         }
     }

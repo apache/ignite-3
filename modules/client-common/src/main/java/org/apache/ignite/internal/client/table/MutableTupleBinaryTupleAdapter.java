@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTupleContainer {
     /** Underlying BinaryTuple. */
-    private BinaryTupleReader binaryTuple;
+    protected BinaryTupleReader binaryTuple;
 
     /** Column count. Can be less than binaryTuple.elementCount in case of a slice. */
     private final int columnCount;
@@ -48,7 +48,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     private @Nullable Tuple tuple;
 
     /** No-value set. */
-    private final @Nullable BitSet noValueSet;
+    protected final @Nullable BitSet noValueSet;
 
     /**
      * Constructor.

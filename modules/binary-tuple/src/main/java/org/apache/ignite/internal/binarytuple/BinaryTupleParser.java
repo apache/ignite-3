@@ -117,8 +117,13 @@ public class BinaryTupleParser {
      * @param sink Receiver.
      */
     public void fetch(int index, Sink sink) {
-        assert index >= 0;
-        assert index < numElements : "Index out of bounds: " + index + " >= " + numElements;
+        if (index < 0) {
+            throw new BinaryTupleFormatException("BinaryTuple index out of bounds: " + index);
+        }
+
+        if (index >= numElements) {
+            throw new IndexOutOfBoundsException("BinaryTuple index out of bounds: " + index + " >= " + numElements);
+        }
 
         int entry = entryBase + index * entrySize;
 
