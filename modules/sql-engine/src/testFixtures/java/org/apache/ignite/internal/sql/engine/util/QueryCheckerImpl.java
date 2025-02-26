@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -70,6 +71,8 @@ import org.jetbrains.annotations.Nullable;
  */
 abstract class QueryCheckerImpl implements QueryChecker {
     private static final IgniteLogger LOG = Loggers.forClass(QueryCheckerImpl.class);
+
+    private static final int MAX_QUERY_DISPLAY_LENGTH = 5000;
 
     private final QueryTemplate queryTemplate;
 
@@ -322,8 +325,14 @@ abstract class QueryCheckerImpl implements QueryChecker {
         SqlProperties properties = SqlPropertiesHelper.merge(newProperties, SqlQueryProcessor.DEFAULT_PROPERTIES);
 
         String qry = queryTemplate.createQuery();
+        String queryToLog;
+        if (qry.length() < MAX_QUERY_DISPLAY_LENGTH) {
+            queryToLog = qry;
+        } else {
+            queryToLog = format("{}<Query is too long to display. Length={}>", qry.substring(0, MAX_QUERY_DISPLAY_LENGTH), qry.length());
+        }
 
-        LOG.info("Executing query: [nodeName={}, query={}]", nodeName(), qry);
+        LOG.info("Executing query: [nodeName={}, query={}]", nodeName(), queryToLog);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.queryAsync(
