@@ -424,6 +424,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     public void close() {
         StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.CLOSED);
 
+        // Storage may have been destroyed.
         if (prevState.isTerminal()) {
             return;
         }
@@ -437,11 +438,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.REBALANCE);
-
-        if (prevState != StorageState.RUNNABLE) {
-            throwExceptionDependingOnStorageState(prevState);
-        }
+        transitionFromRunningStateTo(StorageState.REBALANCE);
 
         busyLock.block();
 
@@ -525,11 +522,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public CompletableFuture<Void> clear() {
-        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, StorageState.CLEANUP);
-
-        if (prevState != StorageState.RUNNABLE) {
-            throwExceptionDependingOnStorageState(prevState);
-        }
+        transitionFromRunningStateTo(StorageState.CLEANUP);
 
         // We changed the status and wait for all current operations (together with cursors) with the storage to be completed.
         busyLock.block();
@@ -550,6 +543,14 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
             state.set(StorageState.RUNNABLE);
 
             busyLock.unblock();
+        }
+    }
+
+    private void transitionFromRunningStateTo(StorageState targetState) {
+        StorageState prevState = state.compareAndExchange(StorageState.RUNNABLE, targetState);
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState);
         }
     }
 
