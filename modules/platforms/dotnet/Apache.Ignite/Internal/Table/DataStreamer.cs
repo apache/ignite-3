@@ -351,7 +351,7 @@ internal static class DataStreamer
                     catch (Exception e) when (e.Message.Contains("Failed to get column value", StringComparison.Ordinal))
                     {
                         var itemsStr = string.Join(", ", items.Take(count).Select(x => x.ToString()));
-                        var bufStr = string.Join(", ", buf.GetMemory().ToArray());
+                        var bufStr = string.Join(", ", buf.GetWrittenMemory().ToArray());
 
                         throw new InvalidOperationException($"Corrupted data: items=[{itemsStr}], buf=[{bufStr}]");
                     }
