@@ -332,6 +332,22 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param schema Schema.
      */
     private static void validateTuple(Tuple tuple, SchemaDescriptor schema) {
+        // TODO: What happens with key-only tuples?
+        if (tuple.columnCount() != schema.length()) {
+            var tupleColumnNames = IntStream.range(0, tuple.columnCount())
+                    .mapToObj(tuple::columnName)
+                    .collect(Collectors.joining(","));
+
+            var schemaColumnNames = IntStream.range(0, schema.length())
+                    .mapToObj(x -> schema.column(x).name())
+                    .collect(Collectors.joining(","));
+
+            throw new SchemaMismatchException(
+                    "Expected column count: " + schema.length() + " but got column count: " + tuple.columnCount()
+                            + ", schema ver: " + schema.version()
+                            + "schema cols: " + schemaColumnNames + "schema cols: " + tupleColumnNames);
+        }
+
         for (int i = 0; i < schema.length(); i++) {
             Column col = schema.column(i);
 
@@ -339,8 +355,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 Object val = tuple.value(i);
 
                 col.validate(val);
-            } catch (Throwable t) {
-                throw new MarshallerException("Failed to validate column " + col.name() + ", schema " + schema.version(), t);
+            } catch (IndexOutOfBoundsException t) {
+                throw new MarshallerException("Failed to get column value " + col.name() + ", schema " + schema.version(), t);
             }
         }
     }
