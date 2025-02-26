@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.views;
 
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -41,9 +42,14 @@ public class LocksViewProvider {
         return SystemViews.<Lock>nodeViewBuilder()
                 .name("LOCKS")
                 .nodeNameColumnAlias("OWNING_NODE_ID")
+                .<String>addColumn("TRANSACTION_ID", stringOf(36), lock -> lock.txId().toString())
+                .<String>addColumn("OBJECT_ID", STRING, lock -> formatLockKey(lock.lockKey()))
+                .<String>addColumn("LOCK_MODE", stringOf(2), lock -> lock.lockMode().name())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .<String>addColumn("TX_ID", stringOf(36), lock -> lock.txId().toString())
-                .<String>addColumn("OBJECT_ID", stringOf(Short.MAX_VALUE), lock -> formatLockKey(lock.lockKey()))
                 .<String>addColumn("MODE", stringOf(2), lock -> lock.lockMode().name())
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(SubscriptionUtils.fromIterable(locks))
                 .build();
     }

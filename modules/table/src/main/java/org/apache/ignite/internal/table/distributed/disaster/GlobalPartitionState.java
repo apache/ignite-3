@@ -17,39 +17,35 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Global partition state.
  */
 public class GlobalPartitionState {
-    @IgniteToStringInclude
+    public final int zoneId;
+    public final int schemaId;
     public final int tableId;
 
-    @IgniteToStringInclude
     public final String schemaName;
-
-    @IgniteToStringInclude
     public final String tableName;
-
-    @IgniteToStringInclude
     public final String zoneName;
 
-    @IgniteToStringInclude
     public final int partitionId;
-
-    @IgniteToStringInclude
     public final GlobalPartitionStateEnum state;
 
     GlobalPartitionState(
+            int zoneId,
             String zoneName,
+            int schemaId,
             String schemaName,
             int tableId,
             String tableName,
             int partitionId,
             GlobalPartitionStateEnum state
     ) {
+        this.zoneId = zoneId;
+        this.schemaId = schemaId;
         this.tableId = tableId;
         this.schemaName = schemaName;
         this.tableName = tableName;
