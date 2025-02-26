@@ -323,9 +323,14 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private static void validateTuple(Tuple tuple, SchemaDescriptor schema) {
         for (int i = 0; i < schema.length(); i++) {
             Column col = schema.column(i);
-            Object val = tuple.value(i);
 
-            col.validate(val);
+            try {
+                Object val = tuple.value(i);
+
+                col.validate(val);
+            } catch (Throwable t) {
+                throw new MarshallerException("Failed to validate column " + col.name() + ", schema " + schema.version(), t);
+            }
         }
     }
 
