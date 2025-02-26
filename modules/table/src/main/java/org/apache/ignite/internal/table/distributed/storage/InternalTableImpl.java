@@ -158,8 +158,6 @@ public class InternalTableImpl implements InternalTable {
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    public static final int DEFAULT_RW_TIMEOUT = 10_000;
-
     /** Partitions. */
     private final int partitions;
 
@@ -230,6 +228,8 @@ public class InternalTableImpl implements InternalTable {
      * @param placementDriver Placement driver.
      * @param transactionInflights Transaction inflights.
      * @param attemptsObtainLock Attempts to take lock.
+     * @param streamerFlushExecutor Streamer flush executor.
+     * @param streamerReceiverRunner Streamer receiver runner.
      */
     public InternalTableImpl(
             QualifiedName tableName,
@@ -380,8 +380,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    // TODO: IGNITE-24244
-                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : DEFAULT_RW_TIMEOUT;
+                    long timeout = actualTx.timeout();
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -503,8 +502,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    // TODO: IGNITE-24244
-                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 3_000;
+                    long timeout = actualTx.timeout();
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1200,8 +1198,7 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
-                // TODO: IGNITE-24244
-                long timeout = tx.isReadOnly() ? tx.timeout() : 3_000;
+                long timeout = tx.timeout();
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
