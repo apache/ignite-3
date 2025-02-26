@@ -175,6 +175,7 @@ import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
@@ -885,7 +886,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
             Function<RaftCommandRunner, ReplicaListener> createListener = raftClient -> createReplicaListener(
-                    tablePartitionId,
+                    zonePartitionId,
                     table,
                     safeTimeTracker,
                     partitionStorages.getMvPartitionStorage(),
@@ -1396,7 +1397,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private PartitionReplicaListener createReplicaListener(
-            TablePartitionId tablePartitionId,
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Use ZonePartitionIdInstead.
+            PartitionGroupId replicationGroupId,
             TableImpl table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             MvPartitionStorage mvPartitionStorage,
@@ -1404,8 +1406,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionUpdateHandlers partitionUpdateHandlers,
             RaftCommandRunner raftClient
     ) {
-        int tableId = tablePartitionId.tableId();
-        int partId = tablePartitionId.partitionId();
+        int partitionIndex = replicationGroupId.partitionId();
 
         return new PartitionReplicaListener(
                 mvPartitionStorage,
@@ -1413,11 +1414,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txManager,
                 lockMgr,
                 scanRequestExecutor,
-                partId,
-                tableId,
-                table.indexesLockers(partId),
-                new Lazy<>(() -> table.indexStorageAdapters(partId).get().get(table.pkId())),
-                () -> table.indexStorageAdapters(partId).get(),
+                replicationGroupId,
+                table.tableId(),
+                table.indexesLockers(partitionIndex),
+                new Lazy<>(() -> table.indexStorageAdapters(partitionIndex).get().get(table.pkId())),
+                () -> table.indexStorageAdapters(partitionIndex).get(),
                 clockService,
                 safeTimeTracker,
                 txStatePartitionStorage,
@@ -1430,7 +1431,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 executorInclinedPlacementDriver,
                 topologyService,
                 remotelyTriggeredResourceRegistry,
-                schemaManager.schemaRegistry(tableId),
+                schemaManager.schemaRegistry(table.tableId()),
                 indexMetaStorage,
                 lowWatermark
         );
