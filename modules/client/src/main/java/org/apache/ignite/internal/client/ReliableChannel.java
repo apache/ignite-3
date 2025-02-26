@@ -20,12 +20,14 @@ package org.apache.ignite.internal.client;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -685,7 +687,7 @@ public final class ReliableChannel implements AutoCloseable {
             try {
                 futs.add(hld.getOrCreateChannelAsync());
             } catch (Exception e) {
-                log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
+                logFailedEstablishConnection(hld, e);
             }
         }
 
@@ -841,7 +843,7 @@ public final class ReliableChannel implements AutoCloseable {
                     closeChannel();
                     onChannelFailure(this, null);
 
-                    log.warn("Failed to establish connection to " + chCfg.getAddress() + ": " + err.getMessage(), err);
+                    logFailedEstablishConnection(this, err);
 
                     return null;
                 });
@@ -928,5 +930,19 @@ public final class ReliableChannel implements AutoCloseable {
 
             return ch != null && !ch.closed();
         }
+    }
+
+    private void logFailedEstablishConnection(ClientChannelHolder ch, Throwable err) {
+        String logMessage = "Failed to establish connection to " + ch.chCfg.getAddress() + ": " + err.getMessage();
+
+        if (log.isDebugEnabled() || isLogFailedEstablishConnectionException(err)) {
+            log.warn(logMessage, err);
+        } else {
+            log.info(logMessage);
+        }
+    }
+
+    private static boolean isLogFailedEstablishConnectionException(Throwable err) {
+        return hasCauseOrSuppressed(err, "Connection refused", ConnectException.class);
     }
 }

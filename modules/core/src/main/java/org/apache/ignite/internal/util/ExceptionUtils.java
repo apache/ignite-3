@@ -356,7 +356,7 @@ public final class ExceptionUtils {
      * into check.
      *
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
-     * @param message Message text that should be in cause.
+     * @param message Error message fragment that should be in error message.
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
      * @return {@code true} if one of the causing exception is an instance of passed in classes,
      *      {@code false} otherwise.
@@ -364,7 +364,8 @@ public final class ExceptionUtils {
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
             @Nullable String message,
-            Class<?> @Nullable... clazz) {
+            Class<?> @Nullable... clazz
+    ) {
         if (throwable == null || clazz == null || clazz.length == 0) {
             return false;
         }
