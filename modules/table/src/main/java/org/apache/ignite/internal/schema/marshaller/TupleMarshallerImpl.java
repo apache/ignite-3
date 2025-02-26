@@ -358,6 +358,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             } catch (IndexOutOfBoundsException t) {
                 // Looks like .NET client sends a corrupted tuple.
                 // Let's dump the raw data and examine. Compare to a correct tuple.
+                // TODO: Failed to get column value KEY, schema 2, tuple ClientHandlerTuple [schema=2, keyOnly=false, noValueSet={}, binaryTuple=[[0, 1, 24]]]
                 throw new MarshallerException(
                         "Failed to get column value " + col.name() + ", schema " + schema.version() + ", tuple " + tuple, t);
             }
