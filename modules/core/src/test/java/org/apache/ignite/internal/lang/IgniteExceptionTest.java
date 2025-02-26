@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.invoke.MethodHandles;
@@ -202,7 +203,7 @@ public class IgniteExceptionTest {
     }
 
     @Test
-    public void testExceptionProperties() {
+    public void testIgniteExceptionProperties() {
         var ex = new IgniteException(UUID.randomUUID(), INTERNAL_ERR, "msg");
 
         assertEquals(INTERNAL_ERR, ex.code());
@@ -212,6 +213,53 @@ public class IgniteExceptionTest {
 
         assertEquals(1, ex.groupCode());
         assertEquals("CMN", ex.groupName());
+
+        assertTrue(ex.toString().contains("IGN-CMN-65535"), ex.toString());
+    }
+
+    @Test
+    public void testIgniteCheckedExceptionProperties() {
+        var ex = new IgniteCheckedException(UUID.randomUUID(), INTERNAL_ERR, "msg");
+
+        assertEquals(INTERNAL_ERR, ex.code());
+
+        assertEquals(-1, ex.errorCode());
+        assertEquals("IGN-CMN-65535", ex.codeAsString());
+
+        assertEquals(1, ex.groupCode());
+        assertEquals("CMN", ex.groupName());
+
+        assertTrue(ex.toString().contains("IGN-CMN-65535"), ex.toString());
+    }
+
+    @Test
+    public void testIgniteInternalExceptionProperties() {
+        var ex = new IgniteInternalException(UUID.randomUUID(), INTERNAL_ERR, "msg");
+
+        assertEquals(INTERNAL_ERR, ex.code());
+
+        assertEquals(-1, ex.errorCode());
+        assertEquals("IGN-CMN-65535", ex.codeAsString());
+
+        assertEquals(1, ex.groupCode());
+        assertEquals("CMN", ex.groupName());
+
+        assertTrue(ex.toString().contains("IGN-CMN-65535"), ex.toString());
+    }
+
+    @Test
+    public void testIgniteInternalCheckedExceptionProperties() {
+        var ex = new IgniteInternalCheckedException(UUID.randomUUID(), INTERNAL_ERR, "msg");
+
+        assertEquals(INTERNAL_ERR, ex.code());
+
+        assertEquals(-1, ex.errorCode());
+        assertEquals("IGN-CMN-65535", ex.codeAsString());
+
+        assertEquals(1, ex.groupCode());
+        assertEquals("CMN", ex.groupName());
+
+        assertTrue(ex.toString().contains("IGN-CMN-65535"), ex.toString());
     }
 
     /**
