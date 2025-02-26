@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
+import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
+
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -27,12 +29,15 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.WriteIntentSwitchCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
@@ -48,7 +53,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -84,11 +89,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
     // Raft command handlers.
-    private final FinishTxCommandHandler finishTxCommandHandler;
-
-    private final WriteIntentSwitchCommandHandler writeIntentSwitchCommandHandler;
-
-    private final VacuumTxStatesCommandHandler vacuumTxStatesCommandHandler;
+    private final CommandHandlers commandHandlers;
 
     /** Constructor. */
     public ZonePartitionRaftListener(
@@ -107,11 +108,20 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
 
         // RAFT command handlers initialization.
-        finishTxCommandHandler = new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager);
-
-        writeIntentSwitchCommandHandler = new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager);
-
-        vacuumTxStatesCommandHandler = new VacuumTxStatesCommandHandler(txStatePartitionStorage);
+        this.commandHandlers = new CommandHandlers.Builder()
+                .addHandler(
+                        PartitionReplicationMessageGroup.GROUP_TYPE,
+                        Commands.FINISH_TX,
+                        new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager))
+                .addHandler(
+                        PartitionReplicationMessageGroup.GROUP_TYPE,
+                        Commands.WRITE_INTENT_SWITCH,
+                        new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager))
+                .addHandler(
+                        TxMessageGroup.GROUP_TYPE,
+                        VACUUM_TX_STATE_COMMAND,
+                        new VacuumTxStatesCommandHandler(txStatePartitionStorage))
+                .build();
     }
 
     @Override
@@ -164,22 +174,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         partitionSnapshots().acquireReadLock();
 
         try {
-            if (command instanceof FinishTxCommand) {
-                result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
-            } else if (command instanceof PrimaryReplicaChangeCommand) {
-                // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
-                // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
-                tableProcessors.values().forEach(listener -> listener.processCommand(command, commandIndex, commandTerm, safeTimestamp));
+            boolean crossTableCommand = command instanceof PrimaryReplicaChangeCommand
+                    || command instanceof UpdateMinimumActiveTxBeginTimeCommand;
 
-                result = new IgniteBiTuple<>(null, true);
-            } else if (command instanceof WriteIntentSwitchCommand) {
-                result = writeIntentSwitchCommandHandler.handle(
-                        (WriteIntentSwitchCommand) command,
-                        commandIndex,
-                        commandTerm,
-                        safeTimestamp
-                );
-            } else if (command instanceof TableAwareCommand) {
+            if (command instanceof TableAwareCommand) {
                 result = processTableAwareCommand(
                         ((TableAwareCommand) command).tableId(),
                         command,
@@ -187,14 +185,22 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                         commandTerm,
                         safeTimestamp
                 );
-            } else if (command instanceof VacuumTxStatesCommand) {
-                result = vacuumTxStatesCommandHandler.handle((VacuumTxStatesCommand) command, commandIndex, commandTerm);
-            } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+            } else if (crossTableCommand) {
+                // PrimaryReplicaChangeCommand
+                // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
+                // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else {
-                LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
+                AbstractCommandHandler<?> commandHandler =
+                        commandHandlers.handler(command.groupType(), command.messageType());
 
-                result = new IgniteBiTuple<>(null, true);
+                if (commandHandler == null) {
+                    LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
+
+                    result = new IgniteBiTuple<>(null, true);
+                } else {
+                    result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
+                }
             }
 
             if (Boolean.TRUE.equals(result.get2())) {

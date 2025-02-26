@@ -157,6 +157,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -239,15 +240,15 @@ import org.jetbrains.annotations.Nullable;
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
     /**
-     * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock.
-     * This causes the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
+     * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock. This causes
+     * the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
      *
      * <p>A RAFT snapshot of a partition consists of MV data, TX state data and metadata (which includes RAFT applied index).
      * Here, the 'slight' inconsistency is that MV data might be ahead of the snapshot meta (namely, RAFT applied index) and TX state data.
      *
      * <p>This listener by its nature cannot advance RAFT applied index (as it works out of the RAFT framework). This alone makes
-     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency,
-     * we don't need to take the partition snapshots read lock as well.
+     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency, we don't need to take the
+     * partition snapshots read lock as well.
      *
      * <p>The inconsistency does not cause any real problems because it is further resolved.
      * <ul>
@@ -273,7 +274,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Replication group id. */
-    private final TablePartitionId replicationGroupId;
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Use ZonePartitionId instead.
+    private final PartitionGroupId replicationGroupId;
+
+    private final int tableId;
+
+    // Despite the fact that it's correct to use replicationGroupId as lock key it's better to preserve slightly higher lock granularity.
+    private final TablePartitionId tableLockKey;
 
     /** Primary key index. */
     private final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
@@ -371,7 +378,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param raftCommandRunner Raft client.
      * @param txManager Transaction manager.
      * @param lockManager Lock manager.
-     * @param partId Partition id.
+     * @param replicationGroupId Replication group id.
      * @param tableId Table id.
      * @param indexesLockers Index lock helper objects.
      * @param pkIndexStorage Pk index storage.
@@ -394,7 +401,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxManager txManager,
             LockManager lockManager,
             Executor scanRequestExecutor,
-            int partId,
+            PartitionGroupId replicationGroupId,
             int tableId,
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
@@ -436,8 +443,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.schemaRegistry = schemaRegistry;
         this.indexMetaStorage = indexMetaStorage;
         this.lowWatermark = lowWatermark;
-
-        this.replicationGroupId = new TablePartitionId(tableId, partId);
+        this.replicationGroupId = replicationGroupId;
+        this.tableId = tableId;
+        this.tableLockKey = new TablePartitionId(tableId, replicationGroupId.partitionId());
 
         this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
@@ -482,9 +490,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         prepareIndexBuilderTxRwOperationTracker();
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
     private PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
         // Enlistment consistency token is not required for the rollback, so it is 0L.
-        return new PendingTxPartitionEnlistment(node.name(), 0L, replicationGroupId.tableId());
+        assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+        // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId.
+        return new PendingTxPartitionEnlistment(node.name(), 0L, ((TablePartitionId) replicationGroupId).tableId());
     }
 
     private void runPersistentStorageScan() {
@@ -506,8 +517,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                     abortedCount++;
                 }
 
+                assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+
                 txManager.cleanup(
-                        replicationGroupId,
+                        // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId
+                        (TablePartitionId) replicationGroupId,
                         txMeta.enlistedPartitions(),
                         txMeta.txState() == COMMITTED,
                         txMeta.commitTimestamp(),
@@ -774,8 +788,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Request.
      * @param isPrimary Whether the current replica is primary.
      * @param opStartTsIfDirectRo Start timestamp in case of direct RO tx.
-     * @param lst Lease start time of the current lease that was active at the moment of the start of request processing,
-     *     in the case of {@link PrimaryReplicaRequest}, otherwise should be {@code null}.
+     * @param lst Lease start time of the current lease that was active at the moment of the start of request processing, in the
+     *         case of {@link PrimaryReplicaRequest}, otherwise should be {@code null}.
      * @return Future.
      */
     private CompletableFuture<?> processOperationRequest(
@@ -1204,7 +1218,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
-        return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.S)
+        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.S)
                 .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), cursorId, batchCount));
     }
 
@@ -1462,7 +1476,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     RowId rowId = currentRow.rowId();
 
-                    return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S)
+                    return lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.S)
                             .thenComposeAsync(rowLock -> { // Table row S lock
                                 return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
                                     BinaryRow binaryRow = upgrade(binaryRow(resolvedReadResult), tableVersion);
@@ -1513,7 +1527,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         RowId rowId = indexCursor.next();
 
-        return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S)
+        return lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.S)
                 .thenComposeAsync(rowLock -> { // Table row S lock
                     return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
                         if (resolvedReadResult != null && resolvedReadResult.binaryRow() != null) {
@@ -1984,7 +1998,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             assert Objects.equals(wi.commitTableOrZoneId(), writeIntent.commitTableOrZoneId())
                     : "Unexpected write intent, commitTableOrZoneId1=" + writeIntent.commitTableOrZoneId()
-                            + ", commitTableId2=" + wi.commitTableOrZoneId();
+                    + ", commitTableId2=" + wi.commitTableOrZoneId();
 
             assert wi.commitPartitionId() == writeIntent.commitPartitionId()
                     : "Unexpected write intent, commitPartitionId1=" + writeIntent.commitPartitionId()
@@ -3066,8 +3080,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForUpdate(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.X))
+        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.X))
                 .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
@@ -3080,7 +3094,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
+        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
                 .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
@@ -3138,11 +3152,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
      */
     private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow expectedRow, RowId rowId, BinaryRow actualRow, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S)) // S lock on RowId
+        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.S)) // S lock on RowId
                 .thenCompose(ignored -> {
                     if (equalValues(actualRow, expectedRow)) {
-                        return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.X) // X lock on RowId
+                        return lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.X) // X lock on RowId
                                 .thenCompose(ignored0 -> takeRemoveLockOnIndexes(actualRow, rowId, txId))
                                 .thenApply(exclusiveRowLock -> rowId);
                     }
@@ -3158,8 +3172,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForDelete(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.X)) // X lock on RowId
+        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.X)) // X lock on RowId
                 .thenCompose(ignored -> takeRemoveLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(ignored -> rowId);
     }
@@ -3171,7 +3185,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S) // S lock on RowId
+        return lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.S) // S lock on RowId
                 .thenApply(ignored -> rowId);
     }
 
@@ -3242,11 +3256,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForReplace(BinaryRow expectedRow, @Nullable BinaryRow oldRow,
             BinaryRow newRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S))
+        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.S))
                 .thenCompose(ignored -> {
                     if (oldRow != null && equalValues(oldRow, expectedRow)) {
-                        return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.X) // X lock on RowId
+                        return lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.X) // X lock on RowId
                                 .thenCompose(ignored1 -> takePutLockOnIndexes(newRow, rowId, txId))
                                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
                     }
@@ -3260,8 +3274,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Replica request.
      * @return Future with {@link IgniteBiTuple} containing {@code boolean} (whether the replica is primary) and the start time of current
-     *     lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
-     *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
+     *         lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
+     *         lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
         HybridTimestamp current = clockService.current();
@@ -3437,12 +3451,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                   () -> storageUpdateHandler.switchWriteIntents(
-                           txId,
-                           txState == COMMITTED,
-                           commitTimestamp,
-                           indexIdsAtRwTxBeginTsOrNull(txId)
-                   )
+                    () -> storageUpdateHandler.switchWriteIntents(
+                            txId,
+                            txState == COMMITTED,
+                            commitTimestamp,
+                            indexIdsAtRwTxBeginTsOrNull(txId)
+                    )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
@@ -3551,7 +3565,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         UpdateCommandBuilder bldr = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                .tablePartitionId(tablePartitionId(replicationGroupId))
+                .tableId(tableId)
                 .commitPartitionId(replicationGroupIdMessage(commitPartitionId))
                 .rowUuid(rowUuid)
                 .txId(txId)
@@ -3596,7 +3610,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Long leaseStartTime
     ) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                .tablePartitionId(tablePartitionId(replicationGroupId))
+                .tableId(tableId)
                 .commitPartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(transactionId)
@@ -3659,7 +3673,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private int tableId() {
-        return replicationGroupId.tableId();
+        return tableId;
     }
 
     private boolean isLocalPeer(UUID nodeId) {
@@ -3738,8 +3752,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * For an operation of an RO transaction, attempts to lock LWM on current node (either if the operation is not direct,
-     * or if it's direct and concerns more than one key), and does nothing for other types of requests.
+     * For an operation of an RO transaction, attempts to lock LWM on current node (either if the operation is not direct, or if it's direct
+     * and concerns more than one key), and does nothing for other types of requests.
      *
      * <p>If lock attempt fails, throws an exception with a specific error code ({@link Transactions#TX_STALE_READ_ONLY_OPERATION_ERR}).
      *
@@ -3752,8 +3766,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Request that is being handled.
      * @param opStartTsIfDirectRo Timestamp of operation start if the operation is a direct RO operation, {@code null} otherwise.
-     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that shoiuld be used to lock LWM,
-     *     or {@code null} if LWM doesn't need to be locked..
+     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that shoiuld be used to lock LWM, or
+     *         {@code null} if LWM doesn't need to be locked..
      */
     private @Nullable UUID tryToLockLwmIfNeeded(ReplicaRequest request, @Nullable HybridTimestamp opStartTsIfDirectRo) {
         UUID txIdToLockLwm;
