@@ -355,7 +355,7 @@ internal static class DataStreamer
 
                         // TODO
                         // Corrupted data: items=[DataStreamerItem { Data = IgniteTuple { KEY = 27 }, OperationType = Put }], buf=[212, 8, 0, 196, 3, 0, 1, 10, 0, 0, 0, 0, 0...
-                        throw new InvalidOperationException($"Corrupted data: schema={schema.Version}, items=[{itemsStr}], buf=[{bufStr}]");
+                        throw new InvalidOperationException($"Corrupted data: schema={schema.Version}, items=[{itemsStr}], buf=[{bufStr}]", e);
                     }
                 }
             }
