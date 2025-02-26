@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -130,7 +132,16 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
 
     @Override
     public String toString() {
+        String tupleBytes = "null";
+
+        if (binaryTuple != null) {
+            ByteBuffer byteBuffer = binaryTuple.byteBuffer();
+            byte[] bytes = new byte[byteBuffer.remaining()];
+            byteBuffer.get(bytes);
+            tupleBytes = Arrays.toString(bytes);
+        }
+
         return "ClientHandlerTuple [schema=" + schema.version() + ", keyOnly=" + keyOnly + ", noValueSet=" + noValueSet
-                + ", binaryTuple=" + binaryTuple + "]";
+                + ", binaryTuple=[" + tupleBytes + "]]";
     }
 }
