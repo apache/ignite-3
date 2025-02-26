@@ -738,7 +738,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         doAnswer(invocation -> {
-            UUID txId = invocation.getArgument(4);
+            UUID txId = invocation.getArgument(5);
 
             txManager.updateTxMeta(txId, old -> new TxStateMeta(
                     ABORTED,

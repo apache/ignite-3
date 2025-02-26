@@ -162,7 +162,7 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
 
     @Override
     public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return transaction.rollbackAsync();
+        return transaction.rollbackTimeoutExceededAsync();
     }
 
     @Override

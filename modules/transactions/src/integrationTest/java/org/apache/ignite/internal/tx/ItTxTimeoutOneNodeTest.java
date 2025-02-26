@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "TEST";
 
-
     @Override
     protected int initialNodes() {
         return 1;
@@ -119,7 +118,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
             if (ex.getMessage().contains("timeoutExceeded=true")) {
                 return true;
             } else {
-                fail("Expected TX_TIMEOUT_EXCEEDED error code, but got: " + ex.code());
+                fail("Expected exception message to contain `timeoutExceeded=true` but found: " + ex.getMessage());
                 return false;
             }
         }

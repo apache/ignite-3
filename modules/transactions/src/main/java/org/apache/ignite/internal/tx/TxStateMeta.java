@@ -68,6 +68,7 @@ public class TxStateMeta implements TransactionMeta {
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
      * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
+     * @param isFinishedDueToTimeout {@code true} if the transaction is finished due to timeout.
      */
     public TxStateMeta(
             TxState txState,
@@ -89,6 +90,7 @@ public class TxStateMeta implements TransactionMeta {
      * @param commitTimestamp Commit timestamp.
      * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
+     * @param isFinishedDueToTimeout {@code true} if the transaction is finished due to timeout.
      */
     public TxStateMeta(
             TxState txState,
@@ -121,6 +123,7 @@ public class TxStateMeta implements TransactionMeta {
      * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
      * @param cleanupCompletionTimestamp Cleanup completion timestamp.
+     * @param isFinishedDueToTimeout {@code true} if the transaction is finished due to timeout.
      */
     public TxStateMeta(
             TxState txState,
@@ -220,6 +223,7 @@ public class TxStateMeta implements TransactionMeta {
                 .commitTimestamp(commitTimestamp)
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                .isFinishedDueToTimeout(isFinishedDueToTimeout)
                 .build();
     }
 

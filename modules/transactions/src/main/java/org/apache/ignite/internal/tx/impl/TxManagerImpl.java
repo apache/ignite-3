@@ -555,7 +555,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public void finishFull(
-            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeout
+            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
     ) {
         TxState finalState;
 
@@ -578,7 +578,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         old == null ? null : old.commitPartitionId(),
                         ts,
                         old == null ? null : old.tx(),
-                        timeout
+                        timeoutExceeded
                 ));
 
         decrementRwTxCount(txId);

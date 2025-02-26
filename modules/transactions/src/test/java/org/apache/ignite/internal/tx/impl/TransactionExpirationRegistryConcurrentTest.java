@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -232,7 +234,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         public CompletableFuture<Void> finish(
                 boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
         ) {
-            return null;
+            return nullCompletedFuture();
         }
 
         @Override
@@ -252,7 +254,10 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
 
         @Override
         public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-            return null;
+            // Count the number of calls.
+            rollbackCount.incrementAndGet();
+
+            return nullCompletedFuture();
         }
 
         @Override

@@ -169,7 +169,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 finish(false, null, false, true)
                         .thenAccept(unused -> timeoutExceeded = true),
                 TX_ROLLBACK_ERR
-        );
+        ).thenAccept(unused -> this.timeoutExceeded = true);
     }
 
     @Override
