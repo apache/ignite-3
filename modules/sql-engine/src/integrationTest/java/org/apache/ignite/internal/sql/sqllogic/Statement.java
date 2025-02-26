@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -113,15 +115,25 @@ final class Statement extends Command {
                     Assertions.fail("Not expected result at: " + posDesc + ". Statement: " + qry, e);
                 }
             } else {
+                IgniteStringBuilder detailsBuilder = new IgniteStringBuilder("Not expected result at: ")
+                        .app(posDesc).app('.').nl()
+                        .app('\t').app("Statement: ").app(qry).app('.').nl()
+                        .app('\t').app("Expected: ");
+
                 Throwable err = Assertions.assertThrows(
                         Throwable.class,
                         () -> ctx.executeQuery(qry),
-                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". No error occurred");
+                        () -> detailsBuilder.app("error, but none was occurred.").toString()
+                );
 
                 Matcher<String> errorMatcher = expected.errorMatcher(ctx);
 
+                detailsBuilder.app(expected.errorMessage).nl()
+                        .app('\t').app("Actual: ").nl()
+                        .app(ExceptionUtils.getFullStackTrace(err));
+
                 assertThat(
-                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". Expected: " + expected.errorMessage,
+                        detailsBuilder.toString(),
                         err.getMessage(), errorMatcher);
             }
         }
