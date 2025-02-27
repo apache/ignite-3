@@ -55,7 +55,7 @@ public class BuildIndexReplicaRequestHandler {
     /** Read-write transaction operation tracker for building indexes. */
     private final IndexBuilderTxRwOperationTracker txRwOperationTracker;
 
-    /** Safe time. */
+    /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /** Applicator that applies RAFT command that is created by this handler. */
