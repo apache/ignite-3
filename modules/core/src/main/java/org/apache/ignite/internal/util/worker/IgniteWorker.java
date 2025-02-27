@@ -42,9 +42,6 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
     /** Ignite instance name. */
     private final String igniteInstanceName;
 
-    /** Listener. */
-    private final IgniteWorkerListener listener;
-
     /** Finish mark. */
     private volatile boolean finished;
 
@@ -71,18 +68,15 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
      * @param igniteInstanceName Name of the Ignite instance this runnable is used in.
      * @param name Worker name. Note that in general thread name and worker (runnable) name are two different things.
      *      The same worker can be executed by multiple threads and therefore for logging and debugging purposes we separate the two.
-     * @param listener Listener for life-cycle events.
      */
     protected IgniteWorker(
             IgniteLogger log,
             String igniteInstanceName,
-            String name,
-            @Nullable IgniteWorkerListener listener
+            String name
     ) {
         this.log = log;
         this.igniteInstanceName = igniteInstanceName;
         this.name = name;
-        this.listener = listener;
     }
 
     /** {@inheritDoc} */
@@ -98,11 +92,6 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
         try {
             if (isCancelled.get()) {
                 onCancelledBeforeWorkerScheduled();
-            }
-
-            // Listener callback.
-            if (listener != null) {
-                listener.onStarted(this);
             }
 
             body();
@@ -127,10 +116,6 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
             }
 
             cleanup();
-
-            if (listener != null) {
-                listener.onStopped(this);
-            }
 
             if (log.isDebugEnabled()) {
                 if (isCancelled.get()) {
@@ -263,15 +248,6 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
     @Override
     public void blockingSectionEnd() {
         heartbeatTimestamp = coarseCurrentTimeMillis();
-    }
-
-    /**
-     * Can be called from {@link #runner()} thread to perform idleness handling.
-     */
-    protected void onIdle() {
-        if (listener != null) {
-            listener.onIdle(this);
-        }
     }
 
     /**
