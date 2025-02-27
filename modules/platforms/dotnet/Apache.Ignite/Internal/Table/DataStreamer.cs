@@ -334,6 +334,8 @@ internal static class DataStreamer
 
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
+
+                        // ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
                         await SendBatchAsync(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
 
                         return;

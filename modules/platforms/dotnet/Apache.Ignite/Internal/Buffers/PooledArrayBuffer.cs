@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Buffers
     using System.Buffers;
     using System.Buffers.Binary;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using Proto.MsgPack;
 
@@ -46,6 +47,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         /// <param name="initialCapacity">Initial capacity.</param>
         /// <param name="prefixSize">Size of the reserved space at the start of the buffer.</param>
+        [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Reviewed")]
         public PooledArrayBuffer(int initialCapacity = PooledBuffer.DefaultCapacity, int prefixSize = 0)
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
@@ -54,8 +56,9 @@ namespace Apache.Ignite.Internal.Buffers
             _prefixSize = prefixSize;
             _index = prefixSize;
 
-            // TODO: Is this the fix?
-            _buffer.AsSpan().Clear();
+            // TODO: Remove
+            // _buffer.AsSpan().Clear();
+            Random.Shared.NextBytes(_buffer);
         }
 
         /// <summary>
