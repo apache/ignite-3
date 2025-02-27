@@ -237,7 +237,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     ) {
         IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24374 Think about better option, should work though.
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24517 Remove. In case of zero tables we still should
+        //  add lease information to txStatePartitionStorage and trigger storageIndexTriggerUpdate.
         if (command instanceof PrimaryReplicaChangeCommand && tableProcessors.isEmpty()) {
             result.set2(Boolean.TRUE);
         }

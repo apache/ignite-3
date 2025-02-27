@@ -84,7 +84,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
                 executor
         );
 
-        storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
+        storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
@@ -141,7 +141,9 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
         int zoneId = 1;
 
         CompletableFuture<?>[] futures = IntStream.range(0, partCount)
-                .mapToObj(partId -> runAsync(() -> allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount, storageIndexTracker)))
+                .mapToObj(partId -> runAsync(() ->
+                        allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount, storageIndexTracker))
+                )
                 .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(futures), willCompleteSuccessfully());
