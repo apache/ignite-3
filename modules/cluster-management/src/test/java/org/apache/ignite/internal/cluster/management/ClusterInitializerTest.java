@@ -18,11 +18,10 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.UUID.randomUUID;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,8 +33,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -167,9 +164,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
-        InternalInitException e = assertFutureThrows(InternalInitException.class, initFuture);
-
-        assertThat(e.getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
+        String errorMessageFragment = String.format("Got error response from node \"%s\": foobar", cmgNode.name());
+        assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
 
         verify(messagingService).send(eq(cmgNode), any(CancelInitMessage.class));
         verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
@@ -200,11 +196,10 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
-        InternalInitException e = assertFutureThrows(InternalInitException.class, initFuture);
+        String errorMessageFragment = String.format("Got error response from node \"%s\": foobar", cmgNode.name());
+        assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
 
-        assertThat(e.getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
-
-        verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
+        verify(messagingService, never()).send(eq(cmgNode), any(CancelInitMessage.class));
         verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
     }
 
@@ -235,16 +230,21 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     void testUnresolvableNode() {
         CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of("foo"), List.of("bar"), "cluster");
 
-        IllegalArgumentException e = assertFutureThrows(IllegalArgumentException.class, initFuture);
-
-        assertThat(e.getMessage(), containsString("Node \"foo\" is not present in the physical topology"));
+        assertThat(initFuture, willThrow(IllegalArgumentException.class, "Node \"foo\" is not present in the physical topology"));
     }
 
-    private static <T extends Throwable> T assertFutureThrows(Class<T> expected, CompletableFuture<?> future) {
-        ExecutionException e = assertThrows(ExecutionException.class, () -> future.get(1, TimeUnit.SECONDS));
+    @Test
+    void testDuplicateConsistentId() {
+        // Different nodes with same consistent ids
+        ClusterNode node1 = new ClusterNodeImpl(randomUUID(), "node", new NetworkAddress("foo", 123));
+        ClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node", new NetworkAddress("bar", 456));
 
-        assertThat(e.getCause(), isA(expected));
+        when(topologyService.allMembers()).thenReturn(List.of(node1, node2));
 
-        return expected.cast(e.getCause());
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(node1.name()), List.of(node1.name()), "cluster");
+
+        assertThat(initFuture, willThrow(InternalInitException.class, "Duplicate consistent id \"node\""));
+
+        verify(messagingService, never()).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
     }
 }

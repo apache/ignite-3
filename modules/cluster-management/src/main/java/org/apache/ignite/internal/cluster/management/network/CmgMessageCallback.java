@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.network;
 
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CancelJoinMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.network.ClusterNode;
@@ -36,6 +37,11 @@ public interface CmgMessageCallback {
      * Notifies about an incoming {@link CancelInitMessage}.
      */
     void onCancelInitMessageReceived(CancelInitMessage message, ClusterNode sender, @Nullable Long correlationId);
+
+    /**
+     * Notifies about an incoming {@link CancelJoinMessage}.
+     */
+    void onCancelJoinMessageReceived(CancelJoinMessage message, ClusterNode sender, @Nullable Long correlationId);
 
     /**
      * Notifies about an incoming {@link CmgInitMessage}.

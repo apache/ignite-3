@@ -47,6 +47,7 @@ import org.apache.ignite.internal.cluster.management.events.EmptyEventParameters
 import org.apache.ignite.internal.cluster.management.network.CmgMessageCallback;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandler;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CancelJoinMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
@@ -215,6 +217,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             @Override
             public void onCancelInitMessageReceived(CancelInitMessage message, ClusterNode sender, @Nullable Long correlationId) {
                 handleCancelInit(message);
+            }
+
+            @Override
+            public void onCancelJoinMessageReceived(CancelJoinMessage message, ClusterNode sender, @Nullable Long correlationId) {
+                handleCancelJoin(message);
             }
 
             @Override
@@ -631,6 +638,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.scheduledExecutor.execute(this::destroyCmgWithEvents);
     }
 
+    private void handleCancelJoin(CancelJoinMessage msg) {
+        LOG.info("CMG initialization cancelled [reason={}]", msg.reason());
+        joinFuture.completeExceptionally(new InitException(msg.reason()));
+    }
+
     /** Delegates call to {@link #destroyCmg()} but fires the associated events. */
     private CompletableFuture<Void> destroyCmgWithEvents() {
         LOG.info("CMG destruction procedure started");
@@ -871,6 +883,17 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         return nullCompletedFuture();
                     }
 
+                    Collection<ClusterNode> duplicates = findDuplicateConsistentIds(topology, nodes);
+                    if (!duplicates.isEmpty()) {
+                        CancelJoinMessage msg = msgFactory.cancelJoinMessage()
+                                .reason("Duplicate consistent id detected")
+                                .build();
+                        for (ClusterNode duplicate : duplicates) {
+                            sendWithRetry(duplicate, msg);
+                        }
+                        return nullCompletedFuture();
+                    }
+
                     return raftService.readClusterState()
                             .thenAccept(state -> {
                                 // Raft state might not have been initialized in case of leader failure during cluster init
@@ -893,6 +916,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         LOG.error("Unable to send cluster state", e);
                     }
                 });
+    }
+
+    private static Collection<ClusterNode> findDuplicateConsistentIds(LogicalTopologySnapshot topology, Collection<ClusterNode> nodes) {
+        Set<String> existingConsistentIds = topology.nodes().stream().map(LogicalNode::name).collect(toSet());
+        return nodes.stream().filter(node -> existingConsistentIds.contains(node.name())).collect(toList());
     }
 
     private CompletableFuture<Void> sendWithRetry(ClusterNode node, NetworkMessage msg) {

@@ -23,6 +23,9 @@ import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTP_
 import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_PORT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.shortTestMethodName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -31,16 +34,19 @@ import static org.hamcrest.Matchers.is;
 
 import java.lang.reflect.Method;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.IntStream;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -72,18 +78,58 @@ class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
     void physicalTopology(TestInfo testInfo) {
         int nodesCount = 2;
 
-        IgniteServer node1 = startEmbeddedNode(testInfo, 0, nodesCount);
-        IgniteServer node2 = startEmbeddedNode(testInfo, 1, nodesCount);
+        IgniteServer node1 = startEmbeddedNode(testInfo, false, 0, nodesCount);
+        IgniteServer node2 = startEmbeddedNode(testInfo, false, 1, nodesCount);
 
         assertThat(node1.name(), is(equalTo(node2.name())));
 
         await().untilAsserted(() -> {
-            assertThat(((IgniteServerImpl) node1).igniteImpl().clusterService().topologyService().allMembers(), hasSize(nodesCount));
-            assertThat(((IgniteServerImpl) node2).igniteImpl().clusterService().topologyService().allMembers(), hasSize(nodesCount));
+            assertThat(getPhysicalTopologyMembers(node1), hasSize(nodesCount));
+            assertThat(getPhysicalTopologyMembers(node2), hasSize(nodesCount));
         });
     }
 
-    private IgniteServer startEmbeddedNode(TestInfo testInfo, int nodeIndex, int nodesCount) {
+    @Test
+    void logicalTopology(TestInfo testInfo) {
+        int nodesCount = 3;
+
+        IgniteServer metaStorageAndCmgNode = startEmbeddedNode(testInfo, true, 0, nodesCount);
+        startEmbeddedNode(testInfo, false, 1, nodesCount);
+        startEmbeddedNode(testInfo, false, 2, nodesCount);
+
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(metaStorageAndCmgNode)
+                .clusterName("cluster")
+                .build();
+
+        // Can't init cluster with duplicate node names
+        assertThat(
+                metaStorageAndCmgNode.initClusterAsync(initParameters),
+                willThrow(InitException.class, "Unable to initialize the cluster: Duplicate consistent id")
+        );
+
+        // When duplicate node is stopped
+        stopNode(2);
+
+        await().until(() -> getPhysicalTopologyMembers(metaStorageAndCmgNode), hasSize(2));
+
+        // Then cluster is initialized successfully
+        assertThat(metaStorageAndCmgNode.initClusterAsync(initParameters), willCompleteSuccessfully());
+
+        // New node with duplicate name can't join the cluster. It's added to the list of duplicate ids on nodes 0 and 1 and node 1 is added
+        // to the list of duplicates on this node.
+        IgniteServer newNode = startEmbeddedNode(testInfo, false, 2, nodesCount);
+
+        await().until(() -> getPhysicalTopologyMembers(metaStorageAndCmgNode), hasSize(3));
+
+        // Actual exception is NodeStartException
+        assertThat(
+                newNode.waitForInitAsync(),
+                willThrowWithCauseOrSuppressed(InitException.class, "Duplicate consistent id detected")
+        );
+    }
+
+    private IgniteServer startEmbeddedNode(TestInfo testInfo, boolean includeIndexInName, int nodeIndex, int nodesCount) {
         String config = IgniteStringFormatter.format(
                 NODE_BOOTSTRAP_CFG_TEMPLATE,
                 DEFAULT_BASE_PORT + nodeIndex,
@@ -92,13 +138,18 @@ class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
                 DEFAULT_BASE_HTTP_PORT + nodeIndex
         );
 
-        IgniteServer server = TestIgnitionManager.start(
-                testNodeNameWithoutIndex(testInfo),
-                config,
-                WORK_DIR.resolve(testNodeName(testInfo, nodeIndex))
-        );
+        String nodeName = includeIndexInName ? testNodeName(testInfo, nodeIndex) : testNodeNameWithoutIndex(testInfo);
+        IgniteServer server = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(testNodeName(testInfo, nodeIndex)));
+        server.waitForInitAsync(); // Do nothing
         servers.put(nodeIndex, server);
         return server;
+    }
+
+    private void stopNode(int nodeIndex) {
+        servers.computeIfPresent(nodeIndex, (index, server) -> {
+            server.shutdown();
+            return null;
+        });
     }
 
     private static String seedAddressesString(int nodesCount) {
@@ -115,5 +166,9 @@ class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
                 shortTestMethodName(testClassName),
                 shortTestMethodName(testMethodName)
         );
+    }
+
+    private static Collection<ClusterNode> getPhysicalTopologyMembers(IgniteServer node) {
+        return ((IgniteServerImpl) node).igniteImpl().clusterService().topologyService().allMembers();
     }
 }

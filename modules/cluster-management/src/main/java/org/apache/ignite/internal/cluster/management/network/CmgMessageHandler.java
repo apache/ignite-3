@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CancelJoinMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -123,6 +124,8 @@ public class CmgMessageHandler implements NetworkMessageHandler {
                 cmgMessageCallback.onClusterStateMessageReceived((ClusterStateMessage) message, sender, correlationId);
             } else if (message instanceof CancelInitMessage) {
                 cmgMessageCallback.onCancelInitMessageReceived((CancelInitMessage) message, sender, correlationId);
+            } else if (message instanceof CancelJoinMessage) {
+                cmgMessageCallback.onCancelJoinMessageReceived((CancelJoinMessage) message, sender, correlationId);
             } else if (message instanceof CmgInitMessage) {
                 cmgMessageCallback.onCmgInitMessageReceived((CmgInitMessage) message, sender, correlationId);
             }

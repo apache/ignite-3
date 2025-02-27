@@ -19,8 +19,10 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -124,6 +126,8 @@ public class ClusterInitializer {
         }
 
         try {
+            validateTopology();
+
             Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
             Set<String> cmgNodeNameSet = cmgNodeNames.isEmpty()
@@ -182,6 +186,20 @@ public class ClusterInitializer {
         } catch (Exception e) {
             return failedFuture(e);
         }
+    }
+
+    /**
+     * Validates physical topology before initialization for duplicate consistent ids. Throws {@link InternalInitException} if such
+     * duplicate is found.
+     */
+    private void validateTopology() {
+        Set<String> consistentIds = new HashSet<>();
+        clusterService.topologyService().allMembers().forEach(node -> {
+            if (!consistentIds.add(node.name())) {
+                LOG.error("Initialization failed, node \"{}\" has duplicate in the physical topology", node.name());
+                throw new InternalInitException(format("Duplicate consistent id \"{}\"", node.name()), true);
+            }
+        });
     }
 
     private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
