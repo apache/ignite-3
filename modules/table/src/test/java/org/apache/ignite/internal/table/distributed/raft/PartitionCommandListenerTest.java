@@ -723,7 +723,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
                 .indexId(indexId)
-                .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(TABLE_ID, PARTITION_ID)))
+                .tableId(TABLE_ID)
                 .rowIds(rowUuids)
                 .finish(finish)
                 .build();
