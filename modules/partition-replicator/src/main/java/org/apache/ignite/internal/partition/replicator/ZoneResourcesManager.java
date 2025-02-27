@@ -83,7 +83,11 @@ class ZoneResourcesManager implements ManuallyCloseable {
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
-    ZonePartitionResources allocateZonePartitionResources(ZonePartitionId zonePartitionId, int partitionCount) {
+    ZonePartitionResources allocateZonePartitionResources(
+            ZonePartitionId zonePartitionId,
+            int partitionCount,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+    ) {
         ZoneResources zoneResources = resourcesByZoneId.computeIfAbsent(
                 zonePartitionId.zoneId(),
                 zoneId -> new ZoneResources(createTxStateStorage(zoneId, partitionCount))
@@ -93,8 +97,6 @@ class ZoneResourcesManager implements ManuallyCloseable {
                 .getOrCreatePartitionStorage(zonePartitionId.partitionId());
 
         var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
-
-        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
         var raftGroupListener = new ZonePartitionRaftListener(
                 zonePartitionId,

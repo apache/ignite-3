@@ -45,6 +45,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,9 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
     private TxStateRocksDbSharedStorage sharedStorage;
 
     private ZoneResourcesManager manager;
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Ensure that tracker is closed.
+    private PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     @BeforeEach
     void init(
@@ -80,6 +84,8 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
                 executor
         );
 
+        storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
+
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
@@ -92,7 +98,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
 
     @Test
     void allocatesResources() {
-        ZonePartitionResources resources = allocatePartitionResources(new ZonePartitionId(1, 1), 10);
+        ZonePartitionResources resources = allocatePartitionResources(new ZonePartitionId(1, 1), 10, storageIndexTracker);
 
         assertThat(resources.txStatePartitionStorage(), is(notNullValue()));
         assertThat(resources.raftListener(), is(notNullValue()));
@@ -102,9 +108,9 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
 
     @Test
     void closesResourcesOnShutdown() {
-        ZonePartitionResources zone1storage1 = allocatePartitionResources(new ZonePartitionId(1, 1), 10);
-        ZonePartitionResources zone1storage5 = allocatePartitionResources(new ZonePartitionId(1, 5), 10);
-        ZonePartitionResources zone2storage3 = allocatePartitionResources(new ZonePartitionId(2, 3), 10);
+        ZonePartitionResources zone1storage1 = allocatePartitionResources(new ZonePartitionId(1, 1), 10, storageIndexTracker);
+        ZonePartitionResources zone1storage5 = allocatePartitionResources(new ZonePartitionId(1, 5), 10, storageIndexTracker);
+        ZonePartitionResources zone2storage3 = allocatePartitionResources(new ZonePartitionId(2, 3), 10, storageIndexTracker);
 
         manager.close();
 
@@ -117,8 +123,8 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
     void removesTxStatePartitionStorageOnDestroy() {
         int zoneId = 1;
 
-        allocatePartitionResources(new ZonePartitionId(zoneId, 1), 10);
-        allocatePartitionResources(new ZonePartitionId(zoneId, 2), 10);
+        allocatePartitionResources(new ZonePartitionId(zoneId, 1), 10, storageIndexTracker);
+        allocatePartitionResources(new ZonePartitionId(zoneId, 2), 10, storageIndexTracker);
 
         assertThat(manager.txStatePartitionStorage(zoneId, 1), is(notNullValue()));
         assertThat(manager.txStatePartitionStorage(zoneId, 2), is(notNullValue()));
@@ -135,7 +141,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
         int zoneId = 1;
 
         CompletableFuture<?>[] futures = IntStream.range(0, partCount)
-                .mapToObj(partId -> runAsync(() -> allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount)))
+                .mapToObj(partId -> runAsync(() -> allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount, storageIndexTracker)))
                 .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(futures), willCompleteSuccessfully());
@@ -150,7 +156,15 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
         );
     }
 
-    private ZonePartitionResources allocatePartitionResources(ZonePartitionId zonePartitionId, int partitionCount) {
-        return bypassingThreadAssertions(() -> manager.allocateZonePartitionResources(zonePartitionId, partitionCount));
+    private ZonePartitionResources allocatePartitionResources(
+            ZonePartitionId zonePartitionId,
+            int partitionCount,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+    ) {
+        return bypassingThreadAssertions(() -> manager.allocateZonePartitionResources(
+                zonePartitionId,
+                partitionCount,
+                storageIndexTracker
+        ));
     }
 }

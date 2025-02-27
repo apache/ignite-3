@@ -146,7 +146,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(nodeName)));
 
-        when(zoneResourcesManager.allocateZonePartitionResources(any(), anyInt()))
+        when(zoneResourcesManager.allocateZonePartitionResources(any(), anyInt(), any()))
                 .thenReturn(new ZonePartitionResources(
                         txStatePartitionStorage,
                         raftGroupListener,

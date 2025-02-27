@@ -296,7 +296,9 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
             }
 
-            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
+            if (!enabledColocation()) {
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
+            }
         }
 
         return result;
@@ -505,7 +507,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             storage.runConsistently(locker -> {
                 storage.committedGroupConfiguration(config);
                 storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
+
+                if (!enabledColocation()) {
+                    updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
+                }
 
                 return null;
             });

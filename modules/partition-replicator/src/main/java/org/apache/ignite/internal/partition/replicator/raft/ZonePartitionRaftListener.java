@@ -209,7 +209,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
                 }
 
-                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, clo.index());
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
             }
         } finally {
             partitionSnapshots().releaseReadLock();
@@ -236,6 +236,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             @Nullable HybridTimestamp safeTimestamp
     ) {
         IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24374 Think about better option, should work though.
+        if (command instanceof PrimaryReplicaChangeCommand && tableProcessors.isEmpty()) {
+            result.set2(Boolean.TRUE);
+        }
 
         tableProcessors.values().forEach(processor -> {
             IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
@@ -275,6 +280,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
             tableProcessors.values()
                     .forEach(listener -> listener.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm));
+
+            partitionSnapshots().acquireReadLock();
+            // TODO Comment for the reviewer. Please pay attention to the change and verify that it's correct.
+            try {
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
+            } finally {
+                partitionSnapshots().releaseReadLock();
+            }
         }
     }
 
@@ -307,6 +320,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                         currentCommitedConfiguration.lastAppliedIndex,
                         currentCommitedConfiguration.lastAppliedTerm
                 );
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24517 propagate lease information from txnStateStorage to newly added
+                //  tableProcessor.
+                // processor.processCommand()
             }
 
             RaftTableProcessor prev = tableProcessors.put(tablePartitionId.tableId(), processor);

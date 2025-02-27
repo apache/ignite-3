@@ -52,6 +52,7 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -139,6 +140,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -555,15 +557,28 @@ public class PartitionReplicaLifecycleManager extends
                 this::calculateZoneAssignments,
                 rebalanceRetryDelayConfiguration
         );
-
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
+            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
             var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision);
 
-            ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(zonePartitionId, partitionCount);
+            ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(
+                    zonePartitionId,
+                    partitionCount,
+                    storageIndexTracker
+            );
 
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
                         try {
+                            // TODO Comment for reviewer. I assume that we should not aggregate (min/max) tableStorages.lastAppliedIndex().
+                            //  https://issues.apache.org/jira/browse/IGNITE-24517 will allow to init storageIndexTracker with the value
+                            //  from txStatePartitionStorage().lastAppliedIndex(), is that correct?
+                            storageIndexTracker.update(zoneResources.txStatePartitionStorage().lastAppliedIndex(), null);
+
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Properly close storageIndexTracker.
+                            //  internalTbl.updatePartitionTrackers is used in order to add storageIndexTracker to some context for further
+                            //  storage closing.
+                            // internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
                             return replicaMgr.startReplica(
                                     zonePartitionId,
                                     raftClient -> {
@@ -591,7 +606,8 @@ public class PartitionReplicaLifecycleManager extends
                                     raftGroupEventsListener,
                                     // TODO: IGNITE-24371 - pass real isVolatile flag
                                     false,
-                                    busyLock
+                                    busyLock,
+                                    storageIndexTracker
                             );
                         } catch (NodeStoppingException e) {
                             return failedFuture(e);
@@ -600,7 +616,7 @@ public class PartitionReplicaLifecycleManager extends
                     .thenCompose(v -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
                         replicationGroupIds.add(zonePartitionId);
 
-                        return falseCompletedFuture();
+                        return trueCompletedFuture();
                     }))
                     .whenComplete((v, e) -> {
                         if (e != null) {
