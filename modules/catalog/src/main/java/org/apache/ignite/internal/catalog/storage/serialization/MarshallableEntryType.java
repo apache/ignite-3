@@ -17,47 +17,85 @@
 
 package org.apache.ignite.internal.catalog.storage.serialization;
 
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptorSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersionsSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableVersionSerializers;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptorSerializers;
+import org.apache.ignite.internal.catalog.storage.AlterColumnEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.AlterZoneEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.DropColumnsEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.DropIndexEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.DropSchemaSerializers;
+import org.apache.ignite.internal.catalog.storage.DropTableEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.DropZoneEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.NewColumnsEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.NewIndexEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.NewSchemaEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.NewSystemViewEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.NewTableEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.RemoveIndexEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.RenameIndexEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.RenameTableEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdateSerializers;
+
 /**
- * Update log entry serialization type.
+ * Catalog object serialization type.
  */
 public enum MarshallableEntryType {
-    ALTER_COLUMN(0),
-    ALTER_ZONE(1),
-    NEW_ZONE(2),
-    DROP_COLUMN(3),
-    DROP_INDEX(4),
-    DROP_TABLE(5),
-    DROP_ZONE(6),
-    MAKE_INDEX_AVAILABLE(7),
-    REMOVE_INDEX(8),
-    START_BUILDING_INDEX(9),
-    NEW_COLUMN(10),
-    NEW_INDEX(11),
-    NEW_SYS_VIEW(12),
-    NEW_TABLE(13),
-    RENAME_TABLE(14),
-    ID_GENERATOR(15),
-    SNAPSHOT(16),
-    VERSIONED_UPDATE(17),
-    RENAME_INDEX(18),
-    SET_DEFAULT_ZONE(19),
-    NEW_SCHEMA(20),
-    DROP_SCHEMA(21),
-    DESCRIPTOR_HASH_INDEX(22),
-    DESCRIPTOR_SORTED_INDEX(23),
-    DESCRIPTOR_INDEX_COLUMN(24),
-    DESCRIPTOR_SCHEMA(25),
-    DESCRIPTOR_STORAGE_PROFILE(26),
-    DESCRIPTOR_STORAGE_PROFILES(27),
-    DESCRIPTOR_SYSTEM_VIEW(28),
-    DESCRIPTOR_TABLE(29),
-    DESCRIPTOR_TABLE_COLUMN(30),
-    DESCRIPTOR_TABLE_VERSION(31),
-    DESCRIPTOR_TABLE_SCHEMA_VERSIONS(32),
-    DESCRIPTOR_ZONE(33);
+    ALTER_COLUMN(0, AlterColumnEntrySerializers.class),
+    ALTER_ZONE(1, AlterZoneEntrySerializers.class),
+    NEW_ZONE(2, NewZoneEntrySerializers.class),
+    DROP_COLUMN(3, DropColumnsEntrySerializers.class),
+    DROP_INDEX(4, DropIndexEntrySerializers.class),
+    DROP_TABLE(5, DropTableEntrySerializers.class),
+    DROP_ZONE(6, DropZoneEntrySerializers.class),
+    MAKE_INDEX_AVAILABLE(7, MakeIndexAvailableEntrySerializers.class),
+    REMOVE_INDEX(8, RemoveIndexEntrySerializers.class),
+    START_BUILDING_INDEX(9, StartBuildingIndexEntrySerializers.class),
+    NEW_COLUMN(10, NewColumnsEntrySerializers.class),
+    NEW_INDEX(11, NewIndexEntrySerializers.class),
+    NEW_SYS_VIEW(12, NewSystemViewEntrySerializers.class),
+    NEW_TABLE(13, NewTableEntrySerializers.class),
+    RENAME_TABLE(14, RenameTableEntrySerializers.class),
+    ID_GENERATOR(15, ObjectIdGenUpdateEntrySerializers.class),
+    SNAPSHOT(16, SnapshotEntrySerializers.class),
+    VERSIONED_UPDATE(17, VersionedUpdateSerializers.class),
+    RENAME_INDEX(18, RenameIndexEntrySerializers.class),
+    SET_DEFAULT_ZONE(19, SetDefaultZoneEntrySerializers.class),
+    NEW_SCHEMA(20, NewSchemaEntrySerializers.class),
+    DROP_SCHEMA(21, DropSchemaSerializers.class),
+    DESCRIPTOR_HASH_INDEX(22, CatalogHashIndexDescriptorSerializers.class),
+    DESCRIPTOR_SORTED_INDEX(23, CatalogSortedIndexDescriptorSerializers.class),
+    DESCRIPTOR_INDEX_COLUMN(24, CatalogIndexColumnDescriptorSerializers.class),
+    DESCRIPTOR_SCHEMA(25, CatalogSchemaDescriptorSerializers.class),
+    DESCRIPTOR_STORAGE_PROFILE(26, CatalogStorageProfileDescriptorSerializers.class),
+    DESCRIPTOR_STORAGE_PROFILES(27, CatalogStorageProfilesDescriptorSerializers.class),
+    DESCRIPTOR_SYSTEM_VIEW(28, CatalogSystemViewDescriptorSerializers.class),
+    DESCRIPTOR_TABLE(29, CatalogTableDescriptorSerializers.class),
+    DESCRIPTOR_TABLE_COLUMN(30, CatalogTableColumnDescriptorSerializers.class),
+    DESCRIPTOR_TABLE_VERSION(31, CatalogTableVersionSerializers.class),
+    DESCRIPTOR_TABLE_SCHEMA_VERSIONS(32, CatalogTableSchemaVersionsSerializers.class),
+    DESCRIPTOR_ZONE(33, CatalogZoneDescriptorSerializers.class);
 
     /** Type ID. */
     private final int id;
+
+    /** Container for serializer implementations container. */
+    private final Class<?> containerClass;
 
     private static final MarshallableEntryType[] VALS = new MarshallableEntryType[values().length];
 
@@ -69,12 +107,17 @@ public enum MarshallableEntryType {
         }
     }
 
-    MarshallableEntryType(int id) {
+    MarshallableEntryType(int id, Class<?> containerClass) {
         this.id = id;
+        this.containerClass = containerClass;
     }
 
     /** Returns type ID. */
     public int id() {
         return id;
+    }
+
+    public Class<?> serializersContainer() {
+        return containerClass;
     }
 }

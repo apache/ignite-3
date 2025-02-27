@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import java.util.List;
 import org.apache.ignite.internal.catalog.storage.serialization.utils.SerializerRegistryBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -27,15 +26,10 @@ import org.apache.ignite.internal.logger.Loggers;
  * Default serializer provider implementation.
  */
 class CatalogEntrySerializerProviderImpl implements CatalogEntrySerializerProvider {
-    private static final List<String> BASE_PACKAGES = List.of(
-            "org.apache.ignite.internal.catalog.storage",
-            "org.apache.ignite.internal.catalog.descriptors"
-    );
-
     private final Int2ObjectMap<VersionAwareSerializer<? extends MarshallableEntry>[]> serializers;
 
     {
-        SerializerRegistryBuilder registryBuilder = new SerializerRegistryBuilder(BASE_PACKAGES, this);
+        SerializerRegistryBuilder registryBuilder = new SerializerRegistryBuilder(this);
 
         try {
             serializers = registryBuilder.build();

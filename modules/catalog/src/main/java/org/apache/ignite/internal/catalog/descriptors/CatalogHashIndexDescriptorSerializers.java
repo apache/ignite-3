@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -36,7 +35,7 @@ public class CatalogHashIndexDescriptorSerializers {
     /**
      * Serializer for {@link CatalogHashIndexDescriptor}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_HASH_INDEX, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class HashIndexDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogHashIndexDescriptor> {
         @Override
         public CatalogHashIndexDescriptor readFrom(IgniteDataInput input) throws IOException {

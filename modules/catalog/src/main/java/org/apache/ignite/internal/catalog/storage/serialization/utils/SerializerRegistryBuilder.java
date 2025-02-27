@@ -20,44 +20,29 @@ package org.apache.ignite.internal.catalog.storage.serialization.utils;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.VersionAwareSerializer;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Serializers registry builder.
- * TODO explain how it works.
  */
 public class SerializerRegistryBuilder {
-    private static final String CLASS_EXTENSION = ".class";
-
     private final @Nullable CatalogEntrySerializerProvider provider;
-    private final List<String> classpathList;
 
-    public SerializerRegistryBuilder(List<String> classpathList, @Nullable CatalogEntrySerializerProvider provider) {
+    public SerializerRegistryBuilder(@Nullable CatalogEntrySerializerProvider provider) {
         this.provider = provider;
-        this.classpathList = classpathList;
     }
 
     /**
@@ -66,46 +51,66 @@ public class SerializerRegistryBuilder {
      * @return Registry of available serializers.
      */
     public Int2ObjectMap<VersionAwareSerializer<? extends MarshallableEntry>[]> build() {
-        try {
-            List<Class<?>> classes = scanClasspaths(clazz ->
-                    CatalogObjectSerializer.class.isAssignableFrom(clazz) && clazz.isAnnotationPresent(CatalogSerializer.class));
+        Map<Integer, List<VersionAwareSerializer<? extends MarshallableEntry>>> mapByType = mapSerializersByType();
 
-            Map<Integer, List<VersionAwareSerializer<? extends MarshallableEntry>>> mapByType = mapSerializersByType(classes);
+        Int2ObjectMap<VersionAwareSerializer<? extends MarshallableEntry>[]> resultMap = remapToOrderedArray(mapByType);
 
-            Int2ObjectMap<VersionAwareSerializer<? extends MarshallableEntry>[]> resultMap = remapToOrderedArray(mapByType);
-
-            return Int2ObjectMaps.unmodifiable(resultMap);
-        } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException("Classpath scanning failed.", e);
-        }
+        return Int2ObjectMaps.unmodifiable(resultMap);
     }
 
-    private Map<Integer, List<VersionAwareSerializer<? extends MarshallableEntry>>> mapSerializersByType(Collection<Class<?>> classes)
-            throws IOException, ClassNotFoundException {
+    private Map<Integer, List<VersionAwareSerializer<? extends MarshallableEntry>>> mapSerializersByType() {
         Map<Integer, List<VersionAwareSerializer<? extends MarshallableEntry>>> result = new HashMap<>();
 
-        for (Class<?> clazz : classes) {
-            CatalogSerializer ann = clazz.getAnnotation(CatalogSerializer.class);
+        for (MarshallableEntryType type : MarshallableEntryType.values()) {
+            Class<?> containerClass = type.serializersContainer();
 
-            assert ann != null;
+            assert containerClass != null : type;
 
-            List<VersionAwareSerializer<? extends MarshallableEntry>> serializers =
-                    result.computeIfAbsent(ann.type().id(), v -> new ArrayList<>());
+            for (Class<?> clazz : containerClass.getDeclaredClasses()) {
+                CatalogSerializer ann = clazz.getAnnotation(CatalogSerializer.class);
 
-            try {
-                CatalogObjectSerializer<? extends MarshallableEntry> serializer = instantiate(clazz);
-
-                if (ann.version() <= 0) {
-                    throw new IllegalArgumentException("Serializer version must be positive [class=" + clazz.getCanonicalName() + "].");
+                if (ann == null) {
+                    continue;
                 }
 
-                serializers.add(new VersionAwareSerializer<>(serializer, ann.version()));
-            } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
-                throw new RuntimeException("Cannot instantiate serializer [class=" + clazz + "].", e);
+                List<VersionAwareSerializer<? extends MarshallableEntry>> serializers =
+                        result.computeIfAbsent(type.id(), v -> new ArrayList<>());
+
+                try {
+                    CatalogObjectSerializer<? extends MarshallableEntry> serializer = instantiate(clazz);
+
+                    if (ann.version() <= 0) {
+                        throw new IllegalArgumentException("Serializer version must be positive [class=" + clazz.getCanonicalName() + "].");
+                    }
+
+                    serializers.add(new VersionAwareSerializer<>(serializer, ann.version()));
+                } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
+                    throw new RuntimeException("Cannot instantiate serializer [class=" + clazz + "].", e);
+                }
             }
         }
 
         return result;
+    }
+
+    private CatalogObjectSerializer<? extends MarshallableEntry> instantiate(Class<?> cls)
+            throws InvocationTargetException, InstantiationException, IllegalAccessException {
+        Constructor<?>[] constructors = cls.getDeclaredConstructors();
+
+        for (Constructor<?> constructor : constructors) {
+            constructor.setAccessible(true);
+
+            if (constructor.getParameterCount() == 0) {
+                return (CatalogObjectSerializer<? extends MarshallableEntry>) constructor.newInstance();
+            }
+
+            if (provider != null && constructor.getParameterCount() == 1 && CatalogEntrySerializerProvider.class.isAssignableFrom(
+                    constructor.getParameterTypes()[0])) {
+                return (CatalogObjectSerializer<? extends MarshallableEntry>) constructor.newInstance(provider);
+            }
+        }
+
+        throw new IllegalStateException("Unable to create serializer, required constructor was not found [class=" + cls + "].");
     }
 
     private static Int2ObjectMap<VersionAwareSerializer<? extends MarshallableEntry>[]> remapToOrderedArray(
@@ -140,136 +145,5 @@ public class SerializerRegistryBuilder {
         }
 
         return result;
-    }
-
-    private CatalogObjectSerializer<? extends MarshallableEntry> instantiate(Class<?> cls)
-            throws InvocationTargetException, InstantiationException, IllegalAccessException {
-        Constructor<?>[] constructors = cls.getDeclaredConstructors();
-
-        for (Constructor<?> constructor : constructors) {
-            constructor.setAccessible(true);
-
-            if (constructor.getParameterCount() == 0) {
-                return (CatalogObjectSerializer<? extends MarshallableEntry>) constructor.newInstance();
-            }
-
-            if (provider != null && constructor.getParameterCount() == 1 && CatalogEntrySerializerProvider.class.isAssignableFrom(
-                    constructor.getParameterTypes()[0])) {
-                return (CatalogObjectSerializer<? extends MarshallableEntry>) constructor.newInstance(provider);
-            }
-        }
-
-        throw new IllegalStateException("Unable to create serializer, required constructor was not found [class=" + cls + "].");
-    }
-
-    List<Class<?>> scanClasspaths(Predicate<Class<?>> filter) throws ClassNotFoundException, IOException {
-        List<Class<?>> result = new ArrayList<>();
-
-        for (String packageName : classpathList) {
-            result.addAll(scanClasspath(packageName, filter));
-        }
-
-        return result;
-    }
-
-    /**
-     * Scans all classes accessible from the context class loader which belong to the given package and subpackages.
-     *
-     * @param packageName The base package.
-     */
-    private static List<Class<?>> scanClasspath(String packageName, Predicate<Class<?>> filter) throws ClassNotFoundException, IOException {
-        Objects.requireNonNull(filter, "filter");
-
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-
-        assert classLoader != null;
-
-        String path = packageName.replace('.', '/');
-
-        Enumeration<URL> resources = classLoader.getResources(path);
-
-        List<Class<?>> classes = new ArrayList<>();
-
-        while (resources.hasMoreElements()) {
-            URL resource = resources.nextElement();
-
-            List<Class<?>> dirClasses = "jar".equals(resource.getProtocol())
-                    ? findClassesInJar(resource, path, filter)
-                    : findClasses(new File(resource.getFile()), packageName, filter);
-
-            classes.addAll(dirClasses);
-        }
-
-        return classes;
-    }
-
-    private static List<Class<?>> findClassesInJar(URL resource, String packageAsPath, Predicate<Class<?>> filter)
-            throws IOException, ClassNotFoundException {
-        List<Class<?>> classes = new ArrayList<>();
-
-        String decodedFileName = URLDecoder.decode(resource.getFile(), StandardCharsets.UTF_8);
-        String jarFileName = decodedFileName.substring(5, decodedFileName.indexOf('!'));
-
-        try (JarFile jarFile = new JarFile(jarFileName)) {
-            Enumeration<JarEntry> entries = jarFile.entries();
-
-            while (entries.hasMoreElements()) {
-                String entryName = entries.nextElement().getName();
-
-                if (entryName.startsWith(packageAsPath) && entryName.endsWith(CLASS_EXTENSION)) {
-                    String pathFilename = entryName.substring(0, entryName.length() - CLASS_EXTENSION.length());
-
-                    String clsName = pathFilename.replace('/', '.');
-
-                    Class<?> clz = Class.forName(clsName);
-
-                    if (filter.test(clz)) {
-                        classes.add(clz);
-                    }
-                }
-            }
-        }
-
-        return classes;
-    }
-
-    /**
-     * Recursive method used to find all classes in a given directory and sub directories.
-     *
-     * @param dir The base directory
-     * @param packageName The package name for classes found inside the base directory
-     * @param filter Classes filter.
-     * @return The classes.
-     */
-    private static List<Class<?>> findClasses(File dir, String packageName, Predicate<Class<?>> filter) throws ClassNotFoundException {
-        List<Class<?>> classes = new ArrayList<>();
-
-        if (!dir.exists()) {
-            return classes;
-        }
-
-        File[] files = dir.listFiles();
-
-        if (files == null) {
-            return classes;
-        }
-
-        for (File file : files) {
-            if (file.isDirectory()) {
-                assert !file.getName().contains(".") : file.getName();
-
-                classes.addAll(findClasses(file, packageName + "." + file.getName(), filter));
-            } else if (file.getName().endsWith(CLASS_EXTENSION)) {
-                String className = packageName + '.' + file.getName().substring(0, file.getName().length() - CLASS_EXTENSION.length());
-
-                Class<?> clazz = Class.forName(className);
-
-                if (filter.test(clazz)) {
-                    classes.add(clazz);
-                }
-            }
-        }
-
-        return classes;
     }
 }

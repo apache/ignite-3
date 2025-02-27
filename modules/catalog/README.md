@@ -141,12 +141,6 @@ Overall serialization format looks as follow
     data format should not change. For example, all currently existing
     catalog serializers is marked as `since 3.0.0`.
 
-##### Limitations of current serialization protocol
+##### Limitations of serialization protocol version 2
 
--   Serialization protocol doesn’t support forward compatibility
-
--   For consistency, each array/collection object is written with a
-    header (type + serializer version), even if all elements have the
-    same type (for example `CatalogSchemaDescriptor`.`indexes` has
-    elements for which different serializers with different versions
-    must be used).
+-   No forward compatibility support (but it may be added in future versions if needed)

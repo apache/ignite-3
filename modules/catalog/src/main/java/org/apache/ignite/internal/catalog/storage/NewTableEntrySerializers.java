@@ -33,7 +33,7 @@ public class NewTableEntrySerializers {
     /**
      * Serializer for {@link NewTableEntry}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.NEW_TABLE, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class NewTableEntrySerializerV1 implements CatalogObjectSerializer<NewTableEntry> {
         private final CatalogEntrySerializerProvider serializers;
 

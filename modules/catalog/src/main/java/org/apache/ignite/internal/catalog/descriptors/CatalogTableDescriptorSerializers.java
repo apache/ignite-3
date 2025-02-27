@@ -37,7 +37,7 @@ public class CatalogTableDescriptorSerializers {
     /**
      * Serializer for {@link CatalogTableDescriptor}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_TABLE, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class TableDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogTableDescriptor> {
         private final CatalogEntrySerializerProvider serializers;
 

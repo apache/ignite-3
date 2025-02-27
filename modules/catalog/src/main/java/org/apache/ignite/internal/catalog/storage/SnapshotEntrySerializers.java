@@ -35,7 +35,7 @@ public class SnapshotEntrySerializers {
     /**
      * Serializer for {@link SnapshotEntry}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.SNAPSHOT, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class SnapshotEntrySerializerV1 implements CatalogObjectSerializer<SnapshotEntry> {
         private final CatalogEntrySerializerProvider serializers;
 

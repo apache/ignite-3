@@ -18,12 +18,9 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readArray;
-import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeArray;
-import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeList;
 
 import java.io.IOException;
-import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
@@ -33,43 +30,13 @@ import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
- * Serializers for {@link CatalogTableSchemaVersions} and {@link TableVersion}.
+ * Serializers for {@link CatalogTableSchemaVersions}.
  */
 public class CatalogTableSchemaVersionsSerializers {
     /**
-     * Serializer for {@link TableVersion}.
-     */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_TABLE_VERSION, since = "3.0.0")
-    static class TableVersionSerializerV1 implements CatalogObjectSerializer<TableVersion> {
-        private final CatalogEntrySerializerProvider serializers;
-
-        public TableVersionSerializerV1(CatalogEntrySerializerProvider serializers) {
-            this.serializers = serializers;
-        }
-
-        @Override
-        public TableVersion readFrom(IgniteDataInput input) throws IOException {
-            CatalogObjectSerializer<CatalogTableColumnDescriptor> serializer =
-                    serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
-
-            List<CatalogTableColumnDescriptor> columns = readList(serializer, input);
-
-            return new TableVersion(columns);
-        }
-
-        @Override
-        public void writeTo(TableVersion tableVersion, IgniteDataOutput output) throws IOException {
-            CatalogObjectSerializer<CatalogTableColumnDescriptor> serializer =
-                    serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
-
-            writeList(tableVersion.columns(), serializer, output);
-        }
-    }
-
-    /**
      * Serializer for {@link CatalogTableSchemaVersions}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class TableSchemaVersionsSerializerV1 implements CatalogObjectSerializer<CatalogTableSchemaVersions> {
         private final CatalogEntrySerializerProvider serializers;
 

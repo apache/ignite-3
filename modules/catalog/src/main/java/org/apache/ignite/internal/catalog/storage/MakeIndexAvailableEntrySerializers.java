@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -31,7 +30,7 @@ public class MakeIndexAvailableEntrySerializers {
     /**
      * Serializer for {@link MakeIndexAvailableEntry}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.MAKE_INDEX_AVAILABLE, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class MakeIndexAvailableEntrySerializerV1 implements CatalogObjectSerializer<MakeIndexAvailableEntry> {
         @Override
         public MakeIndexAvailableEntry readFrom(IgniteDataInput input) throws IOException {

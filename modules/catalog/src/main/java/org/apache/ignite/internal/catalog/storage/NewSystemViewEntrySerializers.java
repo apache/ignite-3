@@ -33,7 +33,7 @@ public class NewSystemViewEntrySerializers {
     /**
      * Serializer for {@link NewSystemViewEntry}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.NEW_SYS_VIEW, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class NewSystemViewEntrySerializerV1 implements CatalogObjectSerializer<NewSystemViewEntry> {
         private final CatalogEntrySerializerProvider serializers;
 

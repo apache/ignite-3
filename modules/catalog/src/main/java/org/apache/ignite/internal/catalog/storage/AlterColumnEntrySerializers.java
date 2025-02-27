@@ -33,7 +33,7 @@ public class AlterColumnEntrySerializers {
     /**
      * Serializer for {@link AlterColumnEntry}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.ALTER_COLUMN, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class AlterColumnEntrySerializerV1 implements CatalogObjectSerializer<AlterColumnEntry> {
         private final CatalogEntrySerializerProvider serializers;
 

@@ -36,7 +36,7 @@ public class CatalogSortedIndexDescriptorSerializers {
     /**
      * Serializer for {@link CatalogSortedIndexDescriptor}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_SORTED_INDEX, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class SortedIndexDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogSortedIndexDescriptor> {
         private final CatalogEntrySerializerProvider serializers;
 

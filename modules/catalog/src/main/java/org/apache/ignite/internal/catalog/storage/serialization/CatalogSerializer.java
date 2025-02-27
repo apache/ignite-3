@@ -37,11 +37,6 @@ public @interface CatalogSerializer {
     short version();
 
     /**
-     * Returns the type of the object being serialized.
-     */
-    MarshallableEntryType type();
-
-    /**
      * The product version starting from which the serializer is used.
      */
     String since();

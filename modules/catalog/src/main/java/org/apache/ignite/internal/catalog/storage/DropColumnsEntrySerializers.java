@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -37,7 +36,7 @@ public class DropColumnsEntrySerializers {
     /**
      * Serializer for {@link DropColumnsEntry}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.DROP_COLUMN, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class DropColumnEntrySerializerV1 implements CatalogObjectSerializer<DropColumnsEntry> {
         @Override
         public DropColumnsEntry readFrom(IgniteDataInput input) throws IOException {

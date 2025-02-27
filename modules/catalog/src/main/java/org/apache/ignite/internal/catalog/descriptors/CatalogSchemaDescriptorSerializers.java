@@ -36,7 +36,7 @@ public class CatalogSchemaDescriptorSerializers {
     /**
      * Serializer for {@link CatalogSchemaDescriptor}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.DESCRIPTOR_SCHEMA, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class SchemaDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
         private final CatalogEntrySerializerProvider serializers;
         private final IndexDescriptorSerializerHelper indexSerializeHelper;

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -31,7 +30,7 @@ public class DropTableEntrySerializers {
     /**
      * Serializer for {@link DropTableEntry}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.DROP_TABLE, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class DropTableEntrySerializerV1 implements CatalogObjectSerializer<DropTableEntry> {
         @Override
         public DropTableEntry readFrom(IgniteDataInput input) throws IOException {

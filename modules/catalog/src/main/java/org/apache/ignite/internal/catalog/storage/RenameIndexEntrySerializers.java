@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -31,7 +30,7 @@ public class RenameIndexEntrySerializers {
     /**
      * Serializer for {@link RemoveIndexEntry}.
      */
-    @CatalogSerializer(version = 1, type = MarshallableEntryType.RENAME_INDEX, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.0.0")
     static class RenameIndexEntrySerializerV1 implements CatalogObjectSerializer<RenameIndexEntry> {
         @Override
         public RenameIndexEntry readFrom(IgniteDataInput input) throws IOException {
