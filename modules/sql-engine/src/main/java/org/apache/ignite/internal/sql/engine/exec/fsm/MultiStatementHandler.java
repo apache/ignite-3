@@ -244,12 +244,6 @@ class MultiStatementHandler {
             scriptTxContext.onError(txEx);
 
             cursorFuture.completeExceptionally(txEx);
-
-            scriptStatement.cursorFuture.completeExceptionally(new SqlException(
-                    EXECUTION_CANCELLED_ERR,
-                    "The script execution was canceled due to an error.",
-                    txEx
-            ));
         } catch (Throwable e) {
             scriptTxContext.onError(e);
 
