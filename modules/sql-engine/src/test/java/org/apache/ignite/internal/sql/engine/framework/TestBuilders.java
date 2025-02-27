@@ -483,6 +483,9 @@ public class TestBuilders {
         /** Sets id for the table. The caller must guarantee that provided id is unique. */
         TableBuilder tableId(int id);
 
+        /** Sets zone id for the table. */
+        TableBuilder zoneId(int id);
+
         /** Sets the number of partitions fot this table. Default value is equal to {@link CatalogUtils#DEFAULT_PARTITION_COUNT}. */
         TableBuilder partitions(int num);
 
@@ -949,8 +952,7 @@ public class TestBuilders {
         /**
          * Retrieves a list of {@link ClusterZoneBuilder} instances already defined for the test cluster.
          *
-         * <p>
-         * This method provides access to the builders for zones that have been previously added during the test cluster setup.
+         * <p>This method provides access to the builders for zones that have been previously added during the test cluster setup.
          * Each {@link ClusterZoneBuilder} instance represents the configuration for a specific zone within the test cluster.
          *
          * @return A list of {@link ClusterZoneBuilder} instances representing the predefined zones for the test cluster.
@@ -976,6 +978,8 @@ public class TestBuilders {
     }
 
     private static class TableBuilderImpl implements TableBuilder {
+        private int zoneId = Blackhole.ZONE_ID;
+
         private final List<AbstractTableIndexBuilderImpl<?>> indexBuilders = new ArrayList<>();
         private final List<ColumnDescriptor> columns = new ArrayList<>();
 
@@ -1070,6 +1074,13 @@ public class TestBuilders {
             return this;
         }
 
+        @Override
+        public TableBuilder zoneId(int id) {
+            this.zoneId = id;
+
+            return this;
+        }
+
         /** {@inheritDoc} */
         @Override
         public TableBuilder partitions(int num) {
@@ -1114,6 +1125,7 @@ public class TestBuilders {
             return new IgniteTableImpl(
                     Objects.requireNonNull(name),
                     tableId != null ? tableId : TABLE_ID_GEN.incrementAndGet(),
+                    zoneId,
                     1,
                     tableDescriptor,
                     findPrimaryKey(tableDescriptor, indexes.values()),

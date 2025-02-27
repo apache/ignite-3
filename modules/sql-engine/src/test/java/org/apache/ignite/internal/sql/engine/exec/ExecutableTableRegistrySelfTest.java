@@ -61,6 +61,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
+    private static final int TEST_ZONE_ID = 1;
 
     @Mock
     private ReplicaService replicaService;
@@ -158,7 +159,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             when(descriptor.spliterator()).thenReturn(Spliterators.emptySpliterator());
 
             IgniteTable sqlTable = new IgniteTableImpl(
-                    "TBL1", tableId, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1
+                    "TBL1", tableId, TEST_ZONE_ID, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1
             );
 
             when(sqlSchemaManager.table(schemaVersion, tableId)).thenReturn(sqlTable);
