@@ -32,26 +32,26 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Class containing tests related to Raft-based replication for the Colocation feature.
  */
-public class ItColocationSqlTest extends AbstractZoneReplicationTest {
+public class ItColocationSqlTest extends ItAbstractColocationTest {
     @ParameterizedTest(name = "useTx={0}")
     @ValueSource(booleans = {true, false})
     void sqlDmlsWork(boolean useTx) throws Exception {
         startCluster(3);
 
-        // Create a zone with a single partition on every node.
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+        Node node = getNode(0);
 
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        // Create a zone with a single partition on every node.
+        int zoneId = createZone(node, TEST_ZONE_NAME, 1, cluster.size());
+
+        createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
-        Node node = cluster.get(0);
-
-        KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
-        KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
+        KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
 
         // Inserts.
         setPrimaryReplica(node, zonePartitionId);
@@ -70,11 +70,11 @@ public class ItColocationSqlTest extends AbstractZoneReplicationTest {
         for (Node n : cluster) {
             setPrimaryReplica(n, zonePartitionId);
 
-            assertThat(n.name, kvView1.get(null, 1), is(11));
-            assertThat(n.name, kvView1.get(null, 2), is(22));
+            assertThat(n.name, kvView1.get(null, 1L), is(11));
+            assertThat(n.name, kvView1.get(null, 2L), is(22));
 
-            assertThat(n.name, kvView2.get(null, 3), is(33));
-            assertThat(n.name, kvView2.get(null, 4), is(44));
+            assertThat(n.name, kvView2.get(null, 3L), is(33));
+            assertThat(n.name, kvView2.get(null, 4L), is(44));
         }
 
         // Updates.
@@ -94,11 +94,11 @@ public class ItColocationSqlTest extends AbstractZoneReplicationTest {
         for (Node n : cluster) {
             setPrimaryReplica(n, zonePartitionId);
 
-            assertThat(n.name, kvView1.get(null, 1), is(-11));
-            assertThat(n.name, kvView1.get(null, 2), is(-22));
+            assertThat(n.name, kvView1.get(null, 1L), is(-11));
+            assertThat(n.name, kvView1.get(null, 2L), is(-22));
 
-            assertThat(n.name, kvView2.get(null, 3), is(-33));
-            assertThat(n.name, kvView2.get(null, 4), is(-44));
+            assertThat(n.name, kvView2.get(null, 3L), is(-33));
+            assertThat(n.name, kvView2.get(null, 4L), is(-44));
         }
 
         // Deletes.
@@ -118,11 +118,11 @@ public class ItColocationSqlTest extends AbstractZoneReplicationTest {
         for (Node n : cluster) {
             setPrimaryReplica(n, zonePartitionId);
 
-            assertThat(n.name, kvView1.get(null, 1), is(nullValue()));
-            assertThat(n.name, kvView1.get(null, 2), is(nullValue()));
+            assertThat(n.name, kvView1.get(null, 1L), is(nullValue()));
+            assertThat(n.name, kvView1.get(null, 2L), is(nullValue()));
 
-            assertThat(n.name, kvView2.get(null, 3), is(nullValue()));
-            assertThat(n.name, kvView2.get(null, 4), is(nullValue()));
+            assertThat(n.name, kvView2.get(null, 3L), is(nullValue()));
+            assertThat(n.name, kvView2.get(null, 4L), is(nullValue()));
         }
     }
 }
