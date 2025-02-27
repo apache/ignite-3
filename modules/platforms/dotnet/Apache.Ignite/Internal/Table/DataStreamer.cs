@@ -327,6 +327,9 @@ internal static class DataStreamer
                                 schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
                             }
 
+                            // Always rewrite.
+                            ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
+
                             // Serialize again with the new schema.
                             ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
                         }

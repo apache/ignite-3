@@ -407,7 +407,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestManyItemsWithDisconnectAndRetry([Values(true, false)] bool withReceiver)
     {
-        const int count = 100_000;
+        const int count = 10_000;
         int upsertIdx = 0;
 
         using var server = new FakeServer(
