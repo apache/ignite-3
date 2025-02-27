@@ -219,7 +219,6 @@ public class Catalog {
         return tablesById.values();
     }
 
-
     /**
      * Returns an index descriptor by the given index name and schema name, that is an index that has not been dropped yet.
      *

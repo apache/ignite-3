@@ -55,6 +55,8 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -109,6 +111,12 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static GcConfiguration gcConfiguration;
+
+    @InjectConfiguration
+    private SqlLocalConfiguration sqlLocalConfiguration;
+
+    @InjectConfiguration
+    private SqlDistributedConfiguration sqlDistributedConfiguration;
 
     @InjectExecutorService
     private static ScheduledExecutorService scheduledExecutorService;
@@ -199,7 +207,9 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
                 txConfiguration,
                 scheduledExecutorService,
                 null,
-                gcConfiguration
+                gcConfiguration,
+                sqlLocalConfiguration,
+                sqlDistributedConfiguration
         );
     }
 

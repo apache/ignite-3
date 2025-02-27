@@ -99,6 +99,10 @@ dependencies {
     integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
+    integrationTestImplementation project(':ignite-sql-engine') // TODO https://issues.apache.org/jira/browse/IGNITE-22522
+    integrationTestImplementation project(':ignite-system-view-api') // TODO https://issues.apache.org/jira/browse/IGNITE-22522
+    integrationTestImplementation project(':ignite-system-view') // TODO https://issues.apache.org/jira/browse/IGNITE-22522
+    integrationTestImplementation project(':ignite-eventlog') // TODO https://issues.apache.org/jira/browse/IGNITE-22522
 
     integrationTestImplementation libs.jetbrains.annotations
 }
