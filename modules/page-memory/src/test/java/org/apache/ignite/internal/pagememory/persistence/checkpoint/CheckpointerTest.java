@@ -113,7 +113,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         Checkpointer checkpointer = new Checkpointer(
                 "test",
                 null,
-                null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
@@ -147,7 +146,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testScheduleCheckpoint() {
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
-                null,
                 null,
                 mock(FailureManager.class),
                 mock(CheckpointWorkflow.class),
@@ -254,7 +252,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         Checkpointer checkpointer = new Checkpointer(
                 "test",
                 null,
-                null,
                 mock(FailureManager.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
@@ -284,7 +281,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
-                null,
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(EMPTY),
@@ -377,7 +373,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
                 null,
-                null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(partitionMetaManager),
@@ -409,7 +404,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
                 null,
-                null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY)),
@@ -435,7 +429,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testNextCheckpointInterval() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
                 "test",
-                null,
                 null,
                 mock(FailureManager.class),
                 mock(CheckpointWorkflow.class),
@@ -478,7 +471,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testPrepareToDestroyPartition() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
                 "test",
-                null,
                 null,
                 mock(FailureManager.class),
                 mock(CheckpointWorkflow.class),
