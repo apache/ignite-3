@@ -318,6 +318,7 @@ internal static class DataStreamer
                         if (schemaVersion is { })
                         {
                             // Serialize again with the new schema.
+                            // TODO: Update global schema atomically.
                             schema0 = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
                             ReWriteBatch(buf, partitionId, schema0, items.AsSpan(0, count), writer);
                         }
