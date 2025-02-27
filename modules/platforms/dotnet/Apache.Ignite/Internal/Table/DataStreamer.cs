@@ -282,11 +282,11 @@ internal static class DataStreamer
 
                 batch.Items = GetPool<T>().Rent(options.PageSize);
                 batch.Count = 0;
-                batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
-                InitBuffer(batch, schema);
-                batch.LastFlush = Stopwatch.GetTimestamp();
                 batch.Schema = schema;
                 batch.SchemaOutdated = false;
+                batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
+                InitBuffer(batch, batch.Schema);
+                batch.LastFlush = Stopwatch.GetTimestamp();
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
@@ -324,6 +324,7 @@ internal static class DataStreamer
                             // Might be updated by another batch.
                             if (schema.Version != schemaVersion)
                             {
+                                // TODO: Race condition?
                                 schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
                             }
 
