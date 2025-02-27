@@ -283,7 +283,7 @@ internal static class DataStreamer
 
                 FinalizeBatchHeader(batch);
                 batch.Task = SendAndDisposeBufAsync(
-                    batch.Buffer, batch.PartitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
+                    batch.Buffer, batch.PartitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated, batch.Schema.Version);
 
                 batch.Items = GetPool<T>().Rent(options.PageSize);
                 batch.Count = 0;
@@ -303,12 +303,13 @@ internal static class DataStreamer
             Task oldTask,
             DataStreamerItem<T>[] items,
             int count,
-            bool batchSchemaOutdated)
+            bool batchSchemaOutdated,
+            int batchSchemaVer)
         {
             Debug.Assert(items.Length > 0, "items.Length > 0");
             var schema0 = schema;
 
-            if (batchSchemaOutdated)
+            if (batchSchemaOutdated || batchSchemaVer < schema0.Version)
             {
                 // Schema update was detected while the batch was being filled.
                 // Re-serialize the whole batch.
