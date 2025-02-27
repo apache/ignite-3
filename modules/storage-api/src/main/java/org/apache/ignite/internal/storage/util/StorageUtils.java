@@ -24,6 +24,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.schema.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -137,7 +138,7 @@ public class StorageUtils {
     public static void throwExceptionDependingOnStorageState(StorageState state, String storageInfo) {
         switch (state) {
             case CLOSED:
-                assert false : createStorageClosedErrorMessage(storageInfo);
+                assert !IgniteSystemProperties.enabledColocation() : createStorageClosedErrorMessage(storageInfo);
                 throw new StorageClosedException(createStorageClosedErrorMessage(storageInfo));
             case REBALANCE:
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
