@@ -105,6 +105,18 @@
               url: administrators-guide/config/storage/volatile
             - title: Table Configuration
               url: administrators-guide/config/storage/table-configuration
+    - title: Cluster Lifecycle
+      url: administrators-guide/lifecycle
+    - title: Distribution Zones
+      url: administrators-guide/distribution-zones
+    - title: Storage Profiles and Engines
+      url: administrators-guide/storage
+    - title: Data Partitioning
+      url: administrators-guide/data-partitions
+    - title: Data Colocation
+      url: administrators-guide/colocation
+    - title: Cluster Security
+      url: administrators-guide/security
     - title: Security and Authentication
       url: administrators-guide/security/ssl-tls
       items:
