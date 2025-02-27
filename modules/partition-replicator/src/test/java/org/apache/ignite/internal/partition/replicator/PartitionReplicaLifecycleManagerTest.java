@@ -64,7 +64,11 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -107,6 +111,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     @Mock
     private ZoneResourcesManager zoneResourcesManager;
 
+    @Mock
+    private TopologyAwareRaftGroupService topologyAwareRaftGroupService;
+
     @InjectExecutorService
     private ExecutorService executorService;
 
@@ -134,7 +141,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock PartitionSnapshotStorageFactory partitionSnapshotStorageFactory,
             @Mock TxStatePartitionStorage txStatePartitionStorage,
             @Mock ZonePartitionRaftListener raftGroupListener
-    ) {
+    ) throws NodeStoppingException {
         String nodeName = testNodeName(testInfo, 0);
 
         when(clusterService.topologyService().localMember())
@@ -152,6 +159,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                         raftGroupListener,
                         partitionSnapshotStorageFactory
                 ));
+
+        when(raftManager.startRaftGroupNode(any(), any(), any(), any(), (RaftGroupOptions) any(), any()))
+                .thenReturn(topologyAwareRaftGroupService);
 
         metaStorageManager = StandaloneMetaStorageManager.create();
 
