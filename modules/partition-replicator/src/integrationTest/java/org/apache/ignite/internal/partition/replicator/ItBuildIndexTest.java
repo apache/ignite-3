@@ -65,9 +65,9 @@ public class ItBuildIndexTest extends ItAbstractColocationTest {
         String zoneName = "test-zone";
         createZone(node, zoneName, 1, 1);
 
-        String tableName1 = "TEST_TABLE";
-        createCustomTable(node, zoneName, tableName1);
-        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName1, node.hybridClock.nowLong());
+        String tableName = "TEST_TABLE";
+        createCustomTable(node, zoneName, tableName);
+        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
 
         // Test node does not create IndexNodeFinishedRwTransactionsChecker, so the following code is needed to unblock index building.
         // It's easier than creating a real service with all its dependencies.

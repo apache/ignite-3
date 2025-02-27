@@ -487,14 +487,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txRecoveryEngine);
 
         buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
-                partId,
                 indexMetaStorage,
                 txRwOperationTracker,
                 safeTime,
                 raftCommandApplicator);
 
-        // TODO Please consider to extract the following code to a separate class BuildIndexEventListener.
-        // see indexBuildingCatalogEventListener
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24665
+        // Consider extracting the following code to a separate class BuildIndexEventListener.
         prepareIndexBuilderTxRwOperationTracker();
     }
 
