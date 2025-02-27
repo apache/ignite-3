@@ -324,14 +324,19 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             return new IgniteBiTuple<>(null, false); // Update result is not needed.
         }
 
-        if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = cmd.leaseStartTime();
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24517 Currently it's possible that lease will be granted prior to creation.
+        //  Remove  if (!enabledColocation()) {
+        if (!enabledColocation()) {
+            if (cmd.leaseStartTime() != null) {
+                long leaseStartTime = cmd.leaseStartTime();
 
-            long storageLeaseStartTime = storage.leaseStartTime();
+                long storageLeaseStartTime = storage.leaseStartTime();
 
-            if (leaseStartTime != storageLeaseStartTime) {
-                return new IgniteBiTuple<>(
-                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP), false);
+                if (leaseStartTime != storageLeaseStartTime) {
+                    return new IgniteBiTuple<>(
+                            new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP),
+                            false);
+                }
             }
         }
 
@@ -384,14 +389,19 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             return new IgniteBiTuple<>(null, false);
         }
 
-        if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = cmd.leaseStartTime();
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24517 Currently it's possible that lease will be granted prior to creation.
+        //  Remove  if (!enabledColocation()) {
+        if (!enabledColocation()) {
+            if (cmd.leaseStartTime() != null) {
+                long leaseStartTime = cmd.leaseStartTime();
 
-            long storageLeaseStartTime = storage.leaseStartTime();
+                long storageLeaseStartTime = storage.leaseStartTime();
 
-            if (leaseStartTime != storageLeaseStartTime) {
-                return new IgniteBiTuple<>(
-                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP), false);
+                if (leaseStartTime != storageLeaseStartTime) {
+                    return new IgniteBiTuple<>(
+                            new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP),
+                            false);
+                }
             }
         }
 
