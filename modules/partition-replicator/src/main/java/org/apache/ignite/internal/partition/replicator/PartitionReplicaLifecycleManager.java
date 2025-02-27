@@ -120,6 +120,8 @@ import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSc
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -365,6 +367,8 @@ public class PartitionReplicaLifecycleManager extends
         );
 
         rebalanceRetryDelayConfiguration.init();
+
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
 
         return processZonesAndAssignmentsOnStart;
     }
@@ -1336,18 +1340,7 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopPartition(zonePartitionId).thenCompose(replicaWasStopped -> {
-                    if (!replicaWasStopped) {
-                        return nullCompletedFuture();
-                    }
-
-                    zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
-
-                    return fireEvent(
-                            LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
-                            new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
-                    );
-                })
+                () -> stopAndDestroyPartition(zonePartitionId, revision)
         );
     }
 
@@ -1457,6 +1450,35 @@ public class PartitionReplicaLifecycleManager extends
 
             return failedFuture(e);
         }
+    }
+
+    private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
+        if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
+            ZonePartitionId groupId = (ZonePartitionId) parameters.groupId();
+
+            replicaMgr.weakStopReplica(
+                    groupId,
+                    WeakReplicaStopReason.PRIMARY_EXPIRED,
+                    () -> stopAndDestroyPartition(groupId, parameters.causalityToken())
+            );
+        }
+
+        return falseCompletedFuture();
+    }
+
+    private CompletableFuture<Void> stopAndDestroyPartition(ZonePartitionId zonePartitionId, long revision) {
+        return stopPartition(zonePartitionId).thenCompose(replicaWasStopped -> {
+            if (!replicaWasStopped) {
+                return nullCompletedFuture();
+            }
+
+            zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
+
+            return fireEvent(
+                    LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                    new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
+            );
+        });
     }
 
     @TestOnly

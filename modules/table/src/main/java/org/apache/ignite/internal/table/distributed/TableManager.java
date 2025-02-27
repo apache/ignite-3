@@ -671,8 +671,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
-            executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
-
+            if (!enabledColocation()) {
+                executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+            }
             return nullCompletedFuture();
         });
     }
