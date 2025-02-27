@@ -224,18 +224,14 @@ internal static class DataStreamer
             {
                 batch.Items[batch.Count++] = item;
 
-                if (batch.Schema != schema0)
-                {
-                    batch.SchemaOutdated = true;
-                }
-
                 // 1. To compute target partition, we need key hash.
                 // 2. To compute key hash, we need to serialize the key.
                 // 3. Since we already serialized the key, we can use it for the message body and avoid re-serialization.
                 // However, if schema gets updated, we need to re-serialize the whole batch.
                 // Schema update is rare, so we optimize for the happy path.
-                if (!batch.SchemaOutdated)
+                if (batch.Schema == schema0)
                 {
+                    // Schema still actual, write to batch.
                     noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
                     batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
                 }
@@ -278,12 +274,11 @@ internal static class DataStreamer
 
                 FinalizeBatchHeader(batch);
                 batch.Task = SendAndDisposeBufAsync(
-                    batch.Buffer, batch.PartitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
+                    batch.Buffer, batch.PartitionId, batch.Task, batch.Items, batch.Count, batch.Schema.Version);
 
                 batch.Items = GetPool<T>().Rent(options.PageSize);
                 batch.Count = 0;
                 batch.Schema = schema;
-                batch.SchemaOutdated = false;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch, batch.Schema);
                 batch.LastFlush = Stopwatch.GetTimestamp();
@@ -298,11 +293,11 @@ internal static class DataStreamer
             Task oldTask,
             DataStreamerItem<T>[] items,
             int count,
-            bool batchSchemaOutdated)
+            int batchSchemaVersion)
         {
             Debug.Assert(items.Length > 0, "items.Length > 0");
 
-            if (batchSchemaOutdated)
+            if (batchSchemaVersion < schema.Version)
             {
                 // Schema update was detected while the batch was being filled.
                 // Re-serialize the whole batch.
@@ -584,8 +579,6 @@ internal static class DataStreamer
         public DataStreamerItem<T>[] Items { get; set; }
 
         public Schema Schema { get; set; }
-
-        public bool SchemaOutdated { get; set; }
 
         public int Count { get; set; }
 
