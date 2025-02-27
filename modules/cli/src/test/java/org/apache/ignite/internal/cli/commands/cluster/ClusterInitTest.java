@@ -134,6 +134,31 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
+
+    @Test
+    @DisplayName("--url http://localhost:10300 --cluster-name cluster")
+    void initSuccessNoMsCmg() {
+        var expectedSentContent = "{\"metaStorageNodes\":[],"
+                + "\"cmgNodes\":[],"
+                + "\"clusterName\":\"cluster\"}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/cluster/init")
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(
+                "--url", mockUrl,
+                "--name", "cluster"
+        );
+
+        assertSuccessfulOutputIs("Cluster was initialized successfully");
+    }
+
     @Test
     @DisplayName("--url http://localhost:10300 --metastorage-group node1ConsistentId, node2ConsistentId"
             + " --cluster-management-group node2ConsistentId, node3ConsistentId --name cluster"

@@ -23,9 +23,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,10 +34,10 @@ import org.jetbrains.annotations.Nullable;
  */
 @Schema(description = "Cluster initialization configuration.")
 public class InitCommand {
-    @Schema(description = "A list of RAFT metastorage nodes.")
+    @Schema(description = "A list of RAFT metastorage nodes.", requiredMode = RequiredMode.NOT_REQUIRED)
     private final Collection<String> metaStorageNodes;
 
-    @Schema(description = "A list of RAFT cluster management nodes.")
+    @Schema(description = "A list of RAFT cluster management nodes.", requiredMode = RequiredMode.NOT_REQUIRED)
     private final Collection<String> cmgNodes;
 
     @Schema(description = "The name of the cluster.")
@@ -56,14 +56,7 @@ public class InitCommand {
             @JsonProperty("clusterName") String clusterName,
             @JsonProperty("clusterConfiguration") String clusterConfiguration
     ) {
-        Objects.requireNonNull(metaStorageNodes);
-        Objects.requireNonNull(clusterName);
-
-        if (metaStorageNodes.isEmpty()) {
-            throw new IllegalArgumentException("Meta Storage node names list must not be empty.");
-        }
-
-        if (metaStorageNodes.stream().anyMatch(StringUtils::nullOrBlank)) {
+        if (!nullOrEmpty(metaStorageNodes) && metaStorageNodes.stream().anyMatch(StringUtils::nullOrBlank)) {
             throw new IllegalArgumentException("Meta Storage node names must not contain blank strings: " + metaStorageNodes);
         }
 
@@ -75,7 +68,7 @@ public class InitCommand {
             throw new IllegalArgumentException("Cluster name must not be empty.");
         }
 
-        this.metaStorageNodes = List.copyOf(metaStorageNodes);
+        this.metaStorageNodes = metaStorageNodes == null ? List.of() : List.copyOf(metaStorageNodes);
         this.cmgNodes = cmgNodes == null ? List.of() : List.copyOf(cmgNodes);
         this.clusterName = clusterName;
         this.clusterConfiguration = clusterConfiguration;

@@ -20,6 +20,7 @@ package org.apache.ignite;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -37,11 +38,9 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder metaStorageNodeNames(String... metaStorageNodeNames) {
-        if (metaStorageNodeNames == null) {
-            throw new IllegalArgumentException("Meta storage node names cannot be null.");
-        }
-        if (metaStorageNodeNames.length == 0) {
-            throw new IllegalArgumentException("Meta storage node names cannot be empty.");
+        if (metaStorageNodeNames == null || metaStorageNodeNames.length == 0) {
+            this.metaStorageNodeNames = Collections.emptyList();
+            return this;
         }
         this.metaStorageNodeNames = List.of(metaStorageNodeNames);
         return this;
@@ -54,11 +53,9 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder metaStorageNodeNames(Collection<String> metaStorageNodeNames) {
-        if (metaStorageNodeNames == null) {
-            throw new IllegalArgumentException("Meta storage node names cannot be null.");
-        }
-        if (metaStorageNodeNames.isEmpty()) {
-            throw new IllegalArgumentException("Meta storage node names cannot be empty.");
+        if (metaStorageNodeNames == null || metaStorageNodeNames.isEmpty()) {
+            this.metaStorageNodeNames = Collections.emptyList();
+            return this;
         }
         this.metaStorageNodeNames = new ArrayList<>(metaStorageNodeNames);
         return this;
@@ -71,11 +68,9 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder metaStorageNodes(IgniteServer... metaStorageNodes) {
-        if (metaStorageNodes == null) {
-            throw new IllegalArgumentException("Meta storage nodes cannot be null.");
-        }
-        if (metaStorageNodes.length == 0) {
-            throw new IllegalArgumentException("Meta storage nodes cannot be empty.");
+        if (metaStorageNodes == null || metaStorageNodes.length == 0) {
+            this.metaStorageNodeNames = Collections.emptyList();
+            return this;
         }
         this.metaStorageNodeNames = Arrays.stream(metaStorageNodes).map(IgniteServer::name).collect(Collectors.toList());
         return this;
@@ -88,11 +83,9 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder metaStorageNodes(Collection<IgniteServer> metaStorageNodes) {
-        if (metaStorageNodes == null) {
-            throw new IllegalArgumentException("Meta storage nodes cannot be null.");
-        }
-        if (metaStorageNodes.isEmpty()) {
-            throw new IllegalArgumentException("Meta storage nodes cannot be empty.");
+        if (metaStorageNodes == null || metaStorageNodes.isEmpty()) {
+            this.metaStorageNodeNames = Collections.emptyList();
+            return this;
         }
         this.metaStorageNodeNames = metaStorageNodes.stream().map(IgniteServer::name).collect(Collectors.toList());
         return this;
@@ -105,11 +98,9 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder cmgNodeNames(String... cmgNodeNames) {
-        if (cmgNodeNames == null) {
-            throw new IllegalArgumentException("CMG node names cannot be null.");
-        }
-        if (cmgNodeNames.length == 0) {
-            throw new IllegalArgumentException("CMG node names cannot be empty.");
+        if (cmgNodeNames == null || cmgNodeNames.length == 0) {
+            this.cmgNodeNames = Collections.emptyList();
+            return this;
         }
         this.cmgNodeNames = List.of(cmgNodeNames);
         return this;
@@ -122,11 +113,9 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder cmgNodeNames(Collection<String> cmgNodeNames) {
-        if (cmgNodeNames == null) {
-            throw new IllegalArgumentException("CMG node names cannot be null.");
-        }
-        if (cmgNodeNames.isEmpty()) {
-            throw new IllegalArgumentException("CMG node names cannot be empty.");
+        if (cmgNodeNames == null || cmgNodeNames.isEmpty()) {
+            this.cmgNodeNames = Collections.emptyList();
+            return this;
         }
         this.cmgNodeNames = new ArrayList<>(cmgNodeNames);
         return this;
@@ -139,11 +128,9 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder cmgNodes(IgniteServer... cmgNodes) {
-        if (cmgNodes == null) {
-            throw new IllegalArgumentException("CMG nodes cannot be null.");
-        }
-        if (cmgNodes.length == 0) {
-            throw new IllegalArgumentException("CMG nodes cannot be empty.");
+        if (cmgNodes == null || cmgNodes.length == 0) {
+            this.cmgNodeNames = Collections.emptyList();
+            return this;
         }
         this.cmgNodeNames = Arrays.stream(cmgNodes).map(IgniteServer::name).collect(Collectors.toList());
         return this;
@@ -156,11 +143,9 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder cmgNodes(Collection<IgniteServer> cmgNodes) {
-        if (cmgNodes == null) {
-            throw new IllegalArgumentException("CMG nodes cannot be null.");
-        }
-        if (cmgNodes.isEmpty()) {
-            throw new IllegalArgumentException("CMG nodes cannot be empty.");
+        if (cmgNodes == null || cmgNodes.isEmpty()) {
+            this.cmgNodeNames = Collections.emptyList();
+            return this;
         }
         this.cmgNodeNames = cmgNodes.stream().map(IgniteServer::name).collect(Collectors.toList());
         return this;
@@ -193,14 +178,6 @@ public class InitParametersBuilder {
 
     /** Builds {@link InitParameters}. */
     public InitParameters build() {
-        cmgNodeNames = cmgNodeNames == null ? metaStorageNodeNames : cmgNodeNames;
-
-        if (metaStorageNodeNames == null) {
-            throw new IllegalStateException("Meta storage node names is not set.");
-        }
-        if (cmgNodeNames == null) {
-            throw new IllegalStateException("CMG node names is not set.");
-        }
         if (clusterName == null) {
             throw new IllegalStateException("Cluster name is not set.");
         }

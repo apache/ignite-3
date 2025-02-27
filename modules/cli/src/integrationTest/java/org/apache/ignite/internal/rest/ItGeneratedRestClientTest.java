@@ -228,20 +228,6 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void initCluster() {
-        assertDoesNotThrow(() -> {
-            // in fact, this is the second init that means nothing but just testing that the second init does not throw and exception
-            // the main init is done before the test
-            clusterManagementApi.init(
-                    new InitCommand()
-                            .clusterName("cluster")
-                            .metaStorageNodes(List.of(firstNodeName))
-                            .cmgNodes(List.of())
-            );
-        });
-    }
-
-    @Test
     void clusterState() {
         assertDoesNotThrow(() -> {
             ClusterState clusterState = clusterManagementApi.clusterState();
@@ -250,24 +236,6 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
             assertThat(clusterState.getClusterTag().getClusterName(), is(equalTo("cluster")));
             assertThat(clusterState.getCmgNodes(), contains(firstNodeName));
         });
-    }
-
-    @Test
-    void initClusterNoSuchNode() throws JsonProcessingException {
-        var thrown = assertThrows(
-                ApiException.class,
-                () -> clusterManagementApi.init(
-                        new InitCommand()
-                                .clusterName("cluster")
-                                .metaStorageNodes(List.of("no-such-node"))
-                                .cmgNodes(List.of()))
-        );
-
-        assertThat(thrown.getCode(), equalTo(400));
-
-        Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
-        assertThat(problem.getStatus(), equalTo(400));
-        assertThat(problem.getDetail(), containsString("Node \"no-such-node\" is not present in the physical topology"));
     }
 
     @Test

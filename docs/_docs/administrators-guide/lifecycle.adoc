@@ -40,7 +40,11 @@ First, the nodes specified in the `--cluster-management-group` argument form a R
 
 image::images/lifecycle1.png[Cluster initialization]
 
-Then, the nodes specified in the `--metastorage-group` argument form a RAFT group and take the role of *metastorage group*. These nodes will hold the authoritative copy of cluster meta information.
+Then, the nodes specified in the `--metastorage-group` argument form a RAFT group and take the role of *metastorage group*. These nodes will hold the authoritative copy of cluster meta information. If `--metastorage-group` is not specified, the nodes are chosen automatically. The number of nodes is chosen automatically as follows:
+
+```
+metastorage_group_size = cluster_size < 5 ? min(cluster_size, 3) : 5
+```
 
 Once the 2 raft groups are started and elect their leaders, all other nodes in the topology are notified that the cluster is started, and they can join it. At this point, the cluster is considered *initialized* and can start receiving requests.
 

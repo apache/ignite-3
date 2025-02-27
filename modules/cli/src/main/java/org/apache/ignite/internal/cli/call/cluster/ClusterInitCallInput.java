@@ -35,8 +35,8 @@ public class ClusterInitCallInput implements CallInput {
 
     private ClusterInitCallInput(
             String clusterUrl,
-            List<String> metaStorageNodes,
-            List<String> cmgNodes,
+            @Nullable List<String> metaStorageNodes,
+            @Nullable List<String> cmgNodes,
             String clusterName,
             @Nullable String clusterConfiguration) {
         this.clusterUrl = clusterUrl;
@@ -67,6 +67,7 @@ public class ClusterInitCallInput implements CallInput {
      *
      * @return Meta storage node ids.
      */
+    @Nullable
     public List<String> getMetaStorageNodes() {
         return metaStorageNodes;
     }
@@ -77,6 +78,7 @@ public class ClusterInitCallInput implements CallInput {
      *
      * @return Cluster management node ids.
      */
+    @Nullable
     public List<String> getCmgNodes() {
         return cmgNodes;
     }

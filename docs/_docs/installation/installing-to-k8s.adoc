@@ -232,9 +232,7 @@ spec:
       - args:
         - -ec
         - |
-          apt update && apt-get install -y bind9-host
-          GG_NODES=$(host -tsrv _cluster._tcp.ignite-svc-headless | grep 'SRV record' | awk '{print $8}' | awk -F. '{print $1}' | paste -sd ',')
-          /opt/ignite3cli/bin/ignite3 cluster init --name=ignite --metastorage-group $GG_NODES --url=http://ignite-svc-headless:10300 --config-files=/opt/ignite/etc/license.conf
+          /opt/ignite3cli/bin/ignite3 cluster init --name=ignite --url=http://ignite-svc-headless:10300
         command:
         - /bin/sh
         # Specify the Docker image with the Ignite 3 CLI and its version.
@@ -242,17 +240,8 @@ spec:
         imagePullPolicy: IfNotPresent
         name: cluster-init
         resources: {}
-        volumeMounts:
-        # The license required to be mounted to cluster-init job.
-        - mountPath: /opt/ignite/etc/license.conf
-          name: license-vol
-          subPath: license.conf
       restartPolicy: Never
       terminationGracePeriodSeconds: 120
-      volumes:
-      - name: license-vol
-        configMap:
-          name: ignite-license
 
 ----
 +
