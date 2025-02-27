@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -115,10 +116,10 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
             doPutOn(table, rwTx);
             return false;
         } catch (TransactionException ex) {
-            if (ex.getMessage().contains("timeoutExceeded=true")) {
-                return true;
+            if (ex.code() == Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR) {
+               return true;
             } else {
-                fail("Expected exception message to contain `timeoutExceeded=true` but found: " + ex.getMessage());
+                fail("Expected exception code to be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR but found: " + ex.getMessage());
                 return false;
             }
         }

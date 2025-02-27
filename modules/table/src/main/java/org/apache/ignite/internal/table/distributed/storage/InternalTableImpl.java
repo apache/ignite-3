@@ -58,6 +58,7 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -407,7 +408,7 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx.implicit()) {
-            return 3_000;
+            return 10_000;
         }
 
         return tx.timeout();
@@ -765,7 +766,9 @@ public class InternalTableImpl implements InternalTable {
      * @param <T> Operation return type.
      * @return The future.
      */
-    private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full) {
+    private <T> CompletableFuture<T> postEnlist(
+            CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full
+    ) {
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
@@ -774,7 +777,14 @@ public class InternalTableImpl implements InternalTable {
             }
 
             if (e != null) {
-                return tx0.rollbackAsync().handle((ignored, err) -> {
+                CompletableFuture<Void> rollbackFuture;
+                if (isFinishedDueToTimeout(e)) {
+                    rollbackFuture = tx0.rollbackTimeoutExceededAsync();
+                } else {
+                    rollbackFuture = tx0.rollbackAsync();
+                }
+
+                return rollbackFuture.handle((ignored, err) -> {
                     if (err != null) {
                         e.addSuppressed(err);
                     }
@@ -789,6 +799,10 @@ public class InternalTableImpl implements InternalTable {
                 }
             }
         }).thenCompose(identity());
+    }
+
+    private static boolean isFinishedDueToTimeout(Throwable e) {
+        return e instanceof TransactionException && ((TransactionException) e).errorCode() == TX_ALREADY_FINISHED_ERR;
     }
 
     /**
@@ -1757,7 +1771,12 @@ public class InternalTableImpl implements InternalTable {
                     ) : completedOrFailedFuture(null, th);
                 }
 
-                    return postEnlist(opFut, intentionallyClose, actualTx, actualTx.implicit() && !intentionallyClose);
+                    return postEnlist(
+                            opFut,
+                            intentionallyClose,
+                            actualTx,
+                            actualTx.implicit() && !intentionallyClose
+                    );
             }
         };
     }
@@ -2338,11 +2357,12 @@ public class InternalTableImpl implements InternalTable {
 
     private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                    "Transaction is already finished () [txId={}, readOnly={}, timeoutExceeded={}].",
+            boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
+            throw new TransactionException(
+                    isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
+                    format("Transaction is already finished () [txId={}, readOnly={}].",
                     transaction.id(),
-                    transaction.isReadOnly(),
-                    transaction.isRolledBackWithTimeoutExceeded()
+                    transaction.isReadOnly()
             ));
         }
     }

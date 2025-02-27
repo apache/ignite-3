@@ -631,8 +631,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         TxStateMetaFinishing finishingStateMeta =
                 txMeta == null
-                        ? new TxStateMetaFinishing(null, commitPartition)
-                        : txMeta.finishing();
+                        ? new TxStateMetaFinishing(null, commitPartition, timeout)
+                        : txMeta.finishing(timeout);
 
         TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finishingStateMeta);
 

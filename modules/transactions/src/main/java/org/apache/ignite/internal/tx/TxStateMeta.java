@@ -175,8 +175,8 @@ public class TxStateMeta implements TransactionMeta {
      *
      * @return Transaction state meta.
      */
-    public TxStateMetaFinishing finishing() {
-        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId);
+    public TxStateMetaFinishing finishing(boolean isFinishedDueToTimeoutFlag) {
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeoutFlag);
     }
 
     @Override
