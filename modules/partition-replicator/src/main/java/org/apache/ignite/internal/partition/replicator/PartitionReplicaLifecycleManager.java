@@ -1449,6 +1449,27 @@ public class PartitionReplicaLifecycleManager extends
         resources.snapshotStorageFactory().addMvPartition(tablePartitionId.tableId(), partitionMvStorageAccess);
     }
 
+    /**
+     * Load a new table partition listener to the zone replica.
+     *
+     * @param zonePartitionId Zone partition id.
+     * @param tablePartitionId Table partition id.
+     */
+    public void unloadTableResourcesFromZoneReplica(
+            ZonePartitionId zonePartitionId,
+            TablePartitionId tablePartitionId
+    ) {
+        ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
+
+        resources.replicaListenerFuture().thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaListener(
+                tablePartitionId
+        ));
+
+        resources.raftListener().removeTableProcessor(tablePartitionId);
+
+        resources.snapshotStorageFactory().removeMvPartition(tablePartitionId.tableId());
+    }
+
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {
         StampedLock lock = zonePartitionsLocks.computeIfAbsent(zoneId, id -> new StampedLock());
 
