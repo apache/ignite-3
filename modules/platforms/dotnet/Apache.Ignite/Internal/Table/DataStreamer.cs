@@ -400,7 +400,7 @@ internal static class DataStreamer
 
             try
             {
-                if (schema.Version >= ver)
+                if (ver != Table.SchemaVersionForceLatest && schema.Version >= ver)
                 {
                     return schema;
                 }
