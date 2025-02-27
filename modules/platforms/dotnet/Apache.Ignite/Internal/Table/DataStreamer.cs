@@ -296,8 +296,9 @@ internal static class DataStreamer
             int batchSchemaVersion)
         {
             Debug.Assert(items.Length > 0, "items.Length > 0");
+            var schema0 = schema;
 
-            if (batchSchemaVersion < schema.Version)
+            if (batchSchemaVersion < schema0.Version)
             {
                 // Schema update was detected while the batch was being filled.
                 // Re-serialize the whole batch.
@@ -316,20 +317,13 @@ internal static class DataStreamer
                     {
                         if (schemaVersion is { })
                         {
-                            // Might be updated by another batch.
-                            if (schema.Version != schemaVersion)
-                            {
-                                // TODO: Race condition?
-                                schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
-                            }
-
                             // Serialize again with the new schema.
-                            ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
+                            schema0 = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
+                            ReWriteBatch(buf, partitionId, schema0, items.AsSpan(0, count), writer);
                         }
 
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
-
                         await SendBatchAsync(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
 
                         return;
@@ -340,7 +334,7 @@ internal static class DataStreamer
                         // Schema update detected after the batch was serialized.
                         schemaVersion = e.GetExpectedSchemaVersion();
                     }
-                    catch (Exception e) when (e.CausedByUnmappedColumns() && schemaVersion == null)
+                    catch (Exception e) when (e.CausedByUnmappedColumns())
                     {
                         schemaVersion = Table.SchemaVersionForceLatest;
                     }
