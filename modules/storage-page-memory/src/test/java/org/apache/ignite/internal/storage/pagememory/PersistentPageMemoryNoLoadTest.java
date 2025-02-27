@@ -507,7 +507,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         return new CheckpointManager(
                 "test",
                 null,
-                null,
                 mock(FailureManager.class),
                 checkpointConfig,
                 filePageStoreManager,
