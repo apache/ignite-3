@@ -38,7 +38,6 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.KeyValueView;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -54,9 +53,6 @@ public class ItCatalogCompactionTest extends ItAbstractColocationTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24517")
-    // Second table misses lease information and thus throws "The primary replica has changed .. currentEnlistmentConsistencyToken=1"
-    // on putAll.
     public void testCatalogCompaction() throws Exception {
         // How often we update the low water mark.
         long lowWatermarkUpdateInterval = 500;
