@@ -1559,9 +1559,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
             metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
             metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
-        }
 
-        cleanUpTablesResources(tables);
+            cleanUpTablesResources(tables);
+        }
     }
 
     @Override
@@ -2843,7 +2843,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
-            stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
+            stopReplicaFuture = enabledColocation()
+                    ? trueCompletedFuture()
+                    : replicaMgr.stopReplica(tablePartitionId);
         } catch (NodeStoppingException e) {
             // No-op.
             stopReplicaFuture = falseCompletedFuture();
