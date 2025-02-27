@@ -935,14 +935,20 @@ public final class ReliableChannel implements AutoCloseable {
     private void logFailedEstablishConnection(ClientChannelHolder ch, Throwable err) {
         String logMessage = "Failed to establish connection to {}: {}";
 
-        if (isLogFailedEstablishConnectionException(err)) {
+        if (isLogFailedEstablishConnectionExceptionStackTrace(err)) {
             log.warn(logMessage, err, ch.chCfg.getAddress(), err.getMessage());
         } else {
             log.info(logMessage, ch.chCfg.getAddress(), err.getMessage());
         }
     }
 
-    private static boolean isLogFailedEstablishConnectionException(Throwable err) {
+    /**
+     * Returns {@code true} if need to log the stack trace of the error, since the error is unexpected and will need to be dealt with later,
+     * otherwise {@code false} and means that the exception is expected and there is not need to log its stack trace so as not to worry when
+     * analyzing the log.
+     */
+    private static boolean isLogFailedEstablishConnectionExceptionStackTrace(Throwable err) {
+        // May occur when nodes are restarted, which is expected.
         return !hasCauseOrSuppressed(err, "Connection refused", ConnectException.class);
     }
 }
