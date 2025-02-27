@@ -137,6 +137,7 @@ public class StorageUtils {
     public static void throwExceptionDependingOnStorageState(StorageState state, String storageInfo) {
         switch (state) {
             case CLOSED:
+                assert false : createStorageClosedErrorMessage(storageInfo);
                 throw new StorageClosedException(createStorageClosedErrorMessage(storageInfo));
             case REBALANCE:
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
