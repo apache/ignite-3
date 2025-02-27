@@ -34,10 +34,10 @@ class IndexBuildTaskId {
     /**
      * Creates a new index building task.
      *
-     * @param zoneId Distribution zone identifier.
-     * @param tableId Table identifier.
-     * @param partitionId Partition identifier.
-     * @param indexId Index identifier.
+     * @param zoneId Distribution zone ID.
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
+     * @param indexId Index ID.
      */
     IndexBuildTaskId(int zoneId, int tableId, int partitionId, int indexId) {
         this.zoneId = zoneId;

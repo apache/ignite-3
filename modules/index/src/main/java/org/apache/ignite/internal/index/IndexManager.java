@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.table.distributed.index.IndexUtils.regi
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -169,11 +171,30 @@ public class IndexManager implements IgniteComponent {
      *
      * @param causalityToken Causality token.
      * @param tableId Table ID.
-     * @return Future with multi-version table storage, completes with {@code null} if the table does not exist according to the passed
-     *      parameters.
+     * @return Future with multi-version table storage, completes with an exception if the table or storage does not exist
+     *      according to the passed parameters.
      */
     CompletableFuture<@Nullable MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
-        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table == null ? null : table.internalTable().storage());
+        return tableManager
+                .tableAsync(causalityToken, tableId)
+                .thenApply(table -> {
+                    if (table == null) {
+                        throw new IgniteInternalException(
+                                INTERNAL_ERR,
+                                "Table does not exist [tableId = {}]",
+                                tableId);
+                    }
+
+                    MvTableStorage storage = table.internalTable().storage();
+                    if (storage == null) {
+                        throw new IgniteInternalException(
+                                INTERNAL_ERR,
+                                "Table storage for the specified table cannot be null [tableId = {}]",
+                                tableId);
+                    }
+
+                    return storage;
+                });
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {

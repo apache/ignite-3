@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAM
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
@@ -77,16 +76,11 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /** For {@link IndexBuildController} testing. */
-@ExtendWith(WorkDirectoryExtension.class)
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 10;
 
@@ -156,7 +150,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         createIndex(INDEX_NAME);
 
         verify(indexBuilder, never()).scheduleBuildIndex(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -167,7 +161,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -189,7 +183,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         startBuildingIndex(indexId(INDEX_NAME));
 
         verify(indexBuilder).scheduleBuildIndex(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -200,7 +194,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -236,7 +230,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder).scheduleBuildIndex(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -247,7 +241,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(PK_INDEX_NAME)),
@@ -281,7 +275,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         createTable(catalogManager, tableName, COLUMN_NAME);
 
         verify(indexBuilder, never()).scheduleBuildIndex(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
@@ -292,7 +286,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
@@ -320,7 +314,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", randomUUID(), clock.now());
 
         if (enabledColocation()) {
-            verify(indexBuilder).stopBuildingZoneIndexes(zoneId(TABLE_NAME), PARTITION_ID);
+            verify(indexBuilder).stopBuildingZoneIndexes(zoneId(), PARTITION_ID);
         } else {
             verify(indexBuilder).stopBuildingTableIndexes(tableId(), PARTITION_ID);
         }
@@ -339,7 +333,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder, never()).scheduleBuildIndex(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 anyInt(),
@@ -350,7 +344,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
-                eq(zoneId(TABLE_NAME)),
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId0),
@@ -396,8 +390,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return getTableIdStrict(catalogManager, tableName, clock.nowLong());
     }
 
-    private int zoneId(String tableName) {
-        return getZoneIdStrict(catalogManager, tableName, clock.nowLong());
+    private int zoneId() {
+        return getZoneIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
     }
 
     private int indexId(String indexName) {
@@ -406,7 +400,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     private ReplicationGroupId replicaId(int partitionId) {
         if (enabledColocation()) {
-            return new ZonePartitionId(zoneId(TABLE_NAME), partitionId);
+            return new ZonePartitionId(zoneId(), partitionId);
         } else {
             return new TablePartitionId(tableId(), partitionId);
         }
@@ -418,7 +412,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 leaseholderId,
                 startTime,
                 startTime.addPhysicalTime(1_000),
-                enabledColocation() ? new ZonePartitionId(zoneId(TABLE_NAME), PARTITION_ID) : new TablePartitionId(tableId(), PARTITION_ID)
+                enabledColocation() ? new ZonePartitionId(zoneId(), PARTITION_ID) : new TablePartitionId(tableId(), PARTITION_ID)
         );
     }
 }

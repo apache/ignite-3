@@ -119,7 +119,7 @@ class IndexBuilder implements ManuallyCloseable {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
+            var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -178,7 +178,7 @@ class IndexBuilder implements ManuallyCloseable {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
+            var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -195,25 +195,6 @@ class IndexBuilder implements ManuallyCloseable {
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);
-        });
-    }
-
-    /**
-     * Stops index building if it is in progress.
-     *
-     * @param zoneId Distribution zone ID.
-     * @param tableId Table ID.
-     * @param partitionId Partition ID.
-     * @param indexId Index ID.
-     */
-    // TODO remove unused method
-    public void stopBuildIndex(int zoneId, int tableId, int partitionId, int indexId) {
-        inBusyLockSafe(busyLock, () -> {
-            IndexBuildTask removed = indexBuildTaskById.remove(new IndexBuildTaskId(zoneId, tableId, partitionId, indexId));
-
-            if (removed != null) {
-                removed.stop();
-            }
         });
     }
 
