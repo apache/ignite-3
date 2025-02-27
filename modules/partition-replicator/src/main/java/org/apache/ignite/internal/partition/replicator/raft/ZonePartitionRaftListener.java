@@ -79,14 +79,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     private final PartitionKey partitionKey;
 
     /**
-     * Last applied index across all table processors.
+     * Last applied index across all table processors and {@link #txStateStorage}.
      *
      * <p>Multi-threaded access is guarded by {@link #tableProcessorsStateLock}.
      */
     private long lastAppliedIndex;
 
     /**
-     * Last applied term across all table processors.
+     * Last applied term across all table processors and {@link #txStateStorage}.
      *
      * <p>Multi-threaded access is guarded by {@link #tableProcessorsStateLock}.
      */
