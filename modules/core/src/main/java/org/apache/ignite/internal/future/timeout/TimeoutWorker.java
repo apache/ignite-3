@@ -62,7 +62,7 @@ public class TimeoutWorker extends IgniteWorker {
             ConcurrentMap requestsMap,
             @Nullable FailureProcessor failureProcessor
     ) {
-        super(log, igniteInstanceName, name, null);
+        super(log, igniteInstanceName, name);
 
         this.requestsMap = requestsMap;
         this.failureProcessor = failureProcessor;

@@ -136,13 +136,13 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void supportsParallelAllocation() {
+    void supportsParallelAllocation(@InjectExecutorService ExecutorService executor) {
         int partCount = 1000;
         int zoneId = 1;
 
         CompletableFuture<?>[] futures = IntStream.range(0, partCount)
-                .mapToObj(partId -> runAsync(() ->
-                        allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount, storageIndexTracker))
+                .mapToObj(partId -> runAsync(
+                        () -> allocatePartitionResources(new ZonePartitionId(zoneId, partId), partCount, storageIndexTracker), executor)
                 )
                 .toArray(CompletableFuture[]::new);
 

@@ -223,11 +223,10 @@ public class StorageUtils {
     }
 
     /**
-     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
+     * If not already in a terminal state, transitions to the {@link StorageState#DESTROYED} state and returns {@code true},
+     * otherwise just returns {@code false}.
      */
-    public static boolean transitionToTerminalState(StorageState targetState, AtomicReference<StorageState> stateRef) {
-        assert targetState.isTerminal() : "Not a terminal state: " + targetState;
-
+    public static boolean transitionToDestroyedState(AtomicReference<StorageState> stateRef) {
         while (true) {
             StorageState previous = stateRef.get();
 
@@ -235,10 +234,28 @@ public class StorageUtils {
                 return false;
             }
 
-            if (stateRef.compareAndSet(previous, targetState)) {
+            if (stateRef.compareAndSet(previous, StorageState.DESTROYED)) {
                 return true;
             }
         }
+    }
+
+    /**
+     * If not already closed and in a running state, transitions to the {@link StorageState#CLOSED} state. Otherwise
+     * throws {@link StorageException}.
+     */
+    public static boolean transitionToClosedState(AtomicReference<StorageState> stateRef, Supplier<String> errorMsgSupplier) {
+        StorageState prevState = stateRef.compareAndExchange(StorageState.RUNNABLE, StorageState.CLOSED);
+
+        if (prevState.isTerminal()) {
+            return false;
+        }
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState, errorMsgSupplier.get());
+        }
+
+        return true;
     }
 
     /**

@@ -65,6 +65,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyListComple
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -113,7 +114,6 @@ import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
@@ -236,7 +236,6 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -1572,7 +1571,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int shutdownTimeoutSeconds = 10;
 
         try {
-            IgniteUtils.closeAllManually(
+            closeAllManually(
                     mvGc,
                     fullStateTransferIndexChooser,
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
@@ -1619,19 +1618,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             stopReplicaFutures[p] = stopPartition(replicationGroupId, table);
         }
 
-        CompletableFuture<Void> stopPartitionReplicasFuture = allOf(stopReplicaFutures).orTimeout(10, TimeUnit.SECONDS);
-
-        return stopPartitionReplicasFuture
-                .whenCompleteAsync((res, ex) -> {
-                    Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
-
-                    stopping.add(internalTable.storage());
-                    stopping.add(internalTable.txStateStorage());
-                    stopping.add(internalTable);
-
+        return allOf(stopReplicaFutures)
+                .thenRunAsync(() -> {
                     try {
-                        IgniteUtils.closeAllManually(stopping.build());
-                    } catch (Throwable e) {
+                        closeAllManually(
+                                internalTable.storage(),
+                                internalTable.txStateStorage(),
+                                internalTable
+                        );
+                    } catch (Exception e) {
                         throw new CompletionException(e);
                     }
                 }, ioExecutor)
