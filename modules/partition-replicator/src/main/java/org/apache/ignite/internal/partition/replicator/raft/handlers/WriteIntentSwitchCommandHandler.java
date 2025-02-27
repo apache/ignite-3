@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft;
+package org.apache.ignite.internal.partition.replicator.raft.handlers;
 
 import java.io.Serializable;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Handler for {@link WriteIntentSwitchCommand}s.
  */
-public class WriteIntentSwitchCommandHandler {
+public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<WriteIntentSwitchCommand> {
     private final IntFunction<RaftTableProcessor> tableProcessorByTableId;
 
     private final RaftTxFinishMarker txFinishMarker;
@@ -40,16 +42,8 @@ public class WriteIntentSwitchCommandHandler {
         txFinishMarker = new RaftTxFinishMarker(txManager);
     }
 
-    /**
-     * Handles {@link WriteIntentSwitchCommand}s.
-     *
-     * @param switchCommand Command to handle
-     * @param commandIndex Command index.
-     * @param commandTerm Index of the term.
-     * @param safeTimestamp Safe timestamp of the command.
-     * @return Pair: {result, wasHandled}.
-     */
-    public IgniteBiTuple<Serializable, Boolean> handle(
+    @Override
+    protected IgniteBiTuple<Serializable, Boolean> handleInternally(
             WriteIntentSwitchCommand switchCommand,
             long commandIndex,
             long commandTerm,
@@ -59,7 +53,7 @@ public class WriteIntentSwitchCommandHandler {
 
         boolean applied = false;
         for (int tableId : switchCommand.tableIds()) {
-            IgniteBiTuple<Serializable, Boolean> singleResult = taftTableProcessor(tableId)
+            IgniteBiTuple<Serializable, Boolean> singleResult = raftTableProcessor(tableId)
                     .processCommand(switchCommand, commandIndex, commandTerm, safeTimestamp);
             if (singleResult.get2()) {
                 applied = true;
@@ -69,7 +63,7 @@ public class WriteIntentSwitchCommandHandler {
         return new IgniteBiTuple<>(null, applied);
     }
 
-    private RaftTableProcessor taftTableProcessor(int tableId) {
+    private RaftTableProcessor raftTableProcessor(int tableId) {
         RaftTableProcessor raftTableProcessor = tableProcessorByTableId.apply(tableId);
 
         assert raftTableProcessor != null : "No RAFT table processor found by table ID " + tableId;

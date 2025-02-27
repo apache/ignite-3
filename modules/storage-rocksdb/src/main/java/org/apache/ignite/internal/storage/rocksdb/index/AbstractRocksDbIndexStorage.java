@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
@@ -127,7 +127,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!transitionToTerminalState(StorageState.CLOSED, state)) {
+        if (!transitionToClosedState(state, this::createStorageInfo)) {
             return;
         }
 
@@ -138,7 +138,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * Transitions the storage to the {@link StorageState#DESTROYED} state and blocks the busy lock.
      */
     public void transitionToDestroyedState() {
-        if (!transitionToTerminalState(StorageState.DESTROYED, state)) {
+        if (!StorageUtils.transitionToDestroyedState(state)) {
             return;
         }
 

@@ -44,7 +44,6 @@ import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,7 +87,6 @@ public class CheckpointManager {
      *
      * @param igniteInstanceName Ignite instance name.
      * @param checkpointConfig Checkpoint configuration.
-     * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param filePageStoreManager File page store manager.
@@ -100,7 +98,6 @@ public class CheckpointManager {
      */
     public CheckpointManager(
             String igniteInstanceName,
-            @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
             PageMemoryCheckpointConfiguration checkpointConfig,
@@ -141,7 +138,6 @@ public class CheckpointManager {
         compactor = new Compactor(
                 Loggers.forClass(Compactor.class),
                 igniteInstanceName,
-                workerListener,
                 checkpointConfig.compactionThreads(),
                 filePageStoreManager,
                 pageSize,
@@ -150,7 +146,6 @@ public class CheckpointManager {
 
         checkpointer = new Checkpointer(
                 igniteInstanceName,
-                workerListener,
                 longJvmPauseDetector,
                 failureManager,
                 checkpointWorkflow,
@@ -241,6 +236,10 @@ public class CheckpointManager {
      */
     public CheckpointProgress scheduleCheckpoint(long delayMillis, String reason) {
         return checkpointer.scheduleCheckpoint(delayMillis, reason);
+    }
+
+    public @Nullable CheckpointProgress currentCheckpointProgress() {
+        return checkpointer.currentCheckpointProgress();
     }
 
     /**

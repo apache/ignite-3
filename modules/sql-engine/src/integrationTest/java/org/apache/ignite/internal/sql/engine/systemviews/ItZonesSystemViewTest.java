@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_C
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -32,6 +33,8 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
@@ -51,7 +54,8 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
         );
 
-        assertQuery("SELECT * FROM SYSTEM.ZONES").returns(
+        assertQuery("SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, DATA_NODES_AUTO_ADJUST_SCALE_UP, DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "
+                + "DATA_NODES_FILTER, IS_DEFAULT_ZONE, ZONE_CONSISTENCY_MODE FROM SYSTEM.ZONES").returns(
                 catalog.defaultZone().name(),
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
@@ -223,6 +227,44 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
         sql("DROP ZONE " + ZONE_NAME);
     }
 
+    @Test
+    public void zonesMetadata() {
+        assertQuery("SELECT * FROM SYSTEM.ZONES")
+                .columnMetadata(
+                        new MetadataMatcher().name("ZONE_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("ZONE_PARTITIONS").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("ZONE_REPLICAS").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("DATA_NODES_AUTO_ADJUST_SCALE_UP").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("DATA_NODES_AUTO_ADJUST_SCALE_DOWN").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("DATA_NODES_FILTER").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH),
+                        new MetadataMatcher().name("IS_DEFAULT_ZONE").type(ColumnType.BOOLEAN).nullable(true),
+                        new MetadataMatcher().name("ZONE_CONSISTENCY_MODE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+                        new MetadataMatcher().name("ZONE_ID").type(ColumnType.INT32).nullable(true),
+
+                        // Legacy columns.
+                        new MetadataMatcher().name("NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("PARTITIONS").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("REPLICAS").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("CONSISTENCY_MODE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
+                                .nullable(true)
+                )
+                .check();
+    }
+
+    @Test
+    public void storageProfilesMetadata() {
+        assertQuery("SELECT * FROM SYSTEM.ZONE_STORAGE_PROFILES")
+                .columnMetadata(
+                        new MetadataMatcher().name("ZONE_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
+                        new MetadataMatcher().name("STORAGE_PROFILE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
+                                .nullable(true),
+                        new MetadataMatcher().name("IS_DEFAULT_PROFILE").type(ColumnType.BOOLEAN).nullable(true),
+                        new MetadataMatcher().name("ZONE_ID").type(ColumnType.INT32).nullable(true)
+                )
+                .check();
+    }
+
     private static String createZoneSql(String zoneName, int partitions, int replicas, int scaleUp, int scaleDown, String filter) {
         String sqlFormat = "CREATE ZONE \"%s\" WITH "
                 + "\"PARTITIONS\" = %d, "
@@ -267,7 +309,8 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     }
 
     private static String selectFromZonesSystemView(String zoneName) {
-        String sqlFormat = "SELECT * FROM SYSTEM.ZONES WHERE NAME = '%s'";
+        String sqlFormat = "SELECT ZONE_NAME, PARTITIONS, REPLICAS, DATA_NODES_AUTO_ADJUST_SCALE_UP, DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "
+                + "DATA_NODES_FILTER, IS_DEFAULT_ZONE, CONSISTENCY_MODE FROM SYSTEM.ZONES WHERE ZONE_NAME = '%s'";
 
         return String.format(sqlFormat, zoneName);
     }
