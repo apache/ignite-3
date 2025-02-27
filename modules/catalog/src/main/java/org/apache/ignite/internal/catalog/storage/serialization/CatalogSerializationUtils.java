@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage.serialization.utils;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -27,10 +27,6 @@ import java.util.List;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;

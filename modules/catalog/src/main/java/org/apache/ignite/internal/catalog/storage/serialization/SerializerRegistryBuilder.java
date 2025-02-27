@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage.serialization.utils;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -23,15 +23,8 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.catalog.storage.serialization.VersionAwareSerializer;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,15 +44,14 @@ public class SerializerRegistryBuilder {
      * @return Registry of available serializers.
      */
     public Int2ObjectMap<VersionAwareSerializer<? extends MarshallableEntry>[]> build() {
-        Map<Integer, List<VersionAwareSerializer<? extends MarshallableEntry>>> mapByType = mapSerializersByType();
-
+        Int2ObjectMap<List<VersionAwareSerializer<? extends MarshallableEntry>>> mapByType = mapSerializersByType();
         Int2ObjectMap<VersionAwareSerializer<? extends MarshallableEntry>[]> resultMap = remapToOrderedArray(mapByType);
 
         return Int2ObjectMaps.unmodifiable(resultMap);
     }
 
-    private Map<Integer, List<VersionAwareSerializer<? extends MarshallableEntry>>> mapSerializersByType() {
-        Map<Integer, List<VersionAwareSerializer<? extends MarshallableEntry>>> result = new HashMap<>();
+    private Int2ObjectMap<List<VersionAwareSerializer<? extends MarshallableEntry>>> mapSerializersByType() {
+        Int2ObjectMap<List<VersionAwareSerializer<? extends MarshallableEntry>>> result = new Int2ObjectOpenHashMap<>();
 
         for (MarshallableEntryType type : MarshallableEntryType.values()) {
             Class<?> containerClass = type.serializersContainer();

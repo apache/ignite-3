@@ -29,7 +29,6 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.TYPE)
 @Retention(RUNTIME)
-// TODO naming
 public @interface CatalogSerializer {
     /**
      * Returns serializer version.

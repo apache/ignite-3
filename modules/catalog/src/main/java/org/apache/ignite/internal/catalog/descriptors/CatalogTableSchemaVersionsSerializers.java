@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readArray;
-import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeArray;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;

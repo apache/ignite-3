@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeStringCollection;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.io.IOException;
@@ -25,7 +25,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 

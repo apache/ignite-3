@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import org.apache.ignite.internal.catalog.storage.serialization.utils.SerializerRegistryBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -51,10 +50,10 @@ class CatalogEntrySerializerProviderImpl implements CatalogEntrySerializerProvid
     }
 
     @Override
-    public VersionAwareSerializer<MarshallableEntry> get(int version, int typeId) {
+    public <T extends MarshallableEntry> VersionAwareSerializer<T> get(int version, int typeId) {
         VersionAwareSerializer<? extends MarshallableEntry>[] serializersArray = serializerOrThrow(typeId);
 
-        return (VersionAwareSerializer<MarshallableEntry>) serializersArray[0];
+        return (VersionAwareSerializer<T>) serializersArray[0];
     }
 
     @Override

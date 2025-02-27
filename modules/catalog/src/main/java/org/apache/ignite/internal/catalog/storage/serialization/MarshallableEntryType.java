@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage.serialization;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptorSerializers;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptorSerializers;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptorSerializers;
@@ -51,9 +53,10 @@ import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntrySerializers
 import org.apache.ignite.internal.catalog.storage.SnapshotEntrySerializers;
 import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntrySerializers;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdateSerializers;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
- * Catalog object serialization type.
+ * Enumeration of all serializable catalog objects.
  */
 public enum MarshallableEntryType {
     ALTER_COLUMN(0, AlterColumnEntrySerializers.class),
@@ -94,22 +97,29 @@ public enum MarshallableEntryType {
     /** Type ID. */
     private final int id;
 
-    /** Container for serializer implementations container. */
-    private final Class<?> containerClass;
+    /** Serializer container class. */
+    private final Class<?> serializerContainer;
 
     private static final MarshallableEntryType[] VALS = new MarshallableEntryType[values().length];
 
     static {
+        Set<Class<?>> containerClasses = new HashSet<>(IgniteUtils.capacity(VALS.length));
+
         for (MarshallableEntryType entryType : values()) {
             assert VALS[entryType.id] == null : "Found duplicate id " + entryType.id;
+
+            if (!containerClasses.add(entryType.serializerContainer)) {
+                throw new IllegalStateException("Found duplicate serializer container "
+                        + "[class=" + entryType.serializerContainer.getCanonicalName() + "].");
+            }
 
             VALS[entryType.id()] = entryType;
         }
     }
 
-    MarshallableEntryType(int id, Class<?> containerClass) {
+    MarshallableEntryType(int id, Class<?> serializerContainer) {
         this.id = id;
-        this.containerClass = containerClass;
+        this.serializerContainer = serializerContainer;
     }
 
     /** Returns type ID. */
@@ -117,7 +127,8 @@ public enum MarshallableEntryType {
         return id;
     }
 
+    /** Returns serializer container class. */
     public Class<?> serializersContainer() {
-        return containerClass;
+        return serializerContainer;
     }
 }

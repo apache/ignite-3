@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.storage.serialization.utils.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
 import java.io.IOException;
 import java.util.ArrayList;
