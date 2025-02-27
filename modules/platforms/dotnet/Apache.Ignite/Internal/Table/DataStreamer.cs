@@ -60,6 +60,10 @@ internal static class DataStreamer
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup.")]
     [SuppressMessage("Usage", "CA2219:Do not raise exceptions in finally clauses", Justification = "Rethrow.")]
+    [SuppressMessage(
+        "Reliability",
+        "CA2000:Dispose objects before losing scope",
+        Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<DataStreamerItem<T>> data,
         Table table,
@@ -77,6 +81,7 @@ internal static class DataStreamer
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
         var schema = await table.GetSchemaAsync(null).ConfigureAwait(false);
+        var schemaLock = new SemaphoreSlim(1);
 
         var partitionAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
         var partitionCount = partitionAssignment.Length; // Can't be changed.
@@ -180,7 +185,7 @@ internal static class DataStreamer
             }
             catch (Exception e) when (e.CausedByUnmappedColumns())
             {
-                schema = await table.GetSchemaAsync(Table.SchemaVersionForceLatest).ConfigureAwait(false);
+                await UpdateSchema().ConfigureAwait(false);
                 return Add(item);
             }
         }
@@ -318,8 +323,7 @@ internal static class DataStreamer
                         if (schemaVersion is { })
                         {
                             // Serialize again with the new schema.
-                            // TODO: Update global schema atomically.
-                            schema0 = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
+                            schema0 = await UpdateSchema(schemaVersion.Value).ConfigureAwait(false);
                             ReWriteBatch(buf, partitionId, schema0, items.AsSpan(0, count), writer);
                         }
 
@@ -387,6 +391,26 @@ internal static class DataStreamer
                 }
 
                 await batch.Task.ConfigureAwait(false);
+            }
+        }
+
+        async ValueTask<Schema> UpdateSchema(int ver = Table.SchemaVersionForceLatest)
+        {
+            await schemaLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                if (schema.Version >= ver)
+                {
+                    return schema;
+                }
+
+                schema = await table.GetSchemaAsync(ver).ConfigureAwait(false);
+                return schema;
+            }
+            finally
+            {
+                schemaLock.Release();
             }
         }
     }
