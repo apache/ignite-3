@@ -1332,12 +1332,17 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * TODO: write a proper javadoc.
-     * Stops all resources associated with a given partition, like replicas and partition trackers.
+     * Stops zone replica, executes a given action and fires a given local event after if are not null.
      *
-     * @param zonePartitionId Partition ID.
-     * @return Future that will be completed after all resources have been closed and the future's result answers was replica was stopped
-     *      correctly or not.
+     * @param zonePartitionId Zone's replication group identifier.
+     * @param afterReplicaStopAction A consumer that will be executed if it is not null after zone replica stop process will be finished and
+     *      stopping result will be given to the consumer.
+     * @param afterReplicaStoppedEvent A local event type that if not null should be fired in the end of the method.
+     * @param afterReplicaStoppedEventRevision A revision parameter of the local event if the last is presented. Must not be null if the
+     *      event isn't null too.
+     *
+     * @return Future that will be completed after zone replica was stopped and all given non-null actions are done, the future's result
+     *      answers was replica was stopped correctly or not.
      */
     private CompletableFuture<Boolean> stopPartitionInternal(
             ZonePartitionId zonePartitionId,
@@ -1371,7 +1376,6 @@ public class PartitionReplicaLifecycleManager extends
                             return trueCompletedFuture();
                         });
             } catch (NodeStoppingException e) {
-                // No-op.
                 return falseCompletedFuture();
             }
         });
