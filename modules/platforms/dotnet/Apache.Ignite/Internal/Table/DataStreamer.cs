@@ -327,15 +327,15 @@ internal static class DataStreamer
                                 schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
                             }
 
-                            // Always rewrite.
-                            ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
-
                             // Serialize again with the new schema.
                             ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
                         }
 
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
+
+                        // Always rewrite before send.
+                        ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
                         await SendBatchAsync(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
 
                         return;
