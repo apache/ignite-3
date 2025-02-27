@@ -423,7 +423,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             defaultValueSupplier = null;
         }
 
-        CatalogColumnDescriptor columnDescriptor = new CatalogColumnDescriptor(
+        return new CatalogColumnDescriptor(
                 col.name(),
                 key,
                 nullable,
@@ -435,7 +435,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 defaultValueStrategy,
                 defaultValueSupplier
         );
-        return columnDescriptor;
     }
 
     private IgniteTableImpl createTableDataOnlyTable(
