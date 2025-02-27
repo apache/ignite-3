@@ -53,6 +53,9 @@ namespace Apache.Ignite.Internal.Buffers
             _buffer = ByteArrayPool.Rent(initialCapacity);
             _prefixSize = prefixSize;
             _index = prefixSize;
+
+            // TODO: Is this the fix?
+            _buffer.AsSpan().Clear();
         }
 
         /// <summary>
