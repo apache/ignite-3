@@ -1,5 +1,6 @@
 package org.apache.ignite;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -7,7 +8,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-class InitParametersBuilderTest {
+class InitParametersBuilderTest extends BaseIgniteAbstractTest {
 
     @Test
     void build_WithAllParametersSet_ReturnsExpectedInitParameters() {
@@ -50,6 +51,7 @@ class InitParametersBuilderTest {
         InitParametersBuilder builder = new InitParametersBuilder();
 
         // Act & Assert
+        //noinspection DataFlowIssue
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> builder.clusterName(null));
         assertEquals("Cluster name cannot be null or empty.", exception.getMessage());
     }

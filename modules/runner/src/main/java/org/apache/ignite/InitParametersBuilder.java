@@ -23,12 +23,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Builder of {@link InitParameters}. */
 public class InitParametersBuilder {
     private Collection<String> metaStorageNodeNames;
     private Collection<String> cmgNodeNames;
     private String clusterName;
+    @Nullable
     private String clusterConfiguration;
 
     /**
@@ -52,7 +54,7 @@ public class InitParametersBuilder {
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder metaStorageNodeNames(Collection<String> metaStorageNodeNames) {
+    public InitParametersBuilder metaStorageNodeNames(@Nullable Collection<String> metaStorageNodeNames) {
         if (metaStorageNodeNames == null || metaStorageNodeNames.isEmpty()) {
             this.metaStorageNodeNames = Collections.emptyList();
             return this;
@@ -112,7 +114,7 @@ public class InitParametersBuilder {
      * @param cmgNodeNames Names of nodes that will host the CMG.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder cmgNodeNames(Collection<String> cmgNodeNames) {
+    public InitParametersBuilder cmgNodeNames(@Nullable Collection<String> cmgNodeNames) {
         if (cmgNodeNames == null || cmgNodeNames.isEmpty()) {
             this.cmgNodeNames = Collections.emptyList();
             return this;
@@ -142,7 +144,7 @@ public class InitParametersBuilder {
      * @param cmgNodes Nodes that will host the CMG.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder cmgNodes(Collection<IgniteServer> cmgNodes) {
+    public InitParametersBuilder cmgNodes(@Nullable Collection<IgniteServer> cmgNodes) {
         if (cmgNodes == null || cmgNodes.isEmpty()) {
             this.cmgNodeNames = Collections.emptyList();
             return this;
@@ -171,7 +173,7 @@ public class InitParametersBuilder {
      * @param clusterConfiguration Cluster configuration.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder clusterConfiguration(String clusterConfiguration) {
+    public InitParametersBuilder clusterConfiguration(@Nullable String clusterConfiguration) {
         this.clusterConfiguration = clusterConfiguration;
         return this;
     }
