@@ -757,10 +757,12 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     } else {
                         if (left == null) {
                             if (waitingLeft == NOT_WAITING) {
+                                rightIdx = 0;
                                 rightMaterialization = null;
+                                drainMaterialization = false;
                             }
 
-                            break;
+                            continue;
                         }
 
                         if (rightIdx >= rightMaterialization.size()) {
@@ -989,10 +991,12 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     } else {
                         if (left == null) {
                             if (waitingLeft == NOT_WAITING) {
+                                rightIdx = 0;
                                 rightMaterialization = null;
+                                drainMaterialization = false;
                             }
 
-                            break;
+                            continue;
                         }
 
                         if (rightIdx >= rightMaterialization.size()) {

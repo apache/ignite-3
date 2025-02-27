@@ -64,6 +64,8 @@ import org.junit.jupiter.api.Test;
  * Test for partition RAFT commands serialization.
  */
 public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     /** Hybrid clock. */
     private final HybridClockImpl clock = new HybridClockImpl();
 
@@ -97,12 +99,12 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     @Test
     public void testUpdateCommand() throws Exception {
         TablePartitionIdMessage tablePartitionIdMessage = REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
-                .tableId(1)
+                .tableId(TABLE_ID)
                 .partitionId(1)
                 .build();
 
         UpdateCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                .tablePartitionId(tablePartitionIdMessage)
+                .tableId(TABLE_ID)
                 .commitPartitionId(tablePartitionIdMessage)
                 .rowUuid(UUID.randomUUID())
                 .messageRowToUpdate(PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
@@ -126,7 +128,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .build();
 
         UpdateCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                .tablePartitionId(tablePartitionIdMessage)
+                .tableId(TABLE_ID)
                 .commitPartitionId(tablePartitionIdMessage)
                 .rowUuid(UUID.randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
@@ -161,7 +163,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .build();
 
         var cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                .tablePartitionId(tablePartitionIdMessage)
+                .tableId(TABLE_ID)
                 .commitPartitionId(tablePartitionIdMessage)
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(UUID.randomUUID())
@@ -203,7 +205,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .build();
 
         var cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                .tablePartitionId(tablePartitionIdMessage)
+                .tableId(TABLE_ID)
                 .commitPartitionId(tablePartitionIdMessage)
                 .messageRowsToUpdate(rowsToRemove)
                 .txId(UUID.randomUUID())
@@ -303,7 +305,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                     .txId(updateCommand.txId())
                     .rowUuid(updateCommand.rowUuid())
-                    .tablePartitionId(updateCommand.tablePartitionId())
+                    .tableId(updateCommand.tableId())
                     .commitPartitionId(updateCommand.commitPartitionId())
                     .messageRowToUpdate(updateCommand.messageRowToUpdate())
                     .txCoordinatorId(updateCommand.txCoordinatorId())
@@ -315,7 +317,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
                     .txId(updateCommand.txId())
                     .messageRowsToUpdate(updateCommand.messageRowsToUpdate())
-                    .tablePartitionId(updateCommand.tablePartitionId())
+                    .tableId(updateCommand.tableId())
                     .commitPartitionId(updateCommand.commitPartitionId())
                     .txCoordinatorId(updateCommand.txCoordinatorId())
                     .initiatorTime(updateCommand.initiatorTime())

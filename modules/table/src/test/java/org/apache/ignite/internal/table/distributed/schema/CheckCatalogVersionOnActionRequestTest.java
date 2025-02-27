@@ -62,6 +62,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
     private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();
@@ -131,7 +133,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     private WriteCommand commandWithRequiredCatalogVersion(int requiredVersion) {
         return tableMessagesFactory.updateCommand()
-                .tablePartitionId(replicaMessagesFactory.tablePartitionIdMessage().build())
+                .tableId(TABLE_ID)
                 .commitPartitionId(replicaMessagesFactory.tablePartitionIdMessage().build())
                 .txId(UUID.randomUUID())
                 .rowUuid(UUID.randomUUID())

@@ -463,7 +463,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 segmentSizes,
                 checkpointBufferSize,
                 filePageStoreManager == null ? new TestPageReadWriteManager() : filePageStoreManager,
-                null,
                 flushDirtyPageForReplacement,
                 checkpointManager == null ? mockCheckpointTimeoutLock(true) : checkpointManager.checkpointTimeoutLock(),
                 checkpointManager == null ? () -> null : checkpointManager::currentCheckpointProgress,
@@ -506,7 +505,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         return new CheckpointManager(
                 "test",
-                null,
                 null,
                 mock(FailureManager.class),
                 checkpointConfig,

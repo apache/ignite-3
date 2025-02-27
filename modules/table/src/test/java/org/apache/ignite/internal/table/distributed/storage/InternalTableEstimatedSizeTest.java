@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -79,6 +80,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -306,7 +308,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 txManager,
                 lockManager,
                 ForkJoinPool.commonPool(),
-                partId,
+                enabledColocation() ? new ZonePartitionId(ZONE_ID, partId) : new TablePartitionId(TABLE_ID, partId),
                 TABLE_ID,
                 Map::of,
                 new Lazy<>(() -> null),
