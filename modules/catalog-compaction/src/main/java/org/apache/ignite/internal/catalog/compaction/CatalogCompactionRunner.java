@@ -545,10 +545,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         int partitions = zone.partitions();
 
-        List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
+        List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
 
         for (int p = 0; p < partitions; p++) {
-            replicationGroupIds.add(new TablePartitionId(table.id(), p));
+            replicationGroupIds.add(enabledColocation() ? new ZonePartitionId(table.zoneId(), p) : new TablePartitionId(table.id(), p));
         }
 
         return placementDriver.getAssignments(replicationGroupIds, nowTs)
@@ -564,7 +564,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                 deletedTables.put(table.id(), true);
                                 continue;
                             } else {
-                                throw new IllegalStateException("Cannot get assignments for table "
+                                throw new IllegalStateException("Cannot get assignments for replication group "
                                         + "[group=" + replicationGroupIds.get(p) + ']');
                             }
                         }
