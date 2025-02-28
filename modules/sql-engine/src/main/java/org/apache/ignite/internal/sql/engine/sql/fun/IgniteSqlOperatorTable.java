@@ -517,6 +517,8 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(EVERY);
         definedOperatorsBuilder.add(SOME);
 
+        register(SqlStdOperatorTable.SEARCH);
+
         // IS ... operator.
         definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NULL);
         definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_NULL);
