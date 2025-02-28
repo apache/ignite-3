@@ -51,7 +51,7 @@ import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft command handler that process {@link BuildIndexCommand}.
+ * Raft command handler that handles {@link BuildIndexCommand}.
  */
 public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexCommand> {
     private static final IgniteLogger LOG = Loggers.forClass(BuildIndexCommandHandler.class);
