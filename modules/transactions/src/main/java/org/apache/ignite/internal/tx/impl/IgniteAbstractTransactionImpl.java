@@ -57,7 +57,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     protected final long timeout;
 
     /** Flag indicating that the transaction was rolled back due to timeout. */
-    protected boolean timeoutExceeded;
+    protected volatile boolean timeoutExceeded;
 
     /**
      * The constructor.

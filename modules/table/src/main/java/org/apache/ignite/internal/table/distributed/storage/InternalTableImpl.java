@@ -2087,7 +2087,9 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private static boolean isFinishedDueToTimeout(Throwable e) {
-        return e instanceof TransactionException && ((TransactionException) e).errorCode() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+        Throwable unwrapped = unwrapCause(e);
+        return unwrapped instanceof TransactionException
+                && ((TransactionException) unwrapped).code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
     }
 
     private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {
