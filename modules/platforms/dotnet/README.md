@@ -51,8 +51,13 @@ List<string> names  = view.AsQueryable(tx)
 
 // Execute a distributed computation.
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
-int wordCount = await client.Compute.ExecuteAsync<int>(
-    nodes, "org.foo.bar.WordCountTask", "Hello, world!");
+IJobTarget<IEnumerable<IClusterNode>> jobTarget = JobTarget.AnyNode(nodes);
+var jobDesc = new JobDescriptor<string, int>(
+    "org.foo.bar.WordCountTask");
+IJobExecution<int> jobExecution = await client.Compute.SubmitAsync(
+    jobTarget, jobDesc, "Hello, world!");
+
+int wordCount = await jobExecution.GetResultAsync();
 ```
 
 # API Walkthrough
