@@ -318,7 +318,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             this.lastAppliedIndex = max(this.lastAppliedIndex, lastAppliedIndex);
             this.lastAppliedTerm = max(this.lastAppliedTerm, lastAppliedTerm);
 
-            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, lastAppliedIndex);
         }
     }
 
