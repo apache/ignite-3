@@ -39,6 +39,8 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     private final TopologyAwareRaftGroupService raftClient;
 
+    private final PlacementDriverMessageProcessor placementDriverMessageProcessor;
+
     /**
      * Constructor.
      *
@@ -49,11 +51,13 @@ public class ZonePartitionReplicaImpl implements Replica {
     public ZonePartitionReplicaImpl(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient
+            TopologyAwareRaftGroupService raftClient,
+            PlacementDriverMessageProcessor placementDriverMessageProcessor
     )  {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
         this.raftClient = raftClient;
+        this.placementDriverMessageProcessor = placementDriverMessageProcessor;
     }
 
     @Override
@@ -78,7 +82,7 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<? extends NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
-        throw new UnsupportedOperationException("processPlacementDriverMessage");
+        return placementDriverMessageProcessor.processPlacementDriverMessage(msg);
     }
 
     @Override
