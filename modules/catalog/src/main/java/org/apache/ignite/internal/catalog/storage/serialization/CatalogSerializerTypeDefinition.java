@@ -17,26 +17,15 @@
 
 package org.apache.ignite.internal.catalog.storage.serialization;
 
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
 /**
- * Annotation is used to dynamically create a registry of catalog object serializers.
- * All catalog object serializers must be marked with this annotation.
+ * Catalog serializer type definition.
+ *
+ * <p>Associates the type of the serializable object with a class container of serializers.
  */
-@Target(ElementType.TYPE)
-@Retention(RUNTIME)
-public @interface CatalogSerializer {
-    /**
-     * Returns serializer version.
-     */
-    short version();
+public interface CatalogSerializerTypeDefinition {
+    /** Returns type ID. */
+    int id();
 
-    /**
-     * The product version starting from which the serializer is used.
-     */
-    String since();
+    /** Returns serializer container class. */
+    Class<?> container();
 }

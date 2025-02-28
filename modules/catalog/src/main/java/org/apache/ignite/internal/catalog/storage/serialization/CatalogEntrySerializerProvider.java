@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage.serialization;
 
+import java.util.Arrays;
+
 /**
  * Catalog entry serializer provider.
  */
@@ -39,5 +41,6 @@ public interface CatalogEntrySerializerProvider {
     int latestSerializerVersion(int typeId);
 
     /** Default implementation. */
-    CatalogEntrySerializerProvider DEFAULT_PROVIDER = new CatalogEntrySerializerProviderImpl();
+    CatalogEntrySerializerProvider DEFAULT_PROVIDER =
+            new CatalogEntrySerializerProviderImpl(Arrays.asList(MarshallableEntryType.values()));
 }

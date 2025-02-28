@@ -58,7 +58,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  * Enumeration of all serializable catalog objects.
  */
-public enum MarshallableEntryType {
+public enum MarshallableEntryType implements CatalogSerializerTypeDefinition {
     ALTER_COLUMN(0, AlterColumnEntrySerializers.class),
     ALTER_ZONE(1, AlterZoneEntrySerializers.class),
     NEW_ZONE(2, NewZoneEntrySerializers.class),
@@ -122,13 +122,13 @@ public enum MarshallableEntryType {
         this.serializerContainer = serializerContainer;
     }
 
-    /** Returns type ID. */
+    @Override
     public int id() {
         return id;
     }
 
-    /** Returns serializer container class. */
-    public Class<?> serializersContainer() {
+    @Override
+    public Class<?> container() {
         return serializerContainer;
     }
 }

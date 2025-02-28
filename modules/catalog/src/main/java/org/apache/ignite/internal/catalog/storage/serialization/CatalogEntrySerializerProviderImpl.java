@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -27,19 +28,11 @@ import org.apache.ignite.internal.logger.Loggers;
 class CatalogEntrySerializerProviderImpl implements CatalogEntrySerializerProvider {
     private final Int2ObjectMap<VersionAwareSerializer<? extends MarshallableEntry>[]> serializers;
 
-    {
-        SerializerRegistryBuilder registryBuilder = new SerializerRegistryBuilder(this);
+    CatalogEntrySerializerProviderImpl(List<CatalogSerializerTypeDefinition> serializerTypes) {
+        SerializerRegistryBuilder registryBuilder = new SerializerRegistryBuilder(serializerTypes, this);
 
         try {
             serializers = registryBuilder.build();
-
-            if (serializers.size() != MarshallableEntryType.values().length) {
-                for (MarshallableEntryType type : MarshallableEntryType.values()) {
-                    if (!serializers.containsKey(type.id())) {
-                        throw new IllegalStateException("Serializer for type " + type + " not found.");
-                    }
-                }
-            }
         } catch (Throwable t) {
             IgniteLogger logger = Loggers.forClass(CatalogEntrySerializerProviderImpl.class);
 
@@ -53,7 +46,15 @@ class CatalogEntrySerializerProviderImpl implements CatalogEntrySerializerProvid
     public <T extends MarshallableEntry> VersionAwareSerializer<T> get(int version, int typeId) {
         VersionAwareSerializer<? extends MarshallableEntry>[] serializersArray = serializerOrThrow(typeId);
 
-        return (VersionAwareSerializer<T>) serializersArray[0];
+        if (version <= 0) {
+            throw new IllegalArgumentException("Serializer version must be positive [version=" + version + "].");
+        }
+
+        if (version > serializersArray.length) {
+            throw new IllegalArgumentException("Required serializer version not found [version=" + version + "].");
+        }
+
+        return (VersionAwareSerializer<T>) serializersArray[version - 1];
     }
 
     @Override

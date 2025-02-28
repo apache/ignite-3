@@ -34,7 +34,10 @@ import org.jetbrains.annotations.Nullable;
 public class SerializerRegistryBuilder {
     private final @Nullable CatalogEntrySerializerProvider provider;
 
-    public SerializerRegistryBuilder(@Nullable CatalogEntrySerializerProvider provider) {
+    private final List<CatalogSerializerTypeDefinition> serializerTypes;
+
+    SerializerRegistryBuilder(List<CatalogSerializerTypeDefinition> serializerTypes, @Nullable CatalogEntrySerializerProvider provider) {
+        this.serializerTypes = serializerTypes;
         this.provider = provider;
     }
 
@@ -53,16 +56,24 @@ public class SerializerRegistryBuilder {
     private Int2ObjectMap<List<VersionAwareSerializer<? extends MarshallableEntry>>> mapSerializersByType() {
         Int2ObjectMap<List<VersionAwareSerializer<? extends MarshallableEntry>>> result = new Int2ObjectOpenHashMap<>();
 
-        for (MarshallableEntryType type : MarshallableEntryType.values()) {
-            Class<?> containerClass = type.serializersContainer();
+        for (CatalogSerializerTypeDefinition type : serializerTypes) {
+            Class<?> containerClass = type.container();
 
             assert containerClass != null : type;
+
+            boolean atLeastSingleSerializerExists = false;
 
             for (Class<?> clazz : containerClass.getDeclaredClasses()) {
                 CatalogSerializer ann = clazz.getAnnotation(CatalogSerializer.class);
 
                 if (ann == null) {
                     continue;
+                }
+
+                if (!CatalogObjectSerializer.class.isAssignableFrom(clazz)) {
+                    throw new IllegalStateException(IgniteStringFormatter.format(
+                            "The target class doesn't implement the required interface [class={}, interface={}].",
+                            clazz.getCanonicalName(), CatalogObjectSerializer.class.getCanonicalName()));
                 }
 
                 List<VersionAwareSerializer<? extends MarshallableEntry>> serializers =
@@ -72,13 +83,25 @@ public class SerializerRegistryBuilder {
                     CatalogObjectSerializer<? extends MarshallableEntry> serializer = instantiate(clazz);
 
                     if (ann.version() <= 0) {
-                        throw new IllegalArgumentException("Serializer version must be positive [class=" + clazz.getCanonicalName() + "].");
+                        throw new IllegalArgumentException("Serializer `version` attribute must be positive "
+                                + "[version=" + ann.version() + ", class=" + clazz.getCanonicalName() + "].");
+                    }
+
+                    if (ann.since().isBlank()) {
+                        throw new IllegalArgumentException("Serializer 'since' attribute can't be empty or blank "
+                                + "[class=" + clazz.getCanonicalName() + "].");
                     }
 
                     serializers.add(new VersionAwareSerializer<>(serializer, ann.version()));
                 } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
                     throw new RuntimeException("Cannot instantiate serializer [class=" + clazz + "].", e);
                 }
+
+                atLeastSingleSerializerExists = true;
+            }
+
+            if (!atLeastSingleSerializerExists) {
+                throw new IllegalStateException("At least one serializer must be implemented [type=" + type + "].");
             }
         }
 
@@ -120,14 +143,16 @@ public class SerializerRegistryBuilder {
 
                 if (versionIdx >= orderedSerializers.length) {
                     throw new IllegalArgumentException(IgniteStringFormatter.format(
-                            "The serializer version must be incremented by one [type={}, ver={}, max={}, class={}].",
+                            "Serializer version must be incremented by one [typeId={}, version={}, expected={}, class={}].",
                             typeId, serializer.version(), orderedSerializers.length, serializer.delegate().getClass()));
                 }
 
                 if (orderedSerializers[versionIdx] != null) {
                     throw new IllegalArgumentException(IgniteStringFormatter.format(
                             "Duplicate serializer version [serializer1={}, serializer2={}].",
-                            orderedSerializers[versionIdx].delegate().getClass(), serializer.delegate().getClass()));
+                            orderedSerializers[versionIdx].delegate().getClass().getCanonicalName(),
+                            serializer.delegate().getClass().getCanonicalName()
+                    ));
                 }
 
                 orderedSerializers[versionIdx] = serializer;
