@@ -947,6 +947,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
 
+            // We do not wait future in order not to block meta storage updates.
             replicaMgr.weakStopReplica(
                     groupId,
                     WeakReplicaStopReason.PRIMARY_EXPIRED,

@@ -1451,6 +1451,7 @@ public class PartitionReplicaLifecycleManager extends
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
             ZonePartitionId groupId = (ZonePartitionId) parameters.groupId();
 
+            // We do not wait future in order not to block meta storage updates.
             replicaMgr.weakStopReplica(
                     groupId,
                     WeakReplicaStopReason.PRIMARY_EXPIRED,
