@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.rel.core.JoinRelType.ANTI;
-import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
@@ -186,8 +185,6 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
     @ParameterizedTest
     @EnumSource(JoinRelType.class)
     void checkHashJoinNodeWithDifferentBufferSize(JoinRelType joinType) {
-        Assumptions.assumeFalse(joinType == ANTI, "ANTI join type is buggy");
-
         validateDistinctData(executionContext(1), joinType, 0, 0);
         validateDistinctData(executionContext(1), joinType, 0, 1);
         validateDistinctData(executionContext(1), joinType, 0, 10);

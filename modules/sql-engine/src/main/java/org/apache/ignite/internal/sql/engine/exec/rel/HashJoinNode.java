@@ -578,6 +578,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             }
                         }
 
+                        // Emit matched row.
                         if (anyMatched) {
                             requested--;
 
@@ -635,10 +636,6 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             requested--;
 
                             downstream().push(left);
-
-                            if (requested == 0) {
-                                break;
-                            }
                         }
 
                         left = null;
