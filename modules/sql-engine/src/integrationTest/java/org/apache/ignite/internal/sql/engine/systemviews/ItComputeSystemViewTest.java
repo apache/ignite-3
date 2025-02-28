@@ -87,6 +87,13 @@ public class ItComputeSystemViewTest extends AbstractSystemViewTest {
                     .withDefaultSchema("SYSTEM")
                     .columnMetadata(
                             new MetadataMatcher().name("COORDINATOR_NODE_ID").type(ColumnType.STRING).nullable(false),
+                            new MetadataMatcher().name("COMPUTE_TASK_ID").type(ColumnType.STRING).precision(36).nullable(true),
+                            new MetadataMatcher().name("COMPUTE_TASK_STATUS").type(ColumnType.STRING).nullable(true),
+                            new MetadataMatcher().name("COMPUTE_TASK_CREATE_TIME").type(ColumnType.TIMESTAMP).nullable(true),
+                            new MetadataMatcher().name("COMPUTE_TASK_START_TIME").type(ColumnType.TIMESTAMP).nullable(true),
+                            new MetadataMatcher().name("COMPUTE_TASK_FINISH_TIME").type(ColumnType.TIMESTAMP).nullable(true),
+
+                            // Legacy columns.
                             new MetadataMatcher().name("ID").type(ColumnType.STRING).precision(36).nullable(true),
                             new MetadataMatcher().name("STATUS").type(ColumnType.STRING).nullable(true),
                             new MetadataMatcher().name("CREATE_TIME").type(ColumnType.TIMESTAMP).nullable(true),

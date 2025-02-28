@@ -50,7 +50,6 @@ import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
-import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -97,7 +96,6 @@ public class Compactor extends IgniteWorker {
      *
      * @param log Logger.
      * @param igniteInstanceName Name of the Ignite instance this runnable is used in.
-     * @param listener Listener for life-cycle events.
      * @param threads Number of compaction threads.
      * @param filePageStoreManager File page store manager.
      * @param pageSize Page size in bytes.
@@ -106,13 +104,12 @@ public class Compactor extends IgniteWorker {
     public Compactor(
             IgniteLogger log,
             String igniteInstanceName,
-            @Nullable IgniteWorkerListener listener,
             ConfigurationValue<Integer> threads,
             FilePageStoreManager filePageStoreManager,
             int pageSize,
             FailureManager failureManager
     ) {
-        super(log, igniteInstanceName, "compaction-thread", listener);
+        super(log, igniteInstanceName, "compaction-thread");
 
         this.filePageStoreManager = filePageStoreManager;
         this.failureManager = failureManager;

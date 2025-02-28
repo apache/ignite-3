@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.ArrayList;
@@ -579,20 +580,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public void close() {
-        if (!transitionToTerminalState(StorageState.CLOSED)) {
+        if (!transitionToClosedState(state, this::createStorageInfo)) {
             return;
         }
 
         busyLock.block();
 
         closeResources();
-    }
-
-    /**
-     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
-     */
-    private boolean transitionToTerminalState(StorageState targetState) {
-        return StorageUtils.transitionToTerminalState(targetState, state);
     }
 
     /**
@@ -631,7 +625,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @return {@code true} if this call actually made the transition and, hence, the caller must call {@link #closeResources()}.
      */
     public boolean transitionToDestroyedState() {
-        if (!transitionToTerminalState(StorageState.DESTROYED)) {
+        if (!StorageUtils.transitionToDestroyedState(state)) {
             return false;
         }
 

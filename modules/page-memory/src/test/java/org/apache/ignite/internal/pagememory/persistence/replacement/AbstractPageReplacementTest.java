@@ -140,7 +140,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
         checkpointManager = new CheckpointManager(
                 NODE_NAME,
                 null,
-                null,
                 failureManager,
                 checkpointConfig,
                 filePageStoreManager,
@@ -163,7 +162,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 new long[]{MAX_MEMORY_SIZE},
                 10 * MiB,
                 filePageStoreManager,
-                null,
                 (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
                 checkpointManager.checkpointTimeoutLock(),
                 () -> null,

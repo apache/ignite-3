@@ -188,10 +188,6 @@ public class PersistentPageMemory implements PageMemory {
     /** Offheap read write lock instance. */
     private final OffheapReadWriteLock rwLock;
 
-    /** Callback invoked to track changes in pages. {@code Null} if page tracking functionality is disabled. */
-    @Nullable
-    private final PageChangeTracker changeTracker;
-
     /** Field updater. */
     private static final AtomicIntegerFieldUpdater<PersistentPageMemory> pageReplacementWarnedFieldUpdater =
             AtomicIntegerFieldUpdater.newUpdater(PersistentPageMemory.class, "pageReplacementWarned");
@@ -232,7 +228,6 @@ public class PersistentPageMemory implements PageMemory {
      * @param segmentSizes Segments sizes in bytes.
      * @param checkpointBufferSize Checkpoint buffer size in bytes.
      * @param pageStoreManager Page store manager.
-     * @param changeTracker Callback invoked to track changes in pages.
      * @param flushDirtyPageForReplacement Write callback invoked when a dirty page is removed for replacement.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
      * @param checkpointProgressSupplier The supplier of checkpoint progress.
@@ -245,7 +240,6 @@ public class PersistentPageMemory implements PageMemory {
             long[] segmentSizes,
             long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
-            @Nullable PageChangeTracker changeTracker,
             WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
             Supplier<@Nullable CheckpointProgress> checkpointProgressSupplier,
@@ -258,7 +252,6 @@ public class PersistentPageMemory implements PageMemory {
         this.checkpointProgressSupplier = checkpointProgressSupplier;
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
-        this.changeTracker = changeTracker;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
 
         directMemoryProvider = new UnsafeMemoryProvider(null);
@@ -1181,11 +1174,6 @@ public class PersistentPageMemory implements PageMemory {
         boolean wasDirty = isDirty(page);
 
         try {
-            // If page is for restore, we shouldn't mark it as changed.
-            if (!restore && markDirty && !wasDirty && changeTracker != null) {
-                changeTracker.apply(page, fullId, this);
-            }
-
             assert getCrc(page + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
 
             if (markDirty) {
@@ -1797,21 +1785,6 @@ public class PersistentPageMemory implements PageMemory {
     @Override
     public PageIoRegistry ioRegistry() {
         return ioRegistry;
-    }
-
-    /**
-     * Callback invoked to track changes in pages.
-     */
-    @FunctionalInterface
-    public interface PageChangeTracker {
-        /**
-         * Callback body.
-         *
-         * @param page – Page pointer.
-         * @param fullPageId Full page ID.
-         * @param pageMemoryImpl Page memory.
-         */
-        void apply(long page, FullPageId fullPageId, PersistentPageMemory pageMemoryImpl);
     }
 
     /**

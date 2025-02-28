@@ -344,29 +344,29 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         // Char
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "VARCHAR length 10000000 must be between 1 and 65536. [column=VAL2]",
-                () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(10000000)")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(2147483648)")
         );
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "VARCHAR length 10000000 must be between 1 and 65536. [column=VAL2]",
-                () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(10000000) ")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 VARCHAR(2147483648) ")
         );
 
         // Binary
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "BINARY length 10000000 must be between 1 and 65536. [column=VAL2]",
-                () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(10000000)")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(2147483648)")
         );
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "VARBINARY length 10000000 must be between 1 and 65536. [column=VAL2]",
-                () -> sql("ALTER TABLE test ADD COLUMN val2 VARBINARY(10000000)")
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("ALTER TABLE test ADD COLUMN val2 VARBINARY(2147483648)")
         );
 
         // Decimal
