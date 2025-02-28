@@ -55,6 +55,14 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return mq.getPercentageOriginalRows(rel.getInput());
     }
 
+    /**
+     * Estimates the percentage of the number of rows actually produced by a
+     * relational expression out of the number of rows it would produce if all
+     * single-table filter conditions were removed.
+     *
+     * @return estimated percentage (between 0.0 and 1.0), or null if no
+     * reliable estimate can be determined
+     */
     public Double getPercentageOriginalRows(ProjectableFilterableTableScan rel, RelMetadataQuery mq) {
         Double tableRowCount = rel.getTable().getRowCount();
         Double relRowCount = mq.getRowCount(rel);

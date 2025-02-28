@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import static org.apache.ignite.internal.sql.engine.metadata.IgniteMdPercentageOriginalRows.quotientForPercentage;
-
 import java.util.List;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
