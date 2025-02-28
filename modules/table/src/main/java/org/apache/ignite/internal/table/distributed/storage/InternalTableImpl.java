@@ -524,7 +524,7 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx.implicit()) {
-            return 10_000;
+            return 3_000;
         }
 
         return tx.timeout();
