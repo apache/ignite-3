@@ -17,50 +17,55 @@
 
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
+import org.apache.ignite.internal.network.annotations.TransferableEnum;
+
 /**
  * Transaction operation type.
  */
-public enum RequestType {
-    RW_GET,
+public enum RequestType implements TransferableEnum {
+    RW_GET(0),
 
-    RW_GET_ALL,
+    RW_GET_ALL(1),
 
-    RW_DELETE,
+    RW_DELETE(2),
 
-    RW_DELETE_ALL,
+    RW_DELETE_ALL(3),
 
-    RW_DELETE_EXACT,
+    RW_DELETE_EXACT(4),
 
-    RW_DELETE_EXACT_ALL,
+    RW_DELETE_EXACT_ALL(5),
 
-    RW_INSERT,
+    RW_INSERT(6),
 
-    RW_INSERT_ALL,
+    RW_INSERT_ALL(7),
 
-    RW_UPSERT,
+    RW_UPSERT(8),
 
-    RW_UPSERT_ALL,
+    RW_UPSERT_ALL(9),
 
-    RW_REPLACE,
+    RW_REPLACE(10),
 
-    RW_REPLACE_IF_EXIST,
+    RW_REPLACE_IF_EXIST(11),
 
-    RW_GET_AND_DELETE,
+    RW_GET_AND_DELETE(12),
 
-    RW_GET_AND_REPLACE,
+    RW_GET_AND_REPLACE(13),
 
-    RW_GET_AND_UPSERT,
+    RW_GET_AND_UPSERT(14),
 
-    RW_SCAN,
+    RW_SCAN(15),
 
-    RO_GET,
+    RO_GET(16),
 
-    RO_GET_ALL,
+    RO_GET_ALL(17),
 
-    RO_SCAN;
+    RO_SCAN(18);
 
-    /** Cached array with all enum values. */
-    private static final RequestType[] VALUES = values();
+    private final int transferableId;
+
+    RequestType(int transferableId) {
+        this.transferableId = transferableId;
+    }
 
     /**
      * Returns {@code true} if the operation is an RW read.
@@ -100,17 +105,8 @@ public enum RequestType {
         }
     }
 
-    /**
-     * Returns the enumerated value from its ordinal.
-     *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
-     */
-    public static RequestType fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-        }
-
-        return VALUES[ordinal];
+    @Override
+    public int transferableId() {
+        return transferableId;
     }
 }
