@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,6 +33,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -458,7 +460,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         storage1.destroy();
 
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::startRebalance);
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage1::startRebalance);
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_ERR, storage1::startRebalance);
     }
 
     @Test
@@ -497,7 +499,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
         try {
             assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::clear);
-            assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage1::clear);
+            assertThrowsIgniteInternalException(TX_STATE_STORAGE_ERR, storage1::clear);
             assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage2::clear);
         } finally {
             assertThat(storage2.abortRebalance(), willCompleteSuccessfully());
@@ -532,6 +534,26 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         assertThat(storage.leaseInfo(), is(leaseInfo));
         assertThat(storage.lastAppliedIndex(), is(40L));
         assertThat(storage.lastAppliedTerm(), is(50L));
+    }
+
+    @Test
+    void testCloseStartedRebalance() {
+        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+
+        assertThat(storage.startRebalance(), willCompleteSuccessfully());
+
+        assertThrows(IgniteInternalException.class, storage::close);
+
+        assertThat(storage.finishRebalance(saneMvPartitionMeta(0, 0, new byte[] {1, 2, 3})), willCompleteSuccessfully());
+    }
+
+    @Test
+    void testDestroyStartedRebalance() {
+        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+
+        assertThat(storage.startRebalance(), willCompleteSuccessfully());
+
+        assertDoesNotThrow(storage::destroy);
     }
 
     private static void checkStorageIsEmpty(TxStatePartitionStorage storage) {

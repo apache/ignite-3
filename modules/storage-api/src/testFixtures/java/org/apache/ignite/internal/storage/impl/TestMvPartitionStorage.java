@@ -685,6 +685,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
+        if (rebalance) {
+            throw new StorageRebalanceException();
+        }
+
         closed = true;
 
         clear0();

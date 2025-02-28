@@ -261,7 +261,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -1041,7 +1040,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         )));
     }
 
-    private @NotNull Node getLeaseholderNodeForPartition(Node node, int partId) {
+    private Node getLeaseholderNodeForPartition(Node node, int partId) {
         Set<Assignment> assignments = getPartitionClusterNodes(node, partId);
 
         String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();

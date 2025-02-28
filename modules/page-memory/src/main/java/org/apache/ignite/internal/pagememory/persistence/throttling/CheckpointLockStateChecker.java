@@ -15,33 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util.worker;
+package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 /**
- * This interface defines worker listener.
+ * Interface for perform checking that checkpoint lock is held by current track.
  */
-public interface IgniteWorkerListener {
+@FunctionalInterface
+public interface CheckpointLockStateChecker {
     /**
-     * Callback before executing the {@link IgniteWorker#body body of the worker}.
-     *
-     * @param worker Started worker.
+     * Returns {@code true} if checkpoint lock is held by current thread.
      */
-    default void onStarted(IgniteWorker worker) {
-    }
-
-    /**
-     * Callback after executing the {@link IgniteWorker#body body of the worker}.
-     *
-     * @param worker Stopped worker.
-     */
-    default void onStopped(IgniteWorker worker) {
-    }
-
-    /**
-     * Callback on idle worker.
-     *
-     * @param worker Idle worker.
-     */
-    default void onIdle(IgniteWorker worker) {
-    }
+    boolean checkpointLockIsHeldByThread();
 }

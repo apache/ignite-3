@@ -58,15 +58,25 @@ public class SqlQueriesViewProvider {
         return SystemViews.<QueryInfo>nodeViewBuilder()
                 .name("SQL_QUERIES")
                 .nodeNameColumnAlias("INITIATOR_NODE")
+                .<String>addColumn("QUERY_ID", idType, info -> mapId(info.id()))
+                .<String>addColumn("QUERY_PHASE", stringOf(10), info -> mapPhase(info.phase()))
+                .<String>addColumn("QUERY_TYPE", stringOf(10), SqlQueriesViewProvider::deriveQueryType)
+                .<String>addColumn("QUERY_DEFAULT_SCHEMA", stringType, QueryInfo::schema)
+                .<String>addColumn("SQL", stringType, QueryInfo::sql)
+                .<Instant>addColumn("QUERY_START_TIME", timestampType, QueryInfo::startTime)
+                .<String>addColumn("TRANSACTION_ID", idType, info -> mapId(info.transactionId()))
+                .<String>addColumn("PARENT_QUERY_ID", idType, info -> mapId(info.parentId()))
+                .<Integer>addColumn("QUERY_STATEMENT_ORDINAL", NativeTypes.INT32, info -> mapStatementNum(info.statementNum()))
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .<String>addColumn("ID", idType, info -> mapId(info.id()))
                 .<String>addColumn("PHASE", stringOf(10), info -> mapPhase(info.phase()))
                 .<String>addColumn("TYPE", stringOf(10), SqlQueriesViewProvider::deriveQueryType)
                 .<String>addColumn("SCHEMA", stringType, QueryInfo::schema)
-                .<String>addColumn("SQL", stringType, QueryInfo::sql)
                 .<Instant>addColumn("START_TIME", timestampType, QueryInfo::startTime)
-                .<String>addColumn("TRANSACTION_ID", idType, info -> mapId(info.transactionId()))
                 .<String>addColumn("PARENT_ID", idType, info -> mapId(info.parentId()))
                 .<Integer>addColumn("STATEMENT_NUM", NativeTypes.INT32, info -> mapStatementNum(info.statementNum()))
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(viewDataPublisher)
                 .build();
     }
