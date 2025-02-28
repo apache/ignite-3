@@ -27,6 +27,8 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import java.util.LinkedHashMap;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.util.Static;
@@ -42,6 +44,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests mapping internal exceptions to public SqlException.
  */
 class SqlExceptionMapperUtilTest {
+    @Test
+    public void test() {
+        TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {};
+
+        System.out.println(TYPE_REF.getClass().getGenericSuperclass());
+    }
+
     /**
      * Tests a default mapping of internal exceptions passed from the sql engine.
      */
