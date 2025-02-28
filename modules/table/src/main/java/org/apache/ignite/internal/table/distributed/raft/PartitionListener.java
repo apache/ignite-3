@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -168,7 +170,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.indexMetaStorage = indexMetaStorage;
         this.localNodeId = localNodeId;
 
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
@@ -300,6 +302,38 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
 
         return result;
+    }
+
+    @Override
+    public void initialize(
+            @Nullable RaftGroupConfiguration config,
+            @Nullable LeaseInfo leaseInfo,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
+        if (lastAppliedIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        storage.runConsistently(locker -> {
+            if (config != null) {
+                setCurrentGroupTopology(config);
+
+                storage.committedGroupConfiguration(config);
+            }
+
+            if (leaseInfo != null) {
+                storage.updateLease(leaseInfo.leaseStartTime(), leaseInfo.primaryReplicaNodeId(), leaseInfo.primaryReplicaNodeName());
+            }
+
+            storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+
+            return null;
+        });
+
+        // Initiate a flush but do not wait for it. This is needed to save the initialization information as soon as possible (to make
+        // recovery more efficient), without blocking the caller thread.
+        storage.flush();
     }
 
     /**
@@ -488,8 +522,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {
-        currentGroupTopology = new HashSet<>(config.peers());
-        currentGroupTopology.addAll(config.learners());
+        setCurrentGroupTopology(config);
 
         // Skips the update because the storage has already recorded it.
         if (config.index() <= storage.lastAppliedIndex()) {
@@ -514,9 +547,19 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
     }
 
+    private void setCurrentGroupTopology(RaftGroupConfiguration config) {
+        var currentGroupTopology = new HashSet<>(config.peers());
+        currentGroupTopology.addAll(config.learners());
+
+        this.currentGroupTopology = currentGroupTopology;
+    }
+
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        onSnapshotSaveHandler.onSnapshotSave(List.of(this))
+        long maxAppliedIndex = max(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
+        long maxAppliedTerm = max(storage.lastAppliedTerm(), txStatePartitionStorage.lastAppliedTerm());
+
+        onSnapshotSaveHandler.onSnapshotSave(maxAppliedIndex, maxAppliedTerm, List.of(this))
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
@@ -542,6 +585,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
+        if (lastAppliedIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(locker -> {
             storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
