@@ -43,11 +43,10 @@ public interface PageReadWriteManager {
      * @param grpId Group ID, may be {@code 0} if the page is a meta page.
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @return Page store where the page was written to.
      * @throws IgniteInternalCheckedException If failed to write page.
      */
-    PageStore write(int grpId, long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException;
+    PageStore write(int grpId, long pageId, ByteBuffer pageBuf) throws IgniteInternalCheckedException;
 
     /**
      * Allocates a page for the given page space.

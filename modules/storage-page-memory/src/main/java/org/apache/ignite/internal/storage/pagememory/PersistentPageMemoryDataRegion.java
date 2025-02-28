@@ -111,7 +111,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 calculateSegmentSizes(dataRegionConfigView.size(), Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView.size()),
                 filePageStoreManager,
-                (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
+                checkpointManager::writePageToDeltaFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
                 currentCheckpointProgress,
                 pageSize,
