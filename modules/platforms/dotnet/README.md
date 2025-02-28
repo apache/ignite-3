@@ -53,7 +53,7 @@ List<string> names  = view.AsQueryable(tx)
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
 IJobTarget<IEnumerable<IClusterNode>> jobTarget = JobTarget.AnyNode(nodes);
 var jobDesc = new JobDescriptor<string, int>(
-    "org.foo.bar.WordCountTask");
+    "org.foo.bar.WordCountJob");
 IJobExecution<int> jobExecution = await client.Compute.SubmitAsync(
     jobTarget, jobDesc, "Hello, world!");
 
@@ -226,8 +226,16 @@ Compute API is used to execute distributed computations on the cluster. Compute 
 
 ```cs 
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
-string result = await client.Compute.ExecuteAsync<string>(
-    nodes, "org.acme.tasks.MyTask", "Task argument 1", "Task argument 2");
+
+IJobTarget<IEnumerable<IClusterNode>> jobTarget = JobTarget.AnyNode(nodes);
+
+var jobDesc = new JobDescriptor<string, string>(
+    "org.foo.bar.MyJob");
+
+IJobExecution<string> jobExecution = await client.Compute.SubmitAsync(
+    jobTarget, jobDesc, "Job Arg");
+
+string jobResult = await jobExecution.GetResultAsync();
 ```
 
 
