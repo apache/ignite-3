@@ -132,9 +132,6 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         cmd.setErr(new PrintWriter(serr));
     }
 
-    /**
-     * @return Last command's output.
-     */
     public String getOutput() {
         return sout.toString();
     }

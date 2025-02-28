@@ -34,8 +34,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link ClusterInitCommand}.
- * <p>
- * Because the {@link org.apache.ignite.internal.cli.CliIntegrationTest} extends
+ *
+ * <p>Because the {@link org.apache.ignite.internal.cli.CliIntegrationTest} extends
  * {@link org.apache.ignite.internal.ClusterPerClassIntegrationTest}, each CLI test case for init has to be placed in a separate
  * test class. It'd ideal to refactor the base classes to have a CLI init test class with multiple test cases.
  * This may be needed if more tests are added.

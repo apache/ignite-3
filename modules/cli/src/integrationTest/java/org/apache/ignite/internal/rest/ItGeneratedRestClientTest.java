@@ -58,7 +58,6 @@ import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.DeployMode;
-import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
