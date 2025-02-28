@@ -55,6 +55,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -752,7 +753,7 @@ public class IgniteUtils {
      * @throws CancellationException If this future was cancelled.
      * @throws ExecutionException If this future completed exceptionally.
      */
-    public static <T> T getUninterruptibly(CompletableFuture<T> future) throws ExecutionException {
+    public static <T> T getUninterruptibly(Future<T> future) throws ExecutionException {
         boolean interrupted = false;
 
         try {
@@ -769,6 +770,29 @@ public class IgniteUtils {
             }
         }
     }
+
+
+    /**
+     * Blocks until the future is completed and either returns the value from the normal completion, or throws an exception if the future
+     * was completed exceptionally. The exception might be wrapped in a copy preserving the error code.
+     *
+     * <p>The wait is interruptible. That is, the thread can be interrupted; in such case, {@link InterruptedException} is thrown sneakily.
+     *
+     * @param future Future to wait on.
+     * @return Value from the future.
+     */
+    public static <T> T getInterruptibly(Future<T> future) {
+        try {
+            return future.get();
+        } catch (ExecutionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw ExceptionUtils.sneakyThrow(e);
+        }
+    }
+
 
     /**
      * Stops workers from given collection and waits for their completion.

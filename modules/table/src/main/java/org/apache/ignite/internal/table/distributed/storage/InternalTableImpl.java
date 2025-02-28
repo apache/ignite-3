@@ -144,8 +144,6 @@ import org.jetbrains.annotations.Nullable;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-24580 - Make sure tableId always gets enlisted.
-
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
@@ -357,8 +355,6 @@ public class InternalTableImpl implements InternalTable {
         if (enlistment != null) {
             assert !actualTx.implicit();
 
-            enlistment.addTableId(tableId);
-
             fut = trackingInvoke(
                     actualTx,
                     partId,
@@ -488,8 +484,6 @@ public class InternalTableImpl implements InternalTable {
 
             if (enlistment != null) {
                 assert !actualTx.implicit();
-
-                enlistment.addTableId(tableId);
 
                 fut = trackingInvoke(
                         actualTx,
@@ -640,8 +634,8 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
         return enlist(partId, tx)
-                .thenCompose(primaryReplicaAndConsistencyToken ->
-                        trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndConsistencyToken, noWriteChecker, attemptsObtainLock));
+                .thenCompose(enlistment ->
+                        trackingInvoke(tx, partId, mapFunc, full, enlistment, noWriteChecker, attemptsObtainLock));
     }
 
     /**
@@ -666,6 +660,8 @@ public class InternalTableImpl implements InternalTable {
             int retryOnLockConflict
     ) {
         assert !tx.isReadOnly() : format("Tracking invoke is available only for read-write transactions [tx={}].", tx);
+
+        enlistment.addTableId(tableId);
 
         ReplicaRequest request = mapFunc.apply(enlistment.consistencyToken());
 
@@ -1756,22 +1752,23 @@ public class InternalTableImpl implements InternalTable {
             protected CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th) {
                 CompletableFuture<Void> opFut;
 
-                    if (actualTx.implicit()) {
-                        opFut = completedOrFailedFuture(null, th);
-                    } else {
-                        var replicationGrpId = targetReplicationGroupId(partId);
+                if (actualTx.implicit()) {
+                    opFut = completedOrFailedFuture(null, th);
+                } else {
+                    var replicationGrpId = targetReplicationGroupId(partId);
 
-                    opFut = tx.enlistedPartition(replicationGrpId) != null ? completeScan(
-                            tx.id(),
-                            replicationGrpId,
-                            scanId,
-                            th,
-                            tx.enlistedPartition(replicationGrpId).primaryNodeConsistentId(),
-                            intentionallyClose
+                    PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGrpId);
+                    opFut = enlistment != null ? completeScan(
+                        tx.id(),
+                        replicationGrpId,
+                        scanId,
+                        th,
+                        enlistment.primaryNodeConsistentId(),
+                        intentionallyClose
                     ) : completedOrFailedFuture(null, th);
                 }
 
-                    return postEnlist(
+                return postEnlist(
                             opFut,
                             intentionallyClose,
                             actualTx,
