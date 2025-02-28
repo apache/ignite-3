@@ -33,6 +33,8 @@ import org.jetbrains.annotations.Nullable;
  * Client transactions implementation.
  */
 public class ClientTransactions implements IgniteTransactions {
+    private static final int DEFAULT_TIMEOUT = 0;
+
     /** Channel. */
     private final ReliableChannel ch;
 
@@ -63,7 +65,7 @@ public class ClientTransactions implements IgniteTransactions {
             @Nullable TransactionOptions options,
             long observableTimestamp) {
         boolean readOnly = options != null && options.readOnly();
-        long timeout = options == null ? 0 : options.timeoutMillis();
+        long timeout = options == null ? DEFAULT_TIMEOUT : options.timeoutMillis();
 
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,

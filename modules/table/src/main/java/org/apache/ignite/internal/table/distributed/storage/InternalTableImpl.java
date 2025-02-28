@@ -393,23 +393,6 @@ public class InternalTableImpl implements InternalTable {
         }).thenCompose(identity());
     }
 
-    private long getTimeout(InternalTransaction tx) {
-        // TODO
-        if (tx.isReadOnly()) {
-            return tx.timeout();
-        }
-
-        if (tx.timeout() == 0) {
-            return 1_000;
-        }
-
-        if (tx.implicit()) {
-            return 10_000;
-        }
-
-        return tx.timeout();
-    }
-
     /**
      * Enlists a single row into a transaction.
      *
@@ -528,6 +511,23 @@ public class InternalTableImpl implements InternalTable {
 
             return completedFuture(r);
         }).thenCompose(identity());
+    }
+
+    private long getTimeout(InternalTransaction tx) {
+        // TODO
+        if (tx.isReadOnly()) {
+            return tx.timeout();
+        }
+
+        if (tx.timeout() == 0) {
+            return 1_000;
+        }
+
+        if (tx.implicit()) {
+            return 10_000;
+        }
+
+        return tx.timeout();
     }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
@@ -795,10 +795,6 @@ public class InternalTableImpl implements InternalTable {
                 }
             }
         }).thenCompose(identity());
-    }
-
-    private static boolean isFinishedDueToTimeout(Throwable e) {
-        return e instanceof TransactionException && ((TransactionException) e).errorCode() == TX_ALREADY_FINISHED_ERR;
     }
 
     /**
@@ -2088,6 +2084,10 @@ public class InternalTableImpl implements InternalTable {
         public void onRequestEnd() {
             // No-op.
         }
+    }
+
+    private static boolean isFinishedDueToTimeout(Throwable e) {
+        return e instanceof TransactionException && ((TransactionException) e).errorCode() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
     }
 
     private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {

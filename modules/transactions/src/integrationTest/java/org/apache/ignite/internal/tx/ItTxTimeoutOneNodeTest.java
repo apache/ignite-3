@@ -44,15 +44,16 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
     abstract InternalTransaction toInternalTransaction(Transaction tx);
 
+    private Table createTestTable() {
+        ignite().sql().executeScript("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
+        return ignite().tables().table(TABLE_NAME);
+    }
+
     @Test
     void roTransactionTimesOut() throws Exception {
-        Ignite ignite = ignite();
+        Table table = createTestTable();
 
-        ignite.sql().executeScript("CREATE TABLE " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
-
-        Table table = ignite.tables().table(TABLE_NAME);
-
-        Transaction roTx = ignite.transactions().begin(new TransactionOptions().readOnly(true).timeoutMillis(100));
+        Transaction roTx = ignite().transactions().begin(new TransactionOptions().readOnly(true).timeoutMillis(100));
 
         // Make sure the RO tx actually begins on the server (as thin client transactions are lazy).
         doGetOn(table, roTx);
@@ -69,13 +70,9 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void readWriteTransactionTimesOut() throws InterruptedException {
-        Ignite ignite = ignite();
+        Table table = createTestTable();
 
-        ignite.sql().executeScript("CREATE TABLE " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
-
-        Table table = ignite.tables().table(TABLE_NAME);
-
-        Transaction rwTx = ignite.transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(5_000));
+        Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(200));
 
         // Make sure the tx actually begins on the server (as thin client transactions are lazy).
         doPutOn(table, rwTx);
@@ -92,13 +89,9 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void timeoutExceptionHasCorrectCause() throws InterruptedException {
-        Ignite ignite = ignite();
+        Table table = createTestTable();
 
-        ignite.sql().executeScript("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
-
-        Table table = ignite.tables().table(TABLE_NAME);
-
-        Transaction rwTx = ignite.transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(1_000));
+        Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(1_000));
 
         // Wait for an exception.
         assertTrue(
@@ -107,8 +100,6 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
         );
 
         assertThrows(TransactionException.class, () -> doGetOn(table, rwTx));
-        // TODO: uncomment the following assert after IGNITE-24233 is fixed.
-        // assertThrows(TransactionException.class, roTx::commit);
     }
 
     private static boolean timeoutExceeded(Table table, Transaction rwTx) {
@@ -117,7 +108,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
             return false;
         } catch (TransactionException ex) {
             if (ex.code() == Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR) {
-               return true;
+                return true;
             } else {
                 fail("Expected exception code to be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR but found: " + ex.getMessage());
                 return false;

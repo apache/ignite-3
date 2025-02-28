@@ -1875,9 +1875,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
-            boolean isFinishedDueToTimeout = txStateMeta != null &&
-                    txStateMeta.isFinishedDueToTimeout() != null &&
-                    txStateMeta.isFinishedDueToTimeout();
+            boolean isFinishedDueToTimeout = txStateMeta != null
+                    && txStateMeta.isFinishedDueToTimeout() != null
+                    && txStateMeta.isFinishedDueToTimeout();
 
 
             return failedFuture(new TransactionException(
