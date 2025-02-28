@@ -139,12 +139,12 @@ def run_setup():
         long_description_content_type='text/markdown',
         url='https://github.com/apache/ignite-3/tree/main/modules/platforms/python',
         packages=setuptools.find_packages(),
+        include_package_data=True,
         ext_modules=[CMakeExtension(EXTENSION_NAME)],
         cmdclass=dict(build_ext=CMakeBuild),
         install_requires=install_requirements,
         license='Apache License 2.0',
         license_files=('LICENSE', 'NOTICE'),
-        data_files=('pyignite_dbapi/_version.txt'),
         classifiers=[
             'Programming Language :: C++',
             'Programming Language :: Python',
