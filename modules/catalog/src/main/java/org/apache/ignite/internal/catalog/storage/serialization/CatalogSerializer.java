@@ -24,19 +24,26 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Annotation is used to dynamically create a registry of catalog object serializers.
- * All catalog object serializers must be marked with this annotation.
+ * This annotation is used to dynamically create a registry of all catalog serializers.
+ *
+ * <p>All {@link CatalogObjectSerializer catalog object serializers} must be marked with this annotation.
+ *
+ * @see CatalogObjectSerializer
  */
 @Target(ElementType.TYPE)
 @Retention(RUNTIME)
 public @interface CatalogSerializer {
     /**
      * Returns serializer version.
+     *
+     * <p>Versions start at 1 and increase by one.
      */
     short version();
 
     /**
      * The product version starting from which the serializer is used.
+     *
+     * <p>For example - 3.0.0.
      */
     String since();
 }

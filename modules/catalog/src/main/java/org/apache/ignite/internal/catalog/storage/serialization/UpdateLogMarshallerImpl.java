@@ -39,7 +39,7 @@ import org.jetbrains.annotations.TestOnly;
  * <li>All serializable object types used in production must be listed in the {@link MarshallableEntryType} enumeration.</li>
  * <li>For each serializable object, there must be an external serializer that implements the {@link CatalogObjectSerializer}
  *     interface and is marked with the {@link CatalogSerializer} annotation.
- *     This annotation specifies the serializer version and the object type, and this information is used to dynamically
+ *     This annotation specifies the serializer version and is used to dynamically
  *     build a registry of all existing serializers.</li>
  * <li>When serializing an object, a header is written for it consisting of the
  *     object type (2 bytes) and the serializer version (1-3 bytes).</li>
@@ -102,7 +102,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
                 default:
                     throw new IllegalStateException(format("An object could not be deserialized because it was using a newer"
-                            + " version of the serialization protocol [objectVersion={}, supported={}]", protoVersion, PROTOCOL_VERSION));
+                            + " version of the serialization protocol [supported={}, actual={}].", PROTOCOL_VERSION, protoVersion));
             }
         } catch (Throwable t) {
             throw new CatalogMarshallerException(t);

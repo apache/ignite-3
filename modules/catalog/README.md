@@ -109,9 +109,8 @@ For each serializable object, there must be an external serializer that implemen
 [CatalogObjectSerializer](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogObjectSerializer.java)
 interface and is marked with the 
 [CatalogSerializer](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogSerializer.java) annotation.
-This annotation specifies the serializer version and the object type, and this information is used to dynamically
-build a registry of all existing serializers
-[CatalogEntrySerializerProvider](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogEntrySerializerProvider.java)
+This annotation specifies the serializer version and is used to dynamically build a registry of all existing serializers
+(see [CatalogEntrySerializerProvider](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogEntrySerializerProvider.java)).
 
 When serializing an object, a header is written for it consisting of the  object type (2 bytes) and the serializer version (1-3 bytes).
 
@@ -139,7 +138,7 @@ Overall serialization format looks as follow
     version in `since` field is used to understand which
     serializers are already in use in the "released version" and whose
     data format should not change. For example, all currently existing
-    catalog serializers is marked as `since 3.0.0`.
+    catalog serializers is marked as `since="3.0.0"`.
 
 ##### Limitations of serialization protocol version 2
 

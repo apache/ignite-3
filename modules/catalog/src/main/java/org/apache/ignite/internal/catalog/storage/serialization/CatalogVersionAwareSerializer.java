@@ -22,14 +22,16 @@ import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
- * Version aware catalog object serializer.
+ * Decorator for {@link CatalogObjectSerializer} that adds a method to get the serializer version.
+ *
+ * @see CatalogObjectSerializer
  */
-public class VersionAwareSerializer<T extends MarshallableEntry> implements CatalogObjectSerializer<T> {
+public class CatalogVersionAwareSerializer<T extends MarshallableEntry> implements CatalogObjectSerializer<T> {
     private final CatalogObjectSerializer<T> delegate;
 
     private final short version;
 
-    public VersionAwareSerializer(CatalogObjectSerializer<T> delegate, short version) {
+    CatalogVersionAwareSerializer(CatalogObjectSerializer<T> delegate, short version) {
         this.delegate = delegate;
         this.version = version;
     }

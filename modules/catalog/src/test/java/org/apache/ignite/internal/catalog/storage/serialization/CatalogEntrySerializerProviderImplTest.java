@@ -47,12 +47,12 @@ public class CatalogEntrySerializerProviderImplTest {
         CatalogEntrySerializerProvider registry = new CatalogEntrySerializerProviderImpl(serializerTypes);
 
         for (int i = 1; i < 4; i++) {
-            VersionAwareSerializer<MarshallableEntry> serializer = (VersionAwareSerializer<MarshallableEntry>) registry.get(i, 0);
+            CatalogVersionAwareSerializer<MarshallableEntry> serializer = (CatalogVersionAwareSerializer<MarshallableEntry>) registry.get(i, 0);
             assertThat(serializer.version(), is((short) i));
         }
 
         for (int i = 1; i < 3; i++) {
-            VersionAwareSerializer<MarshallableEntry> serializer = (VersionAwareSerializer<MarshallableEntry>) registry.get(i, 1);
+            CatalogVersionAwareSerializer<MarshallableEntry> serializer = (CatalogVersionAwareSerializer<MarshallableEntry>) registry.get(i, 1);
             assertThat(serializer.version(), is((short) i));
         }
 

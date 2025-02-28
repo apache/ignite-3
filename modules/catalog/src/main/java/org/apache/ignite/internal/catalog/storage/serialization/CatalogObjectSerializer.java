@@ -23,6 +23,10 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Catalog object serializer.
+ *
+ * <p>All implementation used in production should be annotated with {@link CatalogSerializer}.
+ *
+ * @see CatalogSerializer
  */
 public interface CatalogObjectSerializer<T extends MarshallableEntry> {
     /**
