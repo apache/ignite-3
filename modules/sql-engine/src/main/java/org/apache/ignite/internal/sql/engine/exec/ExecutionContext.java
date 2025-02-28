@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningCol
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
@@ -64,6 +65,8 @@ public class ExecutionContext<RowT> implements DataContext {
      * TODO: https://issues.apache.org/jira/browse/IGNITE-15276 Support other locales.
      */
     private static final Locale LOCALE = Locale.ENGLISH;
+
+    private final int inBufSize;
 
     private final QueryTaskExecutor executor;
 
@@ -108,6 +111,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
+     * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -120,7 +124,8 @@ public class ExecutionContext<RowT> implements DataContext {
             RowHandler<RowT> handler,
             Map<String, Object> params,
             TxAttributes txAttributes,
-            ZoneId timeZoneId
+            ZoneId timeZoneId,
+            int inBufSize
     ) {
         this.expressionFactory = expressionFactory;
         this.executor = executor;
@@ -132,6 +137,9 @@ public class ExecutionContext<RowT> implements DataContext {
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
+        this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
+
+        assert this.inBufSize > 0 : this.inBufSize;
 
         Instant nowUtc = Instant.now();
         startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
@@ -221,6 +229,11 @@ public class ExecutionContext<RowT> implements DataContext {
      */
     public ClusterNode localNode() {
         return localNode;
+    }
+
+    /** Default internal buffer size. */
+    public int defaultBufferSize() {
+        return inBufSize;
     }
 
     /** {@inheritDoc} */
