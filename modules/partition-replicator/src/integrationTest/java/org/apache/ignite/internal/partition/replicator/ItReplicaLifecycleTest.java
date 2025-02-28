@@ -28,7 +28,9 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColo
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -651,6 +653,11 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         ));
         int partId = 0;
 
+        // Wait for sure that zone replication group was created on both nodes.
+        waitForZoneReplicaStartedOnNode(node, zoneId, partId);
+        waitForZoneReplicaStartedOnNode(getNode(1), zoneId, partId);
+
+        // Check that time was adjusted even without table.
         checkSafeTimeWasAdjustedForZoneGroup(zoneId, partId);
 
         // Create a table to work with.
@@ -658,7 +665,15 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         createTable(node, zoneName, tableName);
         assertDoesNotThrow(() -> TableTestUtils.getTableIdStrict(node.catalogManager, tableName, node.hybridClock.nowLong()));
 
+        // Check that time was adjusted  table.
         checkSafeTimeWasAdjustedForZoneGroup(zoneId, partId);
+    }
+
+    private void waitForZoneReplicaStartedOnNode(Node node, int zoneId, int partId) throws InterruptedException {
+        ZonePartitionId zoneReplicationId = new ZonePartitionId(zoneId, partId);
+
+        waitForCondition(() -> node.replicaManager.replica(zoneReplicationId) != null, AWAIT_TIMEOUT_MILLIS);
+        assertThat(node.replicaManager.replica(zoneReplicationId), willCompleteSuccessfully());
     }
 
     private boolean checkSafeTimeWasAdjustedForZoneGroup(int zoneId, int partId) throws InterruptedException {
