@@ -82,7 +82,6 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         CheckpointManager checkpointManager = new CheckpointManager(
                 "test",
                 null,
-                null,
                 mock(FailureManager.class),
                 checkpointConfig,
                 mock(FilePageStoreManager.class),
@@ -194,7 +193,6 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         CheckpointManager checkpointManager = spy(new CheckpointManager(
                 "test",
-                null,
                 null,
                 mock(FailureManager.class),
                 checkpointConfig,

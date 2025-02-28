@@ -53,11 +53,19 @@ public class ComputeViewProvider {
         return SystemViews.<JobState>nodeViewBuilder()
                 .name("COMPUTE_TASKS")
                 .nodeNameColumnAlias("COORDINATOR_NODE_ID")
+                .<String>addColumn("COMPUTE_TASK_ID", idType, info -> info.id().toString())
+                .<String>addColumn("COMPUTE_TASK_STATUS", stringOf(10), info -> info.status().name())
+                .<Instant>addColumn("COMPUTE_TASK_CREATE_TIME", timestampType, JobState::createTime)
+                .<Instant>addColumn("COMPUTE_TASK_START_TIME", timestampType, JobState::startTime)
+                .<Instant>addColumn("COMPUTE_TASK_FINISH_TIME", timestampType, JobState::finishTime)
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .<String>addColumn("ID", idType, info -> info.id().toString())
                 .<String>addColumn("STATUS", stringOf(10), info -> info.status().name())
                 .<Instant>addColumn("CREATE_TIME", timestampType, JobState::createTime)
                 .<Instant>addColumn("START_TIME", timestampType, JobState::startTime)
                 .<Instant>addColumn("FINISH_TIME", timestampType, JobState::finishTime)
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(publisher)
                 .build();
     }

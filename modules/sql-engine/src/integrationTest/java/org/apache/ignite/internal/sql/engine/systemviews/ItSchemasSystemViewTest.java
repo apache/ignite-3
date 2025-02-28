@@ -31,7 +31,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
- * End-to-end tests to verify the {@code SCHEMAS}system view.
+ * End-to-end tests to verify the {@code SCHEMAS} system view.
  */
 public class ItSchemasSystemViewTest extends AbstractSystemViewTest {
     @Test

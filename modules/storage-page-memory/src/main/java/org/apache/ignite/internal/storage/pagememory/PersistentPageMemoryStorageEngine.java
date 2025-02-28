@@ -169,7 +169,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         try {
             checkpointManager = new CheckpointManager(
                     igniteInstanceName,
-                    null,
                     longJvmPauseDetector,
                     failureManager,
                     engineConfig.checkpoint(),

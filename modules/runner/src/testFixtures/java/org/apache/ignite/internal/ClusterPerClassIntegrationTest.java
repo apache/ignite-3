@@ -167,6 +167,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     @Timeout(60)
     void stopCluster() {
         CLUSTER.shutdown();
+
+        MicronautCleanup.removeShutdownHooks();
     }
 
     /** Drops all visible tables. */

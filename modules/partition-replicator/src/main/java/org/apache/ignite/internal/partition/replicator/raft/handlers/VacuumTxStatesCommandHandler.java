@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.partition.replicator.raft.handlers;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * RAFT command handler that process {@link VacuumTxStatesCommand} commands.
  */
-public class VacuumTxStatesCommandHandler {
+public class VacuumTxStatesCommandHandler extends AbstractCommandHandler<VacuumTxStatesCommand> {
     /** Storage of transaction metadata. */
     private final TxStatePartitionStorage txStatePartitionStorage;
 
@@ -38,15 +40,13 @@ public class VacuumTxStatesCommandHandler {
         this.txStatePartitionStorage = txStatePartitionStorage;
     }
 
-    /**
-     * Handles {@link VacuumTxStatesCommand} command.
-     *
-     * @param command Command to be processed.
-     * @param commandIndex Command index.
-     * @param commandTerm Command term.
-     * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
-     */
-    public IgniteBiTuple<Serializable, Boolean> handle(VacuumTxStatesCommand command, long commandIndex, long commandTerm) {
+    @Override
+    protected IgniteBiTuple<Serializable, Boolean> handleInternally(
+            VacuumTxStatesCommand command,
+            long commandIndex,
+            long commandTerm,
+            @Nullable HybridTimestamp safeTimestamp
+    ) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {
             return new IgniteBiTuple<>(null, false);

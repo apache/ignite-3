@@ -574,7 +574,10 @@ public class PartitionReplicaLifecycleManager extends
                                                 new CatalogValidationSchemasSource(catalogService, schemaManager),
                                                 executorInclinedSchemaSyncService,
                                                 catalogService,
+                                                placementDriver,
+                                                topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
+                                                topologyService.localMember(),
                                                 zonePartitionId
                                         );
 

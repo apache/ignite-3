@@ -210,13 +210,13 @@ public class NativeTypeTest {
     }
 
     @Test
-    public void stringTypeMaxLength() {
+    public void stringTypeDefaultLength() {
         VarlenNativeType nativeType = (VarlenNativeType) STRING;
         assertEquals(65536, nativeType.length());
     }
 
     @Test
-    public void blobTypeMaxLength() {
+    public void blobTypeDefaultLength() {
         VarlenNativeType nativeType = (VarlenNativeType) BYTES;
         assertEquals(65536, nativeType.length());
     }

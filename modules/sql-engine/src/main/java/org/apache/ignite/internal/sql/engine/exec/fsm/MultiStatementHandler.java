@@ -34,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor.ParsedResultWithNextCursorFuture;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -239,6 +240,10 @@ class MultiStatementHandler {
                             });
                 }
             });
+        } catch (TxControlInsideExternalTxNotSupportedException txEx) {
+            scriptTxContext.onError(txEx);
+
+            cursorFuture.completeExceptionally(txEx);
         } catch (Throwable e) {
             scriptTxContext.onError(e);
 
