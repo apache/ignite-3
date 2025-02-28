@@ -669,21 +669,21 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         checkSafeTimeWasAdjustedForZoneGroup(zoneId, partId);
     }
 
-    private void waitForZoneReplicaStartedOnNode(Node node, int zoneId, int partId) throws InterruptedException {
+    private static void waitForZoneReplicaStartedOnNode(Node node, int zoneId, int partId) throws InterruptedException {
         ZonePartitionId zoneReplicationId = new ZonePartitionId(zoneId, partId);
 
         waitForCondition(() -> node.replicaManager.replica(zoneReplicationId) != null, AWAIT_TIMEOUT_MILLIS);
         assertThat(node.replicaManager.replica(zoneReplicationId), willCompleteSuccessfully());
     }
 
-    private boolean checkSafeTimeWasAdjustedForZoneGroup(int zoneId, int partId) throws InterruptedException {
+    private void checkSafeTimeWasAdjustedForZoneGroup(int zoneId, int partId) throws InterruptedException {
         Node node0 = getNode(0);
         Node node1 = getNode(1);
 
         HybridTimestamp node0safeTimeBefore = node0.currentSafeTimeForZonePartition(zoneId, partId);
         HybridTimestamp node1safeTimeBefore = node1.currentSafeTimeForZonePartition(zoneId, partId);
 
-        return waitForCondition(
+        waitForCondition(
                 () -> node0safeTimeBefore.compareTo(node0.currentSafeTimeForZonePartition(zoneId, partId)) < 0
                         && node1safeTimeBefore.compareTo(node1.currentSafeTimeForZonePartition(zoneId, partId)) < 0,
                 idleSafeTimePropagationDuration() * 2
