@@ -1484,8 +1484,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @TestOnly
     public HybridTimestamp currentSafeTimeForZonePartition(int zoneId, int partId) {
-        return requireNonNull(zoneResourcesManager.getZonePartitionResources(new ZonePartitionId(zoneId, partId)))
-                .raftListener()
+        return requireNonNull(zoneResourcesManager.getZonePartitionResources(new ZonePartitionId(zoneId, partId))).raftListener()
                 .currentSafeTime();
     }
 }
