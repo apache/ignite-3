@@ -772,7 +772,7 @@ public class Node {
                 new NoOpMetricManager(),
                 systemViewManager,
                 failureManager,
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 sqlDistributedConfiguration,
                 sqlLocalConfiguration,
                 transactionInflights,

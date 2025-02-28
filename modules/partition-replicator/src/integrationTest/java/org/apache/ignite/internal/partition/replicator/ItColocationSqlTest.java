@@ -23,7 +23,6 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.util.function.Consumer;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,12 +40,10 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
         Node node = getNode(0);
 
         // Create a zone with a single partition on every node.
-        int zoneId = createZone(node, TEST_ZONE_NAME, 1, cluster.size());
+        createZone(node, TEST_ZONE_NAME, 1, cluster.size());
 
         createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME1);
         createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME2);
-
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -54,11 +51,9 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
         KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
 
         // Inserts.
-        setPrimaryReplica(node, zonePartitionId);
-
         Consumer<Transaction> sqlInserts = tx -> {
-            node.sql().execute(tx, "INSERT INTO " + TEST_TABLE_NAME1 + " (KEY, VAL) VALUES (1, 11), (2, 22)");
-            node.sql().execute(tx, "INSERT INTO " + TEST_TABLE_NAME2 + " (KEY, VAL) VALUES (3, 33), (4, 44)");
+            node.sql().execute(tx, "INSERT INTO " + TEST_TABLE_NAME1 + " (KEY, VAL) VALUES (1, 11), (2, 22)").close();
+            node.sql().execute(tx, "INSERT INTO " + TEST_TABLE_NAME2 + " (KEY, VAL) VALUES (3, 33), (4, 44)").close();
         };
 
         if (useTx) {
@@ -68,8 +63,6 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
         }
 
         for (Node n : cluster) {
-            setPrimaryReplica(n, zonePartitionId);
-
             assertThat(n.name, kvView1.get(null, 1L), is(11));
             assertThat(n.name, kvView1.get(null, 2L), is(22));
 
@@ -78,11 +71,9 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
         }
 
         // Updates.
-        setPrimaryReplica(node, zonePartitionId);
-
         Consumer<Transaction> sqlUpdates = tx -> {
-            node.sql().execute(tx, "UPDATE " + TEST_TABLE_NAME1 + " SET VAL = -VAL");
-            node.sql().execute(tx, "UPDATE " + TEST_TABLE_NAME2 + " SET VAL = -VAL");
+            node.sql().execute(tx, "UPDATE " + TEST_TABLE_NAME1 + " SET VAL = -VAL").close();
+            node.sql().execute(tx, "UPDATE " + TEST_TABLE_NAME2 + " SET VAL = -VAL").close();
         };
 
         if (useTx) {
@@ -92,8 +83,6 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
         }
 
         for (Node n : cluster) {
-            setPrimaryReplica(n, zonePartitionId);
-
             assertThat(n.name, kvView1.get(null, 1L), is(-11));
             assertThat(n.name, kvView1.get(null, 2L), is(-22));
 
@@ -102,11 +91,9 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
         }
 
         // Deletes.
-        setPrimaryReplica(node, zonePartitionId);
-
         Consumer<Transaction> sqlDeletes = tx -> {
-            node.sql().execute(tx, "DELETE FROM " + TEST_TABLE_NAME1);
-            node.sql().execute(tx, "DELETE FROM " + TEST_TABLE_NAME2);
+            node.sql().execute(tx, "DELETE FROM " + TEST_TABLE_NAME1).close();
+            node.sql().execute(tx, "DELETE FROM " + TEST_TABLE_NAME2).close();
         };
 
         if (useTx) {
@@ -116,8 +103,6 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
         }
 
         for (Node n : cluster) {
-            setPrimaryReplica(n, zonePartitionId);
-
             assertThat(n.name, kvView1.get(null, 1L), is(nullValue()));
             assertThat(n.name, kvView1.get(null, 2L), is(nullValue()));
 
