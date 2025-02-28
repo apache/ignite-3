@@ -144,20 +144,24 @@ def run_setup():
         install_requires=install_requirements,
         license='Apache License 2.0',
         license_files=('LICENSE', 'NOTICE'),
+        data_files=('pyignite_dbapi/_version.txt'),
         classifiers=[
+            'Programming Language :: C++',
             'Programming Language :: Python',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.7',
-            'Programming Language :: Python :: 3.8',
             'Programming Language :: Python :: 3.9',
             'Programming Language :: Python :: 3.10',
+            'Programming Language :: Python :: 3.11',
+            'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
             'Programming Language :: Python :: 3 :: Only',
             'Intended Audience :: Developers',
             'Topic :: Database :: Front-Ends',
             'Topic :: Software Development :: Libraries :: Python Modules',
             'License :: Free for non-commercial use',
-            'Operating System :: OS Independent',
-        ]
+            'Operating System :: Microsoft :: Windows',
+            'Operating System :: POSIX :: Linux',
+        ],
     )
 
 
