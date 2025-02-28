@@ -1822,9 +1822,9 @@ public class TestBuilders {
             AssignmentsProvider provider;
 
             if (enabledColocation()) {
-                provider = owningNodesByTableName.apply(table.name());
-            } else {
                 provider = owningNodesByZone.apply(table.zoneId());
+            } else {
+                provider = owningNodesByTableName.apply(table.name());
             }
 
             return getAssignments(provider, table, includeBackups);
