@@ -302,8 +302,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     @Override
     public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
         synchronized (tableProcessorsStateLock) {
-            tableProcessors.values()
-                    .forEach(listener -> listener.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm));
+            partitionSnapshots().acquireReadLock();
+
+            try {
+                tableProcessors.values()
+                        .forEach(listener -> listener.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm));
+            } finally {
+                partitionSnapshots().releaseReadLock();
+            }
 
             byte[] configBytes = raftGroupConfigurationConverter.toBytes(config);
 
@@ -312,13 +318,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             this.lastAppliedIndex = max(this.lastAppliedIndex, lastAppliedIndex);
             this.lastAppliedTerm = max(this.lastAppliedTerm, lastAppliedTerm);
 
-            partitionSnapshots().acquireReadLock();
-            // TODO Comment for the reviewer. Please pay attention to the change and verify that it's correct.
-            try {
-                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
-            } finally {
-                partitionSnapshots().releaseReadLock();
-            }
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
         }
     }
 
@@ -341,6 +341,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         synchronized (tableProcessorsStateLock) {
             lastAppliedIndex = max(lastAppliedIndex, txStateStorage.lastAppliedIndex());
             lastAppliedTerm = max(lastAppliedTerm, txStateStorage.lastAppliedTerm());
+
+            storageIndexTracker.update(lastAppliedIndex, null);
         }
 
         return true;

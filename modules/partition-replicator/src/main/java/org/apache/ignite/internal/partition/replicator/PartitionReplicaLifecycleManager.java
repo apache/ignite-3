@@ -574,11 +574,6 @@ public class PartitionReplicaLifecycleManager extends
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
                         try {
-                            // TODO Comment for reviewer. I assume that we should not aggregate (min/max) tableStorages.lastAppliedIndex().
-                            //  https://issues.apache.org/jira/browse/IGNITE-24517 will allow to init storageIndexTracker with the value
-                            //  from txStatePartitionStorage().lastAppliedIndex(), is that correct?
-                            storageIndexTracker.update(zoneResources.txStatePartitionStorage().lastAppliedIndex(), null);
-
                             // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Properly close storageIndexTracker.
                             //  internalTbl.updatePartitionTrackers is used in order to add storageIndexTracker to some context for further
                             //  storage closing.
