@@ -133,7 +133,9 @@ public class DistributionZoneRebalanceEngine {
             // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
             assert recoveryFinishFuture.isDone();
 
-            return nullCompletedFuture();
+            return enabledColocation()
+                    ? distributionZoneRebalanceEngineV2.startAsync()
+                    : nullCompletedFuture();
         });
     }
 
