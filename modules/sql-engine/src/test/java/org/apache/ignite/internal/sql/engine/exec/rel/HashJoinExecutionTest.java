@@ -186,8 +186,6 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
     @ParameterizedTest
     @EnumSource(JoinRelType.class)
     void checkHashJoinNodeWithDifferentBufferSize(JoinRelType joinType) {
-        Assumptions.assumeFalse(joinType == RIGHT, "RIGHT join type is buggy");
-        Assumptions.assumeFalse(joinType == FULL, "FULL join type is buggy");
         Assumptions.assumeFalse(joinType == ANTI, "ANTI join type is buggy");
 
         validateDistinctData(executionContext(1), joinType, 0, 0);
