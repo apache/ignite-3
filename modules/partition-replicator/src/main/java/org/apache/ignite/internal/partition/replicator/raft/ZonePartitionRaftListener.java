@@ -375,7 +375,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * Removes a given Table Partition-level Raft processor from the set of managed processor.
      */
     public void removeTableProcessor(TablePartitionId tablePartitionId) {
-        synchronized (commitedConfigurationLock) {
+        synchronized (tableProcessorsStateLock) {
             tableProcessors.remove(tablePartitionId.tableId());
         }
     }
