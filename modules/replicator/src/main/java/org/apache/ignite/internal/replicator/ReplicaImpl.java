@@ -74,9 +74,9 @@ public class ReplicaImpl implements Replica {
 
     private final PlacementDriverMessageProcessor placementDriverMessageProcessor;
 
-    private final EventListener<PrimaryReplicaEventParameters> onReplicaElected = this::registerFailoverCallback;
+    private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaElected = this::registerFailoverCallback;
 
-    private final EventListener<PrimaryReplicaEventParameters> onReplicaExpired = this::unregisterFailoverCallback;
+    private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpired = this::unregisterFailoverCallback;
 
     /**
      * The constructor of a replica server.
@@ -107,8 +107,8 @@ public class ReplicaImpl implements Replica {
         this.failureManager = failureManager;
         this.placementDriverMessageProcessor = placementDriverMessageProcessor;
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onReplicaElected);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onReplicaExpired);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onPrimaryReplicaElected);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpired);
     }
 
     @Override
@@ -143,8 +143,8 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onReplicaElected);
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onReplicaExpired);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onPrimaryReplicaElected);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpired);
 
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
