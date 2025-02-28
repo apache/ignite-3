@@ -18,20 +18,27 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Class containing tests related to Raft-based replication for the Colocation feature.
  */
-public class ItColocationSqlTest extends ItAbstractColocationTest {
+class ItColocationSqlTest extends ItAbstractColocationTest {
     @ParameterizedTest(name = "useTx={0}")
     @ValueSource(booleans = {true, false})
     void sqlDmlsWork(boolean useTx) throws Exception {
@@ -62,13 +69,11 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
             sqlInserts.accept(null);
         }
 
-        for (Node n : cluster) {
-            assertThat(n.name, kvView1.get(null, 1L), is(11));
-            assertThat(n.name, kvView1.get(null, 2L), is(22));
+        assertThat(kvView1.get(null, 1L), is(11));
+        assertThat(kvView1.get(null, 2L), is(22));
 
-            assertThat(n.name, kvView2.get(null, 3L), is(33));
-            assertThat(n.name, kvView2.get(null, 4L), is(44));
-        }
+        assertThat(kvView2.get(null, 3L), is(33));
+        assertThat(kvView2.get(null, 4L), is(44));
 
         // Updates.
         Consumer<Transaction> sqlUpdates = tx -> {
@@ -82,13 +87,11 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
             sqlUpdates.accept(null);
         }
 
-        for (Node n : cluster) {
-            assertThat(n.name, kvView1.get(null, 1L), is(-11));
-            assertThat(n.name, kvView1.get(null, 2L), is(-22));
+        assertThat(kvView1.get(null, 1L), is(-11));
+        assertThat(kvView1.get(null, 2L), is(-22));
 
-            assertThat(n.name, kvView2.get(null, 3L), is(-33));
-            assertThat(n.name, kvView2.get(null, 4L), is(-44));
-        }
+        assertThat(kvView2.get(null, 3L), is(-33));
+        assertThat(kvView2.get(null, 4L), is(-44));
 
         // Deletes.
         Consumer<Transaction> sqlDeletes = tx -> {
@@ -102,12 +105,57 @@ public class ItColocationSqlTest extends ItAbstractColocationTest {
             sqlDeletes.accept(null);
         }
 
-        for (Node n : cluster) {
-            assertThat(n.name, kvView1.get(null, 1L), is(nullValue()));
-            assertThat(n.name, kvView1.get(null, 2L), is(nullValue()));
+        assertThat(kvView1.get(null, 1L), is(nullValue()));
+        assertThat(kvView1.get(null, 2L), is(nullValue()));
 
-            assertThat(n.name, kvView2.get(null, 3L), is(nullValue()));
-            assertThat(n.name, kvView2.get(null, 4L), is(nullValue()));
-        }
+        assertThat(kvView2.get(null, 3L), is(nullValue()));
+        assertThat(kvView2.get(null, 4L), is(nullValue()));
+    }
+
+    @ParameterizedTest(name = "readOnly={0}")
+    @ValueSource(booleans = {true, false})
+    void sqlSelectsWork(boolean readOnly) throws Exception {
+        startCluster(3);
+
+        Node node = getNode(0);
+
+        // Create a zone with a single partition on every node.
+        createZone(node, TEST_ZONE_NAME, 1, cluster.size());
+
+        createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME2);
+
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
+
+        KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
+        KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
+
+        kvView1.putAll(null, Map.of(1L, 11, 2L, 22));
+        kvView2.putAll(null, Map.of(3L, 33, 4L, 44));
+
+        node.transactions().runInTransaction(tx -> {
+            if (readOnly) {
+                // Doing these puts just to advance safe time.
+                // TODO: remove after https://issues.apache.org/jira/browse/IGNITE-22620
+                kvView1.putAll(null, Map.of(1L, 11, 2L, 22));
+                kvView2.putAll(null, Map.of(3L, 33, 4L, 44));
+            }
+
+            try (ResultSet<SqlRow> resultSet = node.sql().execute(tx, "SELECT VAL FROM " + TEST_TABLE_NAME1 + " ORDER BY KEY")) {
+                List<Integer> results = extractIntegers(resultSet);
+                assertThat(results, contains(11, 22));
+            }
+
+            try (ResultSet<SqlRow> resultSet = node.sql().execute(tx, "SELECT VAL FROM " + TEST_TABLE_NAME2 + " ORDER BY KEY")) {
+                List<Integer> results = extractIntegers(resultSet);
+                assertThat(results, contains(33, 44));
+            }
+        }, new TransactionOptions().readOnly(readOnly));
+    }
+
+    private static List<Integer> extractIntegers(ResultSet<SqlRow> resultSet) {
+        List<Integer> results = new ArrayList<>();
+        resultSet.forEachRemaining(row -> results.add(row.intValue(0)));
+        return results;
     }
 }
