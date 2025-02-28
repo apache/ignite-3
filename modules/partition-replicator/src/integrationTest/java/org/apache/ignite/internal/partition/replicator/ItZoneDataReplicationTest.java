@@ -170,23 +170,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // Wait for the rebalance to kick in.
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));
 
-        // Wait for the data to appear. At the moment of writing, we don't have any partition safe time to wait for and
-        // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
-        // Not using "assertTrue" on purpose, the next line will produce a nicer error message.
-        // TODO: remove this line after https://issues.apache.org/jira/browse/IGNITE-22620
-        waitForCondition(() -> {
-            try {
-                return kvView1.getAll(null, data1.keySet()).equals(data1);
-            } catch (IgniteException e) {
-                if (hasCauseOrSuppressed(e, StorageRebalanceException.class)) {
-                    // This is expected.
-                    return false;
-                } else {
-                    throw e;
-                }
-            }
-        }, 10_000L);
-
         assertThat(kvView1.getAll(null, data1.keySet()), is(data1));
         assertThat(kvView1.getAll(null, data2.keySet()), is(anEmptyMap()));
 

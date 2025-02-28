@@ -191,7 +191,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             return processTableAwareRequest(request, senderId);
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
         if (request instanceof TxFinishReplicaRequest) {
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                     .thenApply(res -> new ReplicaResult(res, null));
