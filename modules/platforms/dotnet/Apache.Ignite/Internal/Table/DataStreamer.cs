@@ -306,21 +306,21 @@ internal static class DataStreamer
             bool batchSchemaOutdated,
             int batchSchemaVer)
         {
-            Debug.Assert(items.Length > 0, "items.Length > 0");
-            var schema0 = schema;
-
-            if (batchSchemaOutdated || batchSchemaVer < schema0.Version)
-            {
-                // Schema update was detected while the batch was being filled.
-                // Re-serialize the whole batch.
-                ReWriteBatch(buf, partitionId, schema0, items.AsSpan(0, count), writer);
-            }
-
-            // ReSharper disable once AccessToModifiedClosure
-            var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
-
             try
             {
+                Debug.Assert(items.Length > 0, "items.Length > 0");
+                var schema0 = schema;
+
+                if (batchSchemaOutdated || batchSchemaVer < schema0.Version)
+                {
+                    // Schema update was detected while the batch was being filled.
+                    // Re-serialize the whole batch.
+                    ReWriteBatch(buf, partitionId, schema0, items.AsSpan(0, count), writer);
+                }
+
+                // ReSharper disable once AccessToModifiedClosure
+                var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
+
                 int? schemaVersion = null;
                 while (true)
                 {
