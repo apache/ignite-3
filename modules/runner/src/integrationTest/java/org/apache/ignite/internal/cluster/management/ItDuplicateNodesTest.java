@@ -120,8 +120,6 @@ class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
         // to the list of duplicates on this node.
         IgniteServer newNode = startEmbeddedNode(testInfo, false, 2, nodesCount);
 
-        await().until(() -> getPhysicalTopologyMembers(metaStorageAndCmgNode), hasSize(3));
-
         // Actual exception is NodeStartException
         assertThat(
                 newNode.waitForInitAsync(),
