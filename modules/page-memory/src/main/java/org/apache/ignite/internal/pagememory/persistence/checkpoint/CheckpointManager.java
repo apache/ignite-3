@@ -129,7 +129,7 @@ public class CheckpointManager {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                (pageMemory, fullPageId, pageBuf) -> writePageToDeltaFilePageStore(pageMemory, fullPageId, pageBuf, true),
+                this::writePageToDeltaFilePageStore,
                 ioRegistry,
                 partitionMetaManager,
                 pageSize
@@ -289,14 +289,12 @@ public class CheckpointManager {
      * @param pageMemory Page memory.
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
     public void writePageToDeltaFilePageStore(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
-            ByteBuffer pageBuf,
-            boolean calculateCrc
+            ByteBuffer pageBuf
     ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
 
@@ -330,7 +328,7 @@ public class CheckpointManager {
                 }
         );
 
-        deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf, calculateCrc);
+        deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf);
     }
 
     /**
