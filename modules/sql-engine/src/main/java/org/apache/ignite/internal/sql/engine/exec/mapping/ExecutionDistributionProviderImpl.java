@@ -87,8 +87,8 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         if (includeBackups) {
             List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
 
-            for (int p = 0; p < partitions; p++) {
-                replicationGroupIds.add(targetReplicationGroupId(table, p));
+            for (int partitionIndex = 0; partitionIndex < partitions; partitionIndex++) {
+                replicationGroupIds.add(targetReplicationGroupId(table, partitionIndex));
             }
 
             return allReplicas(replicationGroupIds, operationTime);
@@ -97,8 +97,8 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         List<CompletableFuture<TokenizedAssignments>> result = new ArrayList<>(partitions);
 
         // no need to wait all partitions after pruning was implemented.
-        for (int partId = 0; partId < partitions; ++partId) {
-            ReplicationGroupId partGroupId = targetReplicationGroupId(table, partId);
+        for (int partitionIndex = 0; partitionIndex < partitions; partitionIndex++) {
+            ReplicationGroupId partGroupId = targetReplicationGroupId(table, partitionIndex);
 
             CompletableFuture<TokenizedAssignments> partitionAssignment = primaryReplica(partGroupId, operationTime);
 
