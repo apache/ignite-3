@@ -184,67 +184,151 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
 
     @ParameterizedTest
     @EnumSource(JoinRelType.class)
-    void checkHashJoinNodeWithDifferentBufferSize(JoinRelType joinType) {
-        validateDistinctData(executionContext(1), joinType, 0, 0);
-        validateDistinctData(executionContext(1), joinType, 0, 1);
-        validateDistinctData(executionContext(1), joinType, 0, 10);
-        validateDistinctData(executionContext(1), joinType, 1, 0);
-        validateDistinctData(executionContext(1), joinType, 1, 10);
-        validateDistinctData(executionContext(1), joinType, 10, 0);
-        validateDistinctData(executionContext(1), joinType, 10, 1);
-        validateDistinctData(executionContext(1), joinType, 10, 10);
+    void equiJoinWithDifferentBufferSize(JoinRelType joinType) {
+        int buffSize = 1;
+        validateEquiJoin(executionContext(buffSize), joinType, 0, 0);
+        validateEquiJoin(executionContext(buffSize), joinType, 0, 1);
+        validateEquiJoin(executionContext(buffSize), joinType, 0, 10);
+        validateEquiJoin(executionContext(buffSize), joinType, 1, 0);
+        validateEquiJoin(executionContext(buffSize), joinType, 1, 1);
+        validateEquiJoin(executionContext(buffSize), joinType, 1, 10);
+        validateEquiJoin(executionContext(buffSize), joinType, 10, 0);
+        validateEquiJoin(executionContext(buffSize), joinType, 10, 1);
+        validateEquiJoin(executionContext(buffSize), joinType, 10, 10);
 
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, 0, 0);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, 0, DEFAULT_BUFFER_SIZE - 1);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, 0, DEFAULT_BUFFER_SIZE);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, 0, DEFAULT_BUFFER_SIZE + 1);
+        buffSize = DEFAULT_BUFFER_SIZE;
+        validateEquiJoin(executionContext(buffSize), joinType, 0, 0);
+        validateEquiJoin(executionContext(buffSize), joinType, 0, buffSize - 1);
+        validateEquiJoin(executionContext(buffSize), joinType, 0, buffSize);
+        validateEquiJoin(executionContext(buffSize), joinType, 0, buffSize + 1);
 
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE - 1, 0);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE - 1, DEFAULT_BUFFER_SIZE - 1);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE - 1, DEFAULT_BUFFER_SIZE);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE - 1, DEFAULT_BUFFER_SIZE + 1);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize - 1, 0);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize - 1);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize + 1);
 
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE, 0);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE, DEFAULT_BUFFER_SIZE - 1);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE, DEFAULT_BUFFER_SIZE);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE, DEFAULT_BUFFER_SIZE + 1);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize, 0);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize - 1);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize + 1);
 
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE + 1, 0);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE + 1, DEFAULT_BUFFER_SIZE - 1);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE + 1, DEFAULT_BUFFER_SIZE);
-        validateDistinctData(executionContext(DEFAULT_BUFFER_SIZE), joinType, DEFAULT_BUFFER_SIZE + 1, DEFAULT_BUFFER_SIZE + 1);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize + 1, 0);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize - 1);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize + 1);
+
+        buffSize = 2 * DEFAULT_BUFFER_SIZE;
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize, 0);
+        validateEquiJoin(executionContext(buffSize), joinType, 0, buffSize);
+        validateEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize);
     }
 
-    private static void validateDistinctData(
+    @ParameterizedTest
+    @EnumSource(value = JoinRelType.class, names = {"INNER", "SEMI"})
+    void nonEquiJoinWithDifferentBufferSize(JoinRelType joinType) {
+        int buffSize = 1;
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, 1);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, 10);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 1, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 1, 1);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 1, 10);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 10, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 10, 1);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 10, 10);
+
+        buffSize = DEFAULT_BUFFER_SIZE;
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, buffSize - 1);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, buffSize + 1);
+
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize - 1, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize - 1);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize + 1);
+
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize - 1);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize + 1);
+
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize + 1, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize - 1);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize + 1);
+
+        buffSize = 2 * DEFAULT_BUFFER_SIZE;
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize);
+    }
+
+    private static void validateEquiJoin(
             ExecutionContext<Object[]> ctx,
             JoinRelType joinType,
             int leftSize,
             int rightSize
     ) {
-        int resultSize = estimateResultSizeForDistinctInputs(joinType, leftSize, rightSize);
+        { // Distinct inputs
+            Object[] person = {1, "name", 2};
+            Object[] department = {1, "department"};
+            int resultSize = estimateResultSizeForDistinctInputs(joinType, leftSize, rightSize);
 
-        Object[] department = {1, "department"};
-        Object[] person = {1, "name", 2};
-        Iterable<Object[]> leftSource = IntStream.range(0, leftSize).mapToObj(i -> department)::iterator;
-        Iterable<Object[]> rightSource = IntStream.range(0, rightSize).mapToObj(i -> person)::iterator;
-
-        ScanNode<Object[]> left = new ScanNode<>(ctx, leftSource);
-        ScanNode<Object[]> right = new ScanNode<>(ctx, rightSource);
-
-        HashJoinNode<Object[]> join = createJoinNode(ctx, joinType, null);
-
-        join.register(asList(left, right));
-
-        RootNode<Object[]> node = new RootNode<>(ctx);
-        node.register(join);
-
-        int count = 0;
-        while (node.hasNext()) {
-            node.next();
-            count++;
+            validate(
+                    ctx,
+                    joinType,
+                    null,
+                    IntStream.range(0, leftSize).mapToObj(i -> department)::iterator,
+                    IntStream.range(0, rightSize).mapToObj(i -> person)::iterator,
+                    resultSize
+            );
         }
 
-        assertEquals(resultSize, count);
+        { // Matching inputs
+            Object[] person = {1, "name", 2};
+            Object[] department = {2, "department"};
+            int resultSize = estimateResultSizeForEqualInputs(joinType, leftSize, rightSize);
+
+            validate(
+                    ctx,
+                    joinType,
+                    null,
+                    IntStream.range(0, leftSize).mapToObj(i -> department)::iterator,
+                    IntStream.range(0, rightSize).mapToObj(i -> person)::iterator,
+                    resultSize
+            );
+        }
+    }
+
+    private static void validateNonEquiJoin(
+            ExecutionContext<Object[]> ctx,
+            JoinRelType joinType,
+            int leftSize,
+            int rightSize
+    ) {
+        Object[] person = {1, "name", 2};
+        Object[] department = {2, "department"};
+
+        int resultSize = estimateResultSizeForEqualInputs(joinType, leftSize, rightSize);
+
+        validate(
+                ctx,
+                joinType,
+                (l, r) -> true,
+                IntStream.range(0, leftSize).mapToObj(i -> department)::iterator,
+                IntStream.range(0, rightSize).mapToObj(i -> person)::iterator,
+                resultSize
+        );
+
+        validate(
+                ctx,
+                joinType,
+                (l, r) -> false,
+                IntStream.range(0, leftSize).mapToObj(i -> department)::iterator,
+                IntStream.range(0, rightSize).mapToObj(i -> person)::iterator,
+                0
+        );
     }
 
     private static int estimateResultSizeForDistinctInputs(
@@ -269,6 +353,59 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
             default:
                 throw new IllegalArgumentException("Unsupported join type: " + joinType);
         }
+    }
+
+    private static int estimateResultSizeForEqualInputs(
+            JoinRelType joinType,
+            int leftSize,
+            int rightSize
+    ) {
+        switch (joinType) {
+            case SEMI:
+                return rightSize == 0 ? 0 : leftSize;
+            case ANTI:
+                return rightSize == 0 ? leftSize : 0;
+            case LEFT:
+                return rightSize == 0 ? leftSize : leftSize * rightSize;
+            case RIGHT:
+                return leftSize == 0 ? rightSize : leftSize * rightSize;
+            case FULL:
+                return leftSize == 0 ? rightSize : rightSize == 0 ? leftSize : leftSize * rightSize;
+            case INNER:
+                return leftSize * rightSize;
+            case ASOF:
+            case LEFT_ASOF:
+                return Assumptions.abort("Unsupported join type: " + joinType);
+            default:
+                throw new IllegalArgumentException("Unsupported join type: " + joinType);
+        }
+    }
+
+    private static void validate(
+            ExecutionContext<Object[]> ctx,
+            JoinRelType joinType,
+            @Nullable BiPredicate<Object[], Object[]> condition,
+            Iterable<Object[]> leftSource,
+            Iterable<Object[]> rightSource,
+            int resultSize
+    ) {
+        ScanNode<Object[]> left = new ScanNode<>(ctx, leftSource);
+        ScanNode<Object[]> right = new ScanNode<>(ctx, rightSource);
+
+        HashJoinNode<Object[]> join = createJoinNode(ctx, joinType, condition);
+
+        join.register(asList(left, right));
+
+        RootNode<Object[]> node = new RootNode<>(ctx);
+        node.register(join);
+
+        int count = 0;
+        while (node.hasNext()) {
+            node.next();
+            count++;
+        }
+
+        assertEquals(resultSize, count);
     }
 
     private void validate(
