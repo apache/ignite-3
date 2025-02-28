@@ -649,6 +649,33 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         assertDoesNotThrow(tx::commit);
     }
 
+    @Test
+    public void testNodeStop() throws Exception {
+        // Prepare a single node cluster.
+        startCluster(1);
+        Node node = getNode(0);
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        // Prepare a zone.
+        String zoneName = "test_zone";
+        createZone(node, zoneName, 1, 1);
+
+        // Create a table to work with.
+        String tableName = "test_table";
+        createTable(node, zoneName, tableName);
+        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+        InternalTable internalTable = node.tableManager.table(tableId).internalTable();
+
+        // Stop the node
+        stopNode(0);
+
+        // Check that the storages close method was triggered
+        verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                .close();
+        verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                .close();
+    }
+
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
         return node.resourcesRegistry.resources().get(cursorId);
     }

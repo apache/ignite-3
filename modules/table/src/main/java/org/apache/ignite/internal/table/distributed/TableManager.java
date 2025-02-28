@@ -729,9 +729,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return falseCompletedFuture();
         }
 
-        return executeForAllTablesInZone(
-                parameters.zonePartitionId(),
-                this::tableStopFuture);
+        Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+
+        CompletableFuture<?>[] futures = zoneTables.stream()
+                .map(table -> supplyAsync(
+                        () -> tableStopFuture(table),
+                        ioExecutor))
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(futures).thenApply(v -> false);
     }
 
     private CompletableFuture<Boolean> onZoneReplicaDestroyed(LocalPartitionReplicaEventParameters parameters) {
@@ -741,25 +747,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
-        return executeForAllTablesInZone(
-                zonePartitionId,
-                table -> weakStopAndDestroyPartition(
-                        new TablePartitionId(table.tableId(), zonePartitionId.partitionId()),
-                        parameters.causalityToken()));
-    }
-
-    private CompletableFuture<Boolean> executeForAllTablesInZone(
-            ZonePartitionId zonePartitionId,
-            Function<TableImpl, CompletableFuture<?>> toExecute
-    ) {
         return inBusyLockAsync(busyLock, () -> {
-            Set<TableImpl> zoneTables = zoneTables(zonePartitionId.zoneId());
-
-            CompletableFuture<?>[] futures = zoneTables.stream()
+            CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
                     .map(table -> supplyAsync(
                             () -> inBusyLockAsync(
                                     busyLock,
-                                    () -> toExecute.apply(table)),
+                                    () -> weakStopAndDestroyPartition(
+                                            new TablePartitionId(table.tableId(), zonePartitionId.partitionId()),
+                                            parameters.causalityToken())),
                             ioExecutor))
                     .toArray(CompletableFuture[]::new);
 
@@ -1560,6 +1555,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
             metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
+            // All table resources under colocation track should be stopped on AFTER_REPLICA_STOP local event handler only.
             cleanUpTablesResources(tables);
         }
     }
@@ -2843,6 +2839,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
+            // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped. Moreover the excessive replica
+            // stop leads to raft node shutdown regardless was the table replica there or even didn't ever exist.
             stopReplicaFuture = enabledColocation()
                     ? trueCompletedFuture()
                     : replicaMgr.stopReplica(tablePartitionId);
