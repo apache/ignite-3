@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -51,6 +53,8 @@ import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -80,6 +84,12 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
     static final int AWAIT_TIMEOUT_MILLIS = 10_000;
 
+    static final String TEST_ZONE_NAME = "TEST_ZONE";
+
+    static final String TEST_TABLE_NAME1 = "TEST_TABLE_1";
+
+    static final String TEST_TABLE_NAME2 = "TEST_TABLE_2";
+
     @InjectConfiguration
     private SystemLocalConfiguration systemConfiguration;
 
@@ -106,6 +116,12 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private SqlLocalConfiguration sqlLocalConfiguration;
+
+    @InjectConfiguration
+    private SqlDistributedConfiguration sqlDistributedConfiguration;
 
     final List<Node> cluster = new ArrayList<>();
 
@@ -225,15 +241,17 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 txConfiguration,
                 scheduledExecutorService,
                 invokeInterceptor,
-                gcConfiguration
+                gcConfiguration,
+                sqlLocalConfiguration,
+                sqlDistributedConfiguration
         );
     }
 
-    static void createZone(Node node, String zoneName, int partitions, int replicas) {
-        createZone(node, zoneName, partitions, replicas, false);
+    static int createZone(Node node, String zoneName, int partitions, int replicas) {
+        return createZone(node, zoneName, partitions, replicas, false);
     }
 
-    private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
+    private static int createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
         DistributionZonesTestUtil.createZoneWithStorageProfile(
                 node.catalogManager,
                 zoneName,
@@ -241,6 +259,9 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 replicas,
                 testStorageProfile ? DEFAULT_TEST_PROFILE_NAME : DEFAULT_STORAGE_PROFILE
         );
+
+        Integer zoneId = getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        return requireNonNull(zoneId, "No zone found with name " + zoneName);
     }
 
     static void createTable(Node node, String zoneName, String tableName) {
@@ -252,10 +273,10 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 zoneName,
                 tableName,
                 List.of(
-                        ColumnParams.builder().name("key").type(INT64).build(),
-                        ColumnParams.builder().name("val").type(INT32).nullable(true).build()
+                        ColumnParams.builder().name("KEY").type(INT64).build(),
+                        ColumnParams.builder().name("VAL").type(INT32).nullable(true).build()
                 ),
-                List.of("key")
+                List.of("KEY")
         );
     }
 
