@@ -131,7 +131,7 @@ Another way to work with query results is `System.Data.Common.DbDataReader`, whi
 For example, you can bind query results to a `DataGridView` control:
 
 ```cs
-await using var reader = await Client.Sql.ExecuteReaderAsync(
+await using var reader = await client.Sql.ExecuteReaderAsync(
     null, "select * from Person");
 
 var dt = new DataTable();
@@ -204,7 +204,7 @@ All operations on data in Ignite are transactional. If a transaction is not spec
 To start a transaction, use `ITransactions.BeginAsync` method. Then, pass the transaction object to all operations that should be part of the same transaction.
 
 ```cs
-ITransaction tx = await client.Transactions.BeginAsync();
+await using ITransaction tx = await client.Transactions.BeginAsync();
 
 await view.UpsertAsync(tx, new Person(1, "John"));
 
@@ -213,7 +213,8 @@ await client.Sql.ExecuteAsync(
 
 await view.AsQueryable(tx)
     .Where(p => p.Id > 0)
-    .ExecuteUpdateAsync(p => new Person(p.Id, p.Name + " Doe"));
+    .ExecuteUpdateAsync(updater => 
+        updater.SetProperty(person => person.Name, person => person.Name + " Doe"));
 
 await tx.CommitAsync();
 ```
