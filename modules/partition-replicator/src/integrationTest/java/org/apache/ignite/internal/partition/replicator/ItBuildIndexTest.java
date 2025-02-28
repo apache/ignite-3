@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Timeout;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 /**
- * Tests catalog compaction for colocation track.
+ * Tests building indices for colocation track.
  */
 @Timeout(60)
 public class ItBuildIndexTest extends ItAbstractColocationTest {

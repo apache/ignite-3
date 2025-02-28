@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -64,6 +63,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -218,7 +218,7 @@ class IndexBuildController implements ManuallyCloseable {
                 }
             }
 
-            return allOf(startBuildIndexFutures.toArray(CompletableFuture[]::new));
+            return CompletableFutures.allOf(startBuildIndexFutures);
         });
     }
 
@@ -273,7 +273,7 @@ class IndexBuildController implements ManuallyCloseable {
                         indexFutures.add(future);
                     }
 
-                    return allOf(indexFutures.toArray(CompletableFuture[]::new));
+                    return CompletableFutures.allOf(indexFutures);
                 } else {
                     TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
 
