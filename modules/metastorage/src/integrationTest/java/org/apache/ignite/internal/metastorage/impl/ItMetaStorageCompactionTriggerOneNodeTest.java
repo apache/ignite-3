@@ -37,15 +37,12 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
-import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.junit.jupiter.api.Test;
 
 /** For {@link MetaStorageCompactionTrigger} testing for single node case. */
-@WithSystemProperty(key = DistributionZoneRebalanceEngine.SKIP_REBALANCE_TRIGGERS_RECOVERY, value = "true")
 public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {

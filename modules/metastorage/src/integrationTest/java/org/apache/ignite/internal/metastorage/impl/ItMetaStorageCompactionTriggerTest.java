@@ -45,17 +45,14 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test for {@link MetaStorageCompactionTrigger}. */
-@WithSystemProperty(key = DistributionZoneRebalanceEngine.SKIP_REBALANCE_TRIGGERS_RECOVERY, value = "true")
 public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrationTest {
     @Override
     protected int initialNodes() {

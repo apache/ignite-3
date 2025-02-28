@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -56,7 +55,6 @@ import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Zone rebalance manager.
@@ -86,11 +84,6 @@ public class DistributionZoneRebalanceEngine {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
     // TODO: after switching to zone-based replication
     private final DistributionZoneRebalanceEngineV2 distributionZoneRebalanceEngineV2;
-
-    /** Special flag to skip rebalance on node recovery for tests. */
-    // TODO: IGNITE-24607 Remove it
-    @TestOnly
-    public static final String SKIP_REBALANCE_TRIGGERS_RECOVERY = "IGNITE_SKIP_REBALANCE_TRIGGERS_RECOVERY";
 
     /**
      * Constructor.
@@ -140,18 +133,7 @@ public class DistributionZoneRebalanceEngine {
             // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
             assert recoveryFinishFuture.isDone();
 
-            long recoveryRevision = recoveryFinishFuture.join().revision();
-
-            if (getBoolean(SKIP_REBALANCE_TRIGGERS_RECOVERY, false)) {
-                return nullCompletedFuture();
-            }
-
-            if (enabledColocation()) {
-                return recoveryRebalanceTrigger(recoveryRevision, catalogVersion)
-                        .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
-            } else {
-                return recoveryRebalanceTrigger(recoveryRevision, catalogVersion);
-            }
+            return nullCompletedFuture();
         });
     }
 
