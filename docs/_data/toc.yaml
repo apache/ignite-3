@@ -54,6 +54,8 @@
       items:
         - title: Introduction
           url: developers-guide/sql/calcite-based-sql-engine
+        - title: SQL API
+          url: developers-guide/sql/sql-api
         - title: JDBC Driver
           url: developers-guide/sql/jdbc-driver
         - title: System Views
