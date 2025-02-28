@@ -33,7 +33,7 @@ public class CatalogTableColumnDescriptorSerializers {
      * Serializer for {@link CatalogTableColumnDescriptor}.
      */
     @CatalogSerializer(version = 1, since = "3.0.0")
-    static class TableColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
+    static class TableColumnDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
         @Override
         public CatalogTableColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
             String name = input.readUTF();

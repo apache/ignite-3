@@ -36,10 +36,10 @@ public class AlterZoneEntrySerializers {
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-24170 This should be version 2, you need to add the original version 1.
     @CatalogSerializer(version = 1, since = "3.0.0")
-    static class AlterZoneEntrySerializer implements CatalogObjectSerializer<AlterZoneEntry> {
+    static class AlterZoneEntrySerializerV1 implements CatalogObjectSerializer<AlterZoneEntry> {
         private final CatalogEntrySerializerProvider serializers;
 
-        public AlterZoneEntrySerializer(CatalogEntrySerializerProvider serializers) {
+        public AlterZoneEntrySerializerV1(CatalogEntrySerializerProvider serializers) {
             this.serializers = serializers;
         }
 
