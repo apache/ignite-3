@@ -47,7 +47,7 @@ import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbI
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 
@@ -78,6 +78,7 @@ import org.apache.ignite.internal.storage.lease.LeaseInfoSerializer;
 import org.apache.ignite.internal.storage.rocksdb.GarbageCollector.AddResult;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -1186,14 +1187,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        transitionToDestroyedOrClosedState(StorageState.CLOSED);
-    }
-
-    private void transitionToDestroyedOrClosedState(StorageState targetState) {
-        if (!transitionToTerminalState(targetState, state)) {
+        if (!transitionToClosedState(state, this::createStorageInfo)) {
             return;
         }
 
+        closeResources();
+    }
+
+    private void closeResources() {
         busyLock.block();
 
         readOpts.close();
@@ -1204,7 +1205,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Transitions this storage to the {@link StorageState#DESTROYED} state.
      */
     public void transitionToDestroyedState() {
-        transitionToDestroyedOrClosedState(StorageState.DESTROYED);
+        if (!StorageUtils.transitionToDestroyedState(state)) {
+            return;
+        }
+
+        closeResources();
     }
 
     private byte[] createUncommittedDataIdKey(RowId rowId) {

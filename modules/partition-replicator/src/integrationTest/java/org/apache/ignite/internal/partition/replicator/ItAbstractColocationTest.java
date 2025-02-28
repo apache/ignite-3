@@ -46,17 +46,12 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
@@ -68,7 +63,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -86,8 +80,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ExecutorServiceExtension.class)
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 abstract class ItAbstractColocationTest extends IgniteAbstractTest {
-    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-
     private static final int BASE_PORT = 20_000;
 
     static final int AWAIT_TIMEOUT_MILLIS = 10_000;
@@ -132,9 +124,6 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     private SqlDistributedConfiguration sqlDistributedConfiguration;
 
     final List<Node> cluster = new ArrayList<>();
-
-    // TODO Remove https://issues.apache.org/jira/browse/IGNITE-24375
-    final TestPlacementDriver placementDriver = new TestPlacementDriver();
 
     private NodeFinder nodeFinder;
 
@@ -186,8 +175,6 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
         Node node0 = cluster.get(0);
 
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
-
-        placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
 
         cluster.forEach(Node::waitWatches);
 
@@ -245,7 +232,6 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 address,
                 nodeFinder,
                 workDir,
-                placementDriver,
                 systemConfiguration,
                 raftConfiguration,
                 nodeAttributesConfiguration,
@@ -300,27 +286,5 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
     Node getNode(String nodeName) {
         return cluster.stream().filter(n -> n.name.equals(nodeName)).findFirst().orElseThrow();
-    }
-
-    void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {
-        ClusterNode newPrimaryReplicaNode = node.clusterService.topologyService().localMember();
-
-        HybridTimestamp leaseStartTime = node.hybridClock.now();
-
-        placementDriver.setPrimary(newPrimaryReplicaNode, leaseStartTime);
-
-        if (zonePartitionId != null) {
-            PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
-                    .primaryReplicaNodeId(newPrimaryReplicaNode.id())
-                    .primaryReplicaNodeName(newPrimaryReplicaNode.name())
-                    .leaseStartTime(leaseStartTime.longValue())
-                    .build();
-
-            CompletableFuture<Void> primaryReplicaChangeFuture = node.replicaManager
-                    .replica(zonePartitionId)
-                    .thenCompose(replica -> replica.raftClient().run(cmd));
-
-            assertThat(primaryReplicaChangeFuture, willCompleteSuccessfully());
-        }
     }
 }

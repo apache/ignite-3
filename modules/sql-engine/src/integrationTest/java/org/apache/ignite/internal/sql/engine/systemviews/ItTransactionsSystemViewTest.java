@@ -55,6 +55,13 @@ public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
         assertQuery("SELECT * FROM SYSTEM.TRANSACTIONS")
                 .columnMetadata(
                         new MetadataMatcher().name("COORDINATOR_NODE_ID").type(ColumnType.STRING).nullable(false),
+                        new MetadataMatcher().name("TRANSACTION_STATE").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TRANSACTION_ID").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TRANSACTION_START_TIME").type(ColumnType.TIMESTAMP).nullable(true),
+                        new MetadataMatcher().name("TRANSACTION_TYPE").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TRANSACTION_PRIORITY").type(ColumnType.STRING).nullable(true),
+
+                        // Legacy columns.
                         new MetadataMatcher().name("STATE").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("ID").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("START_TIME").type(ColumnType.TIMESTAMP).nullable(true),
@@ -91,7 +98,8 @@ public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
         for (Transaction tx0 : txs) {
             InternalTransaction tx = (InternalTransaction) tx0;
 
-            assertQuery("SELECT * FROM SYSTEM.TRANSACTIONS WHERE ID = '" + tx.id() + "'")
+            assertQuery("SELECT COORDINATOR_NODE_ID, TRANSACTION_STATE, TRANSACTION_ID, TRANSACTION_START_TIME, TRANSACTION_TYPE, "
+                    + "TRANSACTION_PRIORITY FROM SYSTEM.TRANSACTIONS WHERE ID = '" + tx.id() + "'")
                     .returns(makeExpectedRow(tx, nodeIdToName))
                     .check();
         }
@@ -109,7 +117,8 @@ public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
 
         try {
             Object[] expected = makeExpectedRow((InternalTransaction) tx, nodeIdToName);
-            List<List<Object>> resultRow = sql(tx, "SELECT * FROM SYSTEM.TRANSACTIONS");
+            List<List<Object>> resultRow = sql(tx, "SELECT COORDINATOR_NODE_ID, TRANSACTION_STATE, TRANSACTION_ID, TRANSACTION_START_TIME, "
+                    + " TRANSACTION_TYPE, TRANSACTION_PRIORITY FROM SYSTEM.TRANSACTIONS");
 
             assertThat(resultRow, hasSize(1));
             assertThat(resultRow.get(0), equalTo(Arrays.asList(expected)));

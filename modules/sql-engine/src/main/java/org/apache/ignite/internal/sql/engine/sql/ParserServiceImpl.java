@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
@@ -48,6 +49,52 @@ public class ParserServiceImpl implements ParserService {
 
         SqlNode parsedTree = parsedStatement.statement();
 
+        return prepareSingleResult(query, parsedTree, parsedStatement.dynamicParamsCount());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ParsedResult> parseScript(String query) {
+        ScriptParseResult parsedStatement = IgniteSqlParser.parse(query, ScriptParseResult.MODE);
+
+        if (parsedStatement.results().size() == 1) {
+            StatementParseResult parseResult = parsedStatement.results().get(0);
+
+            return List.of(
+                    prepareSingleResult(query, parseResult.statement(), parseResult.dynamicParamsCount())
+            );
+        }
+
+        List<ParsedResult> results = new ArrayList<>(parsedStatement.results().size());
+
+        for (StatementParseResult result : parsedStatement.results()) {
+            SqlNode parsedTree = result.statement();
+            SqlQueryType queryType = Commons.getQueryType(parsedTree);
+            String normalizedQuery = parsedTree.toString();
+
+            assert queryType != null : normalizedQuery;
+
+            AtomicBoolean used = new AtomicBoolean();
+
+            results.add(new ParsedResultImpl(
+                    queryType,
+                    normalizedQuery,
+                    normalizedQuery,
+                    result.dynamicParamsCount(),
+                    () -> {
+                        if (!used.compareAndSet(false, true)) {
+                            throw new IllegalStateException("Parsed result of script is not reusable.");
+                        }
+
+                        return parsedTree;
+                    }
+            ));
+        }
+
+        return results;
+    }
+
+    private static ParsedResult prepareSingleResult(String originalQuery, SqlNode parsedTree, int dynamicParamsCount) {
         SqlQueryType queryType = Commons.getQueryType(parsedTree);
 
         SqlPrettyWriter w = new SqlPrettyWriter(NORMALIZED_SQL_WRITER_CONFIG);
@@ -58,12 +105,11 @@ public class ParserServiceImpl implements ParserService {
 
         AtomicReference<SqlNode> holder = new AtomicReference<>(parsedTree);
 
-        @SuppressWarnings("UnnecessaryLocalVariable")
-        ParsedResult result = new ParsedResultImpl(
+        return new ParsedResultImpl(
                 queryType,
-                query,
+                originalQuery,
                 normalizedQuery,
-                parsedStatement.dynamicParamsCount(),
+                dynamicParamsCount,
                 () -> {
                     // Descendants of SqlNode class are mutable, thus we must use every
                     // syntax node only once to avoid problem. But we already parsed the
@@ -76,36 +122,9 @@ public class ParserServiceImpl implements ParserService {
                         return ast;
                     }
 
-                    return IgniteSqlParser.parse(query, StatementParseResult.MODE).statement();
+                    return IgniteSqlParser.parse(originalQuery, StatementParseResult.MODE).statement();
                 }
         );
-
-        return result;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<ParsedResult> parseScript(String query) {
-        ScriptParseResult parsedStatement = IgniteSqlParser.parse(query, ScriptParseResult.MODE);
-        List<ParsedResult> results = new ArrayList<>(parsedStatement.results().size());
-
-        for (StatementParseResult result : parsedStatement.results()) {
-            SqlNode parsedTree = result.statement();
-            SqlQueryType queryType = Commons.getQueryType(parsedTree);
-            String normalizedQuery = parsedTree.toString();
-
-            assert queryType != null : normalizedQuery;
-
-            results.add(new ParsedResultImpl(
-                    queryType,
-                    normalizedQuery,
-                    normalizedQuery,
-                    result.dynamicParamsCount(),
-                    () -> parsedTree
-            ));
-        }
-
-        return results;
     }
 
     static class ParsedResultImpl implements ParsedResult {

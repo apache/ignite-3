@@ -67,8 +67,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         Node node = cluster.get(0);
 
-        setPrimaryReplica(node, zonePartitionId);
-
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
         KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
 
@@ -84,8 +82,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         }
 
         for (Node n : cluster) {
-            setPrimaryReplica(n, zonePartitionId);
-
             if (useExplicitTx) {
                 node.transactions().runInTransaction(tx -> {
                     assertThat(n.name, kvView1.get(tx, 42), is(69));
@@ -118,8 +114,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         }
 
         for (Node n : cluster) {
-            setPrimaryReplica(n, zonePartitionId);
-
             if (useExplicitTx) {
                 node.transactions().runInTransaction(tx -> {
                     assertThat(n.name, kvView1.getAll(tx, data1.keySet()), is(data1));
@@ -158,8 +152,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         Node node = cluster.get(0);
 
-        setPrimaryReplica(node, zonePartitionId);
-
         Map<Integer, Integer> data1 = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
         Map<Integer, Integer> data2 = IntStream.range(10, 20).boxed().collect(toMap(Function.identity(), Function.identity()));
 
@@ -177,8 +169,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         // Wait for the rebalance to kick in.
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));
-
-        setPrimaryReplica(newNode, zonePartitionId);
 
         // Wait for the data to appear. At the moment of writing, we don't have any partition safe time to wait for and
         // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
@@ -223,8 +213,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         Node node = cluster.get(0);
 
-        setPrimaryReplica(node, zonePartitionId);
-
         KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
 
         kvView.put(null, 42, 42);
@@ -237,8 +225,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         node = addNodeToCluster();
 
         node.waitForMetadataCompletenessAtNow();
-
-        setPrimaryReplica(node, zonePartitionId);
 
         kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
 

@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.GROUP_TYPE;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 
 import java.io.Serializable;
@@ -47,14 +52,14 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
+import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -76,6 +81,7 @@ import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -84,7 +90,7 @@ import org.apache.ignite.internal.table.distributed.raft.handlers.MinimumActiveT
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
-import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -137,9 +143,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     private final RaftTxFinishMarker txFinishMarker;
 
     // Raft command handlers.
-    private final FinishTxCommandHandler finishTxCommandHandler;
-    private final MinimumActiveTxTimeCommandHandler minimumActiveTxTimeCommandHandler;
-    private final VacuumTxStatesCommandHandler vacuumTxStatesCommandHandler;
+    private final CommandHandlers commandHandlers;
 
     /** Constructor. */
     public PartitionListener(
@@ -166,23 +170,32 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.indexMetaStorage = indexMetaStorage;
         this.localNodeId = localNodeId;
 
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, storageIndexTracker);
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
         txFinishMarker = new RaftTxFinishMarker(txManager);
 
-        finishTxCommandHandler = new FinishTxCommandHandler(
-                txStatePartitionStorage,
-                tablePartitionId,
-                txManager);
-
-        minimumActiveTxTimeCommandHandler = new MinimumActiveTxTimeCommandHandler(
+        CommandHandlers.Builder commandHandlersBuilder = new CommandHandlers.Builder();
+        commandHandlersBuilder.addHandler(GROUP_TYPE, UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND, new MinimumActiveTxTimeCommandHandler(
                 storage,
                 tablePartitionId,
-                minTimeCollectorService);
+                minTimeCollectorService
+        ));
 
-        vacuumTxStatesCommandHandler = new VacuumTxStatesCommandHandler(txStatePartitionStorage);
+        if (!enabledColocation()) {
+            commandHandlersBuilder.addHandler(
+                    GROUP_TYPE,
+                    FINISH_TX,
+                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager));
+
+            commandHandlersBuilder.addHandler(
+                    TxMessageGroup.GROUP_TYPE,
+                    VACUUM_TX_STATE_COMMAND,
+                    new VacuumTxStatesCommandHandler(txStatePartitionStorage));
+        }
+
+        this.commandHandlers = commandHandlersBuilder.build();
     }
 
     @Override
@@ -257,12 +270,14 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     ) {
         IgniteBiTuple<Serializable, Boolean> result = null;
 
-        if (command instanceof UpdateCommand) {
+        AbstractCommandHandler<?> commandHandler = commandHandlers.handler(command.groupType(), command.messageType());
+
+        if (commandHandler != null) {
+            result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
+        } else if (command instanceof UpdateCommand) {
             result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof UpdateAllCommand) {
             result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
-        } else if (command instanceof FinishTxCommand) {
-            result = finishTxCommandHandler.handle((FinishTxCommand) command, commandIndex, commandTerm);
         } else if (command instanceof WriteIntentSwitchCommand) {
             result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
         } else if (command instanceof SafeTimeSyncCommand) {
@@ -271,12 +286,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             result = handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
-        } else if (command instanceof VacuumTxStatesCommand) {
-            if (!enabledColocation()) {
-                result = vacuumTxStatesCommandHandler.handle((VacuumTxStatesCommand) command, commandIndex, commandTerm);
-            }
-        } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-            result = minimumActiveTxTimeCommandHandler.handle((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex);
         }
 
         if (result == null) {
@@ -289,10 +298,44 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
             }
 
-            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
+            if (!enabledColocation()) {
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
+            }
         }
 
         return result;
+    }
+
+    @Override
+    public void initialize(
+            @Nullable RaftGroupConfiguration config,
+            @Nullable LeaseInfo leaseInfo,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
+        if (lastAppliedIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        storage.runConsistently(locker -> {
+            if (config != null) {
+                setCurrentGroupTopology(config);
+
+                storage.committedGroupConfiguration(config);
+            }
+
+            if (leaseInfo != null) {
+                storage.updateLease(leaseInfo.leaseStartTime(), leaseInfo.primaryReplicaNodeId(), leaseInfo.primaryReplicaNodeName());
+            }
+
+            storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+
+            return null;
+        });
+
+        // Initiate a flush but do not wait for it. This is needed to save the initialization information as soon as possible (to make
+        // recovery more efficient), without blocking the caller thread.
+        storage.flush();
     }
 
     /**
@@ -322,7 +365,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
             if (leaseStartTime != storageLeaseStartTime) {
                 return new IgniteBiTuple<>(
-                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP), false);
+                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP),
+                        false);
             }
         }
 
@@ -382,7 +426,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
             if (leaseStartTime != storageLeaseStartTime) {
                 return new IgniteBiTuple<>(
-                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP), false);
+                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP),
+                        false);
             }
         }
 
@@ -481,8 +526,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {
-        currentGroupTopology = new HashSet<>(config.peers());
-        currentGroupTopology.addAll(config.learners());
+        setCurrentGroupTopology(config);
 
         // Skips the update because the storage has already recorded it.
         if (config.index() <= storage.lastAppliedIndex()) {
@@ -498,7 +542,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             storage.runConsistently(locker -> {
                 storage.committedGroupConfiguration(config);
                 storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
+
+                if (!enabledColocation()) {
+                    updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
+                }
 
                 return null;
             });
@@ -507,9 +554,19 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
     }
 
+    private void setCurrentGroupTopology(RaftGroupConfiguration config) {
+        var currentGroupTopology = new HashSet<>(config.peers());
+        currentGroupTopology.addAll(config.learners());
+
+        this.currentGroupTopology = currentGroupTopology;
+    }
+
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        onSnapshotSaveHandler.onSnapshotSave(List.of(this))
+        long maxAppliedIndex = max(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
+        long maxAppliedTerm = max(storage.lastAppliedTerm(), txStatePartitionStorage.lastAppliedTerm());
+
+        onSnapshotSaveHandler.onSnapshotSave(maxAppliedIndex, maxAppliedTerm, List.of(this))
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
@@ -535,6 +592,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
+        if (lastAppliedIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(locker -> {
             storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
