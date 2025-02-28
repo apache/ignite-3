@@ -189,11 +189,17 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         partitionSnapshots().acquireReadLock();
 
         try {
-            boolean crossTableCommand = command instanceof UpdateMinimumActiveTxBeginTimeCommand;
-
-            if (command instanceof PrimaryReplicaChangeCommand) {
-                // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
-                // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
+            if (command instanceof TableAwareCommand) {
+                result = processTableAwareCommand(
+                        ((TableAwareCommand) command).tableId(),
+                        command,
+                        commandIndex,
+                        commandTerm,
+                        safeTimestamp
+                );
+            } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
+            } else if (command instanceof PrimaryReplicaChangeCommand) {
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
 
                 if (commandIndex > txStateStorage.lastAppliedIndex()) {
@@ -209,17 +215,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
                     result = new IgniteBiTuple<>(null, true);
                 }
-            } else if (command instanceof TableAwareCommand) {
-                result = processTableAwareCommand(
-                        ((TableAwareCommand) command).tableId(),
-                        command,
-                        commandIndex,
-                        commandTerm,
-                        safeTimestamp
-                );
-            } else if (crossTableCommand) {
-                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Cleanup when all commands will be covered.
                 AbstractCommandHandler<?> commandHandler =
                         commandHandlers.handler(command.groupType(), command.messageType());
 
@@ -270,12 +267,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             @Nullable HybridTimestamp safeTimestamp
     ) {
         IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24517 Remove. In case of zero tables we still should
-        //  add lease information to txStatePartitionStorage and trigger storageIndexTriggerUpdate.
-        if (command instanceof PrimaryReplicaChangeCommand && tableProcessors.isEmpty()) {
-            result.set2(Boolean.TRUE);
-        }
 
         tableProcessors.values().forEach(processor -> {
             IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
