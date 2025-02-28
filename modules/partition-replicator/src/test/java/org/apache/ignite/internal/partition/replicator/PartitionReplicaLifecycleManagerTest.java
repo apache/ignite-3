@@ -158,7 +158,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                         partitionSnapshotStorageFactory
                 ));
 
-        when(raftManager.startRaftGroupNode(any(), any(), any(), any(), (RaftGroupOptions) any(), any()))
+        when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class), any()))
                 .thenReturn(topologyAwareRaftGroupService);
 
         metaStorageManager = StandaloneMetaStorageManager.create();
