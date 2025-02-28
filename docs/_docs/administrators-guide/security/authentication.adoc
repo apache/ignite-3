@@ -21,7 +21,7 @@ Ignite 3 provides basic Authentication capabilities.
 To start using basic authentication on the cluster, you need to enable it and create an initial administrator user. By default, the role that grants administrator permissions is called `admin`, but you can change it in cluster configuration. Here is an example of configuration that initializes the cluster and enables security on it:
 
 ----
-cluster init --name=sampleCluster --config-files=license.conf --config=ignite{security{enabled:true,authentication.providers:[{name:default,type:basic,users:[{username:ignite,displayName:administrator,password:ignite,roles:["system"]}]}]}}
+cluster init --name=sampleCluster --config=ignite{security{enabled:true,authentication.providers:[{name:default,type:basic,users:[{username:ignite,displayName:administrator,password:ignite,roles:["system"]}]}]}}
 ----
 
 When cluster has been initialized, it has basic authorization configured for `ignite` user name and `ignite` password with system level access. However, by default security is disabled. To enable it:

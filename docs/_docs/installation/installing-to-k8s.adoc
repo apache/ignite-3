@@ -48,17 +48,12 @@ You can install Ignite 3 and run a Ignite cluster on Kubernetes cluster. This se
 }
 ----
 +
-. Place your license content in the `license.conf` file.
 . Create the ConfigMap object for Ignite configuration:
 +
 [source,shell]
 ----
 kubectl create configmap ignite-config -n <namespace> --from-file=ignite-config.conf
 ----
-+
-. Create the ConfigMap object for the Ignite license:
-+
-Replace `<namespace>` with the name of the namespace where you want to deploy Ignite.
 
 === Deploy the Service
 
@@ -168,10 +163,6 @@ spec:
         - mountPath: /opt/ignite/etc/ignite-config.conf
           name: config-vol
           subPath: ignite-config.conf
-        # The license will be placed at this path in the container.
-        - mountPath: /opt/ignite/etc/license.conf
-          name: license-vol
-          subPath: license.conf
         # Ignite 3 working directory.
         - mountPath: /gg9-work
           name: persistence

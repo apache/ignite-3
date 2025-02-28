@@ -42,9 +42,13 @@ image::images/lifecycle1.png[Cluster initialization]
 
 Then, the nodes specified in the `--metastorage-group` argument form a RAFT group and take the role of *metastorage group*. These nodes will hold the authoritative copy of cluster meta information. If `--metastorage-group` is not specified, the nodes are chosen automatically. The number of nodes is chosen automatically as follows:
 
-```
-metastorage_group_size = cluster_size < 5 ? min(cluster_size, 3) : 5
-```
+[source, javascript]
+----
+metastorage_group_size =
+    cluster_size <= 3 ? cluster_size // If up to 3 nodes, use all nodes for CMG and metastorage.
+    : cluster_size == 4 ? 3 // If 4 nodes, use 3 nodes to have an odd number of nodes for better split-brain protection.
+    : 5 // Use 5 nodes on larger clusters; don't use more to avoid unnecessary overhead.
+----
 
 Once the 2 raft groups are started and elect their leaders, all other nodes in the topology are notified that the cluster is started, and they can join it. At this point, the cluster is considered *initialized* and can start receiving requests.
 
