@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -73,6 +74,10 @@ public class ReplicaImpl implements Replica {
 
     private final PlacementDriverMessageProcessor placementDriverMessageProcessor;
 
+    private final EventListener<PrimaryReplicaEventParameters> onReplicaElected = this::registerFailoverCallback;
+
+    private final EventListener<PrimaryReplicaEventParameters> onReplicaExpired = this::unregisterFailoverCallback;
+
     /**
      * The constructor of a replica server.
      *
@@ -102,8 +107,8 @@ public class ReplicaImpl implements Replica {
         this.failureManager = failureManager;
         this.placementDriverMessageProcessor = placementDriverMessageProcessor;
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::registerFailoverCallback);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::unregisterFailoverCallback);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onReplicaElected);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onReplicaExpired);
     }
 
     @Override
@@ -138,8 +143,8 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::registerFailoverCallback);
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::unregisterFailoverCallback);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onReplicaElected);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onReplicaExpired);
 
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
