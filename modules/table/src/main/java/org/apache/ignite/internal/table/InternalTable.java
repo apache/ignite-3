@@ -62,7 +62,7 @@ public interface InternalTable extends ManuallyCloseable {
     int tableId();
 
     /**
-     * Gets a zone id what the table belongs.
+     * Returns the zone ID that the table belongs to.
      *
      * @return Zone id.
      */

@@ -1948,16 +1948,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
         //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
-            var replicationGroupId = new TablePartitionId(tableId, partitionId);
-
             if (enabledColocation()) {
                 partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
-                        new ZonePartitionId(internalTable.zoneId(), replicationGroupId.partitionId()),
-                        replicationGroupId
+                        new ZonePartitionId(internalTable.zoneId(), partitionId),
+                        tableId
                 );
             }
 
-            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyPartition(replicationGroupId, table);
+            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyPartition(new TablePartitionId(tableId, partitionId), table);
         }
 
         return allOf(stopReplicaAndDestroyFutures)

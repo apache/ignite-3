@@ -1347,8 +1347,8 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Boolean> stopPartitionInternal(
             ZonePartitionId zonePartitionId,
             @Nullable Consumer<Boolean> afterReplicaStopAction,
-            @Nullable LocalPartitionReplicaEvent afterReplicaStoppedEvent,
-            @Nullable Long afterReplicaStoppedEventRevision
+            LocalPartitionReplicaEvent afterReplicaStoppedEvent,
+            Long afterReplicaStoppedEventRevision
     ) {
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             try {
@@ -1364,16 +1364,12 @@ public class PartitionReplicaLifecycleManager extends
 
                             replicationGroupIds.remove(zonePartitionId);
 
-                            if (afterReplicaStoppedEvent != null) {
-                                assert afterReplicaStoppedEventRevision != null;
+                            assert afterReplicaStoppedEvent != null && afterReplicaStoppedEventRevision != null;
 
-                                return fireEvent(
-                                        afterReplicaStoppedEvent,
-                                        new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision)
-                                ).thenApply(v -> true);
-                            }
-
-                            return trueCompletedFuture();
+                            return fireEvent(
+                                    afterReplicaStoppedEvent,
+                                    new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision)
+                            ).thenApply(v -> true);
                         });
             } catch (NodeStoppingException e) {
                 return falseCompletedFuture();
@@ -1457,21 +1453,19 @@ public class PartitionReplicaLifecycleManager extends
      * Load a new table partition listener to the zone replica.
      *
      * @param zonePartitionId Zone partition id.
-     * @param tablePartitionId Table partition id.
+     * @param tableId Table's identifier.
      */
     public void unloadTableResourcesFromZoneReplica(
             ZonePartitionId zonePartitionId,
-            TablePartitionId tablePartitionId
+            int tableId
     ) {
         ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
 
-        resources.replicaListenerFuture().thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaListener(
-                tablePartitionId
-        ));
+        resources.replicaListenerFuture().thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaListener(tableId));
 
-        resources.raftListener().removeTableProcessor(tablePartitionId);
+        resources.raftListener().removeTableProcessor(tableId);
 
-        resources.snapshotStorageFactory().removeMvPartition(tablePartitionId.tableId());
+        resources.snapshotStorageFactory().removeMvPartition(tableId);
     }
 
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {

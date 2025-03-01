@@ -138,6 +138,7 @@ public class StorageUtils {
     public static void throwExceptionDependingOnStorageState(StorageState state, String storageInfo) {
         switch (state) {
             case CLOSED:
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this temporal assert
                 assert !IgniteSystemProperties.enabledColocation() : createStorageClosedErrorMessage(storageInfo);
                 throw new StorageClosedException(createStorageClosedErrorMessage(storageInfo));
             case REBALANCE:
