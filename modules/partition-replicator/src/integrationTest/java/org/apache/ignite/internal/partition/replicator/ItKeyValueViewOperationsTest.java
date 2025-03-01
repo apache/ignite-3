@@ -30,10 +30,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
@@ -58,13 +56,8 @@ public class ItKeyValueViewOperationsTest extends ItAbstractColocationTest {
 
         createZone(node, "test_zone", 1, 1);
 
-        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
         createTable(node, "test_zone", "test_table");
         int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
-
-        setPrimaryReplica(node, zonePartitionId);
 
         KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 

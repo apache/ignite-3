@@ -871,7 +871,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         inBusyLock(busyLock, () -> {
             var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
-            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22522 After switching to the colocation track, the storageIndexTracker
+            //  will no longer need to be transferred to the table listeners.
+            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L) {
+                @Override
+                public void update(Long newValue, @Nullable Void futureResult) {
+                    throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
+                            + " will be updated.");
+                }
+
+                @Override
+                public CompletableFuture<Void> waitFor(Long valueToWait) {
+                    throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
+                            + " will be updated.");
+                }
+            };
 
             PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
@@ -880,8 +894,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     tableId,
                     partitionStorages.getMvPartitionStorage()
             );
-
-            storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
 
             PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                     partId,
@@ -947,6 +959,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
 
+            // We do not wait future in order not to block meta storage updates.
             replicaMgr.weakStopReplica(
                     groupId,
                     WeakReplicaStopReason.PRIMARY_EXPIRED,

@@ -107,8 +107,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         Node node = getNode(replicaAssignment.consistentId());
 
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-
         createZone(node, "test_zone", 1, 1);
 
         long key = 1;
@@ -229,8 +227,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         Node node = getNode(0);
 
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-
         assertTrue(waitForCondition(() -> node.distributionZoneManager.logicalTopology().size() == 3, 10_000L));
 
         createZone(node, "test_zone", 2, 2);
@@ -270,8 +266,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(3, nodeAttributesConfigurations);
 
         Node node = getNode(0);
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         createZone(node, "test_zone", 2, 3);
 
@@ -315,8 +309,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         Node node = getNode(replicaAssignment.consistentId());
 
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-
         DistributionZonesTestUtil.createZone(node.catalogManager, "test_zone", 1, 1);
 
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
@@ -346,8 +338,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         DistributionZonesTestUtil.createZone(node.catalogManager, zoneName, 1, 3);
 
@@ -547,8 +537,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         Node node = getNode(replicaAssignment1.consistentId());
 
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-
         createZone(node, "test_zone", 2, 1);
 
         {
@@ -591,7 +579,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         // Prepare a single node cluster.
         startCluster(1);
         Node node = getNode(0);
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         // Prepare a zone.
         String zoneName = "test_zone";
