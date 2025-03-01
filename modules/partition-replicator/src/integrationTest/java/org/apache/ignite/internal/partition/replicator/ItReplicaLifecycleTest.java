@@ -641,7 +641,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         // Prepare a single node cluster.
         startCluster(1);
         Node node = getNode(0);
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         // Prepare a zone.
         String zoneName = "test_zone";

@@ -1008,16 +1008,7 @@ public class PartitionReplicaLifecycleManager extends
         return clientUpdateFuture.thenCompose(v -> replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopPartitionInternal(
-                        zonePartitionId,
-                        replicaWasStopped -> {
-                            if (replicaWasStopped) {
-                                zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
-                            }
-                        },
-                        LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
-                        revision
-                ).thenApply(replicaWasStopped -> null)
+                () -> stopAndDestroyPartition(zonePartitionId, revision)
         ));
     }
 
@@ -1514,18 +1505,16 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CompletableFuture<Void> stopAndDestroyPartition(ZonePartitionId zonePartitionId, long revision) {
-        return stopPartition(zonePartitionId).thenCompose(replicaWasStopped -> {
-            if (!replicaWasStopped) {
-                return nullCompletedFuture();
-            }
-
-            zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
-
-            return fireEvent(
-                    LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
-                    new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
-            );
-        });
+        return stopPartitionInternal(
+                zonePartitionId,
+                replicaWasStopped -> {
+                    if (replicaWasStopped) {
+                        zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
+                    }
+                },
+                LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                revision
+        ).thenApply(replicaWasStopped -> null);
     }
 
     @TestOnly
