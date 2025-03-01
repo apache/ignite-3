@@ -283,7 +283,6 @@ public class InternalTableImpl implements InternalTable {
         return tableId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int zoneId() {
         return zoneId;
