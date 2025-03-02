@@ -1354,7 +1354,7 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             @Nullable Consumer<Boolean> afterReplicaStopAction,
             LocalPartitionReplicaEvent afterReplicaStoppedEvent,
-            Long afterReplicaStoppedEventRevision
+            long afterReplicaStoppedEventRevision
     ) {
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             try {
@@ -1370,7 +1370,7 @@ public class PartitionReplicaLifecycleManager extends
 
                             replicationGroupIds.remove(zonePartitionId);
 
-                            assert afterReplicaStoppedEvent != null && afterReplicaStoppedEventRevision != null;
+                            assert afterReplicaStoppedEvent != null;
 
                             return fireEvent(
                                     afterReplicaStoppedEvent,

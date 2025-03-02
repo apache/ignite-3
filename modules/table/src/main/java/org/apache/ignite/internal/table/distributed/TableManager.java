@@ -732,9 +732,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
 
         CompletableFuture<?>[] futures = zoneTables.stream()
-                .map(table -> supplyAsync(
-                        () -> tableStopFuture(table),
-                        ioExecutor))
+                .map(table -> supplyAsync(() -> tableStopFuture(table), ioExecutor).thenCompose(identity()))
                 .toArray(CompletableFuture[]::new);
 
         return allOf(futures).thenApply(v -> false);

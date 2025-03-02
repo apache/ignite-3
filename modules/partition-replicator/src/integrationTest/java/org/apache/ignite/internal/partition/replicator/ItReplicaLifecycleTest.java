@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
@@ -656,9 +657,9 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         stopNode(0);
 
         // Check that the storages close method was triggered
-        verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS))
+        verify(internalTable.storage(), times(1))
                 .close();
-        verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS))
+        verify(internalTable.txStateStorage(), times(1))
                 .close();
     }
 
