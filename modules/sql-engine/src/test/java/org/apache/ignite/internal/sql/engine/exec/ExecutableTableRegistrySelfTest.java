@@ -159,7 +159,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             when(descriptor.spliterator()).thenReturn(Spliterators.emptySpliterator());
 
             IgniteTable sqlTable = new IgniteTableImpl(
-                    "TBL1", tableId, TEST_ZONE_ID, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1
+                    "TBL1", tableId, TEST_ZONE_ID, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1, 10000
             );
 
             when(sqlSchemaManager.table(schemaVersion, tableId)).thenReturn(sqlTable);

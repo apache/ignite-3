@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -29,18 +28,12 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -68,16 +61,6 @@ public class ItCatalogCompactionTest extends ItAbstractColocationTest {
         // Prepare a single node cluster.
         startCluster(1);
         Node node = getNode(0);
-
-        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
-                cluster.stream().map(n -> n.name).collect(toList()), 1, 1);
-
-        List<TokenizedAssignments> tokenizedAssignments = assignments.stream()
-                .map(a -> new TokenizedAssignmentsImpl(a, Integer.MIN_VALUE))
-                .collect(toList());
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-        placementDriver.setAssignments(tokenizedAssignments);
 
         forceCheckpoint(node, "initial-checkpoint");
 

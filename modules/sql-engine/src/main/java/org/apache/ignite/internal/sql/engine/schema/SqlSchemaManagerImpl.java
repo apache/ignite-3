@@ -423,7 +423,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             defaultValueSupplier = null;
         }
 
-        CatalogColumnDescriptor columnDescriptor = new CatalogColumnDescriptor(
+        return new CatalogColumnDescriptor(
                 col.name(),
                 key,
                 nullable,
@@ -435,7 +435,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 defaultValueStrategy,
                 defaultValueSupplier
         );
-        return columnDescriptor;
     }
 
     private IgniteTableImpl createTableDataOnlyTable(
@@ -450,7 +449,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(catalog, table.zoneId());
 
-        return createTable(table, descriptor, tableIndexes, zoneDescriptor.partitions(), sqlStatisticManager);
+        return createTable(table, descriptor, tableIndexes, zoneDescriptor, sqlStatisticManager);
     }
 
     private Map<String, IgniteIndex> getIndexes(Catalog catalog, int tableId, int primaryKeyIndexId) {
@@ -496,7 +495,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             CatalogTableDescriptor catalogTableDescriptor,
             TableDescriptor tableDescriptor,
             Map<String, IgniteIndex> indexes,
-            int parititions,
+            CatalogZoneDescriptor zoneDescriptor,
             SqlStatisticManager sqlStatisticManager
     ) {
         IgniteIndex primaryIndex = indexes.values().stream()
@@ -524,7 +523,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 primaryKeyColumns,
                 statistic,
                 primaryKeyOnlyMap,
-                parititions
+                zoneDescriptor.partitions(),
+                zoneDescriptor.id()
         );
     }
 
@@ -591,6 +591,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         @Override
         public int partitions() {
             return table.partitions();
+        }
+
+        @Override
+        public int zoneId() {
+            return table.zoneId();
         }
     }
 }

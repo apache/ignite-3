@@ -21,6 +21,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.privateLookupIn;
 import static java.lang.invoke.MethodHandles.publicLookup;
 import static java.lang.invoke.MethodType.methodType;
+import static java.util.Collections.newSetFromMap;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.PrintWriter;
@@ -33,8 +34,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -345,7 +348,8 @@ public final class ExceptionUtils {
      */
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
-            Class<?> @Nullable... clazz) {
+            Class<?> @Nullable... clazz
+    ) {
         return hasCauseOrSuppressed(throwable, null, clazz);
     }
 
@@ -356,7 +360,7 @@ public final class ExceptionUtils {
      * into check.
      *
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
-     * @param message Message text that should be in cause.
+     * @param message Error message fragment that should be in error message.
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
      * @return {@code true} if one of the causing exception is an instance of passed in classes,
      *      {@code false} otherwise.
@@ -364,12 +368,30 @@ public final class ExceptionUtils {
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
             @Nullable String message,
-            Class<?> @Nullable... clazz) {
+            Class<?> @Nullable... clazz
+    ) {
+        return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    /**
+     * Internal method that does what is described in {@link #hasCauseOrSuppressed(Throwable, String, Class[])}, but protects against an
+     * infinite loop.
+     */
+    private static boolean hasCauseOrSuppressedInternal(
+            @Nullable Throwable throwable,
+            @Nullable String message,
+            Class<?> @Nullable [] clazz,
+            Set<Throwable> dejaVu
+    ) {
         if (throwable == null || clazz == null || clazz.length == 0) {
             return false;
         }
 
         for (Throwable th = throwable; th != null; th = th.getCause()) {
+            if (!dejaVu.add(th)) {
+                break;
+            }
+
             for (Class<?> c : clazz) {
                 if (c.isAssignableFrom(th.getClass())) {
                     if (message != null) {
@@ -385,7 +407,7 @@ public final class ExceptionUtils {
             }
 
             for (Throwable n : th.getSuppressed()) {
-                if (hasCauseOrSuppressed(n, message, clazz)) {
+                if (hasCauseOrSuppressedInternal(n, message, clazz, dejaVu)) {
                     return true;
                 }
             }

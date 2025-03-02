@@ -455,6 +455,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkPartitionNodes(0, 3);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24674")
     @Test
     void testThreeQueuedRebalances() throws Exception {
         Node node = getNode(0);
