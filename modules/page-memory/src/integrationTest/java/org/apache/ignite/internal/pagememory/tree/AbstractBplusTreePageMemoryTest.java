@@ -1778,129 +1778,125 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      */
     @Test
     public void testPutRmvFindSizeMultithreaded() throws Exception {
-        try {
-            MAX_PER_PAGE = 5;
-            CNT = 60_000;
+        MAX_PER_PAGE = 5;
+        CNT = 60_000;
 
-            final int slidingWindowSize = 100;
+        final int slidingWindowSize = 100;
 
-            final TestTree tree = createTestTree(false);
+        final TestTree tree = createTestTree(false);
 
-            final AtomicLong curPutKey = new AtomicLong(0);
-            final BlockingQueue<Long> rowsToRemove = new ArrayBlockingQueue<>(slidingWindowSize);
+        final AtomicLong curPutKey = new AtomicLong(0);
+        final BlockingQueue<Long> rowsToRemove = new ArrayBlockingQueue<>(slidingWindowSize);
 
-            final int hwThreadCnt = CPUS;
-            final int putThreadCnt = Math.max(1, hwThreadCnt / 4);
-            final int rmvThreadCnt = Math.max(1, hwThreadCnt / 4);
-            final int findThreadCnt = Math.max(1, hwThreadCnt / 4);
-            final int sizeThreadCnt = Math.max(1, hwThreadCnt - putThreadCnt - rmvThreadCnt - findThreadCnt);
+        final int hwThreadCnt = CPUS;
+        final int putThreadCnt = Math.max(1, hwThreadCnt / 4);
+        final int rmvThreadCnt = Math.max(1, hwThreadCnt / 4);
+        final int findThreadCnt = Math.max(1, hwThreadCnt / 4);
+        final int sizeThreadCnt = Math.max(1, hwThreadCnt - putThreadCnt - rmvThreadCnt - findThreadCnt);
 
-            final AtomicInteger sizeInvokeCnt = new AtomicInteger(0);
+        final AtomicInteger sizeInvokeCnt = new AtomicInteger(0);
 
-            final int loopCnt = CNT;
+        final int loopCnt = CNT;
 
-            CompletableFuture<?> sizeFut = runMultiThreadedAsync(() -> {
-                int iter = 0;
-                while (!stop.get()) {
-                    long size = tree.size();
+        CompletableFuture<?> sizeFut = runMultiThreadedAsync(() -> {
+            int iter = 0;
+            while (!stop.get()) {
+                long size = tree.size();
 
-                    if ((++iter & 0x3ff) == 0) {
-                        println(" --> size() = " + size);
-                    }
-
-                    sizeInvokeCnt.incrementAndGet();
+                if ((++iter & 0x3ff) == 0) {
+                    println(" --> size() = " + size);
                 }
 
-                return null;
-            }, sizeThreadCnt, "size");
-
-            // Let the size threads start
-            while (sizeInvokeCnt.get() < sizeThreadCnt * 2) {
-                Thread.yield();
+                sizeInvokeCnt.incrementAndGet();
             }
 
-            CompletableFuture<?> rmvFut = runMultiThreadedAsync(() -> {
-                int iter = 0;
-                while (!stop.get()) {
-                    Long rmvVal = rowsToRemove.poll(200, MILLISECONDS);
-                    if (rmvVal != null) {
-                        assertEquals(rmvVal, tree.remove(rmvVal));
-                    }
+            return null;
+        }, sizeThreadCnt, "size");
 
-                    if ((++iter & 0x3ff) == 0) {
-                        println(" --> rmv(" + rmvVal + ")");
-                    }
-                }
-
-                return null;
-            }, rmvThreadCnt, "rmv");
-
-            CompletableFuture<?> findFut = runMultiThreadedAsync(() -> {
-                int iter = 0;
-                while (!stop.get()) {
-                    Long findVal = curPutKey.get()
-                            + slidingWindowSize / 2
-                            - rnd.nextInt(slidingWindowSize * 2);
-
-                    tree.findOne(findVal);
-
-                    if ((++iter & 0x3ff) == 0) {
-                        println(" --> fnd(" + findVal + ")");
-                    }
-                }
-
-                return null;
-            }, findThreadCnt, "find");
-
-            CompletableFuture<?> putFut = runMultiThreadedAsync(() -> {
-                for (int i = 0; i < loopCnt && !stop.get(); ++i) {
-                    Long putVal = curPutKey.getAndIncrement();
-                    assertNull(tree.put(putVal));
-
-                    while (rowsToRemove.size() > slidingWindowSize) {
-                        if (stop.get()) {
-                            return null;
-                        }
-
-                        Thread.yield();
-                    }
-
-                    rowsToRemove.put(putVal);
-
-                    if ((i & 0x3ff) == 0) {
-                        println(" --> put(" + putVal + ")");
-                    }
-                }
-
-                return null;
-            }, putThreadCnt, "put");
-
-            CompletableFuture<?> lockPrintingFut = runMultiThreadedAsync(() -> {
-                while (!stop.get()) {
-                    Thread.sleep(1_000);
-
-                    println(TestTree.printLocks());
-                }
-
-                return null;
-            }, 1, "printLocks");
-
-            asyncRunFut = CompletableFuture.allOf(sizeFut, rmvFut, findFut, putFut, lockPrintingFut);
-
-            try {
-                putFut.get(getTestTimeout(), MILLISECONDS);
-            } finally {
-                stop.set(true);
-
-                asyncRunFut.get(getTestTimeout(), MILLISECONDS);
-            }
-
-            tree.validateTree();
-
-            assertNoLocks();
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
+        // Let the size threads start
+        while (sizeInvokeCnt.get() < sizeThreadCnt * 2) {
+            Thread.yield();
         }
+
+        CompletableFuture<?> rmvFut = runMultiThreadedAsync(() -> {
+            int iter = 0;
+            while (!stop.get()) {
+                Long rmvVal = rowsToRemove.poll(200, MILLISECONDS);
+                if (rmvVal != null) {
+                    assertEquals(rmvVal, tree.remove(rmvVal));
+                }
+
+                if ((++iter & 0x3ff) == 0) {
+                    println(" --> rmv(" + rmvVal + ")");
+                }
+            }
+
+            return null;
+        }, rmvThreadCnt, "rmv");
+
+        CompletableFuture<?> findFut = runMultiThreadedAsync(() -> {
+            int iter = 0;
+            while (!stop.get()) {
+                Long findVal = curPutKey.get()
+                        + slidingWindowSize / 2
+                        - rnd.nextInt(slidingWindowSize * 2);
+
+                tree.findOne(findVal);
+
+                if ((++iter & 0x3ff) == 0) {
+                    println(" --> fnd(" + findVal + ")");
+                }
+            }
+
+            return null;
+        }, findThreadCnt, "find");
+
+        CompletableFuture<?> putFut = runMultiThreadedAsync(() -> {
+            for (int i = 0; i < loopCnt && !stop.get(); ++i) {
+                Long putVal = curPutKey.getAndIncrement();
+                assertNull(tree.put(putVal));
+
+                while (rowsToRemove.size() > slidingWindowSize) {
+                    if (stop.get()) {
+                        return null;
+                    }
+
+                    Thread.yield();
+                }
+
+                rowsToRemove.put(putVal);
+
+                if ((i & 0x3ff) == 0) {
+                    println(" --> put(" + putVal + ")");
+                }
+            }
+
+            return null;
+        }, putThreadCnt, "put");
+
+        CompletableFuture<?> lockPrintingFut = runMultiThreadedAsync(() -> {
+            while (!stop.get()) {
+                Thread.sleep(1_000);
+
+                println(TestTree.printLocks());
+            }
+
+            return null;
+        }, 1, "printLocks");
+
+        asyncRunFut = CompletableFuture.allOf(sizeFut, rmvFut, findFut, putFut, lockPrintingFut);
+
+        try {
+            putFut.get(getTestTimeout(), MILLISECONDS);
+        } finally {
+            stop.set(true);
+
+            asyncRunFut.get(getTestTimeout(), MILLISECONDS);
+        }
+
+        tree.validateTree();
+
+        assertNoLocks();
     }
 
     @Test
