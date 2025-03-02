@@ -88,7 +88,6 @@ public interface PageHandler<X, R> {
      * @param pageMem Page memory.
      * @param groupId Group ID.
      * @param pageId Page ID.
-     * @param lsnr Lock listener.
      * @param h Handler.
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
@@ -101,7 +100,6 @@ public interface PageHandler<X, R> {
             PageMemory pageMem,
             int groupId,
             long pageId,
-            PageLockListener lsnr,
             PageHandler<X, R> h,
             X arg,
             int intArg,
@@ -111,7 +109,7 @@ public interface PageHandler<X, R> {
         long page = pageMem.acquirePage(groupId, pageId, statHolder);
 
         try {
-            return readPage(pageMem, groupId, pageId, page, lsnr, h, arg, intArg, lockFailed, statHolder);
+            return readPage(pageMem, groupId, pageId, page, h, arg, intArg, lockFailed, statHolder);
         } finally {
             pageMem.releasePage(groupId, pageId, page);
         }
@@ -124,7 +122,6 @@ public interface PageHandler<X, R> {
      * @param groupId Group ID.
      * @param pageId Page ID.
      * @param page Page pointer.
-     * @param lsnr Lock listener.
      * @param h Handler.
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
@@ -138,7 +135,6 @@ public interface PageHandler<X, R> {
             int groupId,
             long pageId,
             long page,
-            PageLockListener lsnr,
             PageHandler<X, R> h,
             X arg,
             int intArg,
@@ -148,7 +144,7 @@ public interface PageHandler<X, R> {
         long pageAddr = 0L;
 
         try {
-            if ((pageAddr = readLock(pageMem, groupId, pageId, page, lsnr)) == 0L) {
+            if ((pageAddr = pageMem.readLock(groupId, pageId, page)) == 0L) {
                 return lockFailed;
             }
 
@@ -157,58 +153,9 @@ public interface PageHandler<X, R> {
             return h.run(groupId, pageId, page, pageAddr, io, arg, intArg, statHolder);
         } finally {
             if (pageAddr != 0L) {
-                readUnlock(pageMem, groupId, pageId, page, pageAddr, lsnr);
+                pageMem.readUnlock(groupId, pageId, page);
             }
         }
-    }
-
-    /**
-     * Acquires the read lock on the page.
-     *
-     * @param pageMem Page memory.
-     * @param groupId Group ID.
-     * @param pageId Page ID.
-     * @param page Page pointer.
-     * @param lsnr Lock listener.
-     * @return Page address or {@code 0} if acquiring failed.
-     */
-    static long readLock(
-            PageMemory pageMem,
-            int groupId,
-            long pageId,
-            long page,
-            PageLockListener lsnr
-    ) {
-        lsnr.onBeforeReadLock(groupId, pageId, page);
-
-        long pageAddr = pageMem.readLock(groupId, pageId, page);
-
-        lsnr.onReadLock(groupId, pageId, page, pageAddr);
-
-        return pageAddr;
-    }
-
-    /**
-     * Releases acquired read lock.
-     *
-     * @param pageMem Page memory.
-     * @param groupId Group ID.
-     * @param pageId Page ID.
-     * @param page Page pointer.
-     * @param pageAddr Page address.
-     * @param lsnr Lock listener.
-     */
-    static void readUnlock(
-            PageMemory pageMem,
-            int groupId,
-            long pageId,
-            long page,
-            long pageAddr,
-            PageLockListener lsnr
-    ) {
-        lsnr.onReadUnlock(groupId, pageId, page, pageAddr);
-
-        pageMem.readUnlock(groupId, pageId, page);
     }
 
     /**
@@ -218,7 +165,6 @@ public interface PageHandler<X, R> {
      * @param groupId Group ID.
      * @param pageId Page ID.
      * @param init IO for new page initialization.
-     * @param lsnr Lock listener.
      * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      * @see PageIo#initNewPage(long, long, int)
@@ -228,15 +174,13 @@ public interface PageHandler<X, R> {
             int groupId,
             long pageId,
             PageIo init,
-            PageLockListener lsnr,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
         Boolean res = writePage(
                 pageMem,
                 groupId,
                 pageId,
-                lsnr,
-                PageHandler.NO_OP,
+                NO_OP,
                 init,
                 null,
                 0,
@@ -253,7 +197,6 @@ public interface PageHandler<X, R> {
      * @param pageMem Page memory.
      * @param groupId Group ID.
      * @param pageId Page ID.
-     * @param lsnr Lock listener.
      * @param h Handler.
      * @param init IO for new page initialization or {@code null} if it is an existing page.
      * @param arg Argument.
@@ -268,7 +211,6 @@ public interface PageHandler<X, R> {
             PageMemory pageMem,
             int groupId,
             final long pageId,
-            PageLockListener lsnr,
             PageHandler<X, R> h,
             @Nullable PageIo init,
             X arg,
@@ -279,7 +221,7 @@ public interface PageHandler<X, R> {
         boolean releaseAfterWrite = true;
         long page = pageMem.acquirePage(groupId, pageId, statHolder);
         try {
-            long pageAddr = writeLock(pageMem, groupId, pageId, page, lsnr, false);
+            long pageAddr = pageMem.writeLock(groupId, pageId, page);
 
             if (pageAddr == 0L) {
                 return lockFailed;
@@ -304,7 +246,7 @@ public interface PageHandler<X, R> {
                 assert PageIo.getCrc(pageAddr) == 0;
 
                 if (releaseAfterWrite = h.releaseAfterWrite(groupId, pageId, page, pageAddr, arg, intArg)) {
-                    writeUnlock(pageMem, groupId, pageId, page, pageAddr, lsnr, ok);
+                    pageMem.writeUnlock(groupId, pageId, page, ok);
                 }
             }
         } finally {
@@ -321,7 +263,6 @@ public interface PageHandler<X, R> {
      * @param groupId Group ID.
      * @param pageId Page ID.
      * @param page Page pointer.
-     * @param lsnr Lock listener.
      * @param h Handler.
      * @param init IO for new page initialization or {@code null} if it is an existing page.
      * @param arg Argument.
@@ -336,7 +277,6 @@ public interface PageHandler<X, R> {
             int groupId,
             long pageId,
             long page,
-            PageLockListener lsnr,
             PageHandler<X, R> h,
             PageIo init,
             X arg,
@@ -344,7 +284,7 @@ public interface PageHandler<X, R> {
             R lockFailed,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
-        long pageAddr = writeLock(pageMem, groupId, pageId, page, lsnr, false);
+        long pageAddr = pageMem.writeLock(groupId, pageId, page);
 
         if (pageAddr == 0L) {
             return lockFailed;
@@ -369,62 +309,9 @@ public interface PageHandler<X, R> {
             assert PageIo.getCrc(pageAddr) == 0;
 
             if (h.releaseAfterWrite(groupId, pageId, page, pageAddr, arg, intArg)) {
-                writeUnlock(pageMem, groupId, pageId, page, pageAddr, lsnr, ok);
+                pageMem.writeUnlock(groupId, pageId, page, ok);
             }
         }
-    }
-
-    /**
-     * Acquires the write lock on the page.
-     *
-     * @param pageMem Page memory.
-     * @param groupId Group ID.
-     * @param pageId Page ID.
-     * @param page Page pointer.
-     * @param lsnr Lock listener.
-     * @param tryLock Only try to lock without waiting.
-     * @return Page address or {@code 0} if failed to lock due to recycling.
-     */
-    static long writeLock(
-            PageMemory pageMem,
-            int groupId,
-            long pageId,
-            long page,
-            PageLockListener lsnr,
-            boolean tryLock
-    ) {
-        lsnr.onBeforeWriteLock(groupId, pageId, page);
-
-        long pageAddr = tryLock ? pageMem.tryWriteLock(groupId, pageId, page) : pageMem.writeLock(groupId, pageId, page);
-
-        lsnr.onWriteLock(groupId, pageId, page, pageAddr);
-
-        return pageAddr;
-    }
-
-    /**
-     * Releases acquired write lock.
-     *
-     * @param pageMem Page memory.
-     * @param groupId Group ID.
-     * @param pageId Page ID.
-     * @param page Page pointer.
-     * @param pageAddr Page address.
-     * @param lsnr Lock listener.
-     * @param dirty Page is dirty.
-     */
-    static void writeUnlock(
-            PageMemory pageMem,
-            int groupId,
-            long pageId,
-            long page,
-            long pageAddr,
-            PageLockListener lsnr,
-            boolean dirty
-    ) {
-        lsnr.onWriteUnlock(groupId, pageId, page, pageAddr);
-
-        pageMem.writeUnlock(groupId, pageId, page, dirty);
     }
 
     /**
@@ -436,7 +323,7 @@ public interface PageHandler<X, R> {
             long pageId,
             long pageAddr,
             PageIo init
-    ) throws IgniteInternalCheckedException {
+    ) {
         assert PageIo.getCrc(pageAddr) == 0;
 
         init.initNewPage(pageAddr, pageId, pageMem.realPageSize(groupId));

@@ -69,7 +69,6 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
@@ -919,7 +918,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param grpName Group name.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
      *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
@@ -934,7 +932,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             @Nullable String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
@@ -942,7 +939,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             IoVersions<? extends BplusLeafIo<L>> leafIos,
             IoVersions<? extends BplusMetaIo> metaIos
     ) {
-        this(treeNamePrefix, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        this(treeNamePrefix, grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
 
         setIos(innerIos, leafIos, metaIos);
     }
@@ -954,7 +951,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param grpId Group ID.
      * @param grpName Group name.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
      *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
@@ -966,12 +962,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             @Nullable String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
     ) {
-        super(treeNamePrefix, grpId, grpName, partId, pageMem, lockLsnr, FLAG_AUX);
+        super(treeNamePrefix, grpId, grpName, partId, pageMem, FLAG_AUX);
 
         // TODO: IGNITE-16350 Move to config.
         minFill = 0.0f; // Testing worst case when merge happens only on empty page.

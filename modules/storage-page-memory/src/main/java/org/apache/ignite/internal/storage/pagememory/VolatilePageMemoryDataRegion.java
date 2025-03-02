@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
@@ -29,13 +30,16 @@ import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
 
 /**
  * Implementation of {@link DataRegion} for in-memory case.
  */
 public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
+    /** Ignite page memory concurrency level. */
+    private static final String IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL = "IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL";
+
     private static final int FREE_LIST_GROUP_ID = 0;
 
     private static final int FREE_LIST_PARTITION_ID = 0;
@@ -72,7 +76,12 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
      * Starts the in-memory data region.
      */
     public void start() {
-        VolatilePageMemory pageMemory = new VolatilePageMemory(cfg, ioRegistry, pageSize);
+        int lockConcLvl = IgniteSystemProperties.getInteger(
+                IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL,
+                Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
+        );
+
+        VolatilePageMemory pageMemory = new VolatilePageMemory(cfg, ioRegistry, pageSize, new OffheapReadWriteLock(lockConcLvl));
 
         pageMemory.start();
 
@@ -93,7 +102,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
                 pageMemory,
-                PageLockListenerNoOp.INSTANCE,
                 metaPageId,
                 true,
                 // Because in memory.

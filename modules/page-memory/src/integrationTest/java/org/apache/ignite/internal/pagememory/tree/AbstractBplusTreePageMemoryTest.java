@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiT
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.MiB;
-import static org.apache.ignite.internal.util.StringUtils.hexLong;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -95,12 +94,13 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.pagememory.util.ListeningOffheapReadWriteLock;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteRandom;
 import org.apache.ignite.internal.util.IgniteStripedLock;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -134,10 +134,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     protected static final long MAX_MEMORY_SIZE = 64 * MiB;
 
-    /** Forces printing lock/unlock events on the test tree. */
-    private static boolean PRINT_LOCKS = false;
-
     protected static final Collection<Long> rmvdIds = ConcurrentHashMap.newKeySet();
+
+    protected static long lockOffset;
 
     @Nullable
     protected PageMemory pageMem;
@@ -1779,125 +1778,129 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      */
     @Test
     public void testPutRmvFindSizeMultithreaded() throws Exception {
-        MAX_PER_PAGE = 5;
-        CNT = 60_000;
+        try {
+            MAX_PER_PAGE = 5;
+            CNT = 60_000;
 
-        final int slidingWindowSize = 100;
+            final int slidingWindowSize = 100;
 
-        final TestTree tree = createTestTree(false);
+            final TestTree tree = createTestTree(false);
 
-        final AtomicLong curPutKey = new AtomicLong(0);
-        final BlockingQueue<Long> rowsToRemove = new ArrayBlockingQueue<>(slidingWindowSize);
+            final AtomicLong curPutKey = new AtomicLong(0);
+            final BlockingQueue<Long> rowsToRemove = new ArrayBlockingQueue<>(slidingWindowSize);
 
-        final int hwThreadCnt = CPUS;
-        final int putThreadCnt = Math.max(1, hwThreadCnt / 4);
-        final int rmvThreadCnt = Math.max(1, hwThreadCnt / 4);
-        final int findThreadCnt = Math.max(1, hwThreadCnt / 4);
-        final int sizeThreadCnt = Math.max(1, hwThreadCnt - putThreadCnt - rmvThreadCnt - findThreadCnt);
+            final int hwThreadCnt = CPUS;
+            final int putThreadCnt = Math.max(1, hwThreadCnt / 4);
+            final int rmvThreadCnt = Math.max(1, hwThreadCnt / 4);
+            final int findThreadCnt = Math.max(1, hwThreadCnt / 4);
+            final int sizeThreadCnt = Math.max(1, hwThreadCnt - putThreadCnt - rmvThreadCnt - findThreadCnt);
 
-        final AtomicInteger sizeInvokeCnt = new AtomicInteger(0);
+            final AtomicInteger sizeInvokeCnt = new AtomicInteger(0);
 
-        final int loopCnt = CNT;
+            final int loopCnt = CNT;
 
-        CompletableFuture<?> sizeFut = runMultiThreadedAsync(() -> {
-            int iter = 0;
-            while (!stop.get()) {
-                long size = tree.size();
+            CompletableFuture<?> sizeFut = runMultiThreadedAsync(() -> {
+                int iter = 0;
+                while (!stop.get()) {
+                    long size = tree.size();
 
-                if ((++iter & 0x3ff) == 0) {
-                    println(" --> size() = " + size);
-                }
-
-                sizeInvokeCnt.incrementAndGet();
-            }
-
-            return null;
-        }, sizeThreadCnt, "size");
-
-        // Let the size threads start
-        while (sizeInvokeCnt.get() < sizeThreadCnt * 2) {
-            Thread.yield();
-        }
-
-        CompletableFuture<?> rmvFut = runMultiThreadedAsync(() -> {
-            int iter = 0;
-            while (!stop.get()) {
-                Long rmvVal = rowsToRemove.poll(200, MILLISECONDS);
-                if (rmvVal != null) {
-                    assertEquals(rmvVal, tree.remove(rmvVal));
-                }
-
-                if ((++iter & 0x3ff) == 0) {
-                    println(" --> rmv(" + rmvVal + ")");
-                }
-            }
-
-            return null;
-        }, rmvThreadCnt, "rmv");
-
-        CompletableFuture<?> findFut = runMultiThreadedAsync(() -> {
-            int iter = 0;
-            while (!stop.get()) {
-                Long findVal = curPutKey.get()
-                        + slidingWindowSize / 2
-                        - rnd.nextInt(slidingWindowSize * 2);
-
-                tree.findOne(findVal);
-
-                if ((++iter & 0x3ff) == 0) {
-                    println(" --> fnd(" + findVal + ")");
-                }
-            }
-
-            return null;
-        }, findThreadCnt, "find");
-
-        CompletableFuture<?> putFut = runMultiThreadedAsync(() -> {
-            for (int i = 0; i < loopCnt && !stop.get(); ++i) {
-                Long putVal = curPutKey.getAndIncrement();
-                assertNull(tree.put(putVal));
-
-                while (rowsToRemove.size() > slidingWindowSize) {
-                    if (stop.get()) {
-                        return null;
+                    if ((++iter & 0x3ff) == 0) {
+                        println(" --> size() = " + size);
                     }
 
-                    Thread.yield();
+                    sizeInvokeCnt.incrementAndGet();
                 }
 
-                rowsToRemove.put(putVal);
+                return null;
+            }, sizeThreadCnt, "size");
 
-                if ((i & 0x3ff) == 0) {
-                    println(" --> put(" + putVal + ")");
+            // Let the size threads start
+            while (sizeInvokeCnt.get() < sizeThreadCnt * 2) {
+                Thread.yield();
+            }
+
+            CompletableFuture<?> rmvFut = runMultiThreadedAsync(() -> {
+                int iter = 0;
+                while (!stop.get()) {
+                    Long rmvVal = rowsToRemove.poll(200, MILLISECONDS);
+                    if (rmvVal != null) {
+                        assertEquals(rmvVal, tree.remove(rmvVal));
+                    }
+
+                    if ((++iter & 0x3ff) == 0) {
+                        println(" --> rmv(" + rmvVal + ")");
+                    }
                 }
+
+                return null;
+            }, rmvThreadCnt, "rmv");
+
+            CompletableFuture<?> findFut = runMultiThreadedAsync(() -> {
+                int iter = 0;
+                while (!stop.get()) {
+                    Long findVal = curPutKey.get()
+                            + slidingWindowSize / 2
+                            - rnd.nextInt(slidingWindowSize * 2);
+
+                    tree.findOne(findVal);
+
+                    if ((++iter & 0x3ff) == 0) {
+                        println(" --> fnd(" + findVal + ")");
+                    }
+                }
+
+                return null;
+            }, findThreadCnt, "find");
+
+            CompletableFuture<?> putFut = runMultiThreadedAsync(() -> {
+                for (int i = 0; i < loopCnt && !stop.get(); ++i) {
+                    Long putVal = curPutKey.getAndIncrement();
+                    assertNull(tree.put(putVal));
+
+                    while (rowsToRemove.size() > slidingWindowSize) {
+                        if (stop.get()) {
+                            return null;
+                        }
+
+                        Thread.yield();
+                    }
+
+                    rowsToRemove.put(putVal);
+
+                    if ((i & 0x3ff) == 0) {
+                        println(" --> put(" + putVal + ")");
+                    }
+                }
+
+                return null;
+            }, putThreadCnt, "put");
+
+            CompletableFuture<?> lockPrintingFut = runMultiThreadedAsync(() -> {
+                while (!stop.get()) {
+                    Thread.sleep(1_000);
+
+                    println(TestTree.printLocks());
+                }
+
+                return null;
+            }, 1, "printLocks");
+
+            asyncRunFut = CompletableFuture.allOf(sizeFut, rmvFut, findFut, putFut, lockPrintingFut);
+
+            try {
+                putFut.get(getTestTimeout(), MILLISECONDS);
+            } finally {
+                stop.set(true);
+
+                asyncRunFut.get(getTestTimeout(), MILLISECONDS);
             }
 
-            return null;
-        }, putThreadCnt, "put");
+            tree.validateTree();
 
-        CompletableFuture<?> lockPrintingFut = runMultiThreadedAsync(() -> {
-            while (!stop.get()) {
-                Thread.sleep(1_000);
-
-                println(TestTree.printLocks());
-            }
-
-            return null;
-        }, 1, "printLocks");
-
-        asyncRunFut = CompletableFuture.allOf(sizeFut, rmvFut, findFut, putFut, lockPrintingFut);
-
-        try {
-            putFut.get(getTestTimeout(), MILLISECONDS);
-        } finally {
-            stop.set(true);
-
-            asyncRunFut.get(getTestTimeout(), MILLISECONDS);
+            assertNoLocks();
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
         }
-
-        tree.validateTree();
-
-        assertNoLocks();
     }
 
     @Test
@@ -2763,15 +2766,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         return cnt;
     }
 
-    protected static void checkPageId(long pageId, long pageAddr) {
-        long actual = getPageId(pageAddr);
-
-        // Page ID must be 0L for newly allocated page, for reused page effective ID must remain the same.
-        if (actual != 0L && pageId != actual) {
-            throw new IllegalStateException("Page ID: " + hexLong(actual));
-        }
-    }
-
     private TestTree createTestTree(boolean canGetRow, AtomicLong globalRmvId) throws Exception {
         var tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, pageMem, globalRmvId, true);
 
@@ -2823,7 +2817,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                     null,
                     partitionId(metaPageId.pageId()),
                     pageMem,
-                    new TestPageLockListener(PageLockListenerNoOp.INSTANCE),
                     globalRmvId,
                     metaPageId.pageId(),
                     reuseList,
@@ -3094,6 +3087,10 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
     }
 
+    protected OffheapReadWriteLock wrapLock(OffheapReadWriteLock delegate) {
+        return new ListeningOffheapReadWriteLock(delegate, new TestPageLockListener());
+    }
+
     /**
      * {@link PageLockListener} implementation for the test.
      */
@@ -3106,8 +3103,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         static ConcurrentMap<Object, Map<Long, Long>> writeLocks = new ConcurrentHashMap<>();
 
-        private final PageLockListener delegate;
-
         static void clearStaticResources() {
             beforeReadLock.clear();
             readLocks.clear();
@@ -3116,117 +3111,66 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             writeLocks.clear();
         }
 
-        /**
-         * Constructor.
-         *
-         * @param delegate Real implementation of page lock listener.
-         */
-        private TestPageLockListener(PageLockListener delegate) {
-            this.delegate = delegate;
+        /** {@inheritDoc} */
+        @Override
+        public void onBeforeReadLock(long lock) {
+            assertNull(beforeReadLock.put(threadId(), lock));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onBeforeReadLock(int cacheId, long pageId, long page) {
-            delegate.onBeforeReadLock(cacheId, pageId, page);
+        public void onReadLock(long lock, boolean locked) {
+            if (locked) {
+                long actual = getPageId(lock - lockOffset);
 
-            if (PRINT_LOCKS) {
-                println("  onBeforeReadLock: " + hexLong(pageId));
+                assertNull(locks(true).put(lock, actual));
             }
 
-            assertNull(beforeReadLock.put(threadId(), pageId));
+            assertEquals(Long.valueOf(lock), beforeReadLock.remove(threadId()));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onReadLock(int cacheId, long pageId, long page, long pageAddr) {
-            delegate.onReadLock(cacheId, pageId, page, pageAddr);
+        public void onReadUnlock(long lock) {
+            long actual = getPageId(lock - lockOffset);
 
-            if (PRINT_LOCKS) {
-                println("  onReadLock: " + hexLong(pageId));
-            }
-
-            if (pageAddr != 0L) {
-                long actual = getPageId(pageAddr);
-
-                checkPageId(pageId, pageAddr);
-
-                assertNull(locks(true).put(pageId, actual));
-            }
-
-            assertEquals(Long.valueOf(pageId), beforeReadLock.remove(threadId()));
+            assertEquals(Long.valueOf(actual), locks(true).remove(lock));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onReadUnlock(int cacheId, long pageId, long page, long pageAddr) {
-            delegate.onReadUnlock(cacheId, pageId, page, pageAddr);
-
-            if (PRINT_LOCKS) {
-                println("  onReadUnlock: " + hexLong(pageId));
-            }
-
-            checkPageId(pageId, pageAddr);
-
-            long actual = getPageId(pageAddr);
-
-            assertEquals(Long.valueOf(actual), locks(true).remove(pageId));
+        public void onBeforeWriteLock(long lock) {
+            assertNull(beforeWriteLock.put(threadId(), lock));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onBeforeWriteLock(int cacheId, long pageId, long page) {
-            delegate.onBeforeWriteLock(cacheId, pageId, page);
+        public void onWriteLock(long lock, boolean locked) {
+            if (locked) {
+                long actual = getPageId(lock - lockOffset);
 
-            if (PRINT_LOCKS) {
-                println("  onBeforeWriteLock: " + hexLong(pageId));
+                // 0L for newly allocated page.
+                assertNull(locks(false).put(lock, actual));
             }
 
-            assertNull(beforeWriteLock.put(threadId(), pageId));
+            assertEquals(Long.valueOf(lock), beforeWriteLock.remove(threadId()));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onWriteLock(int cacheId, long pageId, long page, long pageAddr) {
-            delegate.onWriteLock(cacheId, pageId, page, pageAddr);
+        public void onWriteUnlock(long lock) {
+            long actual = getPageId(lock - lockOffset);
 
-            if (PRINT_LOCKS) {
-                println("  onWriteLock: " + hexLong(pageId));
+            long prevValue = locks(false).remove(lock);
+
+            if (prevValue != 0L) {
+                assertEquals(actual, prevValue);
             }
-
-            if (pageAddr != 0L) {
-                checkPageId(pageId, pageAddr);
-
-                long actual = getPageId(pageAddr);
-
-                if (actual == 0L) {
-                    actual = pageId; // It is a newly allocated page.
-                }
-
-                assertNull(locks(false).put(pageId, actual));
-            }
-
-            assertEquals(Long.valueOf(pageId), beforeWriteLock.remove(threadId()));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onWriteUnlock(int cacheId, long pageId, long page, long pageAddr) {
-            delegate.onWriteUnlock(cacheId, pageId, page, pageAddr);
-
-            if (PRINT_LOCKS) {
-                println("  onWriteUnlock: " + hexLong(pageId));
-            }
-
-            assertEquals(effectivePageId(pageId), effectivePageId(getPageId(pageAddr)));
-
-            assertEquals(Long.valueOf(pageId), locks(false).remove(pageId));
         }
 
         /** {@inheritDoc} */
         @Override
         public void close() {
-            delegate.close();
         }
 
         private static Map<Long, Long> locks(boolean readLock) {
@@ -3263,15 +3207,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      */
     protected static void println(@Nullable String msg) {
         System.out.println(msg);
-    }
-
-    /**
-     * Alias for {@code System.out.print}.
-     *
-     * @param msg String to print.
-     */
-    protected static void print(@Nullable String msg) {
-        System.out.print(msg);
     }
 
     /**

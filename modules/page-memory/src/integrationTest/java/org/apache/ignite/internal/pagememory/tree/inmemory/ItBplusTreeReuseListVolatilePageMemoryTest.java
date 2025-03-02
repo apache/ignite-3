@@ -28,6 +28,8 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreeReusePageMemoryTest;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -45,6 +47,11 @@ public class ItBplusTreeReuseListVolatilePageMemoryTest extends AbstractBplusTre
     )
     private StorageProfileConfiguration storageProfileCfg;
 
+    @BeforeEach
+    void initLockOffset() {
+        lockOffset = VolatilePageMemory.LOCK_OFFSET;
+    }
+
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() {
@@ -55,7 +62,8 @@ public class ItBplusTreeReuseListVolatilePageMemoryTest extends AbstractBplusTre
         return new VolatilePageMemory(
                 (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
                 ioRegistry,
-                PAGE_SIZE
+                PAGE_SIZE,
+                wrapLock(new OffheapReadWriteLock(128))
         );
     }
 
