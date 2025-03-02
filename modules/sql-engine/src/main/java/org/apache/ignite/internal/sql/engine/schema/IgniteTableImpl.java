@@ -42,8 +42,6 @@ import org.jetbrains.annotations.Nullable;
  * Table implementation for sql engine.
  */
 public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteTable {
-    private final int zoneId;
-
     private final ImmutableIntList keyColumns;
     private final @Nullable ImmutableBitSet columnsToInsert;
     private final @Nullable ImmutableBitSet columnsToUpdate;
@@ -59,7 +57,6 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     public IgniteTableImpl(
             String name,
             int id,
-            int zoneId,
             int version,
             TableDescriptor desc,
             ImmutableIntList keyColumns,
@@ -69,8 +66,6 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             int zoneId
     ) {
         super(name, id, version, desc, statistic);
-
-        this.zoneId = zoneId;
 
         this.keyColumns = keyColumns;
         this.indexMap = indexMap;
@@ -185,11 +180,6 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     @Override
     protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
         return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
-    }
-
-    @Override
-    public int zoneId() {
-        return zoneId;
     }
 
     /** {@inheritDoc} */

@@ -517,7 +517,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return new IgniteTableImpl(
                 tableName,
                 tableId,
-                catalogTableDescriptor.zoneId(),
                 catalogTableDescriptor.tableVersion(),
                 tableDescriptor,
                 primaryKeyColumns,
@@ -546,11 +545,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         @Override
         protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
             return table.toRel(cluster, traitSet, relOptTbl, hints);
-        }
-
-        @Override
-        public int zoneId() {
-            return table.zoneId();
         }
 
         @Override

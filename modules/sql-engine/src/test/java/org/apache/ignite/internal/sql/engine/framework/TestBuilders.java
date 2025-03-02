@@ -160,8 +160,6 @@ import org.jetbrains.annotations.Nullable;
  * A collection of builders to create test objects.
  */
 public class TestBuilders {
-    private static final int ZONE_ID = 10000;
-
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
 
     private static final IgniteLogger LOG = Loggers.forClass(TestBuilders.class);
@@ -740,7 +738,6 @@ public class TestBuilders {
             return this;
         }
 
-
         @Override
         public ClusterBuilder defaultAssignmentsProvider(DefaultAssignmentsProvider defaultAssignmentsProvider) {
             this.defaultAssignmentsProvider = defaultAssignmentsProvider;
@@ -1127,14 +1124,13 @@ public class TestBuilders {
             return new IgniteTableImpl(
                     Objects.requireNonNull(name),
                     tableId != null ? tableId : TABLE_ID_GEN.incrementAndGet(),
-                    zoneId,
                     1,
                     tableDescriptor,
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),
                     indexes,
                     partitions,
-                    ZONE_ID
+                    zoneId
             );
         }
     }
@@ -2002,7 +1998,7 @@ public class TestBuilders {
     }
 
     private static class Blackhole implements UpdatableTable {
-        static final int ZONE_ID = 0;
+        static final int ZONE_ID = 10_000;
 
         static final String TABLE_NAME = "BLACKHOLE";
 
