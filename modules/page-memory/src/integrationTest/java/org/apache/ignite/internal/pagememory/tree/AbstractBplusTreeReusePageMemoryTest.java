@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.tree;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 
 /**
@@ -43,8 +42,7 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
                 pageMem,
                 rootId,
                 initNew,
-                null,
-                IoStatisticsHolderNoOp.INSTANCE
+                null
         );
     }
 }

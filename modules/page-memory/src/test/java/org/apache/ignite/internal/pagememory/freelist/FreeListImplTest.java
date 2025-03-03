@@ -49,7 +49,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
@@ -149,8 +148,7 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
                 pageMemory,
                 metaPageId,
                 true,
-                null,
-                IoStatisticsHolderNoOp.INSTANCE
+                null
         ) {
             @Override
             public void insertDataRow(Storable row) throws IgniteInternalCheckedException {

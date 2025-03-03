@@ -87,7 +87,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
         this.inlineSize = initNew
                 ? binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor)
                 : readInlineSizeFromMetaIo();
-        this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+        this.dataPageReader = new DataPageReader(pageMem, grpId);
         this.binaryTupleComparator = StorageUtils.binaryTupleComparator(indexDescriptor.columns());
 
         init(initNew);
@@ -118,7 +118,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
         super("SortedIndexTree", grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = readInlineSizeFromMetaIo();
-        this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+        this.dataPageReader = new DataPageReader(pageMem, grpId);
         this.binaryTupleComparator = null;
 
         init(false);
@@ -224,7 +224,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     private int readInlineSizeFromMetaIo() throws IgniteInternalCheckedException {
         Integer inlineSize = read(
                 metaPageId,
-                (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> ((SortedIndexTreeMetaIo) io).getInlineSize(pageAddr),
+                (groupId, pageId, page, pageAddr, io, arg, intArg) -> ((SortedIndexTreeMetaIo) io).getInlineSize(pageAddr),
                 null,
                 0,
                 -1
@@ -238,14 +238,13 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     private void writeInlineSizeToMetaIo(int inlineSize) throws IgniteInternalCheckedException {
         Boolean result = write(
                 metaPageId,
-                (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> {
+                (groupId, pageId, page, pageAddr, io, arg, intArg) -> {
                     ((SortedIndexTreeMetaIo) io).setInlineSize(pageAddr, inlineSize);
 
                     return Boolean.TRUE;
                 },
                 0,
-                Boolean.FALSE,
-                statisticsHolder()
+                Boolean.FALSE
         );
 
         assert result == Boolean.TRUE : result;

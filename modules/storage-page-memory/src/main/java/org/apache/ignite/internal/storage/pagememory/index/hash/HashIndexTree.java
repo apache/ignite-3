@@ -69,7 +69,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
         super("HashIndexTree", grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = readInlineSizeFromMetaIo();
-        this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+        this.dataPageReader = new DataPageReader(pageMem, grpId);
 
         init(false);
     }
@@ -101,7 +101,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
         super("HashIndexTree", grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor);
-        this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+        this.dataPageReader = new DataPageReader(pageMem, grpId);
 
         init(true);
 
@@ -187,7 +187,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     private int readInlineSizeFromMetaIo() throws IgniteInternalCheckedException {
         Integer inlineSize = read(
                 metaPageId,
-                (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> ((HashIndexTreeMetaIo) io).getInlineSize(pageAddr),
+                (groupId, pageId, page, pageAddr, io, arg, intArg) -> ((HashIndexTreeMetaIo) io).getInlineSize(pageAddr),
                 null,
                 0,
                 -1
@@ -201,14 +201,13 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     private void writeInlineSizeToMetaIo(int inlineSize) throws IgniteInternalCheckedException {
         Boolean result = write(
                 metaPageId,
-                (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> {
+                (groupId, pageId, page, pageAddr, io, arg, intArg) -> {
                     ((HashIndexTreeMetaIo) io).setInlineSize(pageAddr, inlineSize);
 
                     return Boolean.TRUE;
                 },
                 0,
-                Boolean.FALSE,
-                statisticsHolder()
+                Boolean.FALSE
         );
 
         assert result == Boolean.TRUE : result;
