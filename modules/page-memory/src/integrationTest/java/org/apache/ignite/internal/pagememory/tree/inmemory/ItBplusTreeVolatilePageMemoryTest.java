@@ -66,7 +66,7 @@ public class ItBplusTreeVolatilePageMemoryTest extends AbstractBplusTreePageMemo
                 (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileConfiguration),
                 ioRegistry,
                 PAGE_SIZE,
-                wrapLock(new OffheapReadWriteLock(128))
+                wrapLock(new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL))
         );
     }
 

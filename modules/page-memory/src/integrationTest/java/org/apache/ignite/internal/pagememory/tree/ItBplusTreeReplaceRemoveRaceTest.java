@@ -104,7 +104,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
                 (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 512,
-                new OffheapReadWriteLock(128)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
     }
 

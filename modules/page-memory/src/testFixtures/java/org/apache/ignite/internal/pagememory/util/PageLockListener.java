@@ -27,46 +27,46 @@ public interface PageLockListener extends ManuallyCloseable {
     /**
      * Callback that's called before write lock acquiring.
      *
-     * @param lock Lock pointer.
+     * @param lockAddress Lock pointer.
      */
-    void onBeforeWriteLock(long lock);
+    void onBeforeWriteLock(long lockAddress);
 
     /**
      * Callback that's called after lock acquiring.
      *
-     * @param lock Lock pointer.
+     * @param lockAddress Lock pointer.
      * @param locked {@code true} if lock is locked.
      */
-    void onWriteLock(long lock, boolean locked);
+    void onWriteLock(long lockAddress, boolean locked);
 
     /**
      * Callback that's called before write lock releasing.
      *
-     * @param lock Lock pointer.
+     * @param lockAddress Lock pointer.
      */
-    void onWriteUnlock(long lock);
+    void onWriteUnlock(long lockAddress);
 
     /**
      * Callback that's called before read lock acquiring.
      *
-     * @param lock Lock pointer.
+     * @param lockAddress Lock pointer.
      */
-    void onBeforeReadLock(long lock);
+    void onBeforeReadLock(long lockAddress);
 
     /**
      * Callback that's called after read lock acquiring.
      *
-     * @param lock Lock pointer.
+     * @param lockAddress Lock pointer.
      * @param locked {@code true} if lock is locked.
      */
-    void onReadLock(long lock, boolean locked);
+    void onReadLock(long lockAddress, boolean locked);
 
     /**
      * Callback that's called before read lock releasing.
      *
-     * @param lock Lock pointer.
+     * @param lockAddress Lock pointer.
      */
-    void onReadUnlock(long lock);
+    void onReadUnlock(long lockAddress);
 
     /** {@inheritDoc} */
     @Override

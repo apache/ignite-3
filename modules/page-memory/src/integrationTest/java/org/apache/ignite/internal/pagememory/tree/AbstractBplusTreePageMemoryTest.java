@@ -3108,57 +3108,61 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             writeLocks.clear();
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public void onBeforeReadLock(long lock) {
-            assertNull(beforeReadLock.put(threadId(), lock));
+        private static long resolvePageId(long lockAddress) {
+            return getPageId(lockAddress - lockOffset);
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onReadLock(long lock, boolean locked) {
-            if (locked) {
-                long actual = getPageId(lock - lockOffset);
+        public void onBeforeReadLock(long lockAddress) {
+            assertNull(beforeReadLock.put(threadId(), lockAddress));
+        }
 
-                assertNull(locks(true).put(lock, actual));
+        /** {@inheritDoc} */
+        @Override
+        public void onReadLock(long lockAddress, boolean locked) {
+            if (locked) {
+                long actual = resolvePageId(lockAddress);
+
+                assertNull(locks(true).put(lockAddress, actual));
             }
 
-            assertEquals(Long.valueOf(lock), beforeReadLock.remove(threadId()));
+            assertEquals(Long.valueOf(lockAddress), beforeReadLock.remove(threadId()));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onReadUnlock(long lock) {
-            long actual = getPageId(lock - lockOffset);
+        public void onReadUnlock(long lockAddress) {
+            long actual = resolvePageId(lockAddress);
 
-            assertEquals(Long.valueOf(actual), locks(true).remove(lock));
+            assertEquals(Long.valueOf(actual), locks(true).remove(lockAddress));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onBeforeWriteLock(long lock) {
-            assertNull(beforeWriteLock.put(threadId(), lock));
+        public void onBeforeWriteLock(long lockAddress) {
+            assertNull(beforeWriteLock.put(threadId(), lockAddress));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onWriteLock(long lock, boolean locked) {
+        public void onWriteLock(long lockAddress, boolean locked) {
             if (locked) {
-                long actual = getPageId(lock - lockOffset);
+                long actual = resolvePageId(lockAddress);
 
                 // 0L for newly allocated page.
-                assertNull(locks(false).put(lock, actual));
+                assertNull(locks(false).put(lockAddress, actual));
             }
 
-            assertEquals(Long.valueOf(lock), beforeWriteLock.remove(threadId()));
+            assertEquals(Long.valueOf(lockAddress), beforeWriteLock.remove(threadId()));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onWriteUnlock(long lock) {
-            long actual = getPageId(lock - lockOffset);
+        public void onWriteUnlock(long lockAddress) {
+            long actual = resolvePageId(lockAddress);
 
-            long prevValue = locks(false).remove(lock);
+            long prevValue = locks(false).remove(lockAddress);
 
             if (prevValue != 0L) {
                 assertEquals(actual, prevValue);

@@ -81,7 +81,7 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
 
         offheapReadWriteLock = IgniteSystemProperties.getBoolean(USE_SEQUENCED_RW_LOCK)
                 ? new SequencedOffheapReadWriteLock()
-                : new OffheapReadWriteLock(128);
+                : new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL);
 
         return new PersistentPageMemory(
                 (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),

@@ -55,7 +55,7 @@ public class VolatilePageMemoryNoLoadSelfTest extends AbstractPageMemoryNoLoadSe
                 (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
                 ioRegistry,
                 PAGE_SIZE,
-                new OffheapReadWriteLock(128)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
     }
 }

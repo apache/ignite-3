@@ -178,7 +178,7 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
                 (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
                 ioRegistry,
                 pageSize,
-                new OffheapReadWriteLock(128)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
     }
 

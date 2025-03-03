@@ -84,7 +84,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
                 (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
                 pageIoRegistry,
                 PAGE_SIZE,
-                new OffheapReadWriteLock(128)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         ));
 
         pageMemory.start();

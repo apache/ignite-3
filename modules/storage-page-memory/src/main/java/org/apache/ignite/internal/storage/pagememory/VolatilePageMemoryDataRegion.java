@@ -81,7 +81,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
         );
 
-        VolatilePageMemory pageMemory = new VolatilePageMemory(cfg, ioRegistry, pageSize, new OffheapReadWriteLock(lockConcLvl));
+        var pageMemory = new VolatilePageMemory(cfg, ioRegistry, pageSize, new OffheapReadWriteLock(lockConcLvl));
 
         pageMemory.start();
 
