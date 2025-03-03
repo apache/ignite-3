@@ -1043,7 +1043,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(
-                new TransactionOptions().timeoutMillis(10_000).readOnly(readOnly)
+                new TransactionOptions().timeoutMillis(30_000).readOnly(readOnly)
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();

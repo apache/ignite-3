@@ -211,6 +211,9 @@ public class InternalTableImpl implements InternalTable {
     /** Attempts to take lock. */
     private final int attemptsObtainLock;
 
+    /** Default read-write transaction timeout. */
+    private final Supplier<Long> defaultRwTxTimeout;
+
     /**
      * Constructor.
      *
@@ -229,6 +232,7 @@ public class InternalTableImpl implements InternalTable {
      * @param attemptsObtainLock Attempts to take lock.
      * @param streamerFlushExecutor Streamer flush executor.
      * @param streamerReceiverRunner Streamer receiver runner.
+     * @param defaultRwTxTimeout Default read-write transaction timeout.
      */
     public InternalTableImpl(
             QualifiedName tableName,
@@ -246,7 +250,8 @@ public class InternalTableImpl implements InternalTable {
             TransactionInflights transactionInflights,
             int attemptsObtainLock,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
-            StreamerReceiverRunner streamerReceiverRunner
+            StreamerReceiverRunner streamerReceiverRunner,
+            Supplier<Long> defaultRwTxTimeout
     ) {
         this.tableName = tableName;
         this.zoneId = zoneId;
@@ -264,6 +269,7 @@ public class InternalTableImpl implements InternalTable {
         this.attemptsObtainLock = attemptsObtainLock;
         this.streamerFlushExecutor = streamerFlushExecutor;
         this.streamerReceiverRunner = streamerReceiverRunner;
+        this.defaultRwTxTimeout = defaultRwTxTimeout;
     }
 
     /** {@inheritDoc} */
@@ -514,17 +520,12 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private long getTimeout(InternalTransaction tx) {
-        // TODO
         if (tx.isReadOnly()) {
             return tx.timeout();
         }
 
-        if (tx.timeout() == 0) {
-            return 10_000;
-        }
-
-        if (tx.implicit()) {
-            return 10_000;
+        if (tx.timeout() == 0 || tx.implicit()) {
+            return defaultRwTxTimeout.get();
         }
 
         return tx.timeout();
