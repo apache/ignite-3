@@ -113,7 +113,6 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 filePageStoreManager,
                 checkpointManager::writePageToDeltaFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
-                currentCheckpointProgress,
                 pageSize,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );

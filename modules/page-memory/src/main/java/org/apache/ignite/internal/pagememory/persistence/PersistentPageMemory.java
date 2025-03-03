@@ -76,7 +76,6 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -164,9 +163,6 @@ public class PersistentPageMemory implements PageMemory {
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
 
-    /** The supplier of checkpoint progress. */
-    private final Supplier<@Nullable CheckpointProgress> checkpointProgressSupplier;
-
     /** Page manager. */
     private final PageReadWriteManager pageStoreManager;
 
@@ -209,7 +205,7 @@ public class PersistentPageMemory implements PageMemory {
     private volatile @Nullable PagePool checkpointPool;
 
     /** Pages write throttle. */
-    private final @Nullable PagesWriteThrottlePolicy writeThrottle;
+    private volatile @Nullable PagesWriteThrottlePolicy writeThrottle;
 
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
@@ -230,7 +226,6 @@ public class PersistentPageMemory implements PageMemory {
      * @param pageStoreManager Page store manager.
      * @param flushDirtyPageForReplacement Write callback invoked when a dirty page is removed for replacement.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
-     * @param checkpointProgressSupplier The supplier of checkpoint progress.
      * @param pageSize Page size in bytes.
      * @param rwLock Read-write lock for pages.
      */
@@ -242,14 +237,12 @@ public class PersistentPageMemory implements PageMemory {
             PageReadWriteManager pageStoreManager,
             WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
-            Supplier<@Nullable CheckpointProgress> checkpointProgressSupplier,
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
             OffheapReadWriteLock rwLock
     ) {
         this.storageProfileView = (PersistentPageMemoryProfileView) storageProfileConfiguration.value();
         this.ioRegistry = ioRegistry;
-        this.checkpointProgressSupplier = checkpointProgressSupplier;
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
@@ -281,14 +274,17 @@ public class PersistentPageMemory implements PageMemory {
 
         delayedPageReplacementTracker = new DelayedPageReplacementTracker(pageSize, flushDirtyPageForReplacement, LOG, sizes.length - 1);
 
-        // TODO IGNITE-24548 Use this initialization code.
-        //        new PagesWriteThrottle(
-        //                this,
-        //                checkpointProgressSupplier,
-        //                checkpointTimeoutLock::checkpointLockIsHeldByThread,
-        //                false
-        //        );
-        writeThrottle = null;
+        this.writeThrottle = null;
+    }
+
+    /**
+     * Temporary method to enable throttling in tests.
+     *
+     * @param writeThrottle Page write throttling instance.
+     */
+    @TestOnly
+    public void initThrottling(PagesWriteThrottlePolicy writeThrottle) {
+        this.writeThrottle = writeThrottle;
     }
 
     /** {@inheritDoc} */
