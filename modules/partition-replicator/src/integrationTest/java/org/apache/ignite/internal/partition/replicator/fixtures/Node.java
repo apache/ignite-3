@@ -193,6 +193,11 @@ import org.junit.jupiter.api.TestInfo;
 public class Node {
     private static final IgniteLogger LOG = Loggers.forClass(Node.class);
 
+    private static final int DELAY_DURATION_MS = 100;
+
+    /** The interval between two consecutive MS idle safe time syncs. */
+    public static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = DELAY_DURATION_MS / 2;
+
     public final String name;
 
     private final Loza raftManager;
@@ -590,7 +595,7 @@ public class Node {
                         .thenApply(Entry::value)
         );
 
-        LongSupplier delayDurationMsSupplier = () -> 10L;
+        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
 
         catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageManager),
