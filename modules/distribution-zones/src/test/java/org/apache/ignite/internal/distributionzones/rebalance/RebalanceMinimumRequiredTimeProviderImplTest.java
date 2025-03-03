@@ -46,6 +46,7 @@ import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerT
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -401,7 +402,11 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
             Catalog catalog,
             boolean allPartitions
     ) throws Exception {
-        saveAssignments(false, zoneName, tableId, catalog, RebalanceUtil::pendingPartAssignmentsKey, allPartitions);
+        Function<Long, byte[]> valueFunction = timestamp -> new AssignmentsQueue(
+                Assignments.of(timestamp, Assignment.forPeer("nodeName"))
+        ).toBytes();
+
+        saveAssignments(false, zoneName, tableId, catalog, RebalanceUtil::pendingPartAssignmentsQueueKey, valueFunction, allPartitions);
     }
 
     private void savePlannedAssignments(String zoneName,
@@ -418,6 +423,19 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
             int tableId,
             Catalog catalog,
             Function<TablePartitionId, ByteArray> keyFunction,
+            boolean allPartitions
+    ) throws Exception {
+        Function<Long, byte[]> valueFunction = timestamp -> Assignments.of(timestamp, Assignment.forPeer("nodeName")).toBytes();
+        saveAssignments(stable, zoneName, tableId, catalog, keyFunction, valueFunction, allPartitions);
+    }
+
+    private void saveAssignments(
+            boolean stable,
+            String zoneName,
+            int tableId,
+            Catalog catalog,
+            Function<TablePartitionId, ByteArray> keyFunction,
+            Function<Long, byte[]> valueFunction,
             boolean allPartitions
     ) throws Exception {
         long timestamp = catalog.time();
@@ -445,7 +463,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
 
                 metaStorageData.put(
                         keyFunction.apply(tablePartitionId),
-                        Assignments.of(timestamp, Assignment.forPeer("nodeName")).toBytes()
+                        valueFunction.apply(timestamp)
                 );
             }
         }
