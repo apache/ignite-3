@@ -280,7 +280,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(TransactionInflights.class),
                     0,
                     null,
-                    mock(StreamerReceiverRunner.class)
+                    mock(StreamerReceiverRunner.class),
+                    () -> 10_000L
             );
             this.dataAmount = dataAmount;
 

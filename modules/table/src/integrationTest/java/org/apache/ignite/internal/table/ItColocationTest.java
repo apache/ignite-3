@@ -360,7 +360,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 transactionInflights,
                 0,
                 null,
-                mock(StreamerReceiverRunner.class)
+                mock(StreamerReceiverRunner.class),
+                () -> 10_000L
         );
     }
 

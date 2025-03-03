@@ -243,7 +243,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService),
                 0,
                 () -> mock(ScheduledExecutorService.class),
-                mock(StreamerReceiverRunner.class)
+                mock(StreamerReceiverRunner.class),
+                () -> 10_000L
         );
     }
 
