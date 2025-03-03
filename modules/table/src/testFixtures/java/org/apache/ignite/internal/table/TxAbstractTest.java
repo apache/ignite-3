@@ -2203,7 +2203,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     @Test
-    public void testBatchSinglePartitionGet() throws Exception {
+    public void testBatchSinglePartitionGet() {
         var accountRecordsView = accounts.recordView();
 
         SchemaRegistry schemaRegistry = accounts.schemaView();
