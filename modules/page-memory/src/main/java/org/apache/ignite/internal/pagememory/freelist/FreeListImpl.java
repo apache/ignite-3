@@ -816,6 +816,8 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
     @Override
     public void saveMetadata() throws IgniteInternalCheckedException {
+        // Double inheritance here. We inherit interface method from the FreeList interface, and the implementation from the PagesList
+        // class. These two versions must be joined here by calling the super method.
         super.saveMetadata();
     }
 
