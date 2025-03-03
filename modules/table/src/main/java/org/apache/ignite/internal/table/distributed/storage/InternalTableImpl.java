@@ -17,14 +17,51 @@
 
 package org.apache.ignite.internal.table.distributed.storage;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ScheduledExecutorService;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
 import static java.util.function.Function.identity;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
+import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowPkReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowPkReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -42,62 +79,6 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE_IF_EXIST;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
-import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
-import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
-import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
-
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgnitePentaFunction;
-import org.apache.ignite.internal.lang.IgniteTriFunction;
-import org.apache.ignite.internal.network.ClusterNodeResolver;
-import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowPkReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyScanRetrieveBatchReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowPkReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteScanRetrieveBatchReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.SingleRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.SingleRowReplicaRequest;
@@ -111,6 +92,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
@@ -122,7 +104,9 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
+import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -130,9 +114,24 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
+import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
@@ -524,7 +523,7 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx.implicit()) {
-            return 3_000;
+            return 10_000;
         }
 
         return tx.timeout();
@@ -688,8 +687,13 @@ public class InternalTableImpl implements InternalTable {
         } else {
             if (write) { // Track only write requests from explicit transactions.
                 if (!transactionInflights.addInflight(tx.id(), false)) {
+                    int code = TX_ALREADY_FINISHED_ERR;
+                    if (tx.isRolledBackWithTimeoutExceeded()) {
+                        code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+                    }
+
                     return failedFuture(
-                            new TransactionException(TX_ALREADY_FINISHED_ERR, format(
+                            new TransactionException(code, format(
                                     "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
@@ -2088,8 +2092,13 @@ public class InternalTableImpl implements InternalTable {
 
     private static boolean isFinishedDueToTimeout(Throwable e) {
         Throwable unwrapped = unwrapCause(e);
-        return unwrapped instanceof TransactionException
-                && ((TransactionException) unwrapped).code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+        if (unwrapped instanceof TransactionException) {
+            return false;
+        }
+
+        TransactionException ex = (TransactionException) unwrapped;
+
+        return ex.code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
     }
 
     private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {
