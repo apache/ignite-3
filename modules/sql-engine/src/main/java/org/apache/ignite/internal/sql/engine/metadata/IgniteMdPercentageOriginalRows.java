@@ -60,8 +60,7 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
      * relational expression out of the number of rows it would produce if all
      * single-table filter conditions were removed.
      *
-     * @return estimated percentage (between 0.0 and 1.0), or null if no
-     * reliable estimate can be determined
+     * @return estimated percentage (between 0.0 and 1.0), or null if no reliable estimate can be determined
      */
     public Double getPercentageOriginalRows(ProjectableFilterableTableScan rel, RelMetadataQuery mq) {
         Double tableRowCount = rel.getTable().getRowCount();
