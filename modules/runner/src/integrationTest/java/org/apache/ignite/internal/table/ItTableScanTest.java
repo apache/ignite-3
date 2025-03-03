@@ -50,6 +50,7 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -113,6 +114,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private TableViewInternal table;
 
     private InternalTable internalTable;
+
+    @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        // Set a short timeout for the test.
+        builder.clusterConfiguration("{ignite.transaction.readWriteTimeout: 5000}");
+    }
 
     @BeforeEach
     public void beforeTest() {
@@ -750,14 +757,13 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Ensures that multiple consecutive scan requests with different requested rows amount
-     * return the expected total number of requested rows.
+     * Ensures that multiple consecutive scan requests with different requested rows amount return the expected total number of requested
+     * rows.
      *
      * @param requestAmount1 Number of rows in the first request.
      * @param requestAmount2 Number of rows in the second request.
      * @param readOnly If true, RO transaction is initiated, otherwise, RW transaction is initiated.
      * @param implicit If false, an explicit transaction is initiated, otherwise, an implicit one.
-     *
      * @throws Exception If failed.
      */
     @ParameterizedTest
@@ -1043,7 +1049,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(
-                new TransactionOptions().timeoutMillis(30_000).readOnly(readOnly)
+                new TransactionOptions().timeoutMillis(10_000).readOnly(readOnly)
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
