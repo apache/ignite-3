@@ -33,6 +33,9 @@ import org.jetbrains.annotations.Nullable;
  * </pre>
  */
 public class OffheapReadWriteLock {
+    /** Default concurrency level for the lock. */
+    public static final int DEFAULT_CONCURRENCY_LEVEL = 128;
+
     /**
      * Default empirical value for the spin count.
      *

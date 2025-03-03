@@ -59,7 +59,6 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -189,7 +188,6 @@ public abstract class PagesList extends DataStructure {
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param log Logger.
      * @param buckets Number of buckets.
      * @param metaPageId Metadata page ID.
@@ -199,12 +197,11 @@ public abstract class PagesList extends DataStructure {
             int grpId,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             IgniteLogger log,
             int buckets,
             long metaPageId
     ) {
-        super(pageListNamePrefix, grpId, null, partId, pageMem, lockLsnr, FLAG_AUX);
+        super(pageListNamePrefix, grpId, null, partId, pageMem, FLAG_AUX);
 
         this.log = log;
         this.infoLogEnabled = log.isInfoEnabled();

@@ -43,7 +43,6 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -331,7 +330,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
@@ -342,7 +340,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             int grpId,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             long metaPageId,
             boolean initNew,
             @Nullable AtomicLong pageListCacheLimit,
@@ -353,7 +350,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 grpId,
                 partId,
                 pageMem,
-                lockLsnr,
                 LOG,
                 BUCKETS,
                 metaPageId

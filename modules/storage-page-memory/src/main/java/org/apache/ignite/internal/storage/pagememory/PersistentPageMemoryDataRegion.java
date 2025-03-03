@@ -115,7 +115,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 checkpointManager.checkpointTimeoutLock(),
                 currentCheckpointProgress,
                 pageSize,
-                new OffheapReadWriteLock(128)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
         pageMemory.start();

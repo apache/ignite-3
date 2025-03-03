@@ -29,7 +29,6 @@ import org.apache.ignite.internal.pagememory.reuse.LongListReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.jetbrains.annotations.Nullable;
 
@@ -56,7 +55,7 @@ public class BlobStorage extends DataStructure {
      * Creates a new instance.
      */
     public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId, IoStatisticsHolder statisticsHolder) {
-        super("BlobStorage", groupId, null, partitionId, pageMemory, PageLockListenerNoOp.INSTANCE, PageIdAllocator.FLAG_AUX);
+        super("BlobStorage", groupId, null, partitionId, pageMemory, PageIdAllocator.FLAG_AUX);
 
         super.reuseList = reuseList;
         this.statisticsHolder = statisticsHolder;
@@ -79,7 +78,6 @@ public class BlobStorage extends DataStructure {
                     pageMem,
                     grpId,
                     pageId,
-                    PageLockListenerNoOp.INSTANCE,
                     readFragment,
                     readState,
                     0,
@@ -132,7 +130,6 @@ public class BlobStorage extends DataStructure {
                     pageMem,
                     grpId,
                     state.pageId,
-                    PageLockListenerNoOp.INSTANCE,
                     writeFragment,
                     null,
                     state,
@@ -175,7 +172,7 @@ public class BlobStorage extends DataStructure {
         long pageId = startingPageId;
 
         while (pageId != NO_PAGE_ID) {
-            Long nextPageId = PageHandler.writePage(pageMem, grpId, pageId, PageLockListenerNoOp.INSTANCE,
+            Long nextPageId = PageHandler.writePage(pageMem, grpId, pageId,
                     recycleAndAddToReuseBag, null, reuseBag, 0, pageId, IoStatisticsHolderNoOp.INSTANCE);
 
             assert nextPageId != pageId : pageId;
