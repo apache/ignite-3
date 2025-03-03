@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -75,9 +74,6 @@ import org.apache.ignite.internal.util.StringUtils;
 public class VolatilePageMemory implements PageMemory {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemory.class);
-
-    /** Ignite page memory concurrency level. */
-    private static final String IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL = "IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL";
 
     /** Marker bytes that signify beginning of used page in memory. */
     public static final long PAGE_MARKER = 0xBEEAAFDEADBEEF01L;
@@ -148,12 +144,6 @@ public class VolatilePageMemory implements PageMemory {
     /** Offheap read write lock instance. */
     private final OffheapReadWriteLock rwLock;
 
-    /** Concurrency level. */
-    private final int lockConcLvl = IgniteSystemProperties.getInteger(
-            IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL,
-            Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
-    );
-
     /** Total number of pages may be allocated for this instance. */
     private final int totalPages;
 
@@ -174,12 +164,14 @@ public class VolatilePageMemory implements PageMemory {
      * @param storageProfileConfiguration Storage profile configuration.
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
+     * @param rwLock Read-write lock for pages.
      */
     public VolatilePageMemory(
             VolatilePageMemoryProfileConfiguration storageProfileConfiguration,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
-            int pageSize
+            int pageSize,
+            OffheapReadWriteLock rwLock
     ) {
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
@@ -193,7 +185,7 @@ public class VolatilePageMemory implements PageMemory {
 
         totalPages = (int) (this.storageProfileView.maxSize() / sysPageSize);
 
-        rwLock = new OffheapReadWriteLock(lockConcLvl);
+        this.rwLock = rwLock;
     }
 
     @Override

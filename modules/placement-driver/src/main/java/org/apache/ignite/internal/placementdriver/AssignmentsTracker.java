@@ -20,6 +20,8 @@ package org.apache.ignite.internal.placementdriver;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -32,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -81,7 +84,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /**
      * The constructor.
      *
-     * @param msManager Metastorage manager.
+     * @param msManager Meta storage manager.
      */
     public AssignmentsTracker(MetaStorageManager msManager) {
         this.msManager = msManager;
@@ -97,14 +100,14 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * Restores assignments form Vault and subscribers on further updates.
      */
     public void startTrack() {
-        msManager.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES), pendingAssignmentsListener);
-        msManager.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsListener);
+        msManager.registerPrefixWatch(new ByteArray(pendingAssignmentsQueuePrefixBytes()), pendingAssignmentsListener);
+        msManager.registerPrefixWatch(new ByteArray(stableAssignmentsPrefixBytes()), stableAssignmentsListener);
 
         msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
-            handleRecoveryAssignments(recoveryRevisions, PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES, groupPendingAssignments,
+            handleRecoveryAssignments(recoveryRevisions, pendingAssignmentsQueuePrefixBytes(), groupPendingAssignments,
                     bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes()
             );
-            handleRecoveryAssignments(recoveryRevisions, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments,
+            handleRecoveryAssignments(recoveryRevisions, stableAssignmentsPrefixBytes(), groupStableAssignments,
                     bytes -> Assignments.fromBytes(bytes).nodes()
             );
         }).whenComplete((res, ex) -> {
@@ -168,7 +171,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            handleReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments,
+            handleReceivedAssignments(event, stableAssignmentsPrefixBytes(), groupStableAssignments,
                     bytes -> Assignments.fromBytes(bytes).nodes()
             );
 
@@ -182,7 +185,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            handleReceivedAssignments(event, PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES, groupPendingAssignments,
+            handleReceivedAssignments(event, pendingAssignmentsQueuePrefixBytes(), groupPendingAssignments,
                     bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes()
             );
 
@@ -199,7 +202,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         for (EntryEvent evt : event.entryEvents()) {
             Entry entry = evt.newEntry();
 
-            ReplicationGroupId grpId = extractTablePartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
+            ReplicationGroupId grpId = extractReplicationGroupPartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
             if (entry.tombstone()) {
                 groupIdToAssignmentsMap.remove(grpId);
@@ -225,7 +228,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                     continue;
                 }
 
-                ReplicationGroupId grpId = extractTablePartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
+                ReplicationGroupId grpId = extractReplicationGroupPartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
                 updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer);
             }
@@ -336,5 +339,17 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         }
 
         return sb.toString();
+    }
+
+    private static byte[] pendingAssignmentsQueuePrefixBytes() {
+        return enabledColocation() ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES : PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+    }
+
+    private static byte[] stableAssignmentsPrefixBytes() {
+        return enabledColocation() ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES : STABLE_ASSIGNMENTS_PREFIX_BYTES;
+    }
+
+    private static ReplicationGroupId extractReplicationGroupPartitionId(byte[] key, byte[] prefix) {
+        return enabledColocation() ? extractZonePartitionId(key, prefix) : extractTablePartitionId(key, prefix);
     }
 }

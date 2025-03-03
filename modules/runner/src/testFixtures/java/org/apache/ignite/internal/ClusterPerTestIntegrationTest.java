@@ -136,6 +136,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     @Timeout(60)
     public void stopCluster() {
         cluster.shutdown();
+
+        MicronautCleanup.removeShutdownHooks();
     }
 
     /**

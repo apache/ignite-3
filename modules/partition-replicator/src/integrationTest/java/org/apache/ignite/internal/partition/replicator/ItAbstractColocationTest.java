@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -44,18 +46,15 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.partition.replicator.fixtures.TestPlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -64,7 +63,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -82,11 +80,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ExecutorServiceExtension.class)
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 abstract class ItAbstractColocationTest extends IgniteAbstractTest {
-    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-
     private static final int BASE_PORT = 20_000;
 
     static final int AWAIT_TIMEOUT_MILLIS = 10_000;
+
+    static final String TEST_ZONE_NAME = "TEST_ZONE";
+
+    static final String TEST_TABLE_NAME1 = "TEST_TABLE_1";
+
+    static final String TEST_TABLE_NAME2 = "TEST_TABLE_2";
 
     @InjectConfiguration
     private SystemLocalConfiguration systemConfiguration;
@@ -115,10 +117,13 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     @InjectConfiguration
     TransactionConfiguration txConfiguration;
 
-    final List<Node> cluster = new ArrayList<>();
+    @InjectConfiguration
+    private SqlLocalConfiguration sqlLocalConfiguration;
 
-    // TODO Remove https://issues.apache.org/jira/browse/IGNITE-24375
-    final TestPlacementDriver placementDriver = new TestPlacementDriver();
+    @InjectConfiguration
+    private SqlDistributedConfiguration sqlDistributedConfiguration;
+
+    final List<Node> cluster = new ArrayList<>();
 
     private NodeFinder nodeFinder;
 
@@ -171,8 +176,6 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
-        placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
-
         cluster.forEach(Node::waitWatches);
 
         assertThat(
@@ -190,10 +193,6 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
-    }
-
-    protected Node addNodeToCluster() {
-        return addNodeToCluster(cluster.size());
     }
 
     Node addNodeToCluster(int idx) {
@@ -233,7 +232,6 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 address,
                 nodeFinder,
                 workDir,
-                placementDriver,
                 systemConfiguration,
                 raftConfiguration,
                 nodeAttributesConfiguration,
@@ -243,15 +241,17 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 txConfiguration,
                 scheduledExecutorService,
                 invokeInterceptor,
-                gcConfiguration
+                gcConfiguration,
+                sqlLocalConfiguration,
+                sqlDistributedConfiguration
         );
     }
 
-    static void createZone(Node node, String zoneName, int partitions, int replicas) {
-        createZone(node, zoneName, partitions, replicas, false);
+    static int createZone(Node node, String zoneName, int partitions, int replicas) {
+        return createZone(node, zoneName, partitions, replicas, false);
     }
 
-    private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
+    private static int createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
         DistributionZonesTestUtil.createZoneWithStorageProfile(
                 node.catalogManager,
                 zoneName,
@@ -259,6 +259,9 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 replicas,
                 testStorageProfile ? DEFAULT_TEST_PROFILE_NAME : DEFAULT_STORAGE_PROFILE
         );
+
+        Integer zoneId = getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        return requireNonNull(zoneId, "No zone found with name " + zoneName);
     }
 
     static void createTable(Node node, String zoneName, String tableName) {
@@ -270,10 +273,10 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 zoneName,
                 tableName,
                 List.of(
-                        ColumnParams.builder().name("key").type(INT64).build(),
-                        ColumnParams.builder().name("val").type(INT32).nullable(true).build()
+                        ColumnParams.builder().name("KEY").type(INT64).build(),
+                        ColumnParams.builder().name("VAL").type(INT32).nullable(true).build()
                 ),
-                List.of("key")
+                List.of("KEY")
         );
     }
 
@@ -283,27 +286,5 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
     Node getNode(String nodeName) {
         return cluster.stream().filter(n -> n.name.equals(nodeName)).findFirst().orElseThrow();
-    }
-
-    void setPrimaryReplica(Node node, @Nullable ZonePartitionId zonePartitionId) {
-        ClusterNode newPrimaryReplicaNode = node.clusterService.topologyService().localMember();
-
-        HybridTimestamp leaseStartTime = node.hybridClock.now();
-
-        placementDriver.setPrimary(newPrimaryReplicaNode, leaseStartTime);
-
-        if (zonePartitionId != null) {
-            PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
-                    .primaryReplicaNodeId(newPrimaryReplicaNode.id())
-                    .primaryReplicaNodeName(newPrimaryReplicaNode.name())
-                    .leaseStartTime(leaseStartTime.longValue())
-                    .build();
-
-            CompletableFuture<Void> primaryReplicaChangeFuture = node.replicaManager
-                    .replica(zonePartitionId)
-                    .thenCompose(replica -> replica.raftClient().run(cmd));
-
-            assertThat(primaryReplicaChangeFuture, willCompleteSuccessfully());
-        }
     }
 }

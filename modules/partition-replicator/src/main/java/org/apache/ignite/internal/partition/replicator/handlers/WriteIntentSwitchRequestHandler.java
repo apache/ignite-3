@@ -117,12 +117,8 @@ public class WriteIntentSwitchRequestHandler {
                 .map(tableId -> invokeTableWriteIntentSwitchReplicaRequest(tableId, request, clockService.current(), senderId))
                 .collect(toList());
 
-        // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
-        // or txBeginTs [if it's an abort]). But there seems to be no guarantee that the compactor will not remove this version.
-        // TODO: IGNITE-24574 Introduce a mechanism to save the chosen catalog version from being compacted too early.
         @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
         HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
-        HybridTimestamp finalCommandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
 
         return allOf(futures)
                 .thenCompose(unused -> {
@@ -136,7 +132,7 @@ public class WriteIntentSwitchRequestHandler {
                         return completedFuture(new ReplicaResult(writeIntentSwitchReplicationInfoFor(request), null));
                     }
 
-                    return reliableCatalogVersions.reliableCatalogVersionFor(finalCommandTimestamp)
+                    return reliableCatalogVersions.safeReliableCatalogVersionFor(commandTimestamp)
                             .thenApply(catalogVersion -> {
                                 CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture =
                                         applyCommandToGroup(request, catalogVersion)

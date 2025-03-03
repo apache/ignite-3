@@ -191,7 +191,7 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
         try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath)) {
             assertDoesNotThrow(filePageStoreIo::sync);
 
-            filePageStoreIo.write(createDataPageId(() -> 0), createPageByteBuffer(0, PAGE_SIZE), true);
+            filePageStoreIo.write(createDataPageId(() -> 0), createPageByteBuffer(0, PAGE_SIZE));
 
             assertDoesNotThrow(filePageStoreIo::sync);
             assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
@@ -209,7 +209,7 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
 
             assertEquals(PAGE_SIZE, filePageStoreIo0.size());
 
-            filePageStoreIo0.write(createDataPageId(() -> 0), createPageByteBuffer(0, PAGE_SIZE), true);
+            filePageStoreIo0.write(createDataPageId(() -> 0), createPageByteBuffer(0, PAGE_SIZE));
 
             assertEquals(2 * PAGE_SIZE, filePageStoreIo0.size());
         }
@@ -234,7 +234,7 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
 
             ByteBuffer pageByteBuffer = createPageByteBuffer(0, PAGE_SIZE);
 
-            filePageStoreIo.write(expPageId, pageByteBuffer, true);
+            filePageStoreIo.write(expPageId, pageByteBuffer);
 
             assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
 
@@ -256,7 +256,7 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
             // Puts random bytes after: type (2 byte) + version (2 byte) + crc (4 byte).
             pageByteBuffer.position(8).put(randomBytes(128));
 
-            filePageStoreIo.write(expPageId, pageByteBuffer.rewind(), true);
+            filePageStoreIo.write(expPageId, pageByteBuffer.rewind());
 
             ByteBuffer readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 
@@ -321,7 +321,7 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
 
             ByteBuffer pageByteBuffer = createPageByteBuffer(0, PAGE_SIZE);
 
-            filePageStoreIo.write(expPageId, pageByteBuffer, true);
+            filePageStoreIo.write(expPageId, pageByteBuffer);
 
             Path testFilePath1 = workDir.resolve("test1");
 
@@ -388,7 +388,7 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
 
             ByteBuffer byteBuffer = createPageByteBuffer(expPageId, PAGE_SIZE);
 
-            filePageStoreIo.write(expPageId, byteBuffer.rewind(), true);
+            filePageStoreIo.write(expPageId, byteBuffer.rewind());
 
             // Loop works way better than @RepeatedTest when you need to reproduce a particularly naughty race.
             for (int i = 0; i < 1000; i++) {

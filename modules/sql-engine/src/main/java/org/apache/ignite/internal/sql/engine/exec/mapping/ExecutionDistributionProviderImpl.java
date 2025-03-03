@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
@@ -47,6 +49,8 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionDistributionProviderImpl.class);
     private final PlacementDriver placementDriver;
     private final SystemViewManager systemViewManager;
+
+    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     /**
      * Constructor.
@@ -81,10 +85,10 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         int partitions = table.partitions();
 
         if (includeBackups) {
-            List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
+            List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
 
-            for (int p = 0; p < partitions; p++) {
-                replicationGroupIds.add(new TablePartitionId(table.id(), p));
+            for (int partitionIndex = 0; partitionIndex < partitions; partitionIndex++) {
+                replicationGroupIds.add(targetReplicationGroupId(table, partitionIndex));
             }
 
             return allReplicas(replicationGroupIds, operationTime);
@@ -93,8 +97,8 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         List<CompletableFuture<TokenizedAssignments>> result = new ArrayList<>(partitions);
 
         // no need to wait all partitions after pruning was implemented.
-        for (int partId = 0; partId < partitions; ++partId) {
-            ReplicationGroupId partGroupId = new TablePartitionId(table.id(), partId);
+        for (int partitionIndex = 0; partitionIndex < partitions; partitionIndex++) {
+            ReplicationGroupId partGroupId = targetReplicationGroupId(table, partitionIndex);
 
             CompletableFuture<TokenizedAssignments> partitionAssignment = primaryReplica(partGroupId, operationTime);
 
@@ -107,6 +111,14 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
                 .map(CompletableFuture::join)
                 .collect(Collectors.toList())
         );
+    }
+
+    private ReplicationGroupId targetReplicationGroupId(IgniteTable table, int partitionIndex) {
+        if (enabledColocation) {
+            return new ZonePartitionId(table.zoneId(), partitionIndex);
+        } else {
+            return new TablePartitionId(table.id(), partitionIndex);
+        }
     }
 
     private CompletableFuture<TokenizedAssignments> primaryReplica(
@@ -125,7 +137,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
                 LOG.debug("Failed to retrieve primary replica for partition {}", e, replicationGroupId);
 
                 throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                        + " [tablePartitionId=" + replicationGroupId + ']', e);
+                        + " [replicationGroupId=" + replicationGroupId + ']', e);
             } else {
                 String holder = primaryReplica.getLeaseholder();
 
@@ -137,7 +149,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
     }
 
     private CompletableFuture<List<TokenizedAssignments>> allReplicas(
-            List<TablePartitionId> replicationGroupIds,
+            List<ReplicationGroupId> replicationGroupIds,
             HybridTimestamp operationTime
     ) {
         return placementDriver.getAssignments(
