@@ -520,7 +520,7 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx.timeout() == 0) {
-            return 1_000;
+            return 10_000;
         }
 
         if (tx.implicit()) {
