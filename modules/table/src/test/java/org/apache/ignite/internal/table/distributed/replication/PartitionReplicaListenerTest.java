@@ -315,12 +315,15 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private final Function<Command, CompletableFuture<?>> defaultMockRaftFutureClosure = cmd -> {
         if (cmd instanceof WriteIntentSwitchCommand) {
-            UUID txId = ((WriteIntentSwitchCommand) cmd).txId();
+            WriteIntentSwitchCommand switchCommand = (WriteIntentSwitchCommand) cmd;
+            UUID txId = switchCommand.txId();
 
             Set<RowId> rows = pendingRows.remove(txId);
 
-            HybridTimestamp commitTimestamp = ((WriteIntentSwitchCommand) cmd).commitTimestamp();
-            assertNotNull(commitTimestamp);
+            HybridTimestamp commitTimestamp = switchCommand.commitTimestamp();
+            if (switchCommand.commit()) {
+                assertNotNull(commitTimestamp);
+            }
 
             if (rows != null) {
                 for (RowId row : rows) {
@@ -1711,6 +1714,39 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         UUID tx1 = newTxId();
         upsert(tx1, br1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
+        int earliestVersion = 999;
+
+        UUID txId = newTxId();
+        HybridTimestamp beginTs = beginTimestamp(txId);
+        HybridTimestamp commitTs = clock.now();
+
+        HybridTimestamp reliableCatalogVersionTs = commit ? commitTs : beginTs;
+        when(catalogService.activeCatalogVersion(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));
+        when(catalogService.earliestCatalogVersion()).thenReturn(earliestVersion);
+
+        CompletableFuture<ReplicaResult> invokeFuture = partitionReplicaListener.invoke(
+                    TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
+                            .groupId(tablePartitionIdMessage(grpId))
+                            .tableIds(Set.of(grpId.tableId()))
+                            .txId(txId)
+                            .commit(commit)
+                            .commitTimestamp(commit ? commitTs : null)
+                            .build(),
+                    localNode.id()
+            );
+
+        assertThat(invokeFuture, willCompleteSuccessfully());
+        assertThat(invokeFuture.join().applyResult().replicationFuture(), willCompleteSuccessfully());
+
+        verify(mockRaftClient).run(commandCaptor.capture());
+        WriteIntentSwitchCommand command = (WriteIntentSwitchCommand) commandCaptor.getValue();
+
+        assertThat(command.requiredCatalogVersion(), is(earliestVersion));
     }
 
     /**
