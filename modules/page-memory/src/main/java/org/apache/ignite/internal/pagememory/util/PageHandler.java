@@ -22,7 +22,6 @@ import static java.lang.Boolean.FALSE;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface PageHandler<X, R> {
     /** No-op page handler. */
-    PageHandler<Void, Boolean> NO_OP = (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> Boolean.TRUE;
+    PageHandler<Void, Boolean> NO_OP = (groupId, pageId, page, pageAddr, io, arg, intArg) -> Boolean.TRUE;
 
     /**
      * Handles the page.
@@ -45,7 +44,6 @@ public interface PageHandler<X, R> {
      * @param io IO.
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -56,8 +54,7 @@ public interface PageHandler<X, R> {
             long pageAddr,
             PageIo io,
             X arg,
-            int intArg,
-            IoStatisticsHolder statHolder
+            int intArg
     ) throws IgniteInternalCheckedException;
 
     /**
@@ -92,7 +89,6 @@ public interface PageHandler<X, R> {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -103,13 +99,12 @@ public interface PageHandler<X, R> {
             PageHandler<X, R> h,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
-        long page = pageMem.acquirePage(groupId, pageId, statHolder);
+        long page = pageMem.acquirePage(groupId, pageId);
 
         try {
-            return readPage(pageMem, groupId, pageId, page, h, arg, intArg, lockFailed, statHolder);
+            return readPage(pageMem, groupId, pageId, page, h, arg, intArg, lockFailed);
         } finally {
             pageMem.releasePage(groupId, pageId, page);
         }
@@ -126,7 +121,6 @@ public interface PageHandler<X, R> {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -138,8 +132,7 @@ public interface PageHandler<X, R> {
             PageHandler<X, R> h,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
         long pageAddr = 0L;
 
@@ -150,7 +143,7 @@ public interface PageHandler<X, R> {
 
             PageIo io = pageMem.ioRegistry().resolve(pageAddr);
 
-            return h.run(groupId, pageId, page, pageAddr, io, arg, intArg, statHolder);
+            return h.run(groupId, pageId, page, pageAddr, io, arg, intArg);
         } finally {
             if (pageAddr != 0L) {
                 pageMem.readUnlock(groupId, pageId, page);
@@ -165,7 +158,6 @@ public interface PageHandler<X, R> {
      * @param groupId Group ID.
      * @param pageId Page ID.
      * @param init IO for new page initialization.
-     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      * @see PageIo#initNewPage(long, long, int)
      */
@@ -173,8 +165,7 @@ public interface PageHandler<X, R> {
             PageMemory pageMem,
             int groupId,
             long pageId,
-            PageIo init,
-            IoStatisticsHolder statHolder
+            PageIo init
     ) throws IgniteInternalCheckedException {
         Boolean res = writePage(
                 pageMem,
@@ -184,8 +175,7 @@ public interface PageHandler<X, R> {
                 init,
                 null,
                 0,
-                FALSE,
-                statHolder
+                FALSE
         );
 
         assert res != FALSE;
@@ -202,7 +192,6 @@ public interface PageHandler<X, R> {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -215,11 +204,10 @@ public interface PageHandler<X, R> {
             @Nullable PageIo init,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
         boolean releaseAfterWrite = true;
-        long page = pageMem.acquirePage(groupId, pageId, statHolder);
+        long page = pageMem.acquirePage(groupId, pageId);
         try {
             long pageAddr = pageMem.writeLock(groupId, pageId, page);
 
@@ -237,7 +225,7 @@ public interface PageHandler<X, R> {
                     init = pageMem.ioRegistry().resolve(pageAddr);
                 }
 
-                R res = h.run(groupId, pageId, page, pageAddr, init, arg, intArg, statHolder);
+                R res = h.run(groupId, pageId, page, pageAddr, init, arg, intArg);
 
                 ok = true;
 
@@ -268,7 +256,6 @@ public interface PageHandler<X, R> {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -281,8 +268,7 @@ public interface PageHandler<X, R> {
             PageIo init,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
         long pageAddr = pageMem.writeLock(groupId, pageId, page);
 
@@ -300,7 +286,7 @@ public interface PageHandler<X, R> {
                 init = pageMem.ioRegistry().resolve(pageAddr);
             }
 
-            R res = h.run(groupId, pageId, page, pageAddr, init, arg, intArg, statHolder);
+            R res = h.run(groupId, pageId, page, pageAddr, init, arg, intArg);
 
             ok = true;
 

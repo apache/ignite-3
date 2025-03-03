@@ -39,8 +39,6 @@ import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -425,21 +423,13 @@ public class VolatilePageMemory implements PageMemory {
     // *** PageSupport methods ***
 
     @Override public long acquirePage(int cacheId, long pageId) {
-        return acquirePage(cacheId, pageId, IoStatisticsHolderNoOp.INSTANCE);
-    }
-
-    @Override public long acquirePage(int cacheId, long pageId, IoStatisticsHolder statHolder) {
         assert started;
 
         int pageIdx = PageIdUtils.pageIndex(pageId);
 
         Segment seg = segment(pageIdx);
 
-        long absPtr = seg.acquirePage(pageIdx);
-
-        statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
-
-        return absPtr;
+        return seg.acquirePage(pageIdx);
     }
 
     @Override public void releasePage(int cacheId, long pageId, long page) {
