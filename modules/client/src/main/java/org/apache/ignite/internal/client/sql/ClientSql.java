@@ -269,7 +269,7 @@ public class ClientSql implements IgniteSql {
         if (transaction != null) {
             try {
                 //noinspection resource
-                return ClientLazyTransaction.ensureStarted(transaction, ch, new IgniteBiTuple<>())
+                return ClientLazyTransaction.ensureStarted(transaction, ch, null)
                         .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader))
                         .exceptionally(ClientSql::handleException);
             } catch (TransactionException e) {

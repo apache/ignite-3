@@ -43,6 +43,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.TupleReader;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.lang.NullableValue;
@@ -611,12 +613,12 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     private void writeKeyValue(
             ClientSchema s,
             PayloadOutputChannel w,
-            @Nullable String affinityNode,
+            @Nullable PartitionMapping pm,
             @Nullable Transaction tx,
             K key,
             @Nullable V val
     ) {
-        writeSchemaAndTx(s, w, affinityNode, tx);
+        writeSchemaAndTx(s, w, pm, tx);
         writeKeyValueRaw(s, w, key, val);
     }
 
@@ -639,9 +641,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         w.out().packBinaryTuple(builder, noValueSet);
     }
 
-    private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, @Nullable String affinityNode, @Nullable Transaction tx) {
+    private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, @Nullable PartitionMapping pm, @Nullable Transaction tx) {
         w.out().packInt(tbl.tableId());
-        writeTx(tx, w, affinityNode);
+        writeTx(tx, w, pm);
         w.out().packInt(s.version());
     }
 

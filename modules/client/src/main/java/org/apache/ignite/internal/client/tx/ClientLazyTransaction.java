@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.tx.Transaction;
@@ -133,13 +134,13 @@ public class ClientLazyTransaction implements Transaction {
      *
      * @param tx Transaction.
      * @param ch Channel.
-     * @param tup Node-partition pair.
+     * @param pm Partition mapping.
      * @return Future that will be completed when the transaction is started.
      */
     public static CompletableFuture<ClientTransaction> ensureStarted(
             @Nullable Transaction tx,
             ReliableChannel ch,
-            IgniteBiTuple<String, Integer> tup
+            @Nullable PartitionMapping pm
     ) {
         if (tx == null) {
             return nullCompletedFuture();
@@ -149,12 +150,12 @@ public class ClientLazyTransaction implements Transaction {
             throw ClientTransaction.unsupportedTxTypeException(tx);
         }
 
-        return ((ClientLazyTransaction) tx).ensureStarted(ch, tup);
+        return ((ClientLazyTransaction) tx).ensureStarted(ch, pm);
     }
 
     private synchronized CompletableFuture<ClientTransaction> ensureStarted(
             ReliableChannel ch,
-            IgniteBiTuple<String, Integer> tup
+            @Nullable PartitionMapping pm
     ) {
         var tx0 = tx;
 
@@ -162,7 +163,7 @@ public class ClientLazyTransaction implements Transaction {
             return tx0;
         }
 
-        tx0 = ClientTransactions.beginAsync(ch, tup, options, observableTimestamp);
+        tx0 = ClientTransactions.beginAsync(ch, pm, options, observableTimestamp);
         tx = tx0;
 
         return tx0;

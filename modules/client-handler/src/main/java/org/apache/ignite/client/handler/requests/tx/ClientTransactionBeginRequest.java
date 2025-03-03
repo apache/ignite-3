@@ -27,6 +27,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
 import org.jetbrains.annotations.Nullable;
@@ -54,20 +55,30 @@ public class ClientTransactionBeginRequest {
     ) throws IgniteInternalCheckedException {
         boolean readOnly = in.unpackBoolean();
         long timeoutMillis = in.unpackLong();
+        long observable = in.unpackLong();
 
         HybridTimestamp observableTs = null;
         if (readOnly) {
             // Timestamp makes sense only for read-only transactions.
-            observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+            observableTs = HybridTimestamp.nullableHybridTimestamp(observable);
         }
+
+        // Read commit partition info.
+        int tableId = in.unpackInt();
+        int partition = in.unpackInt();
 
         InternalTxOptions txOptions = InternalTxOptions.builder()
                 .timeoutMillis(timeoutMillis)
                 .build();
 
-        // NOTE: we don't use beginAsync here because it is synchronous anyway.
         var tx = startExplicitTx(out, txManager, observableTs, readOnly, txOptions);
 
+        // Assign commit partition at the beginning to avoid races on a client.
+        if (tableId != -1) {
+            tx.assignCommitPartition(new TablePartitionId(tableId, partition));
+        }
+
+        // TODO remove
         if (readOnly) {
             // For read-only tx, override observable timestamp that we send to the client:
             // use readTimestamp() instead of now().

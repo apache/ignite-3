@@ -128,6 +128,7 @@ import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublish
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -1129,6 +1130,10 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
+        if (tx instanceof RemoteReadWriteTransaction) {
+            System.out.println("DBG: remote");
+        }
+
         return enlistInTx(
                 row,
                 tx,

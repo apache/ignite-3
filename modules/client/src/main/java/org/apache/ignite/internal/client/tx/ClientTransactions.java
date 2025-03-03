@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -61,12 +62,10 @@ public class ClientTransactions implements IgniteTransactions {
 
     static CompletableFuture<ClientTransaction> beginAsync(
             ReliableChannel ch,
-            IgniteBiTuple<String, Integer> tup,
+            @Nullable PartitionMapping pm,
             @Nullable TransactionOptions options,
             long observableTimestamp
     ) {
-        assert tup != null;
-
         if (options != null && options.timeoutMillis() != 0 && !options.readOnly()) {
             // TODO: IGNITE-16193
             throw new UnsupportedOperationException("Timeouts are not supported yet for RW transactions");
@@ -80,21 +79,23 @@ public class ClientTransactions implements IgniteTransactions {
                     w.out().packBoolean(readOnly);
                     w.out().packLong(options == null ? 0 : options.timeoutMillis());
                     w.out().packLong(observableTimestamp);
+                    w.out().packInt(pm == null ? -1 : pm.tableId());
+                    w.out().packInt(pm == null ? -1 : pm.partition());
                 },
-                r -> readTx(r, readOnly, tup),
-                tup.get1(),
+                r -> readTx(r, readOnly, pm),
+                pm == null ? null : pm.node(),
                 null,
                 null,
                 false);
     }
 
-    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly, IgniteBiTuple<String, Integer> tup) {
+    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly, @Nullable PartitionMapping pm) {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
         UUID txId = in.unpackUuid();
         UUID coordId = in.unpackUuid();
 
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly, txId, tup, coordId);
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly, txId, pm, coordId);
     }
 }

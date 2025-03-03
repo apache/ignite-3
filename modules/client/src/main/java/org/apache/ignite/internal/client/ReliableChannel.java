@@ -49,6 +49,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -64,8 +66,10 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -254,6 +258,37 @@ public final class ReliableChannel implements AutoCloseable {
     ) {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(preferredNodeName, fallbackNodeName)
+                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
+                null,
+                ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
+    }
+
+    /**
+     * Sends request and handles response asynchronously.
+     *
+     * @param opCode        Operation code.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @param <T>           response type.
+     * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
+     *                          it will be used to handle the request; otherwise, default connection will be used.
+     * @param fallbackNodeName Fallback node name.
+     * @param retryPolicyOverride Retry policy override.
+     * @return Future for the operation.
+     */
+    public <T> CompletableFuture<T> serviceAsync(
+            int opCode,
+            Function<ClientChannel, CompletableFuture<Void>> channelReadyCb,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
+            @Nullable String preferredNodeName,
+            @Nullable String fallbackNodeName,
+            @Nullable RetryPolicy retryPolicyOverride,
+            boolean expectNotifications
+    ) {
+        return ClientFutureUtils.doWithRetryAsync(
+                () -> getChannelAsync(preferredNodeName, fallbackNodeName)
+                        .thenCompose(ch -> channelReadyCb.apply(ch).thenApply(ignored -> ch))
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));

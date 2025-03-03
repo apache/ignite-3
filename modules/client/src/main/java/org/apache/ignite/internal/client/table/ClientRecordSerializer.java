@@ -26,14 +26,17 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -117,11 +120,11 @@ public class ClientRecordSerializer<R> {
             @Nullable R rec,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode,
+            @Nullable PartitionMapping pm,
             TuplePart part
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out, affinityNode);
+        writeTx(tx, out, pm);
         out.out().packInt(schema.version());
 
         writeRecRaw(rec, schema, out.out(), part);
@@ -133,11 +136,11 @@ public class ClientRecordSerializer<R> {
             @Nullable R rec2,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode,
+            @Nullable PartitionMapping pm,
             TuplePart part
     ) {
-        out.out().packInt(tableId);
-        writeTx(tx, out, affinityNode);
+        out.out().packInt(tableId); // TODO move to writeTx
+        writeTx(tx, out, pm);
         out.out().packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
@@ -152,11 +155,11 @@ public class ClientRecordSerializer<R> {
             Collection<R> recs,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode,
+            @Nullable PartitionMapping pm,
             TuplePart part
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out, affinityNode);
+        writeTx(tx, out, pm);
         out.out().packInt(schema.version());
         out.out().packInt(recs.size());
 

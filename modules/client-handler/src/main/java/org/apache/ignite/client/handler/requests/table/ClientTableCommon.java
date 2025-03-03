@@ -47,7 +47,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.RemoteTransaction;
+import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -409,16 +409,15 @@ public class ClientTableCommon {
         try {
             long id = in.unpackLong();
             if (id == 0) {
+                long token = in.unpackLong();
                 UUID txId = in.unpackUuid();
+                int commitTableId = in.unpackInt();
                 int commitPart = in.unpackInt();
                 UUID coord = in.unpackUuid();
 
                 assert commitPart >= 0 && table != null : "Illegal condition for direct mapping";
 
-                RemoteTransaction tx = new RemoteTransaction(txId, commitPart, coord);
-                tx.assignCommitPartition(new TablePartitionId(table.tableId(), commitPart));
-
-                return tx;
+                return new RemoteReadWriteTransaction(txId, new TablePartitionId(commitTableId, commitPart), coord, token);
             }
 
             var tx = resources.get(id).get(InternalTransaction.class);
@@ -426,7 +425,7 @@ public class ClientTableCommon {
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
                 // use readTimestamp() instead of now().
-                out.meta(tx.readTimestamp());
+                out.meta(tx.readTimestamp()); // TODO FIXME remove.
             }
 
             return tx;

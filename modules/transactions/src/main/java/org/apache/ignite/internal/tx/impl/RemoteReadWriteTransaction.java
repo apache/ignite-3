@@ -7,16 +7,23 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
-public class RemoteTransaction implements InternalTransaction {
-    private UUID txId;
+public class RemoteReadWriteTransaction implements InternalTransaction {
+    private final UUID txId;
+    private final TablePartitionId commitGroupId;
+    private final long token;
+    private final UUID coord;
 
-    public RemoteTransaction(UUID txId, int commitPart, UUID coord) {
+    public RemoteReadWriteTransaction(UUID txId, TablePartitionId commitGroupId, UUID coord, long token) {
         this.txId = txId;
+        this.commitGroupId = commitGroupId;
+        this.token = token;
+        this.coord = coord;
     }
 
     @Override
@@ -53,7 +60,7 @@ public class RemoteTransaction implements InternalTransaction {
 
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId) {
-        return null;
+        return new IgniteBiTuple<>(null, token);
     }
 
     @Override
@@ -68,7 +75,7 @@ public class RemoteTransaction implements InternalTransaction {
 
     @Override
     public TablePartitionId commitPartition() {
-        return null;
+        return commitGroupId;
     }
 
     @Override
@@ -84,12 +91,12 @@ public class RemoteTransaction implements InternalTransaction {
 
     @Override
     public HybridTimestamp startTimestamp() {
-        return null;
+        return TransactionIds.beginTimestamp(txId);
     }
 
     @Override
     public UUID coordinatorId() {
-        return null;
+        return coord;
     }
 
     @Override

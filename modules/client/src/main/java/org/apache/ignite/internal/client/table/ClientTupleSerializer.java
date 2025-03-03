@@ -31,6 +31,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -73,9 +75,9 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode
+            @Nullable PartitionMapping pm
     ) {
-        writeTuple(tx, tuple, schema, out, affinityNode, false, false);
+        writeTuple(tx, tuple, schema, out, pm, false, false);
     }
 
     /**
@@ -91,10 +93,10 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode,
+            @Nullable PartitionMapping pm,
             boolean keyOnly
     ) {
-        writeTuple(tx, tuple, schema, out, affinityNode, keyOnly, false);
+        writeTuple(tx, tuple, schema, out, pm, keyOnly, false);
     }
 
     /**
@@ -111,13 +113,13 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode,
+            @Nullable PartitionMapping pm,
             boolean keyOnly,
             boolean skipHeader
     ) {
         if (!skipHeader) {
             out.out().packInt(tableId);
-            writeTx(tx, out, affinityNode);
+            writeTx(tx, out, pm);
             out.out().packInt(schema.version());
         }
 
@@ -172,12 +174,12 @@ public class ClientTupleSerializer {
             @Nullable Tuple val,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode,
+            @Nullable PartitionMapping pm,
             boolean skipHeader
     ) {
         if (!skipHeader) {
             out.out().packInt(tableId);
-            writeTx(tx, out, affinityNode);
+            writeTx(tx, out, pm);
             out.out().packInt(schema.version());
         }
 
@@ -233,15 +235,15 @@ public class ClientTupleSerializer {
             Collection<Entry<Tuple, Tuple>> pairs,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode
+            @Nullable PartitionMapping pm
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out, affinityNode);
+        writeTx(tx, out, pm);
         out.out().packInt(schema.version());
         out.out().packInt(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs) {
-            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, affinityNode, true);
+            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, pm, true);
         }
     }
 
@@ -295,16 +297,16 @@ public class ClientTupleSerializer {
             Collection<Tuple> tuples,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable String affinityNode,
+            @Nullable PartitionMapping pm,
             boolean keyOnly
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out, affinityNode);
+        writeTx(tx, out, pm);
         out.out().packInt(schema.version());
         out.out().packInt(tuples.size());
 
         for (var tuple : tuples) {
-            writeTuple(tx, tuple, schema, out, affinityNode, keyOnly, true);
+            writeTuple(tx, tuple, schema, out, pm, keyOnly, true);
         }
     }
 

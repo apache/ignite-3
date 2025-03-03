@@ -22,22 +22,29 @@ import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client transaction.
  */
 public class ClientTransaction implements Transaction {
-    public static final int NO_COMMIT_PARTITION = -1;
+    private static final int NO_COMMIT_PARTITION = -1;
 
     /** Open state. */
     private static final int STATE_OPEN = 0;
@@ -63,13 +70,18 @@ public class ClientTransaction implements Transaction {
     /** Read-only flag. */
     private final boolean isReadOnly;
 
-    private UUID txId;
+    private final UUID txId;
 
-    private int commitPartition = NO_COMMIT_PARTITION;
+    private final int commitTableId;
 
-    private UUID coordId;
+    private final int commitPartition;
 
-    private String nodeName;
+    private final UUID coordId;
+
+    private final String nodeName;
+
+    /** Direct enlistment map. */
+    private final Map<ReplicationGroupId, CompletableFuture<Long>> enlisted = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -78,10 +90,10 @@ public class ClientTransaction implements Transaction {
      * @param id Transaction id.
      * @param isReadOnly Read-only flag.
      * @param txId Transaction id.
-     * @param ctup The tuple representing commit partition information (node, partition).
+     * @param pm The partition mapping or {@code null} if not known.
      * @param coordId Tx coordinator id.
      */
-    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, UUID txId, IgniteBiTuple<String, Integer> ctup, UUID coordId) {
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, UUID txId, @Nullable PartitionMapping pm, UUID coordId) {
         this.ch = ch;
         this.id = id;
         this.isReadOnly = isReadOnly;
@@ -89,13 +101,19 @@ public class ClientTransaction implements Transaction {
         this.nodeName = ch.protocolContext().clusterNode().name();
 
         // If mapping is known, assign commit partition.
-        if (ctup.get1() != null) {
-            assert ctup.get1().equals(this.nodeName) : "Invalid node name: " + ctup.get1() + " " + this.nodeName;
+        if (pm != null) {
+            assert pm.node().equals(this.nodeName) : "Invalid node name: " + pm.node() + " " + this.nodeName;
 
-            this.commitPartition = ctup.get2();
+            this.commitTableId = pm.tableId();
+            this.commitPartition = pm.partition();
+        } else {
+            this.commitTableId = NO_COMMIT_PARTITION;
+            this.commitPartition = NO_COMMIT_PARTITION;
         }
 
         this.coordId = coordId;
+
+        assert this.coordId != null;
     }
 
     /**
@@ -111,8 +129,16 @@ public class ClientTransaction implements Transaction {
         return txId;
     }
 
+    public int commitTableId() {
+        return commitTableId;
+    }
+
     public int commitPartition() {
         return commitPartition;
+    }
+
+    private boolean hasCommitPartition() {
+        return commitPartition != NO_COMMIT_PARTITION;
     }
 
     public UUID coordinatorId() {
@@ -223,5 +249,49 @@ public class ClientTransaction implements Transaction {
 
     private void setState(int state) {
         this.state.compareAndExchange(STATE_OPEN, state);
+    }
+
+    public @Nullable Long token(@Nullable PartitionMapping pm) {
+        if (pm == null) {
+            return null;
+        }
+
+        // TODO can avoid new object ?
+        CompletableFuture<Long> fut = enlisted.get(new TablePartitionId(pm.tableId(), pm.partition()));
+
+        // Check if direct mapping is active.
+        if (fut == null) {
+            return null;
+        }
+
+        return fut.join(); // Should be completed. TODO errors
+    }
+
+    public CompletableFuture<Void> enlistFuture(ClientChannel opChannel, @Nullable PartitionMapping pm) {
+        // Check if direct mapping is active.
+        if (pm != null && pm.node().equals(opChannel.protocolContext().clusterNode().name()) && hasCommitPartition()) {
+            boolean[] first = {false};
+
+            // TODO avoid new object.
+            TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+
+            CompletableFuture<Long> fut = enlisted.compute(tablePartitionId, (k, v) -> {
+                if (v == null) {
+                    first[0] = true;
+                    return CompletableFuture.completedFuture(0L);
+                } else {
+                    return v;
+                }
+            });
+
+            if (first[0]) {
+                // For the first request returns completed future.
+                return CompletableFutures.nullCompletedFuture();
+            } else {
+                return fut.thenApply(ignored -> null);
+            }
+        }
+
+        return CompletableFutures.nullCompletedFuture();
     }
 }
