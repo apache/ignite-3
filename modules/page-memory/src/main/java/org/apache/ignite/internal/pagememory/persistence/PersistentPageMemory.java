@@ -89,8 +89,6 @@ import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
@@ -619,13 +617,7 @@ public class PersistentPageMemory implements PageMemory {
     /** {@inheritDoc} */
     @Override
     public long acquirePage(int grpId, long pageId) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, IoStatisticsHolderNoOp.INSTANCE, false);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, statHolder, false);
+        return acquirePage(grpId, pageId, false);
     }
 
     /**
@@ -639,7 +631,7 @@ public class PersistentPageMemory implements PageMemory {
      * @see #acquirePage(int, long) Sets additional flag indicating that page was not found in memory and had to be allocated.
      */
     public long acquirePage(int grpId, long pageId, AtomicBoolean pageAllocated) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, IoStatisticsHolderNoOp.INSTANCE, false, pageAllocated);
+        return acquirePage(grpId, pageId, false, pageAllocated);
     }
 
     /**
@@ -652,14 +644,13 @@ public class PersistentPageMemory implements PageMemory {
      * @throws IgniteInternalCheckedException If failed.
      * @see #acquirePage(int, long) Will read page from file if it is not present in memory.
      */
-    public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder, boolean restore) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, statHolder, restore, null);
+    public long acquirePage(int grpId, long pageId, boolean restore) throws IgniteInternalCheckedException {
+        return acquirePage(grpId, pageId, restore, null);
     }
 
     private long acquirePage(
             int grpId,
             long pageId,
-            IoStatisticsHolder statHolder,
             boolean restore,
             @Nullable AtomicBoolean pageAllocated
     ) throws IgniteInternalCheckedException {
@@ -688,8 +679,6 @@ public class PersistentPageMemory implements PageMemory {
                 seg.acquirePage(absPtr);
 
                 seg.pageReplacementPolicy.onHit(relPtr);
-
-                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
 
                 return absPtr;
             }
@@ -799,10 +788,6 @@ public class PersistentPageMemory implements PageMemory {
 
             seg.acquirePage(absPtr);
 
-            if (!readPageFromStore) {
-                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
-            }
-
             return absPtr;
         } finally {
             seg.writeLock().unlock();
@@ -823,8 +808,6 @@ public class PersistentPageMemory implements PageMemory {
 
                 try {
                     pageStoreManager.read(grpId, pageId, buf, false);
-
-                    statHolder.trackPhysicalAndLogicalRead(pageAddr);
 
                     actualPageId = getPageId(buf);
                 } finally {

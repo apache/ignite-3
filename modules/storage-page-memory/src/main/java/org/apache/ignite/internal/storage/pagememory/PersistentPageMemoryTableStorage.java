@@ -30,7 +30,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
@@ -171,8 +170,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     dataRegion.pageMemory(),
                     meta.freeListRootPageId(),
                     initNew,
-                    dataRegion.pageListCacheLimit(),
-                    IoStatisticsHolderNoOp.INSTANCE
+                    dataRegion.pageListCacheLimit()
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating free list: [tableId={}, partitionId={}]", e, getTableId(), partId);

@@ -28,7 +28,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
@@ -105,8 +104,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 metaPageId,
                 true,
                 // Because in memory.
-                null,
-                IoStatisticsHolderNoOp.INSTANCE
+                null
         );
     }
 

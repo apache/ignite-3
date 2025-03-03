@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -159,8 +160,6 @@ import org.jetbrains.annotations.Nullable;
  * A collection of builders to create test objects.
  */
 public class TestBuilders {
-    private static final int ZONE_ID = 10000;
-
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
 
     private static final IgniteLogger LOG = Loggers.forClass(TestBuilders.class);
@@ -376,6 +375,19 @@ public class TestBuilders {
         ClusterBuilder operationKillHandlers(OperationKillHandler... handlers);
 
         /**
+         * Creates a new builder for defining and adding a zone to the cluster.
+         *
+         * <p>
+         * The zone builder provides a fluent API
+         * to configure various zone-related attributes before adding it to the cluster configuration.
+         * It allows for incremental setup of the zone's properties such as name, storage profiles, and other settings.
+         * </p>
+         *
+         * @return An instance of the {@link ClusterZoneBuilder}, enabling the construction of a new zone.
+         */
+        ClusterZoneBuilder addZone();
+
+        /**
          * Creates a table builder to add to the cluster.
          *
          * @return An instance of table builder.
@@ -407,10 +419,29 @@ public class TestBuilders {
         ClusterBuilder defaultDataProvider(DefaultDataProvider defaultDataProvider);
 
         /**
-         * Provides implementation of table with given name.
+         * Sets the default implementation of the {@link DefaultZoneAssignmentsProvider}.
          *
-         * @param defaultAssignmentsProvider Name of the table given instance represents.
-         * @return {@code this} for chaining.
+         * <p>
+         * This method allows specifying a {@link DefaultZoneAssignmentsProvider} instance to define
+         * how default zone assignments are handled within the cluster during tests.
+         * This configuration influences the assignment logic for zones, ensuring proper setup and behavior in testing scenarios.
+         * </p>
+         *
+         * @param defaultZoneAssignmentsProvider The {@link DefaultZoneAssignmentsProvider} instance to configure.
+         *                                       This instance determines the management of default zone assignments.
+         * @return {@code this}, enabling method chaining for fluent configuration.
+         */
+        ClusterBuilder defaultZoneAssignmentsProvider(DefaultZoneAssignmentsProvider defaultZoneAssignmentsProvider);
+
+        /**
+         * Configures a default implementation of the {@link DefaultAssignmentsProvider}.
+         *
+         * <p>This method allows specifying a {@link DefaultAssignmentsProvider} instance
+         * to be used during the creation of a test cluster.
+         * The provided instance determines how default assignments are managed within the cluster during its setup and operation.
+         *
+         * @param defaultAssignmentsProvider The {@link DefaultAssignmentsProvider} instance to be applied.
+         * @return {@code this}, to allow method chaining.
          */
         ClusterBuilder defaultAssignmentsProvider(DefaultAssignmentsProvider defaultAssignmentsProvider);
 
@@ -451,6 +482,9 @@ public class TestBuilders {
 
         /** Sets id for the table. The caller must guarantee that provided id is unique. */
         TableBuilder tableId(int id);
+
+        /** Sets zone id for the table. */
+        TableBuilder zoneId(int id);
 
         /** Sets the number of partitions fot this table. Default value is equal to {@link CatalogUtils#DEFAULT_PARTITION_COUNT}. */
         TableBuilder partitions(int num);
@@ -624,7 +658,8 @@ public class TestBuilders {
         }
     }
 
-    private static class ClusterBuilderImpl implements ClusterBuilder {
+    static class ClusterBuilderImpl implements ClusterBuilder {
+        private final List<ClusterZoneBuilder> zoneBuilders = new ArrayList<>();
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
         private final List<SystemView<?>> systemViews = new ArrayList<>();
@@ -635,6 +670,7 @@ public class TestBuilders {
         private OperationKillHandler @Nullable [] killHandlers = null;
 
         private @Nullable DefaultDataProvider defaultDataProvider = null;
+        private @Nullable DefaultZoneAssignmentsProvider defaultZoneAssignmentsProvider = null;
         private @Nullable DefaultAssignmentsProvider defaultAssignmentsProvider = null;
 
         /** {@inheritDoc} */
@@ -664,6 +700,11 @@ public class TestBuilders {
             return this;
         }
 
+        @Override
+        public ClusterZoneBuilder addZone() {
+            return new ClusterZoneBuilderImpl(this);
+        }
+
         /** {@inheritDoc} */
         @Override
         public ClusterTableBuilder addTable() {
@@ -686,6 +727,13 @@ public class TestBuilders {
         @Override
         public ClusterBuilder defaultDataProvider(DefaultDataProvider defaultDataProvider) {
             this.defaultDataProvider = defaultDataProvider;
+
+            return this;
+        }
+
+        @Override
+        public ClusterBuilder defaultZoneAssignmentsProvider(DefaultZoneAssignmentsProvider defaultZoneAssignmentsProvider) {
+            this.defaultZoneAssignmentsProvider = defaultZoneAssignmentsProvider;
 
             return this;
         }
@@ -768,6 +816,15 @@ public class TestBuilders {
 
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
             ConcurrentMap<String, UpdatableTable> updatableTablesByName = new ConcurrentHashMap<>();
+
+            ConcurrentMap<Integer, AssignmentsProvider> zoneAssignmentsProviderByZoneId = new ConcurrentHashMap<>();
+            zoneAssignmentsProviderByZoneId.put(
+                    Blackhole.ZONE_ID,
+                    (partCount, ignored) -> IntStream.range(0, partCount)
+                            .mapToObj(partNo -> nodeNames)
+                            .collect(Collectors.toList())
+            );
+
             ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
 
             assignmentsProviderByTableName.put(
@@ -783,6 +840,11 @@ public class TestBuilders {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
                         var executionProvider = new TestExecutionDistributionProvider(
                                 systemViewManager::owningNodes,
+                                zoneId -> resolveZoneProvider(
+                                        zoneId,
+                                        zoneAssignmentsProviderByZoneId,
+                                        defaultZoneAssignmentsProvider != null ? defaultZoneAssignmentsProvider::get : null
+                                ),
                                 tableName -> resolveProvider(
                                         tableName,
                                         assignmentsProviderByTableName,
@@ -845,6 +907,10 @@ public class TestBuilders {
         }
 
         private void initAction(CatalogManager catalogManager) {
+            List<CatalogCommand> initialZones = zoneBuilders.stream()
+                    .map(ClusterZoneBuilder::build)
+                    .collect(Collectors.toList());
+
             List<CatalogCommand> initialSchema = tableBuilders.stream()
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
@@ -875,8 +941,23 @@ public class TestBuilders {
             };
             catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
 
+            // Init zones
+            await(catalogManager.execute(initialZones));
+
             // Init schema.
             await(catalogManager.execute(initialSchema));
+        }
+
+        /**
+         * Retrieves a list of {@link ClusterZoneBuilder} instances already defined for the test cluster.
+         *
+         * <p>This method provides access to the builders for zones that have been previously added during the test cluster setup.
+         * Each {@link ClusterZoneBuilder} instance represents the configuration for a specific zone within the test cluster.
+         *
+         * @return A list of {@link ClusterZoneBuilder} instances representing the predefined zones for the test cluster.
+         */
+        List<ClusterZoneBuilder> zoneBuilders() {
+            return zoneBuilders;
         }
     }
 
@@ -896,6 +977,8 @@ public class TestBuilders {
     }
 
     private static class TableBuilderImpl implements TableBuilder {
+        private int zoneId = Blackhole.ZONE_ID;
+
         private final List<AbstractTableIndexBuilderImpl<?>> indexBuilders = new ArrayList<>();
         private final List<ColumnDescriptor> columns = new ArrayList<>();
 
@@ -990,6 +1073,13 @@ public class TestBuilders {
             return this;
         }
 
+        @Override
+        public TableBuilder zoneId(int id) {
+            this.zoneId = id;
+
+            return this;
+        }
+
         /** {@inheritDoc} */
         @Override
         public TableBuilder partitions(int num) {
@@ -1040,7 +1130,7 @@ public class TestBuilders {
                     new TestStatistic(size),
                     indexes,
                     partitions,
-                    ZONE_ID
+                    zoneId
             );
         }
     }
@@ -1465,7 +1555,7 @@ public class TestBuilders {
      * </pre>
      */
     @FunctionalInterface
-    private interface NestedBuilder<ParentT> {
+    interface NestedBuilder<ParentT> {
         /**
          * Notifies the builder's chain of the nested builder that we need to return back to the previous layer.
          *
@@ -1611,6 +1701,8 @@ public class TestBuilders {
     /** A builder to create instances of {@link ExecutionDistributionProvider}. */
     public static final class ExecutionDistributionProviderBuilder {
 
+        private final Map<Integer, List<List<String>>> owningNodesByZone = new HashMap<>();
+
         private final Map<String, List<List<String>>> owningNodesByTableName = new HashMap<>();
 
         private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
@@ -1619,6 +1711,19 @@ public class TestBuilders {
 
         private ExecutionDistributionProviderBuilder() {
 
+        }
+
+        /**
+         * Adds table-to-node mappings to the internal list.
+         *
+         * <p>
+         * This method updates the internal mapping by associating tables with specific nodes.
+         * It allows for defining or extending the relationships between tables and the nodes they are mapped to within the cluster.
+         * </p>
+         */
+        public ExecutionDistributionProviderBuilder addZones(Map<Integer, List<List<String>>> zones) {
+            this.owningNodesByZone.putAll(zones);
+            return this;
         }
 
         /** Adds tables to list of nodes mapping. */
@@ -1644,7 +1749,20 @@ public class TestBuilders {
 
         /** Creates an instance of {@link ExecutionDistributionProvider}. */
         public ExecutionDistributionProvider build() {
+            Map<Integer, List<List<String>>> owningNodesByZone = Map.copyOf(this.owningNodesByZone);
+
             Map<String, List<List<String>>> owningNodesByTableName = Map.copyOf(this.owningNodesByTableName);
+
+            Function<Integer, AssignmentsProvider> zoneSourceProviderFunction = zoneId ->
+                    (AssignmentsProvider) (partitionsCount, includeBackups) -> {
+                        List<List<String>> assignments = owningNodesByZone.get(zoneId);
+
+                        if (nullOrEmpty(assignments)) {
+                            throw new AssertionError("Assignments are not configured for zone " + zoneId);
+                        }
+
+                        return assignments;
+                    };
 
             Function<String, AssignmentsProvider> sourceProviderFunction = tableName ->
                     (AssignmentsProvider) (partitionsCount, includeBackups) -> {
@@ -1659,6 +1777,7 @@ public class TestBuilders {
 
             return new TestExecutionDistributionProvider(
                     owningNodesBySystemViewName,
+                    zoneSourceProviderFunction,
                     sourceProviderFunction,
                     useTablePartitions
             );
@@ -1668,16 +1787,20 @@ public class TestBuilders {
     private static class TestExecutionDistributionProvider implements ExecutionDistributionProvider {
         final Function<String, List<String>> owningNodesBySystemViewName;
 
+        final Function<Integer, AssignmentsProvider> owningNodesByZone;
+
         final Function<String, AssignmentsProvider> owningNodesByTableName;
 
         final boolean useTablePartitions;
 
         private TestExecutionDistributionProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
+                Function<Integer, AssignmentsProvider> owningNodesByZone,
                 Function<String, AssignmentsProvider> owningNodesByTableName,
                 boolean useTablePartitions
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
+            this.owningNodesByZone = owningNodesByZone;
             this.owningNodesByTableName = owningNodesByTableName;
             this.useTablePartitions = useTablePartitions;
         }
@@ -1695,18 +1818,35 @@ public class TestBuilders {
                 IgniteTable table,
                 boolean includeBackups
         ) {
-            AssignmentsProvider provider = owningNodesByTableName.apply(table.name());
+            AssignmentsProvider provider;
 
+            if (enabledColocation()) {
+                provider = owningNodesByZone.apply(table.zoneId());
+            } else {
+                provider = owningNodesByTableName.apply(table.name());
+            }
+
+            return getAssignments(provider, table, includeBackups);
+        }
+
+        private CompletableFuture<List<TokenizedAssignments>> getAssignments(
+                AssignmentsProvider provider,
+                IgniteTable table,
+                boolean includeBackups
+        ) {
             if (provider == null) {
                 return CompletableFuture.failedFuture(
                         new AssertionError("AssignmentsProvider is not configured for table " + table.name())
                 );
             }
-            List<List<String>> owningNodes = provider.get(table.partitions(), includeBackups);
 
-            if (nullOrEmpty(owningNodes) || owningNodes.size() != table.partitions()) {
+            int partitions = table.partitions();
+
+            List<List<String>> owningNodes = provider.get(partitions, includeBackups);
+
+            if (nullOrEmpty(owningNodes) || owningNodes.size() != partitions) {
                 throw new AssertionError("Configured AssignmentsProvider returns less assignment than expected "
-                        + "[table=" + table.name() + ", expectedNumberOfPartitions=" + table.partitions()
+                        + "[table=" + table.name() + ", expectedNumberOfPartitions=" + partitions
                         + ", returnedAssignmentSize=" + (owningNodes == null ? "<null>" : owningNodes.size()) + "]");
             }
 
@@ -1787,6 +1927,24 @@ public class TestBuilders {
     }
 
     /**
+     * The default zone assignments provider used as a fallback when no specific provider
+     * is explicitly configured via {@link TestCluster#setAssignmentsProvider(String, AssignmentsProvider)}.
+     *
+     * <p>
+     * This provider supplies default zone assignments necessary for executing SQL queries
+     * or simulating cluster behavior in tests where explicit zone assignment configurations are not required.
+     * </p>
+     *
+     * <p>
+     * Typically used in scenarios where test simplicity is preferred, and explicit zone assignment handling is unnecessary or redundant.
+     * </p>
+     */
+    @FunctionalInterface
+    public interface DefaultZoneAssignmentsProvider {
+        AssignmentsProvider get(int zoneId);
+    }
+
+    /**
      * Assignments provider that will be used in case no other provider was specified explicitly via
      * {@link TestCluster#setAssignmentsProvider(String, AssignmentsProvider)}.
      */
@@ -1811,6 +1969,20 @@ public class TestBuilders {
         List<List<String>> get(int partitionsCount, boolean includeBackups);
     }
 
+    private static <T> @Nullable T resolveZoneProvider(
+            int zoneId,
+            Map<Integer, T> providersByZoneId,
+            @Nullable Function<Integer, T> defaultProvider
+    ) {
+        T provider = providersByZoneId.get(zoneId);
+
+        if (provider == null && defaultProvider != null) {
+            return defaultProvider.apply(zoneId);
+        }
+
+        return provider;
+    }
+
     private static <T> @Nullable T resolveProvider(
             String tableName,
             Map<String, T> providersByTableName,
@@ -1826,6 +1998,8 @@ public class TestBuilders {
     }
 
     private static class Blackhole implements UpdatableTable {
+        static final int ZONE_ID = 10_000;
+
         static final String TABLE_NAME = "BLACKHOLE";
 
         private static final TableDescriptor DESCRIPTOR = new TableDescriptorImpl(
