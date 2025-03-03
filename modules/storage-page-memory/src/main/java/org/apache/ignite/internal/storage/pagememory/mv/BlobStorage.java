@@ -256,7 +256,9 @@ public class BlobStorage extends DataStructure {
      */
     private class WriteFragment implements PageHandler<WriteState, Boolean> {
         @Override
-        public Boolean run(int groupId, long pageId, long page, long pageAddr, PageIo io, WriteState state, int unused) throws IgniteInternalCheckedException {
+        public Boolean run(
+                int groupId, long pageId, long page, long pageAddr, PageIo io, WriteState state, int unused
+        ) throws IgniteInternalCheckedException {
             BlobFragmentIo blobIo = (BlobFragmentIo) io;
 
             int capacityForBytes = blobIo.getCapacityForFragmentBytes(pageSize(), state.isFirstPage());
