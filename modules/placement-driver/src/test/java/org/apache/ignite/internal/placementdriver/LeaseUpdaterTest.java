@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,6 +50,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -107,6 +110,9 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     @Mock
     private LogicalTopologyService topologyService;
 
+    @Mock
+    MetaStorageManager metaStorageManager;
+
     /** Lease updater for tests. */
     private LeaseUpdater leaseUpdater;
 
@@ -119,25 +125,11 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     void setUp(
             @Mock ClusterService clusterService,
             @Mock LeaseTracker leaseTracker,
-            @Mock MetaStorageManager metaStorageManager,
             @Mock MessagingService messagingService,
             @InjectConfiguration ReplicationConfiguration replicationConfiguration
     ) {
-        HybridClockImpl clock = new HybridClockImpl();
-
-        Entry stableEntry = new EntryImpl(
-                stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
-                Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(stableNode.name())).toBytes(),
-                1,
-                clock.now()
-        );
-
-        Entry pendingEntry = new EntryImpl(
-                pendingPartAssignmentsQueueKey(new TablePartitionId(1, 0)).bytes(),
-                AssignmentsQueue.toBytes(Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(pendingNode.name()))),
-                1,
-                clock.now()
-        );
+        mockStableAssignments(Set.of(Assignment.forPeer(stableNode.name())));
+        mockPendingAssignments(Set.of(Assignment.forPeer(pendingNode.name())));
 
         when(messagingService.invoke(anyString(), any(), anyLong()))
                 .then(i -> completedFuture(PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse().accepted(true).build()));
@@ -148,10 +140,6 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
 
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
-        when(metaStorageManager.prefixLocally(eq(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
-                .thenReturn(Cursor.fromIterable(List.of(stableEntry)));
-        when(metaStorageManager.prefixLocally(eq(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES)), anyLong()))
-                .thenReturn(Cursor.fromIterable(List.of(pendingEntry)));
 
         when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, List.of(stableNode))));
 
@@ -180,7 +168,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 topologyService,
                 leaseTracker,
-                new TestClockService(clock),
+                new TestClockService(new HybridClockImpl()),
                 assignmentsTracker,
                 replicationConfiguration
         );
@@ -192,6 +180,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         leaseUpdater.deInit();
         assignmentsTracker.stopTrack();
 
+        leaseUpdater.deactivate();
         leaseUpdater = null;
     }
 
@@ -288,8 +277,6 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         assertTrue(lease.getStartTime().compareTo(renewedLease.getStartTime()) < 0);
         assertTrue(lease.getExpirationTime().compareTo(renewedLease.getExpirationTime()) < 0);
         assertEquals(lease.getLeaseholder(), renewedLease.getLeaseholder());
-
-        leaseUpdater.deactivate();
     }
 
     @Test
@@ -301,11 +288,69 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         Lease lease = awaitForLease();
 
         assertEquals(pendingNode.name(), lease.getLeaseholder());
+    }
 
-        leaseUpdater.deactivate();
+    @Test
+    public void testLeaseAmongPendingsSkipsLearners() throws Exception {
+        var peer = Assignment.forPeer("test-node-pending-peer");
+        var learner = Assignment.forLearner("test-node-pending-learner");
+
+        // no stable, pending peer and learner
+        mockTopology(Set.of(), Set.of(peer, learner));
+
+        Lease lease = awaitForLease();
+
+        assertEquals(peer.consistentId(), lease.getLeaseholder());
+
+        // no stable, pending learner only
+        mockTopology(Set.of(), Set.of(learner));
+
+        assertThrows(AssertionError.class, this::awaitForLease);
+    }
+
+    private void mockTopology(Set<Assignment> stable, Set<Assignment> pending) {
+        mockStableAssignments(stable);
+        mockPendingAssignments(pending);
+
+        List<LogicalNode> nodes = Stream.concat(stable.stream(), pending.stream())
+                .map(a -> new LogicalNode(randomUUID(), a.consistentId(), NetworkAddress.from("127.0.0.1:10001")))
+                .collect(Collectors.toList());
+
+        when(topologyService.logicalTopologyOnLeader())
+                .thenReturn(completedFuture(new LogicalTopologySnapshot(1, nodes)));
+
+        initAndActivateLeaseUpdater();
+    }
+
+    private void mockPendingAssignments(Set<Assignment> assignments) {
+        Entry pendingEntry = new EntryImpl(
+                pendingPartAssignmentsQueueKey(new TablePartitionId(1, 0)).bytes(),
+                AssignmentsQueue.toBytes(Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), assignments.toArray(Assignment[]::new))),
+                1,
+                new HybridClockImpl().now()
+        );
+
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES)), anyLong()))
+                .thenReturn(Cursor.fromIterable(List.of(pendingEntry)));
+    }
+
+    private void mockStableAssignments(Set<Assignment> assignments) {
+        Entry stableEntry = new EntryImpl(
+                stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
+                Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), assignments.toArray(Assignment[]::new)).toBytes(),
+                1,
+                new HybridClockImpl().now()
+        );
+
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
+                .thenReturn(Cursor.fromIterable(List.of(stableEntry)));
     }
 
     private void initAndActivateLeaseUpdater() {
+        assignmentsTracker.startTrack();
+
+        leaseUpdater.deactivate();
+
         leaseUpdater.init();
 
         leaseUpdater.activate();
