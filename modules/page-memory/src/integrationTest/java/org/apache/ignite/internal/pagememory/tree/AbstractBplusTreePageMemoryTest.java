@@ -136,6 +136,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     protected static final Collection<Long> rmvdIds = ConcurrentHashMap.newKeySet();
 
+    /** The offset of the lock withing a page. This value might be different for different engines. */
     protected static long lockOffset;
 
     @Nullable

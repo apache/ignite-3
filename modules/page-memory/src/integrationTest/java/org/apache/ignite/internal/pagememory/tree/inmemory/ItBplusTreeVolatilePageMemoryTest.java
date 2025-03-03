@@ -32,7 +32,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -50,8 +50,8 @@ public class ItBplusTreeVolatilePageMemoryTest extends AbstractBplusTreePageMemo
     )
     private StorageProfileConfiguration storageProfileConfiguration;
 
-    @BeforeEach
-    void initLockOffset() {
+    @BeforeAll
+    static void initLockOffset() {
         lockOffset = VolatilePageMemory.LOCK_OFFSET;
     }
 

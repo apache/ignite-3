@@ -43,7 +43,7 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,8 +67,8 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
 
     private OffheapReadWriteLock offheapReadWriteLock;
 
-    @BeforeEach
-    void initLockOffset() {
+    @BeforeAll
+    static void initLockOffset() {
         lockOffset = PersistentPageMemory.PAGE_LOCK_OFFSET;
     }
 
