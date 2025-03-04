@@ -40,27 +40,18 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
 
     private final CatalogZoneDescriptor descriptor;
 
-    private final CatalogZoneDescriptor previousDescriptor;
-
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a zone to alter.
-     * @param previousDescriptor A previous descriptor of a zone.
      */
-    public AlterZoneEntry(CatalogZoneDescriptor descriptor, CatalogZoneDescriptor previousDescriptor) {
+    public AlterZoneEntry(CatalogZoneDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.previousDescriptor = previousDescriptor;
     }
 
     /** Returns descriptor of a zone to alter. */
     public CatalogZoneDescriptor descriptor() {
         return descriptor;
-    }
-
-    /** Returns previous descriptor of a zone. */
-    public CatalogZoneDescriptor previousDescriptor() {
-        return previousDescriptor;
     }
 
     @Override
@@ -75,7 +66,7 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new AlterZoneEventParameters(causalityToken, catalogVersion, descriptor, previousDescriptor);
+        return new AlterZoneEventParameters(causalityToken, catalogVersion, descriptor);
     }
 
     @Override
@@ -106,15 +97,13 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
         @Override
         public AlterZoneEntry readFrom(IgniteDataInput input) throws IOException {
             CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(input);
-            CatalogZoneDescriptor previousDescriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(input);
 
-            return new AlterZoneEntry(descriptor, previousDescriptor);
+            return new AlterZoneEntry(descriptor);
         }
 
         @Override
         public void writeTo(AlterZoneEntry object, IgniteDataOutput output) throws IOException {
             CatalogZoneDescriptor.SERIALIZER.writeTo(object.descriptor(), output);
-            CatalogZoneDescriptor.SERIALIZER.writeTo(object.previousDescriptor(), output);
         }
     }
 }
