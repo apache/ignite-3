@@ -647,7 +647,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         // Prepare a zone.
         String zoneName = "test_zone";
         createZone(node, zoneName, 1, 2);
-        int zoneId =  DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong()));
+        int zoneId =  DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
         int partId = 0;
 
         // Wait for sure that zone replication group was created on both nodes.
