@@ -101,7 +101,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522
     // It makes sense to change ReplicationGroupId to ZonePartitionId.
     private final Set<ReplicationGroupId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
@@ -177,7 +177,7 @@ class IndexBuildController implements ManuallyCloseable {
                 int partitionId;
                 boolean needToProcessPartition;
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22522
                 // Remove TablePartitionId check.
                 if (primaryReplicationGroupId instanceof ZonePartitionId) {
                     ZonePartitionId zoneReplicaId = (ZonePartitionId) primaryReplicationGroupId;
@@ -233,7 +233,7 @@ class IndexBuildController implements ManuallyCloseable {
     private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22522
                 // Need to remove TablePartitionId check here and below.
                 assert parameters.groupId() instanceof ZonePartitionId || parameters.groupId() instanceof TablePartitionId :
                         "Primary replica ID must be of type ZonePartitionId or TablePartitionId [groupId="
@@ -348,7 +348,7 @@ class IndexBuildController implements ManuallyCloseable {
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
     ) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522
         // Remove TablePartitionId check.
         assert primaryReplicaId instanceof ZonePartitionId
                 ? ((ZonePartitionId) primaryReplicaId).zoneId() == zoneId
@@ -382,7 +382,7 @@ class IndexBuildController implements ManuallyCloseable {
         if (primaryReplicaIds.remove(replicaId)) {
             // Primary replica is no longer current, we need to stop building indexes for it.
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24375
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
             // Remove TablePartitionId check.
             if (replicaId instanceof ZonePartitionId) {
                 ZonePartitionId zoneId = (ZonePartitionId) replicaId;
