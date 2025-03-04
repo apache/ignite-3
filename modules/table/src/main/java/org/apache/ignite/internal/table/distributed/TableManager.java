@@ -2848,8 +2848,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
-            // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped. Moreover the excessive replica
-            // stop leads to raft node shutdown regardless was the table replica there or even didn't ever exist.
+            // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped.
             stopReplicaFuture = enabledColocation()
                     ? trueCompletedFuture()
                     : replicaMgr.stopReplica(tablePartitionId);
