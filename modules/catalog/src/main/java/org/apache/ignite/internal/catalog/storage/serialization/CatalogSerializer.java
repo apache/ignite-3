@@ -43,7 +43,7 @@ public @interface CatalogSerializer {
     /**
      * The product version starting from which the serializer is used.
      *
-     * <p>For example - 3.0.0.
+     * <p>For example - {@code 3.0.0}.
      */
     String since();
 }
