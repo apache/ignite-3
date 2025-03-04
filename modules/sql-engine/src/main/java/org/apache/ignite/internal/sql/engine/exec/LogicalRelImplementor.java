@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule.createMapping;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.combinedRowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -47,6 +48,7 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -423,7 +425,29 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         Comparator<RowT> comp = null;
         if (idx.type() == Type.SORTED && collation != null && !nullOrEmpty(collation.getFieldCollations())) {
-            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(collation);
+            // Collation returned by rel is mapped according to projection merged into the rel. But we need
+            // comparator to merge streams of different partition. These streams respect `requiredColumns`,
+            // but projection is happened on later stage of execution, therefor if projection exists, we need
+            // to rebuild collation prior to create comparator.
+            RelCollation partitionStreamCollation;
+
+            if (projects != null) {
+                partitionStreamCollation = idx.collation();
+
+                if (rel.requiredColumns() != null) {
+                    Mappings.TargetMapping mapping = createMapping(
+                            null,
+                            rel.requiredColumns(),
+                            tbl.getRowType(typeFactory).getFieldCount()
+                    );
+
+                    partitionStreamCollation = partitionStreamCollation.apply(mapping);
+                }
+            } else {
+                partitionStreamCollation = collation;
+            }
+
+            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(partitionStreamCollation);
 
             comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2); 
 
