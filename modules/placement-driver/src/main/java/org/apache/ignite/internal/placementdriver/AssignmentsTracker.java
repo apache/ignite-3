@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -98,12 +100,16 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * Restores assignments form Vault and subscribers on further updates.
      */
     public void startTrack() {
-        msManager.registerPrefixWatch(new ByteArray(pendingAssignmentsPrefixBytes()), pendingAssignmentsListener);
+        msManager.registerPrefixWatch(new ByteArray(pendingAssignmentsQueuePrefixBytes()), pendingAssignmentsListener);
         msManager.registerPrefixWatch(new ByteArray(stableAssignmentsPrefixBytes()), stableAssignmentsListener);
 
         msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
-            handleRecoveryAssignments(recoveryRevisions, pendingAssignmentsPrefixBytes(), groupPendingAssignments);
-            handleRecoveryAssignments(recoveryRevisions, stableAssignmentsPrefixBytes(), groupStableAssignments);
+            handleRecoveryAssignments(recoveryRevisions, pendingAssignmentsQueuePrefixBytes(), groupPendingAssignments,
+                    bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes()
+            );
+            handleRecoveryAssignments(recoveryRevisions, stableAssignmentsPrefixBytes(), groupStableAssignments,
+                    bytes -> Assignments.fromBytes(bytes).nodes()
+            );
         }).whenComplete((res, ex) -> {
             if (ex != null) {
                 LOG.error("Failed to start assignment tracker due to recovery error", ex);
@@ -165,7 +171,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            handleReceivedAssignments(event, stableAssignmentsPrefixBytes(), groupStableAssignments);
+            handleReceivedAssignments(event, stableAssignmentsPrefixBytes(), groupStableAssignments,
+                    bytes -> Assignments.fromBytes(bytes).nodes()
+            );
 
             return nullCompletedFuture();
         };
@@ -177,7 +185,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            handleReceivedAssignments(event, pendingAssignmentsPrefixBytes(), groupPendingAssignments);
+            handleReceivedAssignments(event, pendingAssignmentsQueuePrefixBytes(), groupPendingAssignments,
+                    bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes()
+            );
 
             return nullCompletedFuture();
         };
@@ -186,7 +196,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     private static void handleReceivedAssignments(
             WatchEvent event,
             byte[] assignmentsMetastoreKeyPrefix,
-            Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
+            Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
+            Function<byte[], Set<Assignment>> deserializer
     ) {
         for (EntryEvent evt : event.entryEvents()) {
             Entry entry = evt.newEntry();
@@ -196,7 +207,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             if (entry.tombstone()) {
                 groupIdToAssignmentsMap.remove(grpId);
             } else {
-                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry);
+                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer);
             }
         }
     }
@@ -204,7 +215,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     private void handleRecoveryAssignments(
             Revisions recoveryRevisions,
             byte[] assignmentsMetastoreKeyPrefix,
-            Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
+            Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
+            Function<byte[], Set<Assignment>> deserializer
     ) {
         var prefix = new ByteArray(assignmentsMetastoreKeyPrefix);
 
@@ -218,7 +230,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
                 ReplicationGroupId grpId = extractReplicationGroupPartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
-                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry);
+                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer);
             }
         }
     }
@@ -226,14 +238,15 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     private static void updateGroupAssignments(
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
             ReplicationGroupId grpId,
-            Entry entry
+            Entry entry,
+            Function<byte[], Set<Assignment>> deserFunction
     ) {
         byte[] value = entry.value();
 
         // MetaStorage iterator should not return nulls as values.
         assert value != null;
 
-        Set<Assignment> assignmentNodes = Assignments.fromBytes(value).nodes();
+        Set<Assignment> assignmentNodes = deserFunction.apply(value);
 
         groupIdToAssignmentsMap.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
     }
@@ -328,8 +341,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         return sb.toString();
     }
 
-    private static byte[] pendingAssignmentsPrefixBytes() {
-        return enabledColocation() ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES : PENDING_ASSIGNMENTS_PREFIX_BYTES;
+    private static byte[] pendingAssignmentsQueuePrefixBytes() {
+        return enabledColocation() ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES : PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
     }
 
     private static byte[] stableAssignmentsPrefixBytes() {

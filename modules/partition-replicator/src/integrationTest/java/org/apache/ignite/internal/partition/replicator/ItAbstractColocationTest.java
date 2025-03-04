@@ -102,7 +102,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
     private StorageConfiguration storageConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.idleSyncTimeInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
     private MetaStorageConfiguration metaStorageConfiguration;
 
     @InjectConfiguration

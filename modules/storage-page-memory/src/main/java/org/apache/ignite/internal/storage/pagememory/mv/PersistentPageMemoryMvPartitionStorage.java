@@ -32,7 +32,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -145,8 +144,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 freeList,
                 dataRegion.pageMemory(),
                 tableStorage.getTableId(),
-                partitionId,
-                IoStatisticsHolderNoOp.INSTANCE
+                partitionId
         );
     }
 
@@ -508,8 +506,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 freeList,
                 tableStorage.dataRegion().pageMemory(),
                 tableStorage.getTableId(),
-                partitionId,
-                IoStatisticsHolderNoOp.INSTANCE
+                partitionId
         );
 
         updateRenewableState(

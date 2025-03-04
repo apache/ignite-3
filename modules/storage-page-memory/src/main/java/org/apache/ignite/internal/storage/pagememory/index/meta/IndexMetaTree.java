@@ -23,7 +23,6 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaLeafIo;
@@ -41,7 +40,6 @@ public class IndexMetaTree extends BplusTree<IndexMetaKey, IndexMeta> {
      * @param grpName Group name.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
      *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
@@ -55,13 +53,12 @@ public class IndexMetaTree extends BplusTree<IndexMetaKey, IndexMeta> {
             String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super("IndexMetaTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("IndexMetaTree", grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
 
         setIos(IndexMetaInnerIo.VERSIONS, IndexMetaLeafIo.VERSIONS, IndexMetaTreeMetaIo.VERSIONS);
 
