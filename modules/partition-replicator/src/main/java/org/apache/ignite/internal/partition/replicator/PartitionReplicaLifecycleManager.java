@@ -1465,13 +1465,7 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             int tableId
     ) {
-        ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
-
         zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
-
-        resources.raftListener().removeTableProcessor(tableId);
-
-        resources.snapshotStorageFactory().removeMvPartition(tableId);
     }
 
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {
