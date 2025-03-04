@@ -237,6 +237,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -1986,7 +1987,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public List<Table> tables() {
-        return join(tablesAsync());
+        return sync(tablesAsync());
     }
 
     @Override
@@ -2045,12 +2046,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public Table table(QualifiedName name) {
-        return join(tableAsync(name));
+        return sync(tableAsync(name));
     }
 
     @Override
     public TableViewInternal table(int id) throws NodeStoppingException {
-        return join(tableAsync(id));
+        return sync(tableAsync(id));
     }
 
     @Override
@@ -2109,7 +2110,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public TableViewInternal tableView(QualifiedName name) {
-        return join(tableViewAsync(name));
+        return sync(tableViewAsync(name));
     }
 
     @Override
@@ -2183,18 +2184,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
     }
 
-    /**
-     * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.
-     *
-     * @param future Completable future.
-     * @return Future result.
-     */
-    private static <T> T join(CompletableFuture<T> future) {
-        try {
-            return future.join();
-        } catch (CompletionException ex) {
-            throw convertThrowable(ex.getCause());
-        }
+    private static <T> T sync(CompletableFuture<T> future) {
+        return IgniteUtils.getInterruptibly(future);
     }
 
     /**
