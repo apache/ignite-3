@@ -384,9 +384,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * @param tableId Table's identifier.
      */
     public void removeTableProcessor(int tableId) {
-        synchronized (tableProcessorsStateLock) {
-            tableProcessors.remove(tableId);
-        }
+        tableProcessors.remove(tableId);
     }
 
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
