@@ -270,6 +270,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
+        if (tableProcessors.isEmpty()) {
+            return new IgniteBiTuple<>(null, true);
+        }
+
         IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
 
         tableProcessors.values().forEach(processor -> {
@@ -280,9 +284,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             }
         });
 
-        return tableProcessors.isEmpty()
-            ? new IgniteBiTuple<>(null, true)
-            : result;
+        return result;
     }
 
     /**
