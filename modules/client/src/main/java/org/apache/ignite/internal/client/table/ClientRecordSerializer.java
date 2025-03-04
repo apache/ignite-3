@@ -28,6 +28,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -120,11 +121,11 @@ public class ClientRecordSerializer<R> {
             @Nullable R rec,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm,
+            WriteContext ctx,
             TuplePart part
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out, pm);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
 
         writeRecRaw(rec, schema, out.out(), part);
@@ -136,11 +137,11 @@ public class ClientRecordSerializer<R> {
             @Nullable R rec2,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm,
+            WriteContext ctx,
             TuplePart part
     ) {
         out.out().packInt(tableId); // TODO move to writeTx
-        writeTx(tx, out, pm);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
@@ -155,11 +156,11 @@ public class ClientRecordSerializer<R> {
             Collection<R> recs,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm,
+            WriteContext ctx,
             TuplePart part
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out, pm);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
         out.out().packInt(recs.size());
 

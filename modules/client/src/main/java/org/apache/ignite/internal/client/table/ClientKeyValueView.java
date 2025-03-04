@@ -46,6 +46,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSql;
@@ -613,12 +614,12 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     private void writeKeyValue(
             ClientSchema s,
             PayloadOutputChannel w,
-            @Nullable PartitionMapping pm,
+            WriteContext ctx,
             @Nullable Transaction tx,
             K key,
             @Nullable V val
     ) {
-        writeSchemaAndTx(s, w, pm, tx);
+        writeSchemaAndTx(s, w, ctx, tx);
         writeKeyValueRaw(s, w, key, val);
     }
 
@@ -641,9 +642,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         w.out().packBinaryTuple(builder, noValueSet);
     }
 
-    private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, @Nullable PartitionMapping pm, @Nullable Transaction tx) {
+    private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, WriteContext ctx, @Nullable Transaction tx) {
         w.out().packInt(tbl.tableId());
-        writeTx(tx, w, pm);
+        writeTx(tx, w, ctx);
         w.out().packInt(s.version());
     }
 

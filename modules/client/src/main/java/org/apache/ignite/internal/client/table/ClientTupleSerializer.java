@@ -33,6 +33,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -75,9 +76,9 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm
+            WriteContext ctx
     ) {
-        writeTuple(tx, tuple, schema, out, pm, false, false);
+        writeTuple(tx, tuple, schema, out, ctx, false, false);
     }
 
     /**
@@ -93,10 +94,10 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm,
+            WriteContext ctx,
             boolean keyOnly
     ) {
-        writeTuple(tx, tuple, schema, out, pm, keyOnly, false);
+        writeTuple(tx, tuple, schema, out, ctx, keyOnly, false);
     }
 
     /**
@@ -113,13 +114,13 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm,
+            WriteContext ctx,
             boolean keyOnly,
             boolean skipHeader
     ) {
         if (!skipHeader) {
             out.out().packInt(tableId);
-            writeTx(tx, out, pm);
+            writeTx(tx, out, ctx);
             out.out().packInt(schema.version());
         }
 
@@ -174,12 +175,12 @@ public class ClientTupleSerializer {
             @Nullable Tuple val,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm,
+            WriteContext ctx,
             boolean skipHeader
     ) {
         if (!skipHeader) {
             out.out().packInt(tableId);
-            writeTx(tx, out, pm);
+            writeTx(tx, out, ctx);
             out.out().packInt(schema.version());
         }
 
@@ -235,15 +236,15 @@ public class ClientTupleSerializer {
             Collection<Entry<Tuple, Tuple>> pairs,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm
+            WriteContext ctx
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out, pm);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
         out.out().packInt(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs) {
-            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, pm, true);
+            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, ctx, true);
         }
     }
 
@@ -297,16 +298,16 @@ public class ClientTupleSerializer {
             Collection<Tuple> tuples,
             ClientSchema schema,
             PayloadOutputChannel out,
-            @Nullable PartitionMapping pm,
+            WriteContext ctx,
             boolean keyOnly
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out, pm);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
         out.out().packInt(tuples.size());
 
         for (var tuple : tuples) {
-            writeTuple(tx, tuple, schema, out, pm, keyOnly, true);
+            writeTuple(tx, tuple, schema, out, ctx, keyOnly, true);
         }
     }
 

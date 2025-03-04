@@ -62,27 +62,11 @@ public class ClientTupleUpsertRequest {
                         RemoteReadWriteTransaction tx0 = (RemoteReadWriteTransaction) tx;
                         IgniteBiTuple<ClusterNode, Long> token = tx0.enlistedNodeAndConsistencyToken(null);
                         out.packLong(token.get2());
+                    } else {
+                        out.packLong(0);
                     }
                 });
             });
         });
-
-//        return readTableAsync(in, tables).thenCompose(table -> {
-//            UUID txId = in.unpackUuid();
-//            int commitPart = in.unpackInt();
-//            UUID coord = in.unpackUuid();
-//            HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
-//
-//            return readTuple(in, table, false).thenCompose(tuple -> {
-//                return table.schemaVersions().schemaVersionAt(beginTs, table.tableId()).thenCompose(schema -> {
-//                    RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
-//                    BinaryRowEx row = view.marshal(tuple, schema, false);
-//
-//                    return table.internalTable().upsertDirect(row, txId, commitPart, coord).thenAccept(ignored -> {
-//                        out.packInt(table.schemaView().lastKnownSchemaVersion());
-//                    });
-//                });
-//            });
-//        });
     }
 }

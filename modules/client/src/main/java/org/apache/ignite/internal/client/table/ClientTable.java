@@ -36,6 +36,7 @@ import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -293,22 +293,18 @@ public class ClientTable implements Table {
      *
      * @param tx Transaction.
      * @param out Packer.
-     * @param tableId Table id.
-     * @param pm Partition mapping.
+     * @param ctx Write context.
      */
-    public static void writeTx(@Nullable Transaction tx, PayloadOutputChannel out, @Nullable PartitionMapping pm) {
+    public static void writeTx(@Nullable Transaction tx, PayloadOutputChannel out, WriteContext ctx) {
         // TODO write table id here.
         if (tx == null) {
             out.out().packNil();
         } else {
             ClientTransaction tx0 = ClientTransaction.get(tx);
 
-            // Tests if a direct mapping is possible.
-            @Nullable Long token = tx0.token(pm);
-
-            if (token != null) {
+            if (ctx.enlistmentToken != null) {
                 out.out().packLong(0); // For direct request, pass 0 for resourceId to distinguish with proxy mode.
-                out.out().packLong(token);
+                out.out().packLong(ctx.enlistmentToken);
                 out.out().packUuid(tx0.txId());
                 out.out().packInt(tx0.commitTableId());
                 out.out().packInt(tx0.commitPartition());
@@ -338,7 +334,7 @@ public class ClientTable implements Table {
      */
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, @Nullable PartitionMapping> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             Function<PayloadInputChannel, T> reader,
             PartitionAwarenessProvider provider,
             @Nullable Transaction tx) {
@@ -369,7 +365,7 @@ public class ClientTable implements Table {
      */
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, @Nullable PartitionMapping> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             Function<PayloadInputChannel, T> reader,
             PartitionAwarenessProvider provider,
             boolean expectNotifications,
@@ -401,7 +397,7 @@ public class ClientTable implements Table {
      */
     <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, @Nullable PartitionMapping> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             Function<PayloadInputChannel, T> reader,
             PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
@@ -433,7 +429,7 @@ public class ClientTable implements Table {
      */
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
-            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, @Nullable PartitionMapping> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
             PartitionAwarenessProvider provider,
@@ -460,7 +456,7 @@ public class ClientTable implements Table {
      */
     private <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
-            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, @Nullable PartitionMapping> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
             boolean responseSchemaRequired,
@@ -480,15 +476,18 @@ public class ClientTable implements Table {
         CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    var aff = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema);
+                    PartitionMapping aff = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema);
+
+                    WriteContext ctx = new WriteContext();
+                    ctx.pm = aff;
 
                     return ClientLazyTransaction.ensureStarted(tx, ch, aff).thenCompose(tx0 -> {
                         return ch.serviceAsync(opCode,
-                                (opChannel) -> tx0.enlistFuture(opChannel, aff),
-                                w -> writer.accept(schema, w, aff),
-                                r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
-                                aff != null ? aff.node() : tx0.nodeName(),
-                                tx0.nodeName(),
+                                (opChannel) -> tx0 == null || aff == null ? nullCompletedFuture() : tx0.enlistFuture(opChannel, ctx),
+                                w -> writer.accept(schema, w, ctx),
+                                r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, aff, tx0),
+                                aff != null ? aff.node() : (tx0 == null ? null : tx0.nodeName()),
+                                tx0 == null ? null : tx0.nodeName(),
                                 retryPolicyOverride,
                                 expectNotifications);
                     });
@@ -552,9 +551,17 @@ public class ClientTable implements Table {
             PayloadInputChannel in,
             BiFunction<ClientSchema, PayloadInputChannel, T> fn,
             @Nullable T defaultValue,
-            boolean responseSchemaRequired
+            boolean responseSchemaRequired,
+            @Nullable PartitionMapping aff,
+            @Nullable ClientTransaction tx
     ) {
         int schemaVer = in.in().unpackInt();
+
+        long token = in.in().unpackLong();
+
+        if (aff != null && tx != null && tx.hasCommitPartition()) {
+            tx.tryFinishEnlist(aff, token);
+        }
 
         if (!responseSchemaRequired) {
             ensureSchemaLoadedAsync(schemaVer);

@@ -30,8 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -137,7 +137,7 @@ public class ClientTransaction implements Transaction {
         return commitPartition;
     }
 
-    private boolean hasCommitPartition() {
+    public boolean hasCommitPartition() {
         return commitPartition != NO_COMMIT_PARTITION;
     }
 
@@ -251,47 +251,42 @@ public class ClientTransaction implements Transaction {
         this.state.compareAndExchange(STATE_OPEN, state);
     }
 
-    public @Nullable Long token(@Nullable PartitionMapping pm) {
-        if (pm == null) {
-            return null;
-        }
-
-        // TODO can avoid new object ?
-        CompletableFuture<Long> fut = enlisted.get(new TablePartitionId(pm.tableId(), pm.partition()));
-
+    public CompletableFuture<Void> enlistFuture(ClientChannel opChannel, WriteContext ctx) {
         // Check if direct mapping is active.
-        if (fut == null) {
-            return null;
-        }
-
-        return fut.join(); // Should be completed. TODO errors
-    }
-
-    public CompletableFuture<Void> enlistFuture(ClientChannel opChannel, @Nullable PartitionMapping pm) {
-        // Check if direct mapping is active.
-        if (pm != null && pm.node().equals(opChannel.protocolContext().clusterNode().name()) && hasCommitPartition()) {
+        if (ctx.pm != null && ctx.pm.node().equals(opChannel.protocolContext().clusterNode().name()) && hasCommitPartition()) {
             boolean[] first = {false};
 
             // TODO avoid new object.
-            TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+            TablePartitionId tablePartitionId = new TablePartitionId(ctx.pm.tableId(), ctx.pm.partition());
 
             CompletableFuture<Long> fut = enlisted.compute(tablePartitionId, (k, v) -> {
                 if (v == null) {
                     first[0] = true;
-                    return CompletableFuture.completedFuture(0L);
+                    return new CompletableFuture<>();
                 } else {
                     return v;
                 }
             });
 
             if (first[0]) {
-                // For the first request returns completed future.
+                ctx.enlistmentToken = 0L;
+                // For the first request return completed future.
                 return CompletableFutures.nullCompletedFuture();
             } else {
-                return fut.thenApply(ignored -> null);
+                return fut.thenAccept(val -> ctx.enlistmentToken = val);
             }
         }
 
         return CompletableFutures.nullCompletedFuture();
+    }
+
+    public void tryFinishEnlist(PartitionMapping pm, long token) {
+        TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+
+        CompletableFuture<Long> fut = enlisted.get(tablePartitionId);
+
+        if (fut != null && !fut.isDone()) {
+            fut.complete(token);
+        }
     }
 }
