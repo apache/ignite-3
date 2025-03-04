@@ -58,7 +58,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
      */
     protected AbstractNode(ExecutionContext<RowT> ctx) {
         this.ctx = ctx;
-        this.inBufSize = ctx.defaultBufferSize();
+        this.inBufSize = ctx.bufferSize();
     }
 
     /** {@inheritDoc} */

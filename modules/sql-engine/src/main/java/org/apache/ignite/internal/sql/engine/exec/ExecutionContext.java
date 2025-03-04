@@ -231,8 +231,10 @@ public class ExecutionContext<RowT> implements DataContext {
         return localNode;
     }
 
-    /** Default internal buffer size. */
-    public int defaultBufferSize() {
+    /**
+     * Gets buffer size that is used by execution nodes, which supports buffering.
+     */
+    public int bufferSize() {
         return inBufSize;
     }
 
