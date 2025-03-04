@@ -31,7 +31,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
@@ -184,9 +183,8 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         if (enabledColocation()) {
             ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
-            CatalogZoneDescriptor zone = catalog.zone(zonePartitionId.zoneId());
-            for (CatalogTableDescriptor table : catalog.tables()) {
-                if (table.zoneId() == zone.id() && localNodeIsPrimaryReplicaForTableIds.add(table.id())) {
+            for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
+                if (localNodeIsPrimaryReplicaForTableIds.add(table.id())) {
                     tableIds.add(table.id());
                 }
             }
@@ -216,7 +214,6 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         }
     }
 
-    // TODO
     private void scheduleStopTasksOnPrimaryReplicaElected(PartitionGroupId partitionGroupId) {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
         Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
@@ -226,9 +223,8 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         if (enabledColocation()) {
             ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
-            CatalogZoneDescriptor zone = catalog.zone(zonePartitionId.zoneId());
-            for (CatalogTableDescriptor table : catalog.tables()) {
-                if (table.zoneId() == zone.id() && localNodeIsPrimaryReplicaForTableIds.remove(table.id())) {
+            for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
+                if (localNodeIsPrimaryReplicaForTableIds.remove(table.id())) {
                     tableIds.add(table.id());
                 }
             }

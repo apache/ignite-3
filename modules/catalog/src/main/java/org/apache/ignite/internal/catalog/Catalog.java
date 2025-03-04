@@ -85,6 +85,9 @@ public class Catalog {
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogZoneDescriptor> zonesById;
 
+    @IgniteToStringExclude
+    private final Int2ObjectMap<List<CatalogTableDescriptor>> tablesByZoneId;
+
     /**
      * Constructor.
      *
@@ -119,6 +122,7 @@ public class Catalog {
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
+        tablesByZoneId = unmodifiable(toTablesByZoneId(schemas));
 
         if (defaultZoneId != null) {
             defaultZone = zonesById.get((int) defaultZoneId);
@@ -217,6 +221,15 @@ public class Catalog {
      */
     public Collection<CatalogTableDescriptor> tables() {
         return tablesById.values();
+    }
+
+    /**
+     * Returns all tables that belong to the specified zone.
+     *
+     * @return A collection of table descriptors.
+     */
+    public Collection<CatalogTableDescriptor> tables(int zoneId) {
+        return tablesByZoneId.getOrDefault(zoneId, List.of());
     }
 
     /**
@@ -325,5 +338,25 @@ public class Catalog {
         }
 
         return indexesByTableId;
+    }
+
+    private static Int2ObjectMap<List<CatalogTableDescriptor>> toTablesByZoneId(Collection<CatalogSchemaDescriptor> schemas) {
+        Int2ObjectMap<List<CatalogTableDescriptor>> tablesByZoneId = new Int2ObjectOpenHashMap<>();
+
+        for (CatalogSchemaDescriptor schema : schemas) {
+            for (CatalogTableDescriptor table : schema.tables()) {
+                tablesByZoneId.computeIfAbsent(table.zoneId(), tables -> new ArrayList<>()).add(table);
+            }
+        }
+
+        for (List<CatalogTableDescriptor> tables : tablesByZoneId.values()) {
+            tables.sort(comparingInt(CatalogTableDescriptor::id));
+        }
+
+        for (Entry<List<CatalogTableDescriptor>> entry : tablesByZoneId.int2ObjectEntrySet()) {
+            entry.setValue(unmodifiableList(entry.getValue()));
+        }
+
+        return tablesByZoneId;
     }
 }

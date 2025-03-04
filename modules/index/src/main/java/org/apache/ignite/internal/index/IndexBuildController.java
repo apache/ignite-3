@@ -257,11 +257,7 @@ class IndexBuildController implements ManuallyCloseable {
                     }
 
                     var indexFutures = new ArrayList<CompletableFuture<?>>();
-                    // TODO tables for zone! not all tables
-                    for (CatalogTableDescriptor tableDescriptor : catalog.tables()) {
-                        if (tableDescriptor.zoneId() != primaryReplicaId.zoneId()) {
-                            continue;
-                        }
+                    for (CatalogTableDescriptor tableDescriptor : catalog.tables(zoneDescriptor.id())) {
                         // Perhaps, it makes sense to get primary replica future first and then get table storage future,
                         // because, it will be the same for all tables in the zone for the given partition.
                         CompletableFuture<?> future =
