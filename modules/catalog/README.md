@@ -133,8 +133,8 @@ Overall serialization format looks as follow
 -   The serializer version is incremented by 1.
 
 -   Each serializer must be annotated with
-    `@CatalogSerializer(type=N, version=N, since="X.X.X")`. This
-    annotation will is used to build registry of all serializers. The
+    `@CatalogSerializer(version=N, since="X.X.X")`. This
+    annotation is used to build registry of all serializers. The
     version in `since` field is used to understand which
     serializers are already in use in the "released version" and whose
     data format should not change. For example, all currently existing
