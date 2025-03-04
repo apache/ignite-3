@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
@@ -30,7 +29,6 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
@@ -103,8 +101,6 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     public void start() {
         PersistentPageMemoryProfileView dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
 
-        Supplier<CheckpointProgress> currentCheckpointProgress = checkpointManager::currentCheckpointProgress;
-
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 cfg,
                 ioRegistry,
@@ -113,7 +109,6 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 filePageStoreManager,
                 checkpointManager::writePageToDeltaFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
-                currentCheckpointProgress,
                 pageSize,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
