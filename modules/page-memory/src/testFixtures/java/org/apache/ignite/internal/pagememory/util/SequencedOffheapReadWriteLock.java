@@ -43,7 +43,7 @@ public class SequencedOffheapReadWriteLock extends OffheapReadWriteLock {
      * Constructor.
      */
     public SequencedOffheapReadWriteLock() {
-        super(128);
+        super(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL);
     }
 
     /**
