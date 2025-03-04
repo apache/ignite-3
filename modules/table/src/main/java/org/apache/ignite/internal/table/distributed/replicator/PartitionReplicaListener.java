@@ -1693,19 +1693,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         WriteIntentSwitchReplicatedInfo result = writeIntentSwitchReplicatedInfoFor(request);
 
-        if (enabledColocation()) {
-            // We don't need to apply Raft command as zone replication listener will do it for us.
-            return completedFuture(result);
-        }
+        assert !enabledColocation() : request;
 
-        // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
-        // or txBeginTs [if it's an abort]). But there seems to be no guarantee that the compactor will not remove this version.
-        // TODO: IGNITE-24574 Introduce a mechanism to save the chosen catalog version from being compacted too early.
         @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
         HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
-        commandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
 
-        return reliableCatalogVersions.reliableCatalogVersionFor(commandTimestamp)
+        return reliableCatalogVersions.safeReliableCatalogVersionFor(commandTimestamp)
                 .thenCompose(catalogVersion -> applyWriteIntentSwitchCommandToGroup(request, catalogVersion))
                 .thenApply(res -> result);
     }

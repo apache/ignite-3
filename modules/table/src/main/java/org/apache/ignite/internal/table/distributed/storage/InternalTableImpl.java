@@ -283,6 +283,11 @@ public class InternalTableImpl implements InternalTable {
         return tableId;
     }
 
+    @Override
+    public int zoneId() {
+        return zoneId;
+    }
+
     /** {@inheritDoc} */
     @Override
     public QualifiedName name() {

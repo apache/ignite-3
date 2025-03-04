@@ -80,4 +80,11 @@ public interface IgniteTable extends IgniteDataSource {
      * @return Number of partitions.
      */
     int partitions();
+
+    /**
+     * Returns ID of the distribution zone to which the table belongs.
+     *
+     * @return Distribution zone ID.
+     */
+    int zoneId();
 }

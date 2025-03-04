@@ -49,6 +49,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     private final Map<String, IgniteIndex> indexMap;
 
     private final int partitions;
+    private final int zoneId;
 
     private final Lazy<NativeType[]> colocationColumnTypes;
 
@@ -61,13 +62,15 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             ImmutableIntList keyColumns,
             Statistic statistic,
             Map<String, IgniteIndex> indexMap,
-            int partitions
+            int partitions,
+            int zoneId
     ) {
         super(name, id, version, desc, statistic);
 
         this.keyColumns = keyColumns;
         this.indexMap = indexMap;
         this.partitions = partitions;
+        this.zoneId = zoneId;
         this.columnsToInsert = deriveColumnsToInsert(desc);
 
         int virtualColumnsCount = (int) StreamSupport.stream(desc.spliterator(), false)
@@ -161,6 +164,11 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     @Override
     public int partitions() {
         return partitions;
+    }
+
+    @Override
+    public int zoneId() {
+        return zoneId;
     }
 
     @Override

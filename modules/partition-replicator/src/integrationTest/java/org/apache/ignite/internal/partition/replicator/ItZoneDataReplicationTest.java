@@ -39,6 +39,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -58,8 +59,8 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // Create a zone with a single partition on every node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
 
-        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
@@ -143,14 +144,12 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // Create a zone with a single partition on every node + one extra replica for the upcoming node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
 
-        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        cluster.forEach(node -> {
-            node.waitForMetadataCompletenessAtNow();
-        });
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 
@@ -200,6 +199,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
      * Tests the recovery phase, when a node is restarted and we expect the data to be restored by the Raft mechanisms.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24690")
     void testLocalRaftLogReapplication() throws Exception {
         startCluster(1);
 
@@ -207,13 +207,11 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // is persistent, so the data can be restored.
         int zoneId = createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
 
-        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        cluster.forEach(node -> {
-            node.waitForMetadataCompletenessAtNow();
-        });
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 

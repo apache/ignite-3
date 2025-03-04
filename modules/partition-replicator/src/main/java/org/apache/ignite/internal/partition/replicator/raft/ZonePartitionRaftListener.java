@@ -378,6 +378,15 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         }
     }
 
+    /**
+     * Removes a given Table Partition-level Raft processor from the set of managed processors.
+     *
+     * @param tableId Table's identifier.
+     */
+    public void removeTableProcessor(int tableId) {
+        tableProcessors.remove(tableId);
+    }
+
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
             PendingComparableValuesTracker<T, Void> tracker,
             T newValue

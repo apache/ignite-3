@@ -23,7 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -194,6 +194,11 @@ import org.junit.jupiter.api.TestInfo;
 public class Node {
     private static final IgniteLogger LOG = Loggers.forClass(Node.class);
 
+    private static final int DELAY_DURATION_MS = 100;
+
+    /** The interval between two consecutive MS idle safe time syncs. */
+    public static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = DELAY_DURATION_MS / 2;
+
     public final String name;
 
     private final Loza raftManager;
@@ -282,7 +287,7 @@ public class Node {
 
     private final SystemViewManager systemViewManager;
 
-    public final SqlQueryProcessor sqlQueryProcessor;
+    private final SqlQueryProcessor sqlQueryProcessor;
 
     /** Index building manager. */
     private final IndexBuildingManager indexBuildingManager;
@@ -590,11 +595,11 @@ public class Node {
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
-                replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((ZonePartitionId) replicaGrpId))
+                replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
         );
 
-        LongSupplier delayDurationMsSupplier = () -> 10L;
+        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
 
         catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageManager),

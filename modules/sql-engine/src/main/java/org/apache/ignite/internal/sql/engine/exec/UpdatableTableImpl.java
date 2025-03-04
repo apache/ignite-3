@@ -39,6 +39,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Static;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
@@ -78,6 +80,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final int tableId;
 
+    private final int zoneId;
+
     private final TableDescriptor desc;
 
     private final ClockService clockService;
@@ -90,11 +94,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final TableRowConverter rowConverter;
 
+    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+
     private RowSchema rowSchema;
 
     /** Constructor. */
     UpdatableTableImpl(
             int tableId,
+            int zoneId,
             TableDescriptor desc,
             int partitions,
             InternalTable table,
@@ -103,6 +110,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             TableRowConverter rowConverter
     ) {
         this.tableId = tableId;
+        this.zoneId = zoneId;
         this.table = table;
         this.desc = desc;
         this.replicaService = replicaService;
@@ -144,7 +152,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            ReplicationGroupId partGroupId = targetReplicationGroupId(partToRows.getIntKey());
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
@@ -186,6 +194,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
         }
 
         return result;
+    }
+
+    private ReplicationGroupId targetReplicationGroupId(int partitionId) {
+        if (enabledColocation) {
+            return new ZonePartitionId(zoneId, partitionId);
+        } else {
+            return new TablePartitionId(tableId, partitionId);
+        }
     }
 
     private static ReplicationGroupIdMessage serializeReplicationGroupId(ReplicationGroupId id) {
@@ -252,7 +268,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             int partitionId = partitionRowBatch.getIntKey();
             RowBatch rowBatch = partitionRowBatch.getValue();
 
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
+            ReplicationGroupId partGroupId = targetReplicationGroupId(partitionId);
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partitionId);
 
@@ -322,7 +338,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            ReplicationGroupId partGroupId = targetReplicationGroupId(partToRows.getIntKey());
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 

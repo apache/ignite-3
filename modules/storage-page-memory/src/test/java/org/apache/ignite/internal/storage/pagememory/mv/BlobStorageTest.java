@@ -39,12 +39,12 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -80,11 +80,15 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
         };
 
         pageMemory = spy(new VolatilePageMemory(
-                (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg), pageIoRegistry, PAGE_SIZE));
+                (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
+                pageIoRegistry,
+                PAGE_SIZE,
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
+        ));
 
         pageMemory.start();
 
-        blobStorage = new BlobStorage(reuseList, pageMemory, 1, 1, IoStatisticsHolderNoOp.INSTANCE);
+        blobStorage = new BlobStorage(reuseList, pageMemory, 1, 1);
     }
 
     @Test

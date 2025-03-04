@@ -23,13 +23,10 @@ import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.LongListReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,8 +41,6 @@ public class BlobStorage extends DataStructure {
     /** ID that means that no page was stored. */
     public static final long NO_PAGE_ID = 0;
 
-    private final IoStatisticsHolder statisticsHolder;
-
     private final RecycleAndAddToReuseBag recycleAndAddToReuseBag = new RecycleAndAddToReuseBag();
 
     private final ReadFragment readFragment = new ReadFragment();
@@ -55,11 +50,10 @@ public class BlobStorage extends DataStructure {
     /**
      * Creates a new instance.
      */
-    public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId, IoStatisticsHolder statisticsHolder) {
-        super("BlobStorage", groupId, null, partitionId, pageMemory, PageLockListenerNoOp.INSTANCE, PageIdAllocator.FLAG_AUX);
+    public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId) {
+        super("BlobStorage", groupId, null, partitionId, pageMemory, PageIdAllocator.FLAG_AUX);
 
         super.reuseList = reuseList;
-        this.statisticsHolder = statisticsHolder;
     }
 
     /**
@@ -79,12 +73,10 @@ public class BlobStorage extends DataStructure {
                     pageMem,
                     grpId,
                     pageId,
-                    PageLockListenerNoOp.INSTANCE,
                     readFragment,
                     readState,
                     0,
-                    false,
-                    IoStatisticsHolderNoOp.INSTANCE
+                    false
             );
 
             assert ok : pageId;
@@ -132,13 +124,11 @@ public class BlobStorage extends DataStructure {
                     pageMem,
                     grpId,
                     state.pageId,
-                    PageLockListenerNoOp.INSTANCE,
                     writeFragment,
                     null,
                     state,
                     0,
-                    false,
-                    statisticsHolder
+                    false
             );
 
             assert ok : state.pageId;
@@ -175,8 +165,8 @@ public class BlobStorage extends DataStructure {
         long pageId = startingPageId;
 
         while (pageId != NO_PAGE_ID) {
-            Long nextPageId = PageHandler.writePage(pageMem, grpId, pageId, PageLockListenerNoOp.INSTANCE,
-                    recycleAndAddToReuseBag, null, reuseBag, 0, pageId, IoStatisticsHolderNoOp.INSTANCE);
+            Long nextPageId = PageHandler.writePage(pageMem, grpId, pageId,
+                    recycleAndAddToReuseBag, null, reuseBag, 0, pageId);
 
             assert nextPageId != pageId : pageId;
 
@@ -206,8 +196,7 @@ public class BlobStorage extends DataStructure {
      */
     private class ReadFragment implements PageHandler<ReadState, Boolean> {
         @Override
-        public Boolean run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReadState state, int unused,
-                IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+        public Boolean run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReadState state, int unused) {
             BlobFragmentIo blobIo = (BlobFragmentIo) io;
 
             if (state.bytes == null) {
@@ -267,8 +256,9 @@ public class BlobStorage extends DataStructure {
      */
     private class WriteFragment implements PageHandler<WriteState, Boolean> {
         @Override
-        public Boolean run(int groupId, long pageId, long page, long pageAddr, PageIo io, WriteState state, int unused,
-                IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+        public Boolean run(
+                int groupId, long pageId, long page, long pageAddr, PageIo io, WriteState state, int unused
+        ) throws IgniteInternalCheckedException {
             BlobFragmentIo blobIo = (BlobFragmentIo) io;
 
             int capacityForBytes = blobIo.getCapacityForFragmentBytes(pageSize(), state.isFirstPage());
@@ -308,8 +298,7 @@ public class BlobStorage extends DataStructure {
      */
     private static class RecycleAndAddToReuseBag implements PageHandler<ReuseBag, Long> {
         @Override
-        public Long run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReuseBag reuseBag, int unused,
-                IoStatisticsHolder statHolder) {
+        public Long run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReuseBag reuseBag, int unused) {
             BlobFragmentIo blobIo = (BlobFragmentIo) io;
 
             long nextPageId = blobIo.getNextPageId(pageAddr);

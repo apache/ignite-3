@@ -36,14 +36,11 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.LongListReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -90,8 +87,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
     private final PageHandler<ReuseBag, Long> rmvRow;
 
-    private final IoStatisticsHolder statHolder;
-
     private class WriteRowHandler implements PageHandler<Storable, Integer> {
         @Override
         public Integer run(
@@ -101,12 +96,11 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 long pageAddr,
                 PageIo iox,
                 Storable row,
-                int written,
-                IoStatisticsHolder statHolder
+                int written
         ) throws IgniteInternalCheckedException {
             written = addRow(pageId, pageAddr, iox, row, written);
 
-            putPage(((DataPageIo) iox).getFreeSpace(pageAddr), pageId, pageAddr, statHolder);
+            putPage(((DataPageIo) iox).getFreeSpace(pageAddr), pageId, pageAddr);
 
             return written;
         }
@@ -200,18 +194,16 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
          * @param freeSpace Page free space.
          * @param pageId Page ID.
          * @param pageAddr Page address.
-         * @param statHolder Statistics holder to track IO operations.
          */
         protected void putPage(
                 int freeSpace,
                 long pageId,
-                long pageAddr,
-                IoStatisticsHolder statHolder
+                long pageAddr
         ) throws IgniteInternalCheckedException {
             if (freeSpace > MIN_PAGE_FREE_SPACE) {
                 int bucket = bucket(freeSpace, false);
 
-                put(null, pageId, pageAddr, bucket, statHolder);
+                put(null, pageId, pageAddr, bucket);
             }
         }
     }
@@ -226,8 +218,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 long pageAddr,
                 PageIo iox,
                 CachedIterator it,
-                int written,
-                IoStatisticsHolder statHolder
+                int written
         ) throws IgniteInternalCheckedException {
             DataPageIo io = (DataPageIo) iox;
 
@@ -239,7 +230,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                     row = it.next();
 
                     // If the data row was completely written without remainder, proceed to the next.
-                    if ((written = writeWholePages(row, statHolder)) == COMPLETE) {
+                    if ((written = writeWholePages(row)) == COMPLETE) {
                         continue;
                     }
 
@@ -253,7 +244,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 assert written == COMPLETE;
             }
 
-            writeRowHnd.putPage(io.getFreeSpace(pageAddr), pageId, pageAddr, statHolder);
+            writeRowHnd.putPage(io.getFreeSpace(pageAddr), pageId, pageAddr);
 
             return written;
         }
@@ -281,8 +272,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 long pageAddr,
                 PageIo iox,
                 ReuseBag reuseBag,
-                int itemId,
-                IoStatisticsHolder statHolder
+                int itemId
         ) throws IgniteInternalCheckedException {
             DataPageIo io = (DataPageIo) iox;
 
@@ -306,7 +296,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                         // It is possible that page was concurrently taken for put, in this case put will handle bucket change.
                         pageId = maskPartId ? PageIdUtils.maskPartitionId(pageId) : pageId;
 
-                        putIsNeeded = removeDataPage(pageId, pageAddr, io, oldBucket, statHolder);
+                        putIsNeeded = removeDataPage(pageId, pageAddr, io, oldBucket);
                     }
                 }
 
@@ -315,7 +305,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                         reuseBag.addFreePage(recyclePage(pageId, pageAddr));
                     }
                 } else if (putIsNeeded) {
-                    put(null, pageId, pageAddr, newBucket, statHolder);
+                    put(null, pageId, pageAddr, newBucket);
                 }
             }
 
@@ -331,7 +321,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
@@ -342,25 +331,21 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             int grpId,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             long metaPageId,
             boolean initNew,
-            @Nullable AtomicLong pageListCacheLimit,
-            IoStatisticsHolder statHolder
+            @Nullable AtomicLong pageListCacheLimit
     ) throws IgniteInternalCheckedException {
         super(
                 freeListNamePrefix,
                 grpId,
                 partId,
                 pageMem,
-                lockLsnr,
                 LOG,
                 BUCKETS,
                 metaPageId
         );
 
         this.pageListCacheLimit = pageListCacheLimit;
-        this.statHolder = statHolder;
 
         this.reuseList = this;
 
@@ -497,7 +482,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
         try {
             do {
-                written = writeSinglePage(row, written, statHolder);
+                written = writeSinglePage(row, written);
             } while (written != COMPLETE);
         } catch (IgniteInternalCheckedException | Error e) {
             throw e;
@@ -525,7 +510,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             while (written != COMPLETE || it.hasNext()) {
 
                 if (written == COMPLETE) {
-                    written = writeWholePages(it.next(), statHolder);
+                    written = writeWholePages(it.next());
 
                     continue;
                 }
@@ -534,7 +519,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
                 DataPageIo initIo = null;
 
-                long pageId = takePage(row.size() - written, row, statHolder);
+                long pageId = takePage(row.size() - written, row);
 
                 if (pageId == 0L) {
                     pageId = allocateDataPage(row.partition());
@@ -542,7 +527,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                     initIo = DataPageIo.VERSIONS.latest();
                 }
 
-                written = write(pageId, writeRowsHnd, initIo, it, written, FAIL_I, statHolder);
+                written = write(pageId, writeRowsHnd, initIo, it, written, FAIL_I);
 
                 assert written != FAIL_I; // We can't fail here.
             }
@@ -585,19 +570,18 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * data page.
      *
      * @param row Row to process.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Number of bytes written, {@link #COMPLETE} if the row was fully written, {@code 0} if data row was ignored because it is less
      *      than the max payload of an empty data page.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private int writeWholePages(Storable row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    private int writeWholePages(Storable row) throws IgniteInternalCheckedException {
         assert row.link() == 0 : row.link();
 
         int written = 0;
         int rowSize = row.size();
 
         while (rowSize - written >= minSizeForDataPage) {
-            written = writeSinglePage(row, written, statHolder);
+            written = writeSinglePage(row, written);
         }
 
         return written;
@@ -608,14 +592,13 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      *
      * @param row Row to write.
      * @param written Written size.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Number of bytes written, {@link #COMPLETE} if the row was fully written.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private int writeSinglePage(Storable row, int written, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    private int writeSinglePage(Storable row, int written) throws IgniteInternalCheckedException {
         DataPageIo initIo = null;
 
-        long pageId = takePage(row.size() - written, row, statHolder);
+        long pageId = takePage(row.size() - written, row);
 
         if (pageId == 0L) {
             pageId = allocateDataPage(row.partition());
@@ -623,7 +606,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             initIo = DataPageIo.VERSIONS.latest();
         }
 
-        written = write(pageId, writeRowHnd, initIo, row, written, FAIL_I, statHolder);
+        written = write(pageId, writeRowHnd, initIo, row, written, FAIL_I);
 
         assert written != FAIL_I; // We can't fail here.
 
@@ -635,16 +618,15 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      *
      * @param size Required free space on page.
      * @param row Row to write.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Page identifier or {@code 0} if no page found in free list.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private long takePage(int size, Storable row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    private long takePage(int size, Storable row) throws IgniteInternalCheckedException {
         long pageId = 0;
 
         if (size < minSizeForDataPage) {
             for (int b = bucket(size, false) + 1; b < REUSE_BUCKET; b++) {
-                pageId = takeEmptyPage(b, DataPageIo.VERSIONS, statHolder);
+                pageId = takeEmptyPage(b, DataPageIo.VERSIONS);
 
                 if (pageId != 0L) {
                     break;
@@ -654,7 +636,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
         if (pageId == 0L) { // Handle reuse bucket.
             if (reuseList == this) {
-                pageId = takeEmptyPage(REUSE_BUCKET, DataPageIo.VERSIONS, statHolder);
+                pageId = takeEmptyPage(REUSE_BUCKET, DataPageIo.VERSIONS);
             } else {
                 pageId = reuseList.takeRecycledPage();
 
@@ -674,39 +656,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         return PageIdUtils.changePartitionId(pageId, row.partition());
     }
 
-    /**
-     * Reused page must obtain correctly assaembled page id, then initialized by proper {@link PageIo} instance and non-zero {@code itemId}
-     * of reused page id must be saved into special place.
-     *
-     * @param row Row.
-     * @param reusedPageId Reused page id.
-     * @param statHolder Statistics holder to track IO operations.
-     * @return Prepared page id.
-     * @see PagesList#initReusedPage(long, long, int, byte, PageIo)
-     */
-    private long initReusedPage(Storable row, long reusedPageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-        long reusedPage = acquirePage(reusedPageId, statHolder);
-        try {
-            long reusedPageAddr = writeLock(reusedPageId, reusedPage);
-
-            assert reusedPageAddr != 0;
-
-            try {
-                return initReusedPage(
-                        reusedPageId,
-                        reusedPageAddr,
-                        row.partition(),
-                        FLAG_DATA,
-                        DataPageIo.VERSIONS.latest()
-                );
-            } finally {
-                writeUnlock(reusedPageId, reusedPage, reusedPageAddr, true);
-            }
-        } finally {
-            releasePage(reusedPageId, reusedPage);
-        }
-    }
-
     /** {@inheritDoc} */
     @Override
     public <S, R> R updateDataRow(
@@ -720,7 +669,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             long pageId = pageId(link);
             int itemId = itemId(link);
 
-            R updRes = write(pageId, pageHnd, arg, itemId, null, statHolder);
+            R updRes = write(pageId, pageHnd, arg, itemId, null);
 
             assert updRes != null; // Can't fail here.
 
@@ -744,7 +693,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
             ReuseBag bag = new LongListReuseBag();
 
-            long nextLink = write(pageId, rmvRow, bag, itemId, FAIL_L, statHolder);
+            long nextLink = write(pageId, rmvRow, bag, itemId, FAIL_L);
 
             assert nextLink != FAIL_L; // Can't fail here.
 
@@ -752,7 +701,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 itemId = itemId(nextLink);
                 pageId = pageId(nextLink);
 
-                nextLink = write(pageId, rmvRow, bag, itemId, FAIL_L, statHolder);
+                nextLink = write(pageId, rmvRow, bag, itemId, FAIL_L);
 
                 assert nextLink != FAIL_L; // Can't fail here.
             }
@@ -817,7 +766,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         assert reuseList == this : "not allowed to be a reuse list";
 
         try {
-            put(bag, 0, 0L, REUSE_BUCKET, IoStatisticsHolderNoOp.INSTANCE);
+            put(bag, 0, 0L, REUSE_BUCKET);
         } catch (AssertionError e) {
             throw corruptedFreeListException(e);
         } catch (IgniteInternalCheckedException | Error e) {
@@ -833,7 +782,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         assert reuseList == this : "not allowed to be a reuse list";
 
         try {
-            return takeEmptyPage(REUSE_BUCKET, null, IoStatisticsHolderNoOp.INSTANCE);
+            return takeEmptyPage(REUSE_BUCKET, null);
         } catch (AssertionError e) {
             throw corruptedFreeListException(e);
         } catch (IgniteInternalCheckedException | Error e) {
@@ -867,7 +816,9 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
     @Override
     public void saveMetadata() throws IgniteInternalCheckedException {
-        saveMetadata(statHolder);
+        // Double inheritance here. We inherit interface method from the FreeList interface, and the implementation from the PagesList
+        // class. These two versions must be joined here by calling the super method.
+        super.saveMetadata();
     }
 
     @Override
