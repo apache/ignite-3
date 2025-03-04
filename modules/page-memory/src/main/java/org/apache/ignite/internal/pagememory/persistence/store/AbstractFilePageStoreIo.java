@@ -504,6 +504,8 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                 int curCrc32 = FastCrc.calcCrc(pageBuf, pageSize());
 
                 if ((savedCrc32 ^ curCrc32) != 0) {
+                    pageBuf.rewind();
+
                     throw new IgniteInternalDataIntegrityViolationException("Failed to read page (CRC validation failed) "
                             + "[id=" + hexLong(pageId) + ", off=" + pageOff
                             + ", filePath=" + filePath + ", fileSize=" + fileIo.size()

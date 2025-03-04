@@ -277,6 +277,15 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     }
 
     /**
+     * Removes table partition listener by table replication identifier from the current zone replica listener.
+     *
+     * @param tableId Table's identifier.
+     */
+    public void removeTableReplicaListener(int tableId) {
+        replicas.remove(tableId);
+    }
+
+    /**
      * Return table replicas listeners.
      *
      * @return Table replicas listeners.

@@ -605,6 +605,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         partitionReplicaLifecycleManager.listen(
+                LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
+                this::onZoneReplicaStopped
+        );
+
+        partitionReplicaLifecycleManager.listen(
                 LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
                 this::onZoneReplicaDestroyed
         );
@@ -677,6 +682,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             if (!enabledColocation()) {
                 executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
             }
+
             return nullCompletedFuture();
         });
     }
@@ -722,32 +728,36 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
+    private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
+        if (!enabledColocation()) {
+            return falseCompletedFuture();
+        }
+
+        Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+
+        CompletableFuture<?>[] futures = zoneTables.stream()
+                .map(table -> supplyAsync(() -> tableStopFuture(table), ioExecutor).thenCompose(identity()))
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(futures).thenApply(v -> false);
+    }
+
     private CompletableFuture<Boolean> onZoneReplicaDestroyed(LocalPartitionReplicaEventParameters parameters) {
         if (!enabledColocation()) {
             return falseCompletedFuture();
         }
 
+        ZonePartitionId zonePartitionId = parameters.zonePartitionId();
+
         return inBusyLockAsync(busyLock, () -> {
-            Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
-
-            CompletableFuture<?>[] futures = zoneTables.stream()
-                    .map(table -> {
-                        closePartitionTrackers(table.internalTable(), parameters.zonePartitionId().partitionId());
-
-                        TablePartitionId tablePartitionId = new TablePartitionId(
-                                table.tableId(),
-                                parameters.zonePartitionId().partitionId()
-                        );
-
-                        return mvGc.removeStorage(tablePartitionId)
-                                .thenComposeAsync(
-                                        v -> inBusyLockAsync(busyLock, () -> weakStopAndDestroyPartition(
-                                                tablePartitionId,
-                                                parameters.causalityToken())
-                                        ),
-                                        ioExecutor
-                                );
-                    })
+            CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
+                    .map(table -> supplyAsync(
+                            () -> inBusyLockAsync(
+                                    busyLock,
+                                    () -> weakStopAndDestroyPartition(
+                                            new TablePartitionId(table.tableId(), zonePartitionId.partitionId()),
+                                            parameters.causalityToken())),
+                            ioExecutor))
                     .toArray(CompletableFuture[]::new);
 
             return allOf(futures);
@@ -1559,9 +1569,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
             metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
             metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
-        }
 
-        cleanUpTablesResources(tables);
+            // All table resources under colocation track should be stopped on AFTER_REPLICA_STOP local event handler only.
+            cleanUpTablesResources(tables);
+        }
     }
 
     @Override
@@ -1952,9 +1963,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
         //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
-            var replicationGroupId = new TablePartitionId(tableId, partitionId);
+            if (enabledColocation()) {
+                partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
+                        new ZonePartitionId(internalTable.zoneId(), partitionId),
+                        tableId
+                );
+            }
 
-            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyPartition(replicationGroupId, table);
+            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyPartition(new TablePartitionId(tableId, partitionId), table);
         }
 
         return allOf(stopReplicaAndDestroyFutures)
@@ -2832,7 +2848,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
-            stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
+            // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped.
+            stopReplicaFuture = enabledColocation()
+                    ? trueCompletedFuture()
+                    : replicaMgr.stopReplica(tablePartitionId);
         } catch (NodeStoppingException e) {
             // No-op.
             stopReplicaFuture = falseCompletedFuture();

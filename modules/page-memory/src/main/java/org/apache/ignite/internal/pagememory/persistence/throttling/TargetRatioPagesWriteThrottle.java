@@ -30,18 +30,15 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
  * Throttles threads that generate dirty pages during ongoing checkpoint.
  * Designed to avoid zero dropdowns that can happen if checkpoint buffer is overflowed.
  */
-public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
+public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(PagesWriteThrottle.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TargetRatioPagesWriteThrottle.class);
 
     /** Page memory. */
     private final PersistentPageMemory pageMemory;
 
     /** Database manager. */
     private final Supplier<CheckpointProgress> cpProgress;
-
-    /** If true, throttle will only protect from checkpoint buffer overflow, not from dirty pages ratio cap excess. */
-    private final boolean throttleOnlyPagesInCheckpoint;
 
     /** Checkpoint lock state checker. */
     private final CheckpointLockStateChecker stateChecker;
@@ -66,21 +63,18 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
      * @param pageMemory Page memory.
      * @param cpProgress Database manager.
      * @param stateChecker checkpoint lock state checker.
-     * @param throttleOnlyPagesInCheckpoint If {@code true}, throttle will only protect from checkpoint buffer overflow.
      */
-    public PagesWriteThrottle(
+    public TargetRatioPagesWriteThrottle(
             PersistentPageMemory pageMemory,
             Supplier<CheckpointProgress> cpProgress,
-            CheckpointLockStateChecker stateChecker,
-            boolean throttleOnlyPagesInCheckpoint
+            CheckpointLockStateChecker stateChecker
     ) {
         this.pageMemory = pageMemory;
         this.cpProgress = cpProgress;
         this.stateChecker = stateChecker;
-        this.throttleOnlyPagesInCheckpoint = throttleOnlyPagesInCheckpoint;
         cpBufferWatchdog = new CheckpointBufferOverflowWatchdog(pageMemory);
 
-        assert throttleOnlyPagesInCheckpoint || cpProgress != null
+        assert cpProgress != null
                 : "cpProgress must be not null if ratio based throttling mode is used";
     }
 
@@ -93,7 +87,7 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
             shouldThrottle = isCpBufferOverflowThresholdExceeded();
         }
 
-        if (!shouldThrottle && !throttleOnlyPagesInCheckpoint) {
+        if (!shouldThrottle) {
             CheckpointProgress progress = cpProgress.get();
 
             if (progress == null) {

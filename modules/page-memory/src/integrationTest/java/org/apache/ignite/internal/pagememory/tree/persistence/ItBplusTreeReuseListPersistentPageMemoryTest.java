@@ -75,7 +75,6 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
                 (fullPageId, buf, tag) -> {
                 },
                 mockCheckpointTimeoutLock(true),
-                () -> null,
                 PAGE_SIZE,
                 wrapLock(new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL))
         );
