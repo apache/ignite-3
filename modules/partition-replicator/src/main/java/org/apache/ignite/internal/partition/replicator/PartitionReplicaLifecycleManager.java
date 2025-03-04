@@ -1338,7 +1338,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Stops zone replica, executes a given action and fires a given local event after if are not null.
+     * Stops zone replica, executes a given action and fires a given local event after.
      *
      * @param zonePartitionId Zone's replication group identifier.
      * @param afterReplicaStopAction A consumer that will be executed if it is not null after zone replica stop process will be finished and
