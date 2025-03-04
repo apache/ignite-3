@@ -143,8 +143,4 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     public boolean isActualAt(HybridTimestamp timestamp) {
         return true;
     }
-
-    public CompletableFuture<Void> fireTestEvent(PrimaryReplicaEvent evt, PrimaryReplicaEventParameters params) {
-        return fireEvent(evt, params);
-    }
 }
