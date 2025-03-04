@@ -59,6 +59,7 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
@@ -180,23 +181,23 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 break;
 
             case DESCRIPTOR_HASH_INDEX:
-                checkBasicSerialization(newHashIndexDescriptor("foo"));
+                checkDescriptorSerialization(newHashIndexDescriptor("foo"));
                 break;
 
             case DESCRIPTOR_SORTED_INDEX:
-                checkBasicSerialization(newSortedIndexDescriptor("foo"));
+                checkDescriptorSerialization(newSortedIndexDescriptor("foo"));
                 break;
 
             case DESCRIPTOR_SCHEMA:
-                checkBasicSerialization(newSchemaDescriptor("my_schema1"));
+                checkDescriptorSerialization(newSchemaDescriptor("my_schema1"));
                 break;
 
             case DESCRIPTOR_STORAGE_PROFILE:
-                checkBasicSerialization(new CatalogStorageProfileDescriptor("profile1"));
+                checkDescriptorSerialization(new CatalogStorageProfileDescriptor("profile1"));
                 break;
 
             case DESCRIPTOR_STORAGE_PROFILES:
-                checkBasicSerialization(new CatalogStorageProfilesDescriptor(List.of(
+                checkDescriptorSerialization(new CatalogStorageProfilesDescriptor(List.of(
                         new CatalogStorageProfileDescriptor("profile1"),
                         new CatalogStorageProfileDescriptor("profile2")
                 )));
@@ -206,19 +207,19 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 CatalogTableColumnDescriptor column = newCatalogTableColumnDescriptor("column", null);
                 CatalogSystemViewDescriptor view = new CatalogSystemViewDescriptor(1, 2, "sys_view", List.of(column), SystemViewType.NODE);
 
-                checkBasicSerialization(view);
+                checkDescriptorSerialization(view);
                 break;
 
             case DESCRIPTOR_TABLE:
-                checkBasicSerialization(newTableDescriptor("some_table", List.of(newCatalogTableColumnDescriptor("c1", null))));
+                checkDescriptorSerialization(newTableDescriptor("some_table", List.of(newCatalogTableColumnDescriptor("c1", null))));
                 break;
 
             case DESCRIPTOR_TABLE_COLUMN:
-                checkBasicSerialization(newCatalogTableColumnDescriptor("c1", null));
+                checkDescriptorSerialization(newCatalogTableColumnDescriptor("c1", null));
                 break;
 
             case DESCRIPTOR_TABLE_VERSION:
-                checkBasicSerialization(new TableVersion(List.of(newCatalogTableColumnDescriptor("column", null))));
+                checkDescriptorSerialization(new TableVersion(List.of(newCatalogTableColumnDescriptor("column", null))));
                 break;
 
             case DESCRIPTOR_TABLE_SCHEMA_VERSIONS:
@@ -231,13 +232,13 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                         newCatalogTableColumnDescriptor("column2", null)
                 ));
 
-                checkBasicSerialization(new CatalogTableSchemaVersions(ver1, ver2));
+                checkDescriptorSerialization(new CatalogTableSchemaVersions(ver1, ver2));
                 break;
 
             case DESCRIPTOR_ZONE:
                 CatalogStorageProfilesDescriptor profiles =
                         new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
-                checkBasicSerialization(newCatalogZoneDescriptor("myZone", profiles));
+                checkDescriptorSerialization(newCatalogZoneDescriptor("myZone", profiles));
                 break;
 
             default:
@@ -431,6 +432,12 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         BDDAssertions.assertThat(deserialized).usingRecursiveComparison().isEqualTo(entry);
     }
 
+    /**
+     * Creates a {@link VersionedUpdate} from the provided entries and validates that it is serialized and deserialized
+     * correctly using the {@link UpdateLogMarshaller}.
+     *
+     * @param entry Update entry to serialize.
+     */
     private void checkSerialization(UpdateEntry ... entry) {
         VersionedUpdate expected = newVersionedUpdate(entry);
 
@@ -453,30 +460,36 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static void checkBasicSerialization(MarshallableEntry entry) {
+    /**
+     * Checks that provided entry is serialized and deserialized correctly using
+     * {@link IgniteUnsafeDataOutput} and {@link IgniteUnsafeDataInput} respectively.
+     *
+     * @param entry Entry to check deserialization.
+     */
+    private static void checkDescriptorSerialization(MarshallableEntry entry) {
         CatalogEntrySerializerProvider serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
 
-        for (int v = 1; v <= serializers.latestSerializerVersion(entry.typeId()); v++) {
-            byte[] bytes;
+        try {
+            for (int v = 1; v <= serializers.latestSerializerVersion(entry.typeId()); v++) {
+                byte[] bytes;
 
-            try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(64)) {
-                serializers.get(v, entry.typeId()).writeTo(entry, output);
+                try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(64)) {
+                    serializers.get(v, entry.typeId()).writeTo(entry, output);
 
-                bytes = output.array();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+                    bytes = output.array();
+                }
+
+                try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
+                    MarshallableEntry deserialized = serializers.get(v, entry.typeId()).readFrom(input);
+
+                    BDDAssertions.assertThat(entry)
+                            .withFailMessage("version=" + v)
+                            .usingRecursiveComparison()
+                            .isEqualTo(deserialized);
+                }
             }
-
-            try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
-                MarshallableEntry deserialized = serializers.get(v, entry.typeId()).readFrom(input);
-
-                BDDAssertions.assertThat(entry)
-                        .withFailMessage("version=" + v)
-                        .usingRecursiveComparison()
-                        .isEqualTo(deserialized);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -548,7 +561,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private CatalogSchemaDescriptor newSchemaDescriptor(String name) {
+    private static CatalogSchemaDescriptor newSchemaDescriptor(String name) {
         CatalogIndexDescriptor[] indexes = {
                 newSortedIndexDescriptor("idx11"),
                 newHashIndexDescriptor("idx21")
