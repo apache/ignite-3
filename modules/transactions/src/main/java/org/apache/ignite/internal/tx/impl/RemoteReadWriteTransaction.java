@@ -16,14 +16,16 @@ import org.jetbrains.annotations.Nullable;
 public class RemoteReadWriteTransaction implements InternalTransaction {
     private final UUID txId;
     private final TablePartitionId commitGroupId;
-    private final long token;
+    private long token;
     private final UUID coord;
+    private final ClusterNode localNode;
 
-    public RemoteReadWriteTransaction(UUID txId, TablePartitionId commitGroupId, UUID coord, long token) {
+    public RemoteReadWriteTransaction(UUID txId, TablePartitionId commitGroupId, UUID coord, long token, ClusterNode localNode) {
         this.txId = txId;
         this.commitGroupId = commitGroupId;
         this.token = token;
         this.coord = coord;
+        this.localNode = localNode;
     }
 
     @Override
@@ -60,7 +62,7 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
 
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId) {
-        return new IgniteBiTuple<>(null, token);
+        return token == 0 ? null : new IgniteBiTuple<>(localNode, token);
     }
 
     @Override
@@ -81,7 +83,9 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, int tableId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
-        return null;
+        this.token = nodeAndConsistencyToken.get2();
+
+        return new IgniteBiTuple<>(localNode, token); // TODO FIXME
     }
 
     @Override

@@ -1003,6 +1003,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
+    public ClusterNode localNode() {
+        return topologyService.localMember();
+    }
+
+    @Override
     public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
         return runAsync(runnable, writeIntentSwitchPool);
     }

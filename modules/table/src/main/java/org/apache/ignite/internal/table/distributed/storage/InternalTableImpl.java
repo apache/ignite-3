@@ -64,6 +64,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRI
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
+import java.rmi.Remote;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -671,7 +672,9 @@ public class InternalTableImpl implements InternalTable {
             });
         } else {
             if (write) { // Track only write requests from explicit transactions.
-                if (!transactionInflights.addInflight(tx.id(), false)) {
+                boolean track = !(tx instanceof RemoteReadWriteTransaction); // TODO FIXME !!
+
+                if (track && !transactionInflights.addInflight(tx.id(), false)) {
                     return failedFuture(
                             new TransactionException(TX_ALREADY_FINISHED_ERR, format(
                                     "Transaction is already finished [tableName={}, partId={}, txState={}].",
@@ -685,7 +688,7 @@ public class InternalTableImpl implements InternalTable {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                    if (noWriteChecker.test(res, request)) {
+                    if (track && noWriteChecker.test(res, request)) {
                         transactionInflights.removeInflight(tx.id());
                     }
 
@@ -693,7 +696,9 @@ public class InternalTableImpl implements InternalTable {
                 }).handle((r, e) -> {
                     if (e != null) {
                         if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
-                            transactionInflights.removeInflight(tx.id()); // Will be retried.
+                            if (track) {
+                                transactionInflights.removeInflight(tx.id()); // Will be retried.
+                            }
 
                             return trackingInvoke(
                                     tx,
@@ -1149,6 +1154,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo instanceof RemoteReadWriteTransaction)
                         .build(),
                 (res, req) -> false
         );

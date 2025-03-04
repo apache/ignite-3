@@ -25,7 +25,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -54,6 +57,12 @@ public class ClientTupleUpsertRequest {
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> {
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    if (tx instanceof RemoteReadWriteTransaction) {
+                        // This tx carries operation enlistment info.
+                        RemoteReadWriteTransaction tx0 = (RemoteReadWriteTransaction) tx;
+                        IgniteBiTuple<ClusterNode, Long> token = tx0.enlistedNodeAndConsistencyToken(null);
+                        out.packLong(token.get2());
+                    }
                 });
             });
         });

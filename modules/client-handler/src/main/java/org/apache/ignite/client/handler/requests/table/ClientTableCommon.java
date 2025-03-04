@@ -54,6 +54,7 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
@@ -393,14 +394,14 @@ public class ClientTableCommon {
      * @param in Unpacker.
      * @param out Packer.
      * @param resources Resource registry.
-     * @param table The associated table.
+     * @param localNode The local node.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientResourceRegistry resources,
-            @Nullable TableViewInternal table
+            ClusterNode localNode
     ) {
         if (in.tryUnpackNil()) {
             return null;
@@ -415,9 +416,9 @@ public class ClientTableCommon {
                 int commitPart = in.unpackInt();
                 UUID coord = in.unpackUuid();
 
-                assert commitPart >= 0 && table != null : "Illegal condition for direct mapping";
+                assert commitPart >= 0 && localNode != null : "Illegal condition for direct mapping";
 
-                return new RemoteReadWriteTransaction(txId, new TablePartitionId(commitTableId, commitPart), coord, token);
+                return new RemoteReadWriteTransaction(txId, new TablePartitionId(commitTableId, commitPart), coord, token, localNode);
             }
 
             var tx = resources.get(id).get(InternalTransaction.class);
@@ -454,7 +455,7 @@ public class ClientTableCommon {
             boolean readOnly
     ) {
 
-        InternalTransaction tx = readTx(in, out, resources, table);
+        InternalTransaction tx = readTx(in, out, resources, txManager.localNode());
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.

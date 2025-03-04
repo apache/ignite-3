@@ -260,6 +260,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public ClusterNode localNode() {
+        return null;
+    }
+
+    @Override
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit) {
         // No-op.
     }
