@@ -280,6 +280,7 @@ public class PersistentPageMemory implements PageMemory {
      *
      * @param writeThrottle Page write throttling instance.
      */
+    // TODO IGNITE-24548 Make a proper implementation.
     @TestOnly
     public void initThrottling(PagesWriteThrottlePolicy writeThrottle) {
         this.writeThrottle = writeThrottle;
