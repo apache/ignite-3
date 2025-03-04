@@ -191,7 +191,9 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         } else {
             TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
 
-            tableIds.add(tablePartitionId.tableId());
+            if (localNodeIsPrimaryReplicaForTableIds.add(tablePartitionId.tableId())) {
+                tableIds.add(tablePartitionId.tableId());
+            }
         }
 
         for (Integer tableId : tableIds) {
@@ -231,7 +233,9 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         } else {
             TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
 
-            tableIds.add(tablePartitionId.tableId());
+            if (localNodeIsPrimaryReplicaForTableIds.remove(tablePartitionId.tableId())) {
+                tableIds.add(tablePartitionId.tableId());
+            }
         }
 
         for (Integer tableId : tableIds) {
