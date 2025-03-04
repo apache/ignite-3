@@ -110,7 +110,7 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
         BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(indexMeta);
 
         storage.runConsistently(locker -> {
-            List<UUID> rowUuids = new ArrayList<>(command.rowIds());
+            var rowUuids = new ArrayList<UUID>(command.rowIds());
 
             // Natural UUID order matches RowId order within the same partition.
             Collections.sort(rowUuids);
