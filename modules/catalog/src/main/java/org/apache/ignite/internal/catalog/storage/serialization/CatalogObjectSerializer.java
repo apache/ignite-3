@@ -28,7 +28,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  *
  * @see CatalogSerializer
  */
-public interface CatalogObjectSerializer<T extends MarshallableEntry> {
+public interface CatalogObjectSerializer<T> {
     /**
      * Reads catalog object from data input.
      *

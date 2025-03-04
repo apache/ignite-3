@@ -25,7 +25,6 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -40,15 +39,14 @@ public class CatalogSortedIndexDescriptorSerializers {
     static class SortedIndexDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogSortedIndexDescriptor> {
         private final CatalogEntrySerializerProvider serializers;
 
+        private final IndexColumnDescriptorSerializerV1 indexColumnSerializer = new IndexColumnDescriptorSerializerV1();
+
         public SortedIndexDescriptorSerializerV1(CatalogEntrySerializerProvider serializers) {
             this.serializers = serializers;
         }
 
         @Override
         public CatalogSortedIndexDescriptor readFrom(IgniteDataInput input) throws IOException {
-            CatalogObjectSerializer<CatalogIndexColumnDescriptor> indexColumnSerializer =
-                    serializers.get(1, MarshallableEntryType.DESCRIPTOR_INDEX_COLUMN.id());
-
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
             long updateToken = input.readVarInt();
@@ -63,9 +61,6 @@ public class CatalogSortedIndexDescriptorSerializers {
 
         @Override
         public void writeTo(CatalogSortedIndexDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            CatalogObjectSerializer<CatalogIndexColumnDescriptor> indexColumnSerializer =
-                    serializers.get(1, MarshallableEntryType.DESCRIPTOR_INDEX_COLUMN.id());
-
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
@@ -73,7 +68,24 @@ public class CatalogSortedIndexDescriptorSerializers {
             output.writeBoolean(descriptor.unique());
             output.writeByte(descriptor.status().id());
             output.writeBoolean(descriptor.isCreatedWithTable());
+
             writeList(descriptor.columns(), indexColumnSerializer, output);
+        }
+
+        private static class IndexColumnDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogIndexColumnDescriptor> {
+            @Override
+            public CatalogIndexColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
+                String name = input.readUTF();
+                CatalogColumnCollation collation = CatalogColumnCollation.unpack(input.readByte());
+
+                return new CatalogIndexColumnDescriptor(name, collation);
+            }
+
+            @Override
+            public void writeTo(CatalogIndexColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
+                output.writeUTF(descriptor.name());
+                output.writeByte(CatalogColumnCollation.pack(descriptor.collation()));
+            }
         }
     }
 }

@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import java.util.Objects;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Indexed column descriptor.
  */
-public class CatalogIndexColumnDescriptor implements MarshallableEntry {
+public class CatalogIndexColumnDescriptor {
     private final String name;
 
     private final CatalogColumnCollation collation;
@@ -41,11 +39,6 @@ public class CatalogIndexColumnDescriptor implements MarshallableEntry {
 
     public CatalogColumnCollation collation() {
         return collation;
-    }
-
-    @Override
-    public int typeId() {
-        return MarshallableEntryType.DESCRIPTOR_INDEX_COLUMN.id();
     }
 
     /** {@inheritDoc} */

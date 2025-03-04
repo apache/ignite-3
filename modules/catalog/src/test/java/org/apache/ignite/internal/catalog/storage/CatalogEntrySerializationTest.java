@@ -187,10 +187,6 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 checkSerialization(newSortedIndexDescriptor("foo"));
                 break;
 
-            case DESCRIPTOR_INDEX_COLUMN:
-                checkSerialization(new CatalogIndexColumnDescriptor("C1", CatalogColumnCollation.ASC_NULLS_FIRST));
-                break;
-
             case DESCRIPTOR_SCHEMA:
                 checkSerialization(newSchemaDescriptor("my_schema1"));
                 break;

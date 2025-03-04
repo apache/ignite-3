@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.storage.serialization;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptorSerializers;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptorSerializers;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptorSerializers;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptorSerializers;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptorSerializers;
@@ -83,16 +82,15 @@ public enum MarshallableEntryType implements CatalogSerializerTypeDefinition {
     DROP_SCHEMA(21, DropSchemaSerializers.class),
     DESCRIPTOR_HASH_INDEX(22, CatalogHashIndexDescriptorSerializers.class),
     DESCRIPTOR_SORTED_INDEX(23, CatalogSortedIndexDescriptorSerializers.class),
-    DESCRIPTOR_INDEX_COLUMN(24, CatalogIndexColumnDescriptorSerializers.class),
-    DESCRIPTOR_SCHEMA(25, CatalogSchemaDescriptorSerializers.class),
-    DESCRIPTOR_STORAGE_PROFILE(26, CatalogStorageProfileDescriptorSerializers.class),
-    DESCRIPTOR_STORAGE_PROFILES(27, CatalogStorageProfilesDescriptorSerializers.class),
-    DESCRIPTOR_SYSTEM_VIEW(28, CatalogSystemViewDescriptorSerializers.class),
-    DESCRIPTOR_TABLE(29, CatalogTableDescriptorSerializers.class),
-    DESCRIPTOR_TABLE_COLUMN(30, CatalogTableColumnDescriptorSerializers.class),
-    DESCRIPTOR_TABLE_VERSION(31, CatalogTableVersionSerializers.class),
-    DESCRIPTOR_TABLE_SCHEMA_VERSIONS(32, CatalogTableSchemaVersionsSerializers.class),
-    DESCRIPTOR_ZONE(33, CatalogZoneDescriptorSerializers.class);
+    DESCRIPTOR_SCHEMA(24, CatalogSchemaDescriptorSerializers.class),
+    DESCRIPTOR_STORAGE_PROFILE(25, CatalogStorageProfileDescriptorSerializers.class),
+    DESCRIPTOR_STORAGE_PROFILES(26, CatalogStorageProfilesDescriptorSerializers.class),
+    DESCRIPTOR_SYSTEM_VIEW(27, CatalogSystemViewDescriptorSerializers.class),
+    DESCRIPTOR_TABLE(28, CatalogTableDescriptorSerializers.class),
+    DESCRIPTOR_TABLE_COLUMN(29, CatalogTableColumnDescriptorSerializers.class),
+    DESCRIPTOR_TABLE_VERSION(30, CatalogTableVersionSerializers.class),
+    DESCRIPTOR_TABLE_SCHEMA_VERSIONS(31, CatalogTableSchemaVersionsSerializers.class),
+    DESCRIPTOR_ZONE(32, CatalogZoneDescriptorSerializers.class);
 
     /** Type ID. */
     private final int id;

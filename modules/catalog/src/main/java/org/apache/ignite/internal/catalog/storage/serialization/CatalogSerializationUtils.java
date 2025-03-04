@@ -87,7 +87,7 @@ public class CatalogSerializationUtils {
     }
 
     /** Reads array of objects. */
-    public static <T extends MarshallableEntry> T[] readArray(CatalogObjectSerializer<T> serializer, IgniteDataInput input, Class<T> clazz)
+    public static <T> T[] readArray(CatalogObjectSerializer<T> serializer, IgniteDataInput input, Class<T> clazz)
             throws IOException {
         int len = input.readVarIntAsInt();
 
@@ -101,7 +101,7 @@ public class CatalogSerializationUtils {
     }
 
     /** Writes array of objects. */
-    public static <T extends MarshallableEntry> void writeArray(T[] items, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
+    public static <T> void writeArray(T[] items, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
             throws IOException {
         output.writeVarInt(items.length);
 
@@ -111,7 +111,7 @@ public class CatalogSerializationUtils {
     }
 
     /** Reads list of objects. */
-    public static <T extends MarshallableEntry> List<T> readList(CatalogObjectSerializer<T> serializer, IgniteDataInput input)
+    public static <T> List<T> readList(CatalogObjectSerializer<T> serializer, IgniteDataInput input)
             throws IOException {
         int len = input.readVarIntAsInt();
 
@@ -127,7 +127,7 @@ public class CatalogSerializationUtils {
     }
 
     /** Writes list of objects. */
-    public static <T extends MarshallableEntry> void writeList(List<T> items, CatalogObjectSerializer<T> serializer,
+    public static <T> void writeList(List<T> items, CatalogObjectSerializer<T> serializer,
             IgniteDataOutput output) throws IOException {
         output.writeVarInt(items.size());
 
