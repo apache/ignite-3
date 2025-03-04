@@ -171,6 +171,12 @@ class ZoneResourcesManager implements ManuallyCloseable {
         });
     }
 
+    void removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
+        getZonePartitionResources(zonePartitionId)
+                .replicaListenerFuture()
+                .thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaListener(tableId));
+    }
+
     @TestOnly
     @Nullable
     TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
@@ -182,8 +188,8 @@ class ZoneResourcesManager implements ManuallyCloseable {
 
         return resources.txStateStorage.getPartitionStorage(partitionId);
     }
-
     private static class ZoneResources {
+
         final TxStateStorage txStateStorage;
 
         final Map<Integer, ZonePartitionResources> resourcesByPartitionId = new ConcurrentHashMap<>();

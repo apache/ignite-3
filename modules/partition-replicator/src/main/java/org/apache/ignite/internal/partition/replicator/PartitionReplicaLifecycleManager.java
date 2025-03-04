@@ -1352,7 +1352,7 @@ public class PartitionReplicaLifecycleManager extends
      */
     private CompletableFuture<Boolean> stopPartitionInternal(
             ZonePartitionId zonePartitionId,
-            @Nullable Consumer<Boolean> afterReplicaStopAction,
+            Consumer<Boolean> afterReplicaStopAction,
             LocalPartitionReplicaEvent afterReplicaStoppedEvent,
             long afterReplicaStoppedEventRevision
     ) {
@@ -1392,7 +1392,7 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<?>[] stopPartitionsFuture = partitionIds.stream()
                 .map(zonePartitionId -> stopPartitionInternal(
                         zonePartitionId,
-                        null,
+                        replicaWasStopped -> {},
                         LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
                         -1L
                 )).toArray(CompletableFuture[]::new);
@@ -1467,7 +1467,7 @@ public class PartitionReplicaLifecycleManager extends
     ) {
         ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
 
-        resources.replicaListenerFuture().thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaListener(tableId));
+        zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
 
         resources.raftListener().removeTableProcessor(tableId);
 

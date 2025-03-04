@@ -657,9 +657,9 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         stopNode(0);
 
         // Check that the storages close method was triggered
-        verify(internalTable.storage(), times(1))
+        verify(internalTable.storage())
                 .close();
-        verify(internalTable.txStateStorage(), times(1))
+        verify(internalTable.txStateStorage())
                 .close();
     }
 
