@@ -83,11 +83,12 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Replica lifecycle test.
  */
-// @Timeout(60)
+@Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
