@@ -15,27 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage.serialization;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 
 /**
- * Marshaller of update log entries.
+ * Update log event.
  */
-public interface UpdateLogMarshaller {
-    /**
-     * Converts a catalog versioned update into a byte array.
-     *
-     * @param update Versioned update to serialize.
-     * @return Byte buffer with a serialized object.
-     */
-    byte[] marshall(UpdateLogEvent update);
-
-    /**
-     * Converts byte array into catalog versioned update.
-     *
-     * @param bytes Byte array.
-     * @return Catalog versioned update.
-     */
-    UpdateLogEvent unmarshall(byte[] bytes);
+public interface UpdateLogEvent extends MarshallableEntry {
 }

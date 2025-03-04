@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.storage.serialization;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.jetbrains.annotations.TestOnly;
@@ -75,7 +76,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     }
 
     @Override
-    public byte[] marshall(MarshallableEntry update) {
+    public byte[] marshall(UpdateLogEvent update) {
         try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(INITIAL_BUFFER_CAPACITY)) {
             output.writeShort(PROTOCOL_VERSION);
 
@@ -90,7 +91,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     }
 
     @Override
-    public MarshallableEntry unmarshall(byte[] bytes) {
+    public UpdateLogEvent unmarshall(byte[] bytes) {
         try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
             int protoVersion = input.readShort();
 
@@ -98,7 +99,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
                 case 1:
                     int typeId = input.readShort();
 
-                    return serializers.get(1, typeId).readFrom(input);
+                    return (UpdateLogEvent) serializers.get(1, typeId).readFrom(input);
 
                 default:
                     throw new IllegalStateException(format("An object could not be deserialized because it was using a newer"

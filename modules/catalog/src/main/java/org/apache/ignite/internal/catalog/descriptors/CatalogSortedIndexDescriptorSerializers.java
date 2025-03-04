@@ -68,7 +68,6 @@ public class CatalogSortedIndexDescriptorSerializers {
             output.writeBoolean(descriptor.unique());
             output.writeByte(descriptor.status().id());
             output.writeBoolean(descriptor.isCreatedWithTable());
-
             writeList(descriptor.columns(), indexColumnSerializer, output);
         }
 

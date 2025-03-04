@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogMarshallerException;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -262,7 +261,7 @@ public class UpdateLogImpl implements UpdateLog {
                 break;
             }
 
-            MarshallableEntry update = marshaller.unmarshall(Objects.requireNonNull(entry.value()));
+            UpdateLogEvent update = (UpdateLogEvent) marshaller.unmarshall(Objects.requireNonNull(entry.value()));
 
             handler.handle(update, entry.timestamp(), entry.revision());
         }
@@ -315,7 +314,7 @@ public class UpdateLogImpl implements UpdateLog {
                 assert payload != null : eventEntry;
 
                 try {
-                    MarshallableEntry update = marshaller.unmarshall(payload);
+                    UpdateLogEvent update = (UpdateLogEvent) marshaller.unmarshall(payload);
 
                     handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
                 } catch (CatalogMarshallerException ex) {

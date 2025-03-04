@@ -27,7 +27,6 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Serializers for {@link DropSchemaEntry}.
  */
 public class DropSchemaSerializers {
-
     /**
      * Serializer for {@link DropSchemaEntry}.
      */

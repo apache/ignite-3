@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.UpdateHandlerInterceptor;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,7 +29,7 @@ class TestUpdateHandlerInterceptor extends UpdateHandlerInterceptor {
     private volatile @Nullable CompletableFuture<Void> dropEventsFuture;
 
     @Override
-    public CompletableFuture<Void> handle(MarshallableEntry update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+    public CompletableFuture<Void> handle(UpdateLogEvent update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
         CompletableFuture<Void> future = dropEventsFuture;
 
         if (future != null) {

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -81,6 +80,6 @@ public interface UpdateLog extends IgniteComponent {
          * @param causalityToken Causality token.
          * @return Handler future.
          */
-        CompletableFuture<Void> handle(MarshallableEntry update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken);
+        CompletableFuture<Void> handle(UpdateLogEvent update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken);
     }
 }

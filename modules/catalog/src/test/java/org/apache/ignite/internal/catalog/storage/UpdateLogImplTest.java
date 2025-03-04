@@ -109,7 +109,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         restartMetastore();
 
-        var actualUpdates = new ArrayList<MarshallableEntry>();
+        var actualUpdates = new ArrayList<UpdateLogEvent>();
 
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
@@ -143,7 +143,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         restartMetastore();
 
-        var actualUpdates = new ArrayList<MarshallableEntry>();
+        var actualUpdates = new ArrayList<UpdateLogEvent>();
 
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
@@ -151,7 +151,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        List<MarshallableEntry> expectedUpdates = List.of(
+        List<UpdateLogEvent> expectedUpdates = List.of(
                 snapshotEntryOfVersion(2),
                 singleEntryUpdateOfVersion(3)
         );

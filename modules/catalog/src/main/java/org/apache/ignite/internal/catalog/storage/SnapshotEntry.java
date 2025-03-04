@@ -25,7 +25,6 @@ import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -33,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A catalog snapshot entry.
  */
-public class SnapshotEntry implements MarshallableEntry {
+public class SnapshotEntry implements UpdateLogEvent {
     private final int version;
     private final long activationTime;
     private final int objectIdGenState;

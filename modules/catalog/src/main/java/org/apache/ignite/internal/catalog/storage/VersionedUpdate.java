@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.storage;
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -27,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Group of changes that relates to specified version.
  */
-public class VersionedUpdate implements MarshallableEntry {
+public class VersionedUpdate implements UpdateLogEvent {
     private final int version;
 
     private final long delayDurationMs;
