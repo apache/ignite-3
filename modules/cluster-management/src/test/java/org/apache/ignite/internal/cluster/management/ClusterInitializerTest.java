@@ -37,6 +37,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CancelInit
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -243,8 +244,11 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(node1.name()), List.of(node1.name()), "cluster");
 
-        assertThat(initFuture, willThrow(InternalInitException.class, "Duplicate consistent id \"node\""));
+        assertThat(initFuture, willThrow(InternalInitException.class, "Duplicate node name \"node\""));
 
         verify(messagingService, never()).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
+        verify(messagingService, never()).invoke(any(ClusterNode.class), any(ChannelType.class), any(NetworkMessage.class), anyLong());
+        verify(messagingService, never()).invoke(any(String.class), any(NetworkMessage.class), anyLong());
+        verify(messagingService, never()).invoke(any(String.class), any(ChannelType.class), any(NetworkMessage.class), anyLong());
     }
 }

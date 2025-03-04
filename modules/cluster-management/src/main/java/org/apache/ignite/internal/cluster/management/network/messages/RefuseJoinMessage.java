@@ -21,12 +21,12 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message signaling that the join process has failed and needs to be aborted.
+ * Message signaling that the join was refused and needs to be aborted.
  */
-@Transferable(CmgMessageGroup.CANCEL_JOIN)
-public interface CancelJoinMessage extends NetworkMessage {
+@Transferable(CmgMessageGroup.REFUSE_JOIN)
+public interface RefuseJoinMessage extends NetworkMessage {
     /**
-     * Textual representation of the cause of join failure.
+     * Textual representation of the cause of join refusal.
      */
     String reason();
 }

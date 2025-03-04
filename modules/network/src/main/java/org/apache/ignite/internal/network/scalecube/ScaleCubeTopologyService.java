@@ -59,7 +59,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     private final ConcurrentMap<NetworkAddress, ClusterNode> members = new ConcurrentHashMap<>();
 
     /** Topology members map from the consistent id to the map from the id to the cluster node. */
-    private final ConcurrentMap<String, Map<UUID, ClusterNode>> consistentIdToMemberMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Map<UUID, ClusterNode>> membersByConsistentId = new ConcurrentHashMap<>();
 
     /** Topology members map from the id to the cluster node. */
     private final ConcurrentMap<UUID, ClusterNode> idToMemberMap = new ConcurrentHashMap<>();
@@ -84,7 +84,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
         if (event.isAdded()) {
             members.put(member.address(), member);
-            Map<UUID, ClusterNode> clusterNodes = consistentIdToMemberMap.computeIfAbsent(member.name(), k -> new ConcurrentHashMap<>());
+            Map<UUID, ClusterNode> clusterNodes = membersByConsistentId.computeIfAbsent(member.name(), k -> new ConcurrentHashMap<>());
             clusterNodes.put(member.id(), member);
             idToMemberMap.put(member.id(), member);
 
@@ -93,7 +93,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             fireAppearedEvent(member);
         } else if (event.isUpdated()) {
             members.put(member.address(), member);
-            consistentIdToMemberMap.computeIfAbsent(member.name(), k -> new ConcurrentHashMap<>()).put(member.id(), member);
+            membersByConsistentId.computeIfAbsent(member.name(), k -> new ConcurrentHashMap<>()).put(member.id(), member);
             idToMemberMap.put(member.id(), member);
         } else if (event.isRemoved() || event.isLeaving()) {
             // We treat LEAVING as 'node left' because the node will not be back and we don't want to wait for the suspicion timeout.
@@ -111,7 +111,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                 }
             });
 
-            consistentIdToMemberMap.compute(member.name(), (consId, nodes) -> {
+            membersByConsistentId.compute(member.name(), (consId, nodes) -> {
                 if (nodes != null) {
                     nodes.remove(member.id());
                     if (nodes.isEmpty()) {
@@ -139,7 +139,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     void updateLocalMetadata(@Nullable NodeMetadata metadata) {
         ClusterNode node = fromMember(cluster.member(), metadata);
         members.put(node.address(), node);
-        consistentIdToMemberMap.computeIfAbsent(node.name(), k -> new ConcurrentHashMap<>()).put(node.id(), node);
+        membersByConsistentId.computeIfAbsent(node.name(), k -> new ConcurrentHashMap<>()).put(node.id(), node);
         idToMemberMap.put(node.id(), node);
     }
 
@@ -191,7 +191,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** {@inheritDoc} */
     @Override
     public @Nullable ClusterNode getByConsistentId(String consistentId) {
-        Map<UUID, ClusterNode> nodes = consistentIdToMemberMap.get(consistentId);
+        Map<UUID, ClusterNode> nodes = membersByConsistentId.get(consistentId);
         return nodes != null ? nodes.values().iterator().next() : null;
     }
 

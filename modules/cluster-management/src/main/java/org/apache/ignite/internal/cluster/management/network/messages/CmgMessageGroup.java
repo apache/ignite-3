@@ -74,9 +74,9 @@ public class CmgMessageGroup {
     public static final short METASTORAGE_INFO = 7;
 
     /**
-     * Message type for {@link CancelJoinMessage}.
+     * Message type for {@link RefuseJoinMessage}.
      */
-    public static final short CANCEL_JOIN = 8;
+    public static final short REFUSE_JOIN = 8;
 
     /**
      * Message types for RAFT commands.

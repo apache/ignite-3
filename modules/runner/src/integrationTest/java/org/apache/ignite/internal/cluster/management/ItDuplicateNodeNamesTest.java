@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_CLIEN
 import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_PORT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.shortTestMethodName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -48,12 +47,13 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
+class ItDuplicateNodeNamesTest extends BaseIgniteAbstractTest {
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
@@ -68,6 +68,13 @@ class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
 
     private final Map<Integer, IgniteServer> servers = new HashMap<>();
 
+    private TestInfo testInfo;
+
+    @BeforeEach
+    void saveTestInfo(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
+
     @AfterEach
     void shutdownNodes() {
         servers.values().forEach(IgniteServer::shutdown);
@@ -75,14 +82,17 @@ class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void physicalTopology(TestInfo testInfo) {
+    void duplicatesAreAllowedInPhysicalTopology() {
         int nodesCount = 2;
 
-        IgniteServer node1 = startEmbeddedNode(testInfo, false, 0, nodesCount);
-        IgniteServer node2 = startEmbeddedNode(testInfo, false, 1, nodesCount);
+        // When started two nodes with the same node names
+        String nodeName = testNodeNameWithoutIndex(testInfo);
+        IgniteServer node1 = startEmbeddedNode(nodeName, 0, nodesCount);
+        IgniteServer node2 = startEmbeddedNode(nodeName, 1, nodesCount);
 
         assertThat(node1.name(), is(equalTo(node2.name())));
 
+        // Then both nodes are in the physical topology on each node
         await().untilAsserted(() -> {
             assertThat(getPhysicalTopologyMembers(node1), hasSize(nodesCount));
             assertThat(getPhysicalTopologyMembers(node2), hasSize(nodesCount));
@@ -90,44 +100,49 @@ class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void logicalTopology(TestInfo testInfo) {
+    void duplicatesAreNotAllowedInLogicalTopology() {
         int nodesCount = 3;
 
-        IgniteServer metaStorageAndCmgNode = startEmbeddedNode(testInfo, true, 0, nodesCount);
-        startEmbeddedNode(testInfo, false, 1, nodesCount);
-        startEmbeddedNode(testInfo, false, 2, nodesCount);
+        // When first node is started with unique node name
+        String firstNodeName = testNodeNameWithoutIndex(testInfo) + "_0";
+        IgniteServer metaStorageAndCmgNode = startEmbeddedNode(firstNodeName, 0, nodesCount);
+
+        // And two more nodes are started with the same node name
+        String duplicateNodeName = testNodeNameWithoutIndex(testInfo);
+        startEmbeddedNode(duplicateNodeName, 1, nodesCount);
+        startEmbeddedNode(duplicateNodeName, 2, nodesCount);
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageAndCmgNode)
                 .clusterName("cluster")
                 .build();
 
-        // Can't init cluster with duplicate node names
+        // Then cluster initialization fails because there are duplicate node names
         assertThat(
                 metaStorageAndCmgNode.initClusterAsync(initParameters),
-                willThrow(InitException.class, "Unable to initialize the cluster: Duplicate consistent id")
+                willThrow(InitException.class, "Unable to initialize the cluster: Duplicate node name \"" + duplicateNodeName + "\"")
         );
 
         // When duplicate node is stopped
         stopNode(2);
 
+        // And is removed from the physical topology on the first node
         await().until(() -> getPhysicalTopologyMembers(metaStorageAndCmgNode), hasSize(2));
 
         // Then cluster is initialized successfully
         assertThat(metaStorageAndCmgNode.initClusterAsync(initParameters), willCompleteSuccessfully());
 
-        // New node with duplicate name can't join the cluster. It's added to the list of duplicate ids on nodes 0 and 1 and node 1 is added
-        // to the list of duplicates on this node.
-        IgniteServer newNode = startEmbeddedNode(testInfo, false, 2, nodesCount);
+        // When new node with the duplicate name is started
+        IgniteServer newNode = startEmbeddedNode(duplicateNodeName, 2, nodesCount);
 
-        // Actual exception is NodeStartException
+        // Then join request fails
         assertThat(
                 newNode.waitForInitAsync(),
-                willThrowWithCauseOrSuppressed(InitException.class, "Duplicate consistent id detected")
+                willThrowWithCauseOrSuppressed(InitException.class, "Duplicate node name \"" + duplicateNodeName + "\"")
         );
     }
 
-    private IgniteServer startEmbeddedNode(TestInfo testInfo, boolean includeIndexInName, int nodeIndex, int nodesCount) {
+    private IgniteServer startEmbeddedNode(String nodeName, int nodeIndex, int nodesCount) {
         String config = IgniteStringFormatter.format(
                 NODE_BOOTSTRAP_CFG_TEMPLATE,
                 DEFAULT_BASE_PORT + nodeIndex,
@@ -136,11 +151,18 @@ class ItDuplicateNodesTest extends BaseIgniteAbstractTest {
                 DEFAULT_BASE_HTTP_PORT + nodeIndex
         );
 
-        String nodeName = includeIndexInName ? testNodeName(testInfo, nodeIndex) : testNodeNameWithoutIndex(testInfo);
-        IgniteServer server = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(testNodeName(testInfo, nodeIndex)));
+        IgniteServer server = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(getWorkDirName(nodeName, nodeIndex)));
         server.waitForInitAsync(); // Do nothing
         servers.put(nodeIndex, server);
         return server;
+    }
+
+    private static String getWorkDirName(String nodeName, int nodeIndex) {
+        // Make sure the working directory name is unique and corresponds with the node index
+        if (!nodeName.endsWith("_" + nodeIndex)) {
+            return nodeName + "_" + nodeIndex;
+        }
+        return nodeName;
     }
 
     private void stopNode(int nodeIndex) {

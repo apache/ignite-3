@@ -111,7 +111,7 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Message listeners. */
     private final List<Consumer<InNetworkObject>> listeners = new CopyOnWriteArrayList<>();
 
-    /** Node id. */
+    /** Node ephemeral ID. */
     private final UUID nodeId;
 
     /**
@@ -317,7 +317,8 @@ public class ConnectionManager implements ChannelCreationListener {
             int attempt
     ) {
         if (attempt > MAX_RETRIES_TO_OPEN_CHANNEL) {
-            return OrderingFuture.failedFuture(new IllegalStateException("Too many attempts to open channel to " + nodeId));
+            return OrderingFuture.failedFuture(new IllegalStateException("Too many attempts to open channel to node \"" + nodeId
+                    + "\", address=" + address));
         }
 
         return doGetChannel(nodeId, type, address)
