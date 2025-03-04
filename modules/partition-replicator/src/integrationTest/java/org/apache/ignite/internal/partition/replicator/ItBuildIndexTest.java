@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.sql.ColumnType.DOUBLE;
@@ -37,8 +36,6 @@ import org.apache.ignite.internal.index.message.IndexMessageGroup;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.KeyValueView;
@@ -60,8 +57,6 @@ public class ItBuildIndexTest extends ItAbstractColocationTest {
         startCluster(1);
         Node node = getNode(0);
 
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-
         String zoneName = "test-zone";
         createZone(node, zoneName, 1, 1);
 
@@ -82,19 +77,6 @@ public class ItBuildIndexTest extends ItAbstractColocationTest {
                         );
                     }
                 });
-
-        // Firing this event is a workaround to trigger the index building process.
-        // I agree that this approach is far from a good one and looks like a hack,
-        // but it's the only way to unblock the index building process using our test node.
-        placementDriver.fireTestEvent(
-                PRIMARY_REPLICA_ELECTED,
-                new PrimaryReplicaEventParameters(
-                        85, // causalityToken,
-                        new TablePartitionId(tableId, 0), // replicationGroupId
-                        node.clusterService.topologyService().localMember().id(), // leaseholderId,
-                        node.clusterService.topologyService().localMember().name(), // lease holder name
-                        node.hybridClock.now() // lease start time
-                ));
 
         TableViewInternal tableViewInternal = node.tableManager.table(tableId);
         KeyValueView<Tuple, Tuple> tableView = tableViewInternal.keyValueView();

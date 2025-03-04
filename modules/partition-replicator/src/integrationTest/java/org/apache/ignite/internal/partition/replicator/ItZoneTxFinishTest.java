@@ -75,8 +75,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
 
         Node node = cluster.get(0);
 
-        setPrimaryReplica(node, zonePartitionId);
-
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
         KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
 
@@ -173,8 +171,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
 
         Node node = cluster.get(0);
 
-        setPrimaryReplica(node, zonePartitionId);
-
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
         KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
 
@@ -252,8 +248,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
-
-        setPrimaryReplica(node, zonePartitionId);
 
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
         KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);

@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,6 +30,8 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
@@ -39,7 +43,9 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -153,46 +159,87 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private void onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
+
+            PartitionGroupId primaryReplicaId = (PartitionGroupId) parameters.groupId();
 
             if (primaryReplicaId.partitionId() != 0) {
                 // We are only interested in the 0 partition.
                 return;
             }
 
-            int tableId = primaryReplicaId.tableId();
-
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                if (localNodeIsPrimaryReplicaForTableIds.add(tableId)) {
-                    scheduleTasksOnPrimaryReplicaElectedBusy(tableId);
-                }
+                scheduleTasksOnPrimaryReplicaElectedBusy(primaryReplicaId);
             } else {
-                if (localNodeIsPrimaryReplicaForTableIds.remove(tableId)) {
-                    changeIndexStatusTaskScheduler.stopTasksForTable(tableId);
-                }
+                scheduleStopTasksOnPrimaryReplicaElected(primaryReplicaId);
             }
         });
     }
 
-    private void scheduleTasksOnPrimaryReplicaElectedBusy(int tableId) {
+    private void scheduleTasksOnPrimaryReplicaElectedBusy(PartitionGroupId partitionGroupId) {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
         Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-        for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableId)) {
-            switch (indexDescriptor.status()) {
-                case REGISTERED:
-                    changeIndexStatusTaskScheduler.scheduleStartBuildingTask(indexDescriptor);
+        var tableIds = new ArrayList<Integer>();
 
-                    break;
+        if (enabledColocation()) {
+            ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
-                case STOPPING:
-                    changeIndexStatusTaskScheduler.scheduleRemoveIndexTask(indexDescriptor);
-
-                    break;
-
-                default:
-                    break;
+            CatalogZoneDescriptor zone = catalog.zone(zonePartitionId.zoneId());
+            for (CatalogTableDescriptor table : catalog.tables()) {
+                if (table.zoneId() == zone.id() && localNodeIsPrimaryReplicaForTableIds.add(table.id())) {
+                    tableIds.add(table.id());
+                }
             }
+        } else {
+            TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
+
+            tableIds.add(tablePartitionId.tableId());
+        }
+
+        for (Integer tableId : tableIds) {
+            for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableId)) {
+                switch (indexDescriptor.status()) {
+                    case REGISTERED:
+                        changeIndexStatusTaskScheduler.scheduleStartBuildingTask(indexDescriptor);
+
+                        break;
+
+                    case STOPPING:
+                        changeIndexStatusTaskScheduler.scheduleRemoveIndexTask(indexDescriptor);
+
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
+    // TODO
+    private void scheduleStopTasksOnPrimaryReplicaElected(PartitionGroupId partitionGroupId) {
+        // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
+        Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+
+        var tableIds = new ArrayList<Integer>();
+
+        if (enabledColocation()) {
+            ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
+
+            CatalogZoneDescriptor zone = catalog.zone(zonePartitionId.zoneId());
+            for (CatalogTableDescriptor table : catalog.tables()) {
+                if (table.zoneId() == zone.id() && localNodeIsPrimaryReplicaForTableIds.remove(table.id())) {
+                    tableIds.add(table.id());
+                }
+            }
+        } else {
+            TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
+
+            tableIds.add(tablePartitionId.tableId());
+        }
+
+        for (Integer tableId : tableIds) {
+            changeIndexStatusTaskScheduler.stopTasksForTable(tableId);
         }
     }
 }

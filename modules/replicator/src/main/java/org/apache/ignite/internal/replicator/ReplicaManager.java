@@ -683,7 +683,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             RaftGroupEventsListener raftGroupEventsListener,
             boolean isVolatileStorage,
-            IgniteSpinBusyLock busyLock
+            IgniteSpinBusyLock busyLock,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -697,11 +698,25 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     raftGroupEventsListener,
                     isVolatileStorage,
-                    raftClient -> new ZonePartitionReplicaImpl(
-                            replicaGrpId,
-                            listenerFactory.apply(raftClient),
-                            raftClient
-                    )
+                    raftClient -> {
+                        var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
+                                replicaGrpId,
+                                clusterNetSvc.topologyService().localMember(),
+                                placementDriver,
+                                clockService,
+                                replicaStateManager::reserveReplica,
+                                executor,
+                                storageIndexTracker,
+                                raftClient
+                        );
+
+                        return new ZonePartitionReplicaImpl(
+                                replicaGrpId,
+                                listenerFactory.apply(raftClient),
+                                raftClient,
+                                placementDriverMessageProcessor
+                        );
+                    }
             );
         } finally {
             busyLock.leaveBusy();

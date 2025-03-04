@@ -52,6 +52,7 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -119,6 +120,8 @@ import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSc
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -139,6 +142,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -364,6 +368,8 @@ public class PartitionReplicaLifecycleManager extends
 
         rebalanceRetryDelayConfiguration.init();
 
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+
         return processZonesAndAssignmentsOnStart;
     }
 
@@ -555,15 +561,23 @@ public class PartitionReplicaLifecycleManager extends
                 this::calculateZoneAssignments,
                 rebalanceRetryDelayConfiguration
         );
-
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
+            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
             var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision);
 
-            ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(zonePartitionId, partitionCount);
+            ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(
+                    zonePartitionId,
+                    partitionCount,
+                    storageIndexTracker
+            );
 
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
                         try {
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Properly close storageIndexTracker.
+                            //  internalTbl.updatePartitionTrackers is used in order to add storageIndexTracker to some context for further
+                            //  storage closing.
+                            // internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
                             return replicaMgr.startReplica(
                                     zonePartitionId,
                                     raftClient -> {
@@ -591,7 +605,8 @@ public class PartitionReplicaLifecycleManager extends
                                     raftGroupEventsListener,
                                     // TODO: IGNITE-24371 - pass real isVolatile flag
                                     false,
-                                    busyLock
+                                    busyLock,
+                                    storageIndexTracker
                             );
                         } catch (NodeStoppingException e) {
                             return failedFuture(e);
@@ -600,7 +615,7 @@ public class PartitionReplicaLifecycleManager extends
                     .thenCompose(v -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
                         replicationGroupIds.add(zonePartitionId);
 
-                        return falseCompletedFuture();
+                        return trueCompletedFuture();
                     }))
                     .whenComplete((v, e) -> {
                         if (e != null) {
@@ -1320,18 +1335,7 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopPartition(zonePartitionId).thenCompose(replicaWasStopped -> {
-                    if (!replicaWasStopped) {
-                        return nullCompletedFuture();
-                    }
-
-                    zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
-
-                    return fireEvent(
-                            LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
-                            new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
-                    );
-                })
+                () -> stopAndDestroyPartition(zonePartitionId, revision)
         );
     }
 
@@ -1441,6 +1445,36 @@ public class PartitionReplicaLifecycleManager extends
 
             return failedFuture(e);
         }
+    }
+
+    private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
+        if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
+            ZonePartitionId groupId = (ZonePartitionId) parameters.groupId();
+
+            // We do not wait future in order not to block meta storage updates.
+            replicaMgr.weakStopReplica(
+                    groupId,
+                    WeakReplicaStopReason.PRIMARY_EXPIRED,
+                    () -> stopAndDestroyPartition(groupId, parameters.causalityToken())
+            );
+        }
+
+        return falseCompletedFuture();
+    }
+
+    private CompletableFuture<Void> stopAndDestroyPartition(ZonePartitionId zonePartitionId, long revision) {
+        return stopPartition(zonePartitionId).thenCompose(replicaWasStopped -> {
+            if (!replicaWasStopped) {
+                return nullCompletedFuture();
+            }
+
+            zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
+
+            return fireEvent(
+                    LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                    new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
+            );
+        });
     }
 
     @TestOnly
