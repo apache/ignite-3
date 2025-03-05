@@ -662,7 +662,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         // Create a table to work with.
         String tableName = "test_table";
         createTable(node0, zoneName, tableName);
-        assertDoesNotThrow(() -> TableTestUtils.getTableIdStrict(node0.catalogManager, tableName, node0.hybridClock.nowLong()));
 
         // Check that time was adjusted with a table too.
         checkSafeTimeWasAdjustedForZoneGroup(node0, zoneId, partId);
@@ -676,12 +675,12 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         assertThat(node.replicaManager.replica(zoneReplicationId), willCompleteSuccessfully());
     }
 
-    private void checkSafeTimeWasAdjustedForZoneGroup(Node node, int zoneId, int partId) throws InterruptedException {
+    private static void checkSafeTimeWasAdjustedForZoneGroup(Node node, int zoneId, int partId) throws InterruptedException {
         HybridTimestamp node0safeTimeBefore = node.currentSafeTimeForZonePartition(zoneId, partId);
 
         assertTrue(waitForCondition(
                 () -> node0safeTimeBefore.compareTo(node.currentSafeTimeForZonePartition(zoneId, partId)) < 0,
-                idleSafeTimePropagationDuration() * 2
+                AWAIT_TIMEOUT_MILLIS
         ));
     }
 

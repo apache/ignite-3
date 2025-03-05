@@ -287,8 +287,4 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     Node getNode(String nodeName) {
         return cluster.stream().filter(n -> n.name.equals(nodeName)).findFirst().orElseThrow();
     }
-
-    long idleSafeTimePropagationDuration() {
-        return replicationConfiguration.idleSafeTimePropagationDuration().value();
-    }
 }
