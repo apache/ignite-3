@@ -159,6 +159,4 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
 
         return query.toString();
     }
-
-
 }
