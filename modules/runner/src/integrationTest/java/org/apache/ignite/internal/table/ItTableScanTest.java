@@ -1049,6 +1049,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(
+                // Default values for timeout is too long for the test,
+                // change it to 10 seconds in order to make the test faster.
                 new TransactionOptions().timeoutMillis(10_000).readOnly(readOnly)
         );
 
