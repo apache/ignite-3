@@ -1151,7 +1151,7 @@ public class IgniteImpl implements Ignite {
 
         systemViewManager.register(qryEngine);
 
-        sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
+        sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker, threadPoolsManager.commonScheduler());
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -1210,7 +1210,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                threadPoolsManager.commonScheduler()
         );
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());

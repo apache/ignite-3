@@ -243,7 +243,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         ),
                                         Runnable::run,
                                         BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()}),
-                                        randomExtensions()
+                                        randomExtensions(),
+                                        Runnable::run
                                 )
                         );
                     }

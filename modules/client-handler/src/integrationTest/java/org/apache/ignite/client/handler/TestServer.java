@@ -152,6 +152,7 @@ public class TestServer {
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
                 new TestLowWatermark(),
+                Runnable::run,
                 Runnable::run
         );
 

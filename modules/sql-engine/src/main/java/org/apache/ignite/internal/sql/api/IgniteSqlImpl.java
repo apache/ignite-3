@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -101,18 +102,23 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private final HybridTimestampTracker observableTimestampTracker;
 
+    private final Executor commonExecutor;
+
     /**
      * Constructor.
      *
      * @param queryProcessor Query processor.
      * @param observableTimestampTracker Tracker of the latest time observed by client.
+     * @param commonExecutor Executor that is used to close cursors when executing a script.
      */
     public IgniteSqlImpl(
             QueryProcessor queryProcessor,
-            HybridTimestampTracker observableTimestampTracker
+            HybridTimestampTracker observableTimestampTracker,
+            Executor commonExecutor
     ) {
         this.queryProcessor = queryProcessor;
         this.observableTimestampTracker = observableTimestampTracker;
+        this.commonExecutor = commonExecutor;
     }
 
     /** {@inheritDoc} */
@@ -571,7 +577,9 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     query,
                     cancellationToken,
                     arguments,
-                    properties);
+                    properties,
+                    commonExecutor
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -588,6 +596,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arguments Arguments.
      * @param properties Properties.
+     * @param executor Executor that is used to close cursors when executing a script.
      * @return Operation future.
      */
     public static CompletableFuture<Void> executeScriptCore(
@@ -598,7 +607,9 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             String query,
             @Nullable CancellationToken cancellationToken,
             @Nullable Object[] arguments,
-            SqlProperties properties) {
+            SqlProperties properties,
+            Executor executor
+    ) {
 
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
@@ -614,7 +625,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         );
 
         CompletableFuture<Void> resFut = new CompletableFuture<>();
-        ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy);
+        ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy, executor);
         f.whenComplete(handler::processCursor);
 
         return resFut.exceptionally((th) -> {
@@ -669,14 +680,18 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         private final List<Throwable> cursorCloseErrors = Collections.synchronizedList(new ArrayList<>());
         private final Supplier<Boolean> enterBusy;
         private final Runnable leaveBusy;
+        private final Executor executor;
 
         ScriptHandler(
                 CompletableFuture<Void> resFut,
                 Supplier<Boolean> enterBusy,
-                Runnable leaveBusy) {
+                Runnable leaveBusy,
+                Executor executor
+        ) {
             this.resFut = resFut;
             this.enterBusy = enterBusy;
             this.leaveBusy = leaveBusy;
+            this.executor = executor;
         }
 
         void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, Throwable scriptError) {
@@ -700,7 +715,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
                 try {
                     if (cursor.hasNextResult()) {
-                        cursor.nextResult().whenCompleteAsync(this::processCursor);
+                        cursor.nextResult().whenCompleteAsync(this::processCursor, executor);
                         return;
                     }
                 } finally {

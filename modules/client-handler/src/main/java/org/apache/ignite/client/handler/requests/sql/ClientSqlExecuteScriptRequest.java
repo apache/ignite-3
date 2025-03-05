@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -37,12 +38,14 @@ public class ClientSqlExecuteScriptRequest {
      *
      * @param in Unpacker.
      * @param sql SQL API.
+     * @param executor Executor used by SQL script handler.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             QueryProcessor sql,
+            Executor executor,
             long requestId,
             Map<Long, CancelHandle> cancelHandleMap
     ) {
@@ -69,7 +72,8 @@ public class ClientSqlExecuteScriptRequest {
                 script,
                 cancelHandle.token(),
                 arguments,
-                props.toSqlProps()
+                props.toSqlProps(),
+                executor
         ).whenComplete((none, error) -> {
             cancelHandleMap.remove(requestId);
 

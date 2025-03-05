@@ -58,6 +58,7 @@ import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,7 +84,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
     void setUp() {
         clock.set(1L);
 
-        igniteSql = new IgniteSqlImpl(queryProcessor, mock(HybridTimestampTracker.class));
+        igniteSql = new IgniteSqlImpl(queryProcessor, mock(HybridTimestampTracker.class), Runnable::run);
     }
 
     @Test
@@ -358,5 +359,33 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         );
 
         assertThat(igniteSql.openedCursors(), empty());
+    }
+
+    @Test
+    public void scriptUsesProvidedExecutorForAsyncCursorHandling() {
+        AtomicBoolean usedFlag = new AtomicBoolean();
+
+        IgniteSql igniteSql = new IgniteSqlImpl(queryProcessor, mock(HybridTimestampTracker.class), runnable -> {
+            usedFlag.set(true);
+
+            runnable.run();
+        });
+
+        AsyncSqlCursor<InternalSqlRow> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
+        AsyncSqlCursor<InternalSqlRow> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
+
+        when(cursor1.hasNextResult()).thenReturn(true);
+        when(cursor1.nextResult()).thenReturn(completedFuture(cursor2));
+        when(cursor1.closeAsync()).thenReturn(nullCompletedFuture());
+
+        when(cursor2.hasNextResult()).thenReturn(false);
+        when(cursor2.closeAsync()).thenReturn(nullCompletedFuture());
+
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
+                .thenReturn(completedFuture(cursor1));
+
+        await(igniteSql.executeScriptAsync("SELECT 1; SELECT 2"));
+
+        assertThat(usedFlag.get(), is(true));
     }
 }
