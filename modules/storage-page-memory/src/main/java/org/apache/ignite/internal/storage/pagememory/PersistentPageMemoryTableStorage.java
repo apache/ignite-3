@@ -30,14 +30,12 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -170,11 +168,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(),
                     partId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     meta.freeListRootPageId(),
                     initNew,
-                    dataRegion.pageListCacheLimit(),
-                    IoStatisticsHolderNoOp.INSTANCE
+                    dataRegion.pageListCacheLimit()
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating free list: [tableId={}, partitionId={}]", e, getTableId(), partId);
@@ -212,7 +208,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     Integer.toString(getTableId()),
                     partId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     meta.versionChainTreeRootPageId(),
                     reuseList,
@@ -254,7 +249,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     Integer.toString(getTableId()),
                     partitionId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     meta.indexTreeMetaPageId(),
                     reuseList,
@@ -296,7 +290,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     Integer.toString(getTableId()),
                     partitionId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     meta.gcQueueMetaPageId(),
                     reuseList,

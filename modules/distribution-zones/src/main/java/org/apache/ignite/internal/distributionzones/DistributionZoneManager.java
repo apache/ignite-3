@@ -305,12 +305,7 @@ public class DistributionZoneManager extends
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
 
-        return dataNodesManager.onAutoAdjustAlteration(
-                parameters.zoneDescriptor(),
-                timestamp,
-                parameters.previousDescriptor().dataNodesAutoAdjustScaleUp(),
-                parameters.previousDescriptor().dataNodesAutoAdjustScaleDown()
-        );
+        return dataNodesManager.onAutoAdjustAlteration(parameters.zoneDescriptor(), timestamp);
     }
 
     private void onUpdatePartitionDistributionResetBusy(
@@ -355,12 +350,7 @@ public class DistributionZoneManager extends
     private CompletableFuture<Void> onUpdateScaleDownBusy(AlterZoneEventParameters parameters) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
 
-        return dataNodesManager.onAutoAdjustAlteration(
-                parameters.zoneDescriptor(),
-                timestamp,
-                parameters.previousDescriptor().dataNodesAutoAdjustScaleUp(),
-                parameters.previousDescriptor().dataNodesAutoAdjustScaleDown()
-        );
+        return dataNodesManager.onAutoAdjustAlteration(parameters.zoneDescriptor(), timestamp);
     }
 
     private CompletableFuture<Void> onUpdateFilterBusy(AlterZoneEventParameters parameters) {

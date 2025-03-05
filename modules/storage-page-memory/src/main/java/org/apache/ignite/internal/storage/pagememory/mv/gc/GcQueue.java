@@ -24,7 +24,6 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcInnerIo;
@@ -44,7 +43,6 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
      * @param grpName Group name.
      * @param partId Partition id.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
      *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
@@ -58,7 +56,6 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
             String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
@@ -70,7 +67,6 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
                 grpName,
                 partId,
                 pageMem,
-                lockLsnr,
                 globalRmvId,
                 metaPageId,
                 reuseList

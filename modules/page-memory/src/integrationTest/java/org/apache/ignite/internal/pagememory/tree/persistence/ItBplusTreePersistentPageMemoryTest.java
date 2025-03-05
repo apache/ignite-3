@@ -43,6 +43,7 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,6 +67,11 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
 
     private OffheapReadWriteLock offheapReadWriteLock;
 
+    @BeforeAll
+    static void initLockOffset() {
+        lockOffset = PersistentPageMemory.PAGE_LOCK_OFFSET;
+    }
+
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() {
@@ -75,7 +81,7 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
 
         offheapReadWriteLock = IgniteSystemProperties.getBoolean(USE_SEQUENCED_RW_LOCK)
                 ? new SequencedOffheapReadWriteLock()
-                : new OffheapReadWriteLock(128);
+                : new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL);
 
         return new PersistentPageMemory(
                 (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
@@ -86,9 +92,8 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
                 (fullPageId, buf, tag) -> {
                 },
                 mockCheckpointTimeoutLock(true),
-                () -> null,
                 PAGE_SIZE,
-                offheapReadWriteLock
+                wrapLock(offheapReadWriteLock)
         );
     }
 

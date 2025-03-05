@@ -39,6 +39,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -58,16 +59,14 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // Create a zone with a single partition on every node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
 
-        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
-
-        setPrimaryReplica(node, zonePartitionId);
 
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
         KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
@@ -84,8 +83,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         }
 
         for (Node n : cluster) {
-            setPrimaryReplica(n, zonePartitionId);
-
             if (useExplicitTx) {
                 node.transactions().runInTransaction(tx -> {
                     assertThat(n.name, kvView1.get(tx, 42), is(69));
@@ -118,8 +115,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         }
 
         for (Node n : cluster) {
-            setPrimaryReplica(n, zonePartitionId);
-
             if (useExplicitTx) {
                 node.transactions().runInTransaction(tx -> {
                     assertThat(n.name, kvView1.getAll(tx, data1.keySet()), is(data1));
@@ -149,18 +144,14 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // Create a zone with a single partition on every node + one extra replica for the upcoming node.
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
 
-        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        cluster.forEach(node -> {
-            node.waitForMetadataCompletenessAtNow();
-        });
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
-
-        setPrimaryReplica(node, zonePartitionId);
 
         Map<Integer, Integer> data1 = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
         Map<Integer, Integer> data2 = IntStream.range(10, 20).boxed().collect(toMap(Function.identity(), Function.identity()));
@@ -179,8 +170,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         // Wait for the rebalance to kick in.
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));
-
-        setPrimaryReplica(newNode, zonePartitionId);
 
         // Wait for the data to appear. At the moment of writing, we don't have any partition safe time to wait for and
         // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
@@ -210,6 +199,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
      * Tests the recovery phase, when a node is restarted and we expect the data to be restored by the Raft mechanisms.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24690")
     void testLocalRaftLogReapplication() throws Exception {
         startCluster(1);
 
@@ -217,17 +207,13 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // is persistent, so the data can be restored.
         int zoneId = createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
 
-        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        cluster.forEach(node -> {
-            node.waitForMetadataCompletenessAtNow();
-        });
+        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
-
-        setPrimaryReplica(node, zonePartitionId);
 
         KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
 
@@ -241,8 +227,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         node = addNodeToCluster();
 
         node.waitForMetadataCompletenessAtNow();
-
-        setPrimaryReplica(node, zonePartitionId);
 
         kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
 
