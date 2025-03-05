@@ -262,7 +262,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      * @throws AssertionError If table is absent.
      */
-    public static int getZoneIdStrict(CatalogService catalogService, String tableName, long timestamp) {
+    public static int getZoneIdByTableNameStrict(CatalogService catalogService, String tableName, long timestamp) {
         return getTableStrict(catalogService, tableName, timestamp).zoneId();
     }
 

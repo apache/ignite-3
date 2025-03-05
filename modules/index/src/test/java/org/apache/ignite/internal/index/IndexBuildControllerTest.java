@@ -33,7 +33,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColo
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
-import static org.apache.ignite.internal.table.TableTestUtils.getZoneIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getZoneIdByTableNameStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -357,7 +357,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     private int zoneId() {
-        return getZoneIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
+        return getZoneIdByTableNameStrict(catalogManager, TABLE_NAME, clock.nowLong());
     }
 
     private int indexId(String indexName) {

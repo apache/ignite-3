@@ -363,7 +363,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private int zoneId(String tableName) {
-        return TableTestUtils.getZoneIdStrict(catalogManager, tableName, clock.nowLong());
+        return TableTestUtils.getZoneIdByTableNameStrict(catalogManager, tableName, clock.nowLong());
     }
 
     private boolean isIndexAvailable(String indexName) {

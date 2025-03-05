@@ -341,16 +341,12 @@ public class Catalog {
     }
 
     private static Int2ObjectMap<List<CatalogTableDescriptor>> toTablesByZoneId(Collection<CatalogSchemaDescriptor> schemas) {
-        Int2ObjectMap<List<CatalogTableDescriptor>> tablesByZoneId = new Int2ObjectOpenHashMap<>();
+        var tablesByZoneId = new Int2ObjectOpenHashMap<List<CatalogTableDescriptor>>();
 
         for (CatalogSchemaDescriptor schema : schemas) {
             for (CatalogTableDescriptor table : schema.tables()) {
                 tablesByZoneId.computeIfAbsent(table.zoneId(), tables -> new ArrayList<>()).add(table);
             }
-        }
-
-        for (List<CatalogTableDescriptor> tables : tablesByZoneId.values()) {
-            tables.sort(comparingInt(CatalogTableDescriptor::id));
         }
 
         for (Entry<List<CatalogTableDescriptor>> entry : tablesByZoneId.int2ObjectEntrySet()) {

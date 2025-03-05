@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
-import java.util.ArrayList;
+import it.unimi.dsi.fastutil.ints.Int2BooleanFunction;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntListIterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -178,26 +180,11 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
         Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-        var tableIds = new ArrayList<Integer>();
+        IntListIterator tableIds =
+                getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, localNodeIsPrimaryReplicaForTableIds::add);
 
-        if (enabledColocation()) {
-            ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
-
-            for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
-                if (localNodeIsPrimaryReplicaForTableIds.add(table.id())) {
-                    tableIds.add(table.id());
-                }
-            }
-        } else {
-            TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
-
-            if (localNodeIsPrimaryReplicaForTableIds.add(tablePartitionId.tableId())) {
-                tableIds.add(tablePartitionId.tableId());
-            }
-        }
-
-        for (Integer tableId : tableIds) {
-            for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableId)) {
+        while (tableIds.hasNext()) {
+            for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableIds.nextInt())) {
                 switch (indexDescriptor.status()) {
                     case REGISTERED:
                         changeIndexStatusTaskScheduler.scheduleStartBuildingTask(indexDescriptor);
@@ -220,26 +207,37 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
         Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-        var tableIds = new ArrayList<Integer>();
+        IntListIterator tableIds =
+                getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, localNodeIsPrimaryReplicaForTableIds::remove);
+
+        while (tableIds.hasNext()) {
+            changeIndexStatusTaskScheduler.stopTasksForTable(tableIds.nextInt());
+        }
+    }
+
+    private IntListIterator getTableIdsForPrimaryReplicaElected(
+            Catalog catalog,
+            PartitionGroupId partitionGroupId,
+            Int2BooleanFunction filter
+    ) {
+        var tableIds = new IntArrayList();
 
         if (enabledColocation()) {
             ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
             for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
-                if (localNodeIsPrimaryReplicaForTableIds.remove(table.id())) {
+                if (filter.apply(table.id())) {
                     tableIds.add(table.id());
                 }
             }
         } else {
             TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
 
-            if (localNodeIsPrimaryReplicaForTableIds.remove(tablePartitionId.tableId())) {
+            if (filter.apply(tablePartitionId.tableId())) {
                 tableIds.add(tablePartitionId.tableId());
             }
         }
 
-        for (Integer tableId : tableIds) {
-            changeIndexStatusTaskScheduler.stopTasksForTable(tableId);
-        }
+        return tableIds.iterator();
     }
 }

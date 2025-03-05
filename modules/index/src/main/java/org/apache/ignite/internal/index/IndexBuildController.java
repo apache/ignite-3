@@ -48,6 +48,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterService;
@@ -139,13 +140,11 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void addListeners() {
-        catalogService.listen(INDEX_BUILDING,
-                (StartBuildingIndexEventParameters parameters) -> onIndexBuilding(parameters).thenApply(unused -> false));
+        catalogService.listen(INDEX_BUILDING, EventListener.fromConsumer(this::onIndexBuilding));
 
-        catalogService.listen(INDEX_REMOVED,
-                (RemoveIndexEventParameters parameters) -> onIndexRemoved(parameters).thenApply(unused -> false));
+        catalogService.listen(INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
-        placementDriver.listen(PRIMARY_REPLICA_ELECTED, parameters -> onPrimaryReplicaElected(parameters).thenApply(unused -> false));
+        placementDriver.listen(PRIMARY_REPLICA_ELECTED, EventListener.fromConsumer(this::onPrimaryReplicaElected));
     }
 
     private CompletableFuture<?> onIndexBuilding(StartBuildingIndexEventParameters parameters) {
@@ -160,15 +159,17 @@ class IndexBuildController implements ManuallyCloseable {
             CatalogIndexDescriptor indexDescriptor = catalog.index(parameters.indexId());
 
             assert indexDescriptor != null : "Failed to find an index descriptor for the specified index [indexId="
-                    + parameters.indexId() + "].";
+                    + parameters.indexId() + ", catalogVersion=" + parameters.catalogVersion() + "].";
 
             assert catalog.table(indexDescriptor.tableId()) != null : "Failed to find a table descriptor for the specified index [indexId="
-                    + parameters.indexId() + ", tableId=" + indexDescriptor.tableId() + "].";
+                    + parameters.indexId() + ", tableId=" + indexDescriptor.tableId()
+                    + ", catalogVersion=" + parameters.catalogVersion() + "].";
 
             CatalogZoneDescriptor zoneDescriptor = catalog.zone(catalog.table(indexDescriptor.tableId()).zoneId());
 
             assert zoneDescriptor != null : "Failed to find a zone descriptor for the specified table [indexId="
-                    + parameters.indexId() + ", tableId=" + indexDescriptor.tableId() + "].";
+                    + parameters.indexId() + ", tableId=" + indexDescriptor.tableId()
+                    + ", catalogVersion=" + parameters.catalogVersion() + "].";
 
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
@@ -198,10 +199,8 @@ class IndexBuildController implements ManuallyCloseable {
                 }
 
                 if (needToProcessPartition) {
-                    CompletableFuture<MvTableStorage> tableStorageFuture =
-                            indexManager.getMvTableStorage(parameters.causalityToken(), indexDescriptor.tableId());
-
-                    CompletableFuture<?> startBuildIndexFuture = tableStorageFuture
+                    CompletableFuture<?> startBuildIndexFuture = indexManager
+                            .getMvTableStorage(parameters.causalityToken(), indexDescriptor.tableId())
                             .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicationGroupId, clockService.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
                                             zoneId,
@@ -210,9 +209,7 @@ class IndexBuildController implements ManuallyCloseable {
                                             primaryReplicationGroupId,
                                             indexDescriptor,
                                             mvTableStorage,
-                                            replicaMeta
-                                    ))
-                            );
+                                            replicaMeta)));
 
                     startBuildIndexFutures.add(startBuildIndexFuture);
                 }

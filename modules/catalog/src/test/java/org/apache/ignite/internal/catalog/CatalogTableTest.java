@@ -46,7 +46,9 @@ import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -78,14 +80,17 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -94,7 +99,11 @@ import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -1126,6 +1135,40 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThrows(CatalogValidationException.class, commandBuilder::build, error);
     }
 
+    @Test
+    public void testCreateTablesWithinDifferentZones() {
+        String zoneName = "TEST_ZONE_NAME";
+
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .partitions(42)
+                .replicas(15)
+                .dataNodesAutoAdjust(73)
+                .filter("expression")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
+                .build();
+
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+
+        String tableName = "test_table_zone";
+        CreateTableCommandBuilder createTableCmd = createTableCommandBuilder(
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                tableName,
+                List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                List.of("ID"),
+                null);
+
+        assertThat(manager.execute(createTableCmd.zone(zoneName).build()), willCompleteSuccessfully());
+
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName);
+        assertNotNull(zoneDescriptor);
+
+        assertThat(catalog.tables(zoneDescriptor.id()), hasSize(1));
+        assertThat(catalog.tables(zoneDescriptor.id()), hasItem(descriptorWithName(tableName)));
+    }
+
     private CompletableFuture<CatalogApplyResult> changeColumn(
             String tab,
             String col,
@@ -1189,5 +1232,19 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
     private @Nullable CatalogTableDescriptor table(int catalogVersion, String tableName) {
         return manager.catalog(catalogVersion).table(SCHEMA_NAME, tableName);
+    }
+
+    private static Matcher<CatalogTableDescriptor> descriptorWithName(String name) {
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object actual) {
+                return actual instanceof CatalogTableDescriptor && name.equals(((CatalogTableDescriptor) actual).name());
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText(format("should have name '{}'", name));
+            }
+        };
     }
 }
