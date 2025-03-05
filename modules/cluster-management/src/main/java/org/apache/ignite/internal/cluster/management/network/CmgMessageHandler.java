@@ -24,6 +24,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CancelInit
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.RefuseJoinMessage;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -123,6 +124,8 @@ public class CmgMessageHandler implements NetworkMessageHandler {
                 cmgMessageCallback.onClusterStateMessageReceived((ClusterStateMessage) message, sender, correlationId);
             } else if (message instanceof CancelInitMessage) {
                 cmgMessageCallback.onCancelInitMessageReceived((CancelInitMessage) message, sender, correlationId);
+            } else if (message instanceof RefuseJoinMessage) {
+                cmgMessageCallback.onRefuseJoinMessageReceived((RefuseJoinMessage) message, sender, correlationId);
             } else if (message instanceof CmgInitMessage) {
                 cmgMessageCallback.onCmgInitMessageReceived((CmgInitMessage) message, sender, correlationId);
             }

@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.handshake;
+package org.apache.ignite.internal.cluster.management.network.messages;
 
-import java.util.UUID;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Exception that notifies of existence of a channel with a specific id during handshake.
+ * Message signaling that the join was refused and needs to be aborted.
  */
-public class ChannelAlreadyExistsException extends RuntimeException {
-    private static final long serialVersionUID = 0L;
-
-    /** Id of a remote node. */
-    private final UUID nodeId;
-
-    public ChannelAlreadyExistsException(UUID nodeId) {
-        this.nodeId = nodeId;
-    }
-
-    public UUID nodeId() {
-        return nodeId;
-    }
+@Transferable(CmgMessageGroup.REFUSE_JOIN)
+public interface RefuseJoinMessage extends NetworkMessage {
+    /**
+     * Textual representation of the cause of join refusal.
+     */
+    String reason();
 }
