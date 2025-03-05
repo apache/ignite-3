@@ -168,16 +168,12 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
-        CatalogZoneDescriptor oldDescriptor = descriptor(zoneName);
-
         DistributionZonesTestUtil.alterZone(catalogManager, zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter);
 
         if (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null) {
             dataNodesManager.onAutoAdjustAlteration(
                     descriptor(zoneName),
-                    clock.now(),
-                    oldDescriptor.dataNodesAutoAdjustScaleUp(),
-                    oldDescriptor.dataNodesAutoAdjustScaleDown()
+                    clock.now()
             );
         }
 
