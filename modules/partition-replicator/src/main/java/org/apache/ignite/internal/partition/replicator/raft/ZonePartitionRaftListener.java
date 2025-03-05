@@ -279,7 +279,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
 
         tableProcessors.values().forEach(processor -> {
-
             IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
             // Need to adjust the safe time if any of the table processors successfully handled the command.
             if (Boolean.TRUE.equals(r.get2())) {
