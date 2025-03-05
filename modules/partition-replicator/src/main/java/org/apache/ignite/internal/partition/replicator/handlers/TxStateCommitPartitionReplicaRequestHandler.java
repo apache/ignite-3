@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -26,12 +25,8 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
-import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -47,12 +42,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TxStateCommitPartitionReplicaRequestHandler {
     private final TxStatePartitionStorage txStatePartitionStorage;
-    private final LeasePlacementDriver placementDriver;
     private final TxManager txManager;
-    private final ClockService clockService;
     private final ClusterNodeResolver clusterNodeResolver;
 
-    private final ReplicationGroupId replicationGroupId;
     private final ClusterNode localNode;
 
     private final TxRecoveryEngine txRecoveryEngine;
@@ -60,20 +52,14 @@ public class TxStateCommitPartitionReplicaRequestHandler {
     /** Constructor. */
     public TxStateCommitPartitionReplicaRequestHandler(
             TxStatePartitionStorage txStatePartitionStorage,
-            LeasePlacementDriver placementDriver,
             TxManager txManager,
-            ClockService clockService,
             ClusterNodeResolver clusterNodeResolver,
-            ReplicationGroupId replicationGroupId,
             ClusterNode localNode,
             TxRecoveryEngine txRecoveryEngine
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
-        this.placementDriver = placementDriver;
         this.txManager = txManager;
-        this.clockService = clockService;
         this.clusterNodeResolver = clusterNodeResolver;
-        this.replicationGroupId = replicationGroupId;
         this.localNode = localNode;
         this.txRecoveryEngine = txRecoveryEngine;
     }
@@ -85,56 +71,21 @@ public class TxStateCommitPartitionReplicaRequestHandler {
      * @return Result future.
      */
     public CompletableFuture<TransactionMeta> handle(TxStateCommitPartitionRequest request) {
-        return placementDriver.getPrimaryReplica(replicationGroupId, clockService.now())
-                .thenCompose(replicaMeta -> {
-                    if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
-                        return failedFuture(
-                                new PrimaryReplicaMissException(
-                                        localNode.name(),
-                                        null,
-                                        localNode.id(),
-                                        null,
-                                        null,
-                                        null,
-                                        null
-                                )
-                        );
-                    }
+        UUID txId = request.txId();
 
-                    if (!isLocalPeer(replicaMeta.getLeaseholderId())) {
-                        return failedFuture(
-                                new PrimaryReplicaMissException(
-                                        localNode.name(),
-                                        replicaMeta.getLeaseholder(),
-                                        localNode.id(),
-                                        replicaMeta.getLeaseholderId(),
-                                        null,
-                                        null,
-                                        null
-                                )
-                        );
-                    }
+        TxStateMeta txMeta = txManager.stateMeta(txId);
 
-                    UUID txId = request.txId();
+        if (txMeta != null && txMeta.txState() == FINISHING) {
+            assert txMeta instanceof TxStateMetaFinishing : txMeta;
 
-                    TxStateMeta txMeta = txManager.stateMeta(txId);
-
-                    if (txMeta != null && txMeta.txState() == FINISHING) {
-                        assert txMeta instanceof TxStateMetaFinishing : txMeta;
-
-                        return ((TxStateMetaFinishing) txMeta).txFinishFuture();
-                    } else if (txMeta == null || !isFinalState(txMeta.txState())) {
-                        // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
-                        // in response.
-                        return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta);
-                    } else {
-                        return completedFuture(txMeta);
-                    }
-                });
-    }
-
-    private boolean isLocalPeer(UUID nodeId) {
-        return localNode.id().equals(nodeId);
+            return ((TxStateMetaFinishing) txMeta).txFinishFuture();
+        } else if (txMeta == null || !isFinalState(txMeta.txState())) {
+            // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
+            // in response.
+            return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta);
+        } else {
+            return completedFuture(txMeta);
+        }
     }
 
     /**

@@ -175,7 +175,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
         ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
 
         resources.replicaListenerFuture()
-                .thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaListener(tableId));
+                .thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaProcessor(tableId));
 
         resources.raftListener().removeTableProcessor(tableId);
 

@@ -135,7 +135,6 @@ import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReaso
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TxManager;
@@ -1430,13 +1429,13 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param zonePartitionId Zone partition id.
      * @param tablePartitionId Table partition id.
-     * @param tablePartitionReplicaListenerFactory Factory for creating table-specific partition replicas.
+     * @param tablePartitionReplicaProcessorFactory Factory for creating table-specific partition replicas.
      * @param raftTableProcessor Raft table processor for the table-specific partition.
      */
     public void loadTableListenerToZoneReplica(
             ZonePartitionId zonePartitionId,
             TablePartitionId tablePartitionId,
-            Function<RaftCommandRunner, ReplicaListener> tablePartitionReplicaListenerFactory,
+            Function<RaftCommandRunner, ReplicaTableProcessor> tablePartitionReplicaProcessorFactory,
             RaftTableProcessor raftTableProcessor,
             PartitionMvStorageAccess partitionMvStorageAccess
     ) {
@@ -1446,9 +1445,9 @@ public class PartitionReplicaLifecycleManager extends
         // so the listeners will be registered by the thread completing the "replicaListenerFuture". On normal operation (where there is
         // a HB relationship between zone and table creation) zone-wide replica must already be started, this future will always be
         // completed and the listeners will be registered immediately.
-        resources.replicaListenerFuture().thenAccept(zoneReplicaListener -> zoneReplicaListener.addTableReplicaListener(
+        resources.replicaListenerFuture().thenAccept(zoneReplicaListener -> zoneReplicaListener.addTableReplicaProcessor(
                 tablePartitionId,
-                tablePartitionReplicaListenerFactory
+                tablePartitionReplicaProcessorFactory
         ));
 
         resources.raftListener().addTableProcessor(tablePartitionId, raftTableProcessor);
