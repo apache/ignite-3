@@ -305,7 +305,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         // no stable, pending learner only
         mockTopology(Set.of(), Set.of(learner));
 
-        assertThrows(AssertionError.class, this::awaitForLease);
+        assertThrows(AssertionError.class, () -> awaitForLease(1_000));
     }
 
     private void mockTopology(Set<Assignment> stable, Set<Assignment> pending) {
@@ -369,12 +369,23 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /**
      * Waits for lease write to Meta storage.
      *
+     * @param timeoutMillis Timeout in milliseconds to wait for lease.
+     * @return A lease.
+     * @throws InterruptedException if the wait is interrupted.
+     */
+    private Lease awaitForLease(long timeoutMillis) throws InterruptedException {
+        return awaitForLease(false, null, timeoutMillis);
+    }
+
+    /**
+     * Waits for lease write to Meta storage.
+     *
      * @param needAccepted Whether to wait only for accepted lease.
      * @return A lease.
      * @throws InterruptedException if the wait is interrupted.
      */
     private Lease awaitForLease(boolean needAccepted) throws InterruptedException {
-        return awaitForLease(needAccepted, null);
+        return awaitForLease(needAccepted, null, 10_000);
     }
 
     /**
@@ -383,10 +394,11 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
      * @param needAccepted Whether to wait only for accepted lease.
      * @param previousLease Previous lease. If not null, then wait for any lease having expiration time other than the previous has (i.e.
      *      either another lease or prolonged lease).
+     * @param timeoutMillis Timeout in milliseconds to wait for lease.
      * @return A lease.
      * @throws InterruptedException if the wait is interrupted.
      */
-    private Lease awaitForLease(boolean needAccepted, @Nullable Lease previousLease) throws InterruptedException {
+    private Lease awaitForLease(boolean needAccepted, @Nullable Lease previousLease, long timeoutMillis) throws InterruptedException {
         AtomicReference<Lease> renewedLease = new AtomicReference<>();
 
         renewLeaseConsumer = lease -> {
@@ -403,7 +415,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
             renewLeaseConsumer = null;
         };
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> renewedLease.get() != null, 10_000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> renewedLease.get() != null, timeoutMillis));
 
         return renewedLease.get();
     }
