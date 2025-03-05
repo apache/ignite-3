@@ -17,40 +17,16 @@
 
 package org.apache.ignite.internal;
 
-import java.lang.reflect.Field;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 /**
  * Utils allowing to cleanup after Micronaut instances.
  */
 class MicronautCleanup {
-    private static final Function<Thread, Runnable> getUnderlyingRunnable;
-
-    static {
-        List<String> fields = Arrays.stream(Thread.class.getDeclaredFields())
-                .map(Field::getName)
-                .collect(Collectors.toList());
-
-        if (fields.contains("target")) { // Presence of 'target' field means that we're running Java 11-17
-            getUnderlyingRunnable = hook -> IgniteTestUtils.getFieldValue(hook, Thread.class, "target");
-
-        } else if (fields.contains("holder")) { // Presence of 'holder' field means that we're running Java 21+
-            getUnderlyingRunnable = hook -> {
-                Object holder = IgniteTestUtils.getFieldValue(hook, Thread.class, "holder");
-                return IgniteTestUtils.getFieldValue(holder, "task");
-            };
-        } else {
-            throw new RuntimeException("Cannot determine the underlying Runnable for the Thread class");
-        }
-    }
-
     /**
      * Removes Micronaut shutdown hooks.
      *
@@ -83,9 +59,19 @@ class MicronautCleanup {
     }
 
     private static boolean isMicronautHook(Thread hook) {
-        Runnable target = getUnderlyingRunnable.apply(hook);
+        Runnable target = getUnderlyingRunnable(hook);
 
         return target != null && target.getClass().toString().contains("Micronaut");
+    }
+
+    private static Runnable getUnderlyingRunnable(Thread hook) {
+        try {
+            return IgniteTestUtils.getFieldValue(hook, Thread.class, "target");
+        } catch (IgniteInternalException e) {
+            // Java 21+ doesn't have a target field, but it has a holder field instead
+            Object holder = IgniteTestUtils.getFieldValue(hook, Thread.class, "holder");
+            return IgniteTestUtils.getFieldValue(holder, "task");
+        }
     }
 
     private static void removeHooksSafely(Set<Thread> hooksToRemove) {
