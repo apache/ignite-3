@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import it.unimi.dsi.fastutil.ints.Int2BooleanFunction;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntListIterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -185,9 +184,8 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
         localNodeIsPrimaryReplicaForTableIds.addAll(tableIds);
 
-        IntListIterator tableIdsIterator = tableIds.iterator();
-        while (tableIdsIterator.hasNext()) {
-            for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableIdsIterator.nextInt())) {
+        tableIds.forEach(tableId -> {
+            for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableId)) {
                 switch (indexDescriptor.status()) {
                     case REGISTERED:
                         changeIndexStatusTaskScheduler.scheduleStartBuildingTask(indexDescriptor);
@@ -203,7 +201,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
                         break;
                 }
             }
-        }
+        });
     }
 
     private void scheduleStopTasksOnPrimaryReplicaElected(PartitionGroupId partitionGroupId) {
@@ -215,13 +213,10 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
         localNodeIsPrimaryReplicaForTableIds.removeAll(tableIds);
 
-        IntListIterator tableIdsIterator = tableIds.iterator();
-        while (tableIdsIterator.hasNext()) {
-            changeIndexStatusTaskScheduler.stopTasksForTable(tableIdsIterator.nextInt());
-        }
+        tableIds.forEach(changeIndexStatusTaskScheduler::stopTasksForTable);
     }
 
-    private IntArrayList getTableIdsForPrimaryReplicaElected(
+    private static IntArrayList getTableIdsForPrimaryReplicaElected(
             Catalog catalog,
             PartitionGroupId partitionGroupId,
             Int2BooleanFunction filter
