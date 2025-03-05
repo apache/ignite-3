@@ -36,7 +36,6 @@ import org.apache.ignite.internal.replicator.Member;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.table.KeyValueView;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -54,12 +53,10 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         startCluster(3);
 
         // Create a zone with a single partition on every node.
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+        createZone(TEST_ZONE_NAME, 1, cluster.size());
 
         createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
         createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
-
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -179,17 +176,14 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
      * Tests the recovery phase, when a node is restarted and we expect the data to be restored by the Raft mechanisms.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24690")
     void testLocalRaftLogReapplication() throws Exception {
         startCluster(1);
 
         // Create a zone with the test profile. The storage in it is augmented to lose all data upon restart, but its Raft configuration
         // is persistent, so the data can be restored.
-        int zoneId = createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
+        createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
 
         createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 

@@ -42,7 +42,6 @@ import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasS
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
@@ -269,11 +268,11 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     /**
      * Add table partition listener to the current zone replica listener.
      *
-     * @param partitionId Table partition id.
+     * @param tableId Table id.
      * @param replicaListener Table replica listener.
      */
-    public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
-        replicas.put(partitionId.tableId(), replicaListener.apply(raftClient));
+    public void addTableReplicaListener(int tableId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
+        replicas.put(tableId, replicaListener.apply(raftClient));
     }
 
     /**
