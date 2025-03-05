@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
@@ -56,7 +57,7 @@ public class MulticastNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(MulticastNodeFinder.class);
 
     /** Discovery request message. */
-    private static final byte[] REQUEST_MESSAGE = "IGNI".getBytes();
+    private static final byte[] REQUEST_MESSAGE = "IGNI".getBytes(UTF_8);
 
     /** Buffer size for receiving responses. */
     private static final int RECEIVE_BUFFER_SIZE = 1024;
