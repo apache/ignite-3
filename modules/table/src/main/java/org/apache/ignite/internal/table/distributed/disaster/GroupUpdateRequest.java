@@ -443,7 +443,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     }
 
     /**
-     * Returns a set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
+     * Returns a modifiable set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
      * {@link LocalPartitionStateEnum#CATCHING_UP}.
      */
     private static Set<Assignment> getAliveNodesWithData(
@@ -451,7 +451,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
         if (localPartitionStateMessageByNode == null) {
-            return Set.of();
+            return new HashSet<>();
         }
 
         var partAssignments = new HashSet<Assignment>();
