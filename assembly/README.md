@@ -39,7 +39,7 @@ To run any other example, do the following:
 ```
 4. (optional) If the cluster is not initialized then initialize the cluster:
    ```
-   ignite3 cluster init --name=ignite-cluster --url=http://localhost:10300 --metastorage-group=defaultNode
+   ignite3 cluster init --name=ignite-cluster --url=http://localhost:10300
    ```
 5. Run the preferred example in the IDE.
 

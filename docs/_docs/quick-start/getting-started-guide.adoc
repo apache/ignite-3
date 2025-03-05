@@ -137,7 +137,7 @@ To initialize the cluster with the node you have started (see <<Start Ignite Nod
 --
 tab:Command[]
 ----
-cluster init --name=sampleCluster --metastorage-group=defaultNode
+cluster init --name=sampleCluster
 ----
 
 tab:Output[]
@@ -299,7 +299,7 @@ tab:Output[]
 --
 tab:Command[]
 ----
-cluster init --name=sampleCluster --metastorage-group=defaultNode
+cluster init --name=sampleCluster
 ----
 
 tab:Output[]
@@ -398,7 +398,7 @@ The command lists the nodes visible to the node you are connecting to, their add
 tab:Command[]
 [source,shell]
 ----
-cluster init --name=sampleCluster --metastorage-group=node1
+cluster init --name=sampleCluster
 ----
 
 tab:Output[]

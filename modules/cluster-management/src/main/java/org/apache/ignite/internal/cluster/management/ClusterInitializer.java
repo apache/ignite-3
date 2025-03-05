@@ -107,16 +107,37 @@ public class ClusterInitializer {
             String clusterName,
             @Nullable String clusterConfiguration
     ) {
-        if (metaStorageNodeNames.isEmpty()) {
-            throw new IllegalArgumentException("Meta Storage node names list must not be empty");
-        }
-
         if (metaStorageNodeNames.stream().anyMatch(StringUtils::nullOrBlank)) {
             throw new IllegalArgumentException("Meta Storage node names must not contain blank strings: " + metaStorageNodeNames);
         }
 
-        if (!cmgNodeNames.isEmpty() && cmgNodeNames.stream().anyMatch(StringUtils::nullOrBlank)) {
+        Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
+        if (msNodeNameSet.size() != metaStorageNodeNames.size()) {
+            throw new IllegalArgumentException("Meta Storage node names must not contain duplicates: " + metaStorageNodeNames);
+        }
+
+        if (cmgNodeNames.stream().anyMatch(StringUtils::nullOrBlank)) {
             throw new IllegalArgumentException("CMG node names must not contain blank strings: " + cmgNodeNames);
+        }
+
+        Set<String> cmgNodeNameSet = cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
+        if (cmgNodeNameSet.size() != cmgNodeNames.size()) {
+            throw new IllegalArgumentException("CMG node names must not contain duplicates: " + metaStorageNodeNames);
+        }
+
+
+        if (msNodeNameSet.isEmpty() && cmgNodeNameSet.isEmpty()) {
+            var clusterNodes = clusterService.topologyService().allMembers();
+            var topologySize = clusterNodes.size();
+            var numberOfMsNodes = topologySize < 5 ? 3 : 5;
+            var chosenNodes = clusterNodes.stream().map(ClusterNode::name).sorted().limit(numberOfMsNodes)
+                    .collect(Collectors.toSet());
+            msNodeNameSet = chosenNodes;
+            cmgNodeNameSet = chosenNodes;
+        } else if (msNodeNameSet.isEmpty()) {
+            msNodeNameSet = cmgNodeNameSet;
+        } else if (cmgNodeNames.isEmpty()) {
+            cmgNodeNameSet = msNodeNameSet;
         }
 
         if (clusterName.isBlank()) {
@@ -124,12 +145,6 @@ public class ClusterInitializer {
         }
 
         try {
-            Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
-
-            Set<String> cmgNodeNameSet = cmgNodeNames.isEmpty()
-                    ? msNodeNameSet
-                    : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
-
             // check that provided Meta Storage nodes are present in the topology
             List<ClusterNode> msNodes = resolveNodes(clusterService, msNodeNameSet);
 
