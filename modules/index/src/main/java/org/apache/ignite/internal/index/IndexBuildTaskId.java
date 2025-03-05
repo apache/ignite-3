@@ -23,16 +23,31 @@ import org.apache.ignite.internal.tostring.S;
  * {@link IndexBuildTask} ID.
  */
 class IndexBuildTaskId {
+    private final int zoneId;
+
     private final int tableId;
 
     private final int partitionId;
 
     private final int indexId;
 
-    IndexBuildTaskId(int tableId, int partitionId, int indexId) {
+    /**
+     * Creates a new index building task.
+     *
+     * @param zoneId Distribution zone ID.
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
+     * @param indexId Index ID.
+     */
+    IndexBuildTaskId(int zoneId, int tableId, int partitionId, int indexId) {
+        this.zoneId = zoneId;
         this.tableId = tableId;
         this.partitionId = partitionId;
         this.indexId = indexId;
+    }
+
+    public int getZoneId() {
+        return zoneId;
     }
 
     public int getTableId() {
@@ -58,12 +73,13 @@ class IndexBuildTaskId {
 
         IndexBuildTaskId that = (IndexBuildTaskId) o;
 
-        return partitionId == that.partitionId && tableId == that.tableId && indexId == that.indexId;
+        return partitionId == that.partitionId && tableId == that.tableId && zoneId == that.zoneId && indexId == that.indexId;
     }
 
     @Override
     public int hashCode() {
-        int result = tableId;
+        int result = zoneId;
+        result = 31 * result + tableId;
         result = 31 * result + partitionId;
         result = 31 * result + indexId;
         return result;

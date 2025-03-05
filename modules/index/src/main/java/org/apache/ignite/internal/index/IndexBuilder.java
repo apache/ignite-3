@@ -90,6 +90,7 @@ class IndexBuilder implements ManuallyCloseable {
      *     will be notified.</li>
      * </ul>
      *
+     * @param zoneId Distribution zone ID.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
@@ -100,6 +101,7 @@ class IndexBuilder implements ManuallyCloseable {
      *      to the replica.
      */
     public void scheduleBuildIndex(
+            int zoneId,
             int tableId,
             int partitionId,
             int indexId,
@@ -117,7 +119,7 @@ class IndexBuilder implements ManuallyCloseable {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(tableId, partitionId, indexId);
+            var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -151,6 +153,7 @@ class IndexBuilder implements ManuallyCloseable {
      *     notified.</li>
      * </ul>
      *
+     * @param zoneId Distribution zone ID.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
@@ -161,6 +164,7 @@ class IndexBuilder implements ManuallyCloseable {
      *         message goes to the replica.
      */
     public void scheduleBuildIndexAfterDisasterRecovery(
+            int zoneId,
             int tableId,
             int partitionId,
             int indexId,
@@ -174,7 +178,7 @@ class IndexBuilder implements ManuallyCloseable {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(tableId, partitionId, indexId);
+            var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -195,30 +199,24 @@ class IndexBuilder implements ManuallyCloseable {
     }
 
     /**
-     * Stops index building if it is in progress.
-     *
-     * @param tableId Table ID.
-     * @param partitionId Partition ID.
-     * @param indexId Index ID.
-     */
-    public void stopBuildIndex(int tableId, int partitionId, int indexId) {
-        inBusyLockSafe(busyLock, () -> {
-            IndexBuildTask removed = indexBuildTaskById.remove(new IndexBuildTaskId(tableId, partitionId, indexId));
-
-            if (removed != null) {
-                removed.stop();
-            }
-        });
-    }
-
-    /**
      * Stops building all indexes (for a table partition) if they are in progress.
      *
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void stopBuildingIndexes(int tableId, int partitionId) {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    public void stopBuildingTableIndexes(int tableId, int partitionId) {
         stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
+    }
+
+    /**
+     * Stops building indexes for the given distribution zone and partition if they are in progress.
+     *
+     * @param zoneId Zone ID.
+     * @param partitionId Partition ID.
+     */
+    public void stopBuildingZoneIndexes(int zoneId, int partitionId) {
+        stopBuildingIndexes(taskId -> zoneId == taskId.getZoneId() && partitionId == taskId.getPartitionId());
     }
 
     /**

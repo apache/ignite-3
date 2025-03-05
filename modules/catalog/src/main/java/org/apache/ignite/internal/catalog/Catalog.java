@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -85,6 +84,9 @@ public class Catalog {
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogZoneDescriptor> zonesById;
 
+    @IgniteToStringExclude
+    private final Int2ObjectMap<List<CatalogTableDescriptor>> tablesByZoneId;
+
     /**
      * Constructor.
      *
@@ -119,6 +121,7 @@ public class Catalog {
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
+        tablesByZoneId = unmodifiable(toTablesByZoneId(schemas));
 
         if (defaultZoneId != null) {
             defaultZone = zonesById.get((int) defaultZoneId);
@@ -219,6 +222,14 @@ public class Catalog {
         return tablesById.values();
     }
 
+    /**
+     * Returns all tables that belong to the specified zone.
+     *
+     * @return A collection of table descriptors.
+     */
+    public Collection<CatalogTableDescriptor> tables(int zoneId) {
+        return tablesByZoneId.getOrDefault(zoneId, List.of());
+    }
 
     /**
      * Returns an index descriptor by the given index name and schema name, that is an index that has not been dropped yet.
@@ -322,9 +333,25 @@ public class Catalog {
         }
 
         for (Entry<List<CatalogIndexDescriptor>> entry : indexesByTableId.int2ObjectEntrySet()) {
-            entry.setValue(unmodifiableList(entry.getValue()));
+            entry.setValue(List.copyOf(entry.getValue()));
         }
 
         return indexesByTableId;
+    }
+
+    private static Int2ObjectMap<List<CatalogTableDescriptor>> toTablesByZoneId(Collection<CatalogSchemaDescriptor> schemas) {
+        var tablesByZoneId = new Int2ObjectOpenHashMap<List<CatalogTableDescriptor>>();
+
+        for (CatalogSchemaDescriptor schema : schemas) {
+            for (CatalogTableDescriptor table : schema.tables()) {
+                tablesByZoneId.computeIfAbsent(table.zoneId(), tables -> new ArrayList<>()).add(table);
+            }
+        }
+
+        for (Entry<List<CatalogTableDescriptor>> entry : tablesByZoneId.int2ObjectEntrySet()) {
+            entry.setValue(List.copyOf(entry.getValue()));
+        }
+
+        return tablesByZoneId;
     }
 }

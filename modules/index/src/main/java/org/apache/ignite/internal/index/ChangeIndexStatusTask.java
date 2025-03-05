@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWi
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.index.IndexManagementUtils.localNode;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -61,7 +63,9 @@ import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
@@ -237,7 +241,18 @@ abstract class ChangeIndexStatusTask {
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica() {
         return inBusyLocks(() -> {
-            TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
+
+            if (indexMeta == null) {
+                // Index was destroyed under a low watermark, well, we not need to build it.
+                throw new IndexTaskStoppingException();
+            }
+
+            CatalogTableDescriptor tableDescriptor = catalogManager.catalog(indexMeta.catalogVersion()).table(indexDescriptor.tableId());
+
+            ReplicationGroupId groupId = enabledColocation()
+                    ? new ZonePartitionId(tableDescriptor.zoneId(), 0)
+                    : new TablePartitionId(indexDescriptor.tableId(), 0);
 
             return placementDriver.awaitPrimaryReplica(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {

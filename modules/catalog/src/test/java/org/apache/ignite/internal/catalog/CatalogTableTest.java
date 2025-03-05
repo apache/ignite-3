@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecision;
@@ -46,7 +47,9 @@ import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -78,14 +81,17 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -94,6 +100,7 @@ import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -1124,6 +1131,56 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         String error = "[col=key1, functionName=RAND_UUID, expectedType=UUID, actualType=STRING]";
         assertThrows(CatalogValidationException.class, commandBuilder::build, error);
+    }
+
+    @Test
+    public void testCreateTablesWithinDifferentZones() {
+        // Create a new table in the default distribution zone.
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        // Create an additional distribution zone.
+        String customZoneName = "TEST_ZONE_NAME";
+
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(customZoneName)
+                .partitions(42)
+                .replicas(15)
+                .dataNodesAutoAdjust(73)
+                .filter("expression")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
+                .build();
+
+        tryApplyAndExpectApplied(cmd);
+
+        String customTableName = "test_table_zone";
+        CatalogCommand createTableCmd = createTableCommandBuilder(
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                customTableName,
+                List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                List.of("ID"),
+                null)
+                .zone(customZoneName)
+                .build();
+
+        tryApplyAndExpectApplied(createTableCmd);
+
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+
+        CatalogZoneDescriptor defaultZoneDescriptor = catalog.zone(DEFAULT_ZONE_NAME);
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(customZoneName);
+        assertNotNull(defaultZoneDescriptor);
+        assertNotNull(zoneDescriptor);
+
+        assertThat(catalog.tables(), hasSize(2));
+
+        int tableId = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
+        int customTableId = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, customTableName).id();
+
+        assertThat(catalog.tables(defaultZoneDescriptor.id()), hasSize(1));
+        assertThat(catalog.tables(defaultZoneDescriptor.id()).stream().map(d -> d.id()).collect(toList()), hasItem(tableId));
+
+        assertThat(catalog.tables(zoneDescriptor.id()), hasSize(1));
+        assertThat(catalog.tables(zoneDescriptor.id()).stream().map(d -> d.id()).collect(toList()), hasItem(customTableId));
     }
 
     private CompletableFuture<CatalogApplyResult> changeColumn(
