@@ -968,23 +968,29 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
             assertQuery("SELECT * FROM t WHERE i1 = ?")
                     .withParams(null)
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsTableScan("PUBLIC", "T"))
                     .check();
 
             assertQuery("SELECT * FROM t WHERE i1 = 1 AND i2 = ?")
                     .withParams(new Object[] { null })
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsTableScan("PUBLIC", "T"))
                     .check();
 
             // Multi ranges.
             assertQuery("SELECT * FROM t WHERE i1 IN (1, 2, 3) AND i2 = ?")
                     .withParams(new Object[] { null })
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsTableScan("PUBLIC", "T"))
                     .check();
 
             assertQuery("SELECT i1, i2 FROM t WHERE i1 IN (1, 2) AND i2 IS NULL")
+                    .matches(containsTableScan("PUBLIC", "T"))
+                    .returns(1, null)
+                    .check();
+
+            assertQuery("SELECT i1, i2 FROM t WHERE i2 IS NULL ORDER BY i1")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(1, null)
+                    .returns(3, null)
                     .check();
         } finally {
             sql("DROP TABLE IF EXISTS t");
@@ -1025,31 +1031,31 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("INSERT INTO t VALUES (0, TRUE), (1, TRUE), (2, FALSE), (3, FALSE), (4, null)");
 
             assertQuery("SELECT i FROM t WHERE b = TRUE")
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsTableScan("PUBLIC", "T"))
                     .returns(0)
                     .returns(1)
                     .check();
 
             assertQuery("SELECT i FROM t WHERE b = FALSE")
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsTableScan("PUBLIC", "T"))
                     .returns(2)
                     .returns(3)
                     .check();
 
             assertQuery("SELECT i FROM t WHERE b IS TRUE")
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsTableScan("PUBLIC", "T"))
                     .returns(0)
                     .returns(1)
                     .check();
 
             assertQuery("SELECT i FROM t WHERE b IS FALSE")
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsTableScan("PUBLIC", "T"))
                     .returns(2)
                     .returns(3)
                     .check();
 
             assertQuery("SELECT i FROM t WHERE b IS NULL")
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsTableScan("PUBLIC", "T"))
                     .returns(4)
                     .check();
         } finally {

@@ -65,7 +65,7 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
         // TODO Disable for VARBINARY, remove after https://issues.apache.org/jira/browse/IGNITE-19931 is fixed
         Assumptions.assumeFalse(mode == ValueMode.CAST);
 
-        checkQuery(format("SELECT * FROM {} WHERE test_key = {}", table, value1str))
+        checkQuery(format("SELECT /*+ FORCE_INDEX({}_TEST_KEY_IDX) */ * FROM {} WHERE test_key = {}", table, table, value1str))
                 .matches(containsIndexScan("PUBLIC", table, table + "_TEST_KEY_IDX"))
                 .returns(1, value1)
                 .check();
