@@ -170,7 +170,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
-        versionTracker.close();
+        versionTracker.close(new NodeStoppingException());
         return updateLog.stopAsync(componentContext);
     }
 
