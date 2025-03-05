@@ -23,6 +23,11 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Catalog object serializer.
+ *
+ * <p>All implementations used in production (and not tied to a specific
+ * version of another serializer) must be annotated with {@link CatalogSerializer}.
+ *
+ * @see CatalogSerializer
  */
 public interface CatalogObjectSerializer<T> {
     /**

@@ -25,10 +25,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.IntFunction;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -37,8 +35,6 @@ import org.jetbrains.annotations.Nullable;
  * Utility methods used for serializing catalog objects.
  */
 public class CatalogSerializationUtils {
-    public static final CatalogObjectSerializer<CatalogIndexDescriptor> IDX_SERIALIZER = new IndexDescriptorSerializer();
-
     /** Reads nullable string. */
     public static @Nullable String readNullableString(DataInput in) throws IOException {
         if (!in.readBoolean()) {
@@ -115,7 +111,8 @@ public class CatalogSerializationUtils {
     }
 
     /** Reads list of objects. */
-    public static <T> List<T> readList(CatalogObjectSerializer<T> serializer, IgniteDataInput input) throws IOException {
+    public static <T> List<T> readList(CatalogObjectSerializer<T> serializer, IgniteDataInput input)
+            throws IOException {
         int len = input.readVarIntAsInt();
 
         List<T> entries = new ArrayList<>(len);
@@ -130,8 +127,8 @@ public class CatalogSerializationUtils {
     }
 
     /** Writes list of objects. */
-    public static <T> void writeList(List<T> items, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
-            throws IOException {
+    public static <T> void writeList(List<T> items, CatalogObjectSerializer<T> serializer,
+            IgniteDataOutput output) throws IOException {
         output.writeVarInt(items.size());
 
         for (T item : items) {
@@ -139,7 +136,20 @@ public class CatalogSerializationUtils {
         }
     }
 
-    private static class IndexDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexDescriptor> {
+    /**
+     * Base index descriptor serializer V1.
+     *
+     * @since 3.0.0
+     * @deprecated Serializer is only used to detect index type, but type must be detected using {@link MarshallableEntry#typeId()}.
+     */
+    @Deprecated
+    public static class IndexDescriptorSerializerHelper implements CatalogObjectSerializer<CatalogIndexDescriptor> {
+        private final CatalogEntrySerializerProvider serializers;
+
+        public IndexDescriptorSerializerHelper(CatalogEntrySerializerProvider serializers) {
+            this.serializers = serializers;
+        }
+
         @Override
         public CatalogIndexDescriptor readFrom(IgniteDataInput input) throws IOException {
             int idxType = input.readByte();
@@ -147,9 +157,11 @@ public class CatalogSerializationUtils {
             CatalogIndexDescriptorType type = CatalogIndexDescriptorType.forId(idxType);
 
             if (type == CatalogIndexDescriptorType.HASH) {
-                return CatalogHashIndexDescriptor.SERIALIZER.readFrom(input);
+                return (CatalogIndexDescriptor) serializers.get(1, MarshallableEntryType.DESCRIPTOR_HASH_INDEX.id())
+                        .readFrom(input);
             } else {
-                return CatalogSortedIndexDescriptor.SERIALIZER.readFrom(input);
+                return (CatalogIndexDescriptor) serializers.get(1, MarshallableEntryType.DESCRIPTOR_SORTED_INDEX.id())
+                        .readFrom(input);
             }
         }
 
@@ -157,11 +169,7 @@ public class CatalogSerializationUtils {
         public void writeTo(CatalogIndexDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeByte(descriptor.indexType().id());
 
-            if (descriptor.indexType() == CatalogIndexDescriptorType.HASH) {
-                CatalogHashIndexDescriptor.SERIALIZER.writeTo((CatalogHashIndexDescriptor) descriptor, output);
-            } else {
-                CatalogSortedIndexDescriptor.SERIALIZER.writeTo((CatalogSortedIndexDescriptor) descriptor, output);
-            }
+            serializers.get(1, descriptor.typeId()).writeTo(descriptor, output);
         }
     }
 }

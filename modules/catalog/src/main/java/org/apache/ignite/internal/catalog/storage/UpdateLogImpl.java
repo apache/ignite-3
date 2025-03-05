@@ -261,7 +261,7 @@ public class UpdateLogImpl implements UpdateLog {
                 break;
             }
 
-            UpdateLogEvent update = marshaller.unmarshall(Objects.requireNonNull(entry.value()));
+            UpdateLogEvent update = (UpdateLogEvent) marshaller.unmarshall(Objects.requireNonNull(entry.value()));
 
             handler.handle(update, entry.timestamp(), entry.revision());
         }
@@ -314,7 +314,7 @@ public class UpdateLogImpl implements UpdateLog {
                 assert payload != null : eventEntry;
 
                 try {
-                    UpdateLogEvent update = marshaller.unmarshall(payload);
+                    UpdateLogEvent update = (UpdateLogEvent) marshaller.unmarshall(payload);
 
                     handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
                 } catch (CatalogMarshallerException ex) {

@@ -18,26 +18,19 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /** Schema definition contains database schema objects. */
-public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
-    public static final CatalogObjectSerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
-
+public class CatalogSchemaDescriptor extends CatalogObjectDescriptor implements MarshallableEntry {
     private final CatalogTableDescriptor[] tables;
     private final CatalogIndexDescriptor[] indexes;
     private final CatalogSystemViewDescriptor[] systemViews;
@@ -114,35 +107,12 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     }
 
     @Override
-    public String toString() {
-        return S.toString(CatalogSchemaDescriptor.class, this, super.toString());
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_SCHEMA.id();
     }
 
-    /**
-     * Serializer for {@link CatalogSchemaDescriptor}.
-     */
-    private static class SchemaDescriptorSerializer implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
-        @Override
-        public CatalogSchemaDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readVarIntAsInt();
-            String name = input.readUTF();
-            long updateToken = input.readVarInt();
-            CatalogTableDescriptor[] tables = readArray(CatalogTableDescriptor.SERIALIZER, input, CatalogTableDescriptor.class);
-            CatalogIndexDescriptor[] indexes = readArray(CatalogSerializationUtils.IDX_SERIALIZER, input, CatalogIndexDescriptor.class);
-            CatalogSystemViewDescriptor[] systemViews =
-                    readArray(CatalogSystemViewDescriptor.SERIALIZER, input, CatalogSystemViewDescriptor.class);
-
-            return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateToken);
-        }
-
-        @Override
-        public void writeTo(CatalogSchemaDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeVarInt(descriptor.id());
-            output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
-            writeArray(descriptor.tables(), CatalogTableDescriptor.SERIALIZER, output);
-            writeArray(descriptor.indexes(), CatalogSerializationUtils.IDX_SERIALIZER, output);
-            writeArray(descriptor.systemViews(), CatalogSystemViewDescriptor.SERIALIZER, output);
-        }
+    @Override
+    public String toString() {
+        return S.toString(CatalogSchemaDescriptor.class, this, super.toString());
     }
 }

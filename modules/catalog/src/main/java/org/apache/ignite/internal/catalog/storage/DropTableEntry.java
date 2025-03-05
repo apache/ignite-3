@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
-import java.io.IOException;
 import java.util.Arrays;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -30,18 +29,13 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes deletion of a table.
  */
 public class DropTableEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<DropTableEntry> SERIALIZER = new DropTableEntrySerializer();
-
     private final int tableId;
 
     /**
@@ -98,22 +92,5 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link DropTableEntry}.
-     */
-    private static class DropTableEntrySerializer implements CatalogObjectSerializer<DropTableEntry> {
-        @Override
-        public DropTableEntry readFrom(IgniteDataInput input) throws IOException {
-            int tableId = input.readVarIntAsInt();
-
-            return new DropTableEntry(tableId);
-        }
-
-        @Override
-        public void writeTo(DropTableEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeVarInt(entry.tableId());
-        }
     }
 }

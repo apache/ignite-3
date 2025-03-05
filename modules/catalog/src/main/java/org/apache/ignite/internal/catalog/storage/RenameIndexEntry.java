@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSc
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -32,16 +31,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Entry representing a rename of an index. */
 public class RenameIndexEntry implements UpdateEntry {
-    public static final CatalogObjectSerializer<RenameIndexEntry> SERIALIZER = new RenameIndexEntrySerializer();
-
     private final int indexId;
 
     private final String newIndexName;
@@ -49,6 +43,14 @@ public class RenameIndexEntry implements UpdateEntry {
     public RenameIndexEntry(int indexId, String newIndexName) {
         this.indexId = indexId;
         this.newIndexName = newIndexName;
+    }
+
+    public int indexId() {
+        return indexId;
+    }
+
+    public String newIndexName() {
+        return newIndexName;
     }
 
     @Override
@@ -119,22 +121,5 @@ public class RenameIndexEntry implements UpdateEntry {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    private static class RenameIndexEntrySerializer implements CatalogObjectSerializer<RenameIndexEntry> {
-        @Override
-        public RenameIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int indexId = input.readVarIntAsInt();
-
-            String newIndexName = input.readUTF();
-
-            return new RenameIndexEntry(indexId, newIndexName);
-        }
-
-        @Override
-        public void writeTo(RenameIndexEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeVarInt(entry.indexId);
-            out.writeUTF(entry.newIndexName);
-        }
     }
 }

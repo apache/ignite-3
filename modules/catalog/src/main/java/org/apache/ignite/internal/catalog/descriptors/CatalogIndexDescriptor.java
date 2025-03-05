@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.tostring.S;
 
 /** Index descriptor base class. */
-public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
+public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor implements MarshallableEntry {
     /** Table ID. */
     private final int tableId;
 
