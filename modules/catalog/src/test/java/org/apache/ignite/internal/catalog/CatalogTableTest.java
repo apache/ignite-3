@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecision;
@@ -101,9 +102,6 @@ import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -1137,10 +1135,14 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateTablesWithinDifferentZones() {
-        String zoneName = "TEST_ZONE_NAME";
+        // Create a new table in the default distribution zone.
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        // Create an additional distribution zone.
+        String customZoneName = "TEST_ZONE_NAME";
 
         CatalogCommand cmd = CreateZoneCommand.builder()
-                .zoneName(zoneName)
+                .zoneName(customZoneName)
                 .partitions(42)
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
@@ -1148,25 +1150,37 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
 
-        String tableName = "test_table_zone";
-        CreateTableCommandBuilder createTableCmd = createTableCommandBuilder(
+        String customTableName = "test_table_zone";
+        CatalogCommand createTableCmd = createTableCommandBuilder(
                 SqlCommon.DEFAULT_SCHEMA_NAME,
-                tableName,
+                customTableName,
                 List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
                 List.of("ID"),
-                null);
+                null)
+                .zone(customZoneName)
+                .build();
 
-        assertThat(manager.execute(createTableCmd.zone(zoneName).build()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(createTableCmd);
 
         Catalog catalog = manager.catalog(manager.latestCatalogVersion());
 
-        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName);
+        CatalogZoneDescriptor defaultZoneDescriptor = catalog.zone(DEFAULT_ZONE_NAME);
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(customZoneName);
+        assertNotNull(defaultZoneDescriptor);
         assertNotNull(zoneDescriptor);
 
+        assertThat(catalog.tables(), hasSize(2));
+
+        int tableId = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
+        int customTableId = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, customTableName).id();
+
+        assertThat(catalog.tables(defaultZoneDescriptor.id()), hasSize(1));
+        assertThat(catalog.tables(defaultZoneDescriptor.id()).stream().map(d -> d.id()).collect(toList()), hasItem(tableId));
+
         assertThat(catalog.tables(zoneDescriptor.id()), hasSize(1));
-        assertThat(catalog.tables(zoneDescriptor.id()), hasItem(descriptorWithName(tableName)));
+        assertThat(catalog.tables(zoneDescriptor.id()).stream().map(d -> d.id()).collect(toList()), hasItem(customTableId));
     }
 
     private CompletableFuture<CatalogApplyResult> changeColumn(
@@ -1232,19 +1246,5 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
     private @Nullable CatalogTableDescriptor table(int catalogVersion, String tableName) {
         return manager.catalog(catalogVersion).table(SCHEMA_NAME, tableName);
-    }
-
-    private static Matcher<CatalogTableDescriptor> descriptorWithName(String name) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                return actual instanceof CatalogTableDescriptor && name.equals(((CatalogTableDescriptor) actual).name());
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(format("should have name '{}'", name));
-            }
-        };
     }
 }
