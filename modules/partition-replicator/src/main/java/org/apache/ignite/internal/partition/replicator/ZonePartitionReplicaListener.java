@@ -31,6 +31,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.ReplicaSafeTimeSyncRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
@@ -83,6 +84,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
     private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
     private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
+    private final ReplicaSafeTimeSyncRequestHandler replicaSafeTimeSyncRequestHandler;
 
     /**
      * The constructor.
@@ -154,6 +156,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                         ZonePartitionReplicaListener::createAbandonedTxRecoveryEnlistment
                 )
         );
+
+        replicaSafeTimeSyncRequestHandler = new ReplicaSafeTimeSyncRequestHandler(clockService, raftCommandApplicator);
     }
 
     private static PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
@@ -187,7 +191,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             return processTableAwareRequest(request, senderId);
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
         if (request instanceof TxFinishReplicaRequest) {
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                     .thenApply(res -> new ReplicaResult(res, null));
@@ -251,7 +254,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            LOG.debug("Non table request is not supported by the zone partition yet " + request);
+            return replicaSafeTimeSyncRequestHandler.handle((ReplicaSafeTimeSyncRequest) request);
         } else {
             LOG.warn("Non table request is not supported by the zone partition yet " + request);
         }
