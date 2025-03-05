@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-/** NodeFinder type. */
-public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
-    STATIC,
-    /** Uses multicast to discover nodes. */
-    MULTICAST
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+
+/**
+ * Signifies that a {@link ConfigValue} must be a correct multicast address.
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface MulticastAddress {
 }

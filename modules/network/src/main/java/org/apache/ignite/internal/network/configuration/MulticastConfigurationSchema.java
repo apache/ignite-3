@@ -17,10 +17,26 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-/** NodeFinder type. */
-public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
-    STATIC,
-    /** Uses multicast to discover nodes. */
-    MULTICAST
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
+
+/** Configuration for multicast node finder. */
+@Config
+public class MulticastConfigurationSchema {
+    @Value(hasDefault = true)
+    @MulticastAddress
+    public final String group = "228.1.2.4";
+
+    @Value(hasDefault = true)
+    @Range(min = 0, max = 65535)
+    public final int port = 47400;
+
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public final int discoveryResultWaitMillis = 500;
+
+    @Value(hasDefault = true)
+    @Range(min = -1, max = 255)
+    public final int ttl = -1;
 }
