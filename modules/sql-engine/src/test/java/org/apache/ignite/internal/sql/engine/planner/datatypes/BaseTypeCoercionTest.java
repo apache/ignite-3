@@ -257,7 +257,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
-    private static Matcher<RexCall> ofType(NativeType type) {
+    static Matcher<RexCall> ofType(NativeType type) {
         return new BaseMatcher<>() {
             RelDataType expectedType;
             RelDataType relRowType;
@@ -266,7 +266,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
             public boolean matches(Object item) {
                 assert item != null;
 
-                RexCall rexCall = (RexCall) item;
+                RexNode rexCall = (RexNode) item;
 
                 relRowType = rexCall.getType();
                 expectedType = native2relationalType(Commons.typeFactory(), type);
