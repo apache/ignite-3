@@ -642,49 +642,47 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     @Test
     public void testReplicaSafeTimeSyncRequest() throws Exception {
         startCluster(2);
-        Node node = getNode(0);
+        Node node0 = getNode(0);
+        Node node1 = getNode(1);
 
         // Prepare a zone.
         String zoneName = "test_zone";
-        createZone(node, zoneName, 1, 2);
-        int zoneId =  DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+        createZone(node0, zoneName, 1, 2);
+        int zoneId =  DistributionZonesTestUtil.getZoneId(node0.catalogManager, zoneName, node0.hybridClock.nowLong());
         int partId = 0;
 
         // Wait for sure that zone replication group was created on both nodes.
-        waitForZoneReplicaStartedOnNode(node, zoneId, partId);
-        waitForZoneReplicaStartedOnNode(getNode(1), zoneId, partId);
+        waitForZoneReplicaStartedOnNode(node0, zoneId, partId);
+        waitForZoneReplicaStartedOnNode(node1, zoneId, partId);
 
-        // Check that time was adjusted even without table.
-        checkSafeTimeWasAdjustedForZoneGroup(zoneId, partId);
+        // Check that time was adjusted even without tables.
+        checkSafeTimeWasAdjustedForZoneGroup(node0, zoneId, partId);
+        checkSafeTimeWasAdjustedForZoneGroup(node1, zoneId, partId);
 
         // Create a table to work with.
         String tableName = "test_table";
-        createTable(node, zoneName, tableName);
-        assertDoesNotThrow(() -> TableTestUtils.getTableIdStrict(node.catalogManager, tableName, node.hybridClock.nowLong()));
+        createTable(node0, zoneName, tableName);
+        assertDoesNotThrow(() -> TableTestUtils.getTableIdStrict(node0.catalogManager, tableName, node0.hybridClock.nowLong()));
 
-        // Check that time was adjusted  table.
-        checkSafeTimeWasAdjustedForZoneGroup(zoneId, partId);
+        // Check that time was adjusted with a table too.
+        checkSafeTimeWasAdjustedForZoneGroup(node0, zoneId, partId);
+        checkSafeTimeWasAdjustedForZoneGroup(node1, zoneId, partId);
     }
 
     private static void waitForZoneReplicaStartedOnNode(Node node, int zoneId, int partId) throws InterruptedException {
         ZonePartitionId zoneReplicationId = new ZonePartitionId(zoneId, partId);
 
-        waitForCondition(() -> node.replicaManager.replica(zoneReplicationId) != null, AWAIT_TIMEOUT_MILLIS);
+        assertTrue(waitForCondition(() -> node.replicaManager.replica(zoneReplicationId) != null, AWAIT_TIMEOUT_MILLIS));
         assertThat(node.replicaManager.replica(zoneReplicationId), willCompleteSuccessfully());
     }
 
-    private void checkSafeTimeWasAdjustedForZoneGroup(int zoneId, int partId) throws InterruptedException {
-        Node node0 = getNode(0);
-        Node node1 = getNode(1);
+    private void checkSafeTimeWasAdjustedForZoneGroup(Node node, int zoneId, int partId) throws InterruptedException {
+        HybridTimestamp node0safeTimeBefore = node.currentSafeTimeForZonePartition(zoneId, partId);
 
-        HybridTimestamp node0safeTimeBefore = node0.currentSafeTimeForZonePartition(zoneId, partId);
-        HybridTimestamp node1safeTimeBefore = node1.currentSafeTimeForZonePartition(zoneId, partId);
-
-        waitForCondition(
-                () -> node0safeTimeBefore.compareTo(node0.currentSafeTimeForZonePartition(zoneId, partId)) < 0
-                        && node1safeTimeBefore.compareTo(node1.currentSafeTimeForZonePartition(zoneId, partId)) < 0,
+        assertTrue(waitForCondition(
+                () -> node0safeTimeBefore.compareTo(node.currentSafeTimeForZonePartition(zoneId, partId)) < 0,
                 idleSafeTimePropagationDuration() * 2
-        );
+        ));
     }
 
     @Test

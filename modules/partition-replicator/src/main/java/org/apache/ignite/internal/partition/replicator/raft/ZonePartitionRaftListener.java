@@ -270,19 +270,26 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
-        if (tableProcessors.isEmpty()) {
-            return new IgniteBiTuple<>(null, true);
-        }
-
         IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
 
-        tableProcessors.values().forEach(processor -> {
-            IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
-            // Need to adjust the safe time if any of the table processors successfully handled the command.
-            if (Boolean.TRUE.equals(r.get2())) {
-                result.set2(Boolean.TRUE);
+        if (tableProcessors.isEmpty()) {
+            synchronized (tableProcessorsStateLock) {
+                if (lastAppliedIndex < commandIndex) {
+                    lastAppliedIndex = commandIndex;
+                    lastAppliedTerm = commandTerm;
+
+                    result.set2(Boolean.TRUE);
+                }
             }
-        });
+        } else {
+            tableProcessors.values().forEach(processor -> {
+                IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
+                // Need to adjust the safe time if any of the table processors successfully handled the command.
+                if (Boolean.TRUE.equals(r.get2())) {
+                    result.set2(Boolean.TRUE);
+                }
+            });
+        }
 
         return result;
     }
