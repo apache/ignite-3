@@ -773,7 +773,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTransactionBeginRequest.process(in, out, txManager, resources, metrics);
 
             case ClientOp.TX_COMMIT:
-                return ClientTransactionCommitRequest.process(in, out, resources, metrics, clockService);
+                return ClientTransactionCommitRequest.process(in, out, resources, metrics, clockService, igniteTables);
 
             case ClientOp.TX_ROLLBACK:
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);

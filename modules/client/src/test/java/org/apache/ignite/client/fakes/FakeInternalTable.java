@@ -542,6 +542,12 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
+    public boolean validateEnlistment(int partId, UUID nodeId, long token, InternalTransaction tx) {
+        // No-op.
+        return false;
+    }
+
+    @Override
     public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, @Nullable A receiverArg,
             Collection<I> items, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         throw new UnsupportedOperationException("Not implemented");

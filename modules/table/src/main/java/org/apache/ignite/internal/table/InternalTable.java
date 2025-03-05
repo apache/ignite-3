@@ -540,4 +540,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Streamer receiver runner.
      */
     StreamerReceiverRunner streamerReceiverRunner();
+
+    boolean validateEnlistment(int partId, UUID nodeId, long token, InternalTransaction tx);
 }

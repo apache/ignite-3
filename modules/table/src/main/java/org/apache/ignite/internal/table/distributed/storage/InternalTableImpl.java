@@ -64,7 +64,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRI
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
-import java.rmi.Remote;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -2215,6 +2214,28 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public StreamerReceiverRunner streamerReceiverRunner() {
         return streamerReceiverRunner;
+    }
+
+    @Override
+    public boolean validateEnlistment(int partId, UUID nodeId, long token, InternalTransaction tx) {
+        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        IgniteBiTuple<ClusterNode, Long> existing = tx.enlistedNodeAndConsistencyToken(replicationGroupId);
+        if (existing == null) {
+            ClusterNode byId = clusterNodeResolver.getById(nodeId);
+
+            if (byId == null) {
+                return false;
+            }
+
+            tx.enlist(replicationGroupId, tableId, new IgniteBiTuple<>(byId, token));
+        } else {
+            // Enlistment tokens should be equal.
+            if (existing.get2() != token) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private <T> CompletableFuture<T> sendToPrimaryWithRetry(

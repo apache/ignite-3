@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -485,7 +486,7 @@ public class ClientTable implements Table {
                         return ch.serviceAsync(opCode,
                                 (opChannel) -> tx0 == null || aff == null ? nullCompletedFuture() : tx0.enlistFuture(opChannel, ctx),
                                 w -> writer.accept(schema, w, ctx),
-                                r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, aff, tx0),
+                                r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
                                 aff != null ? aff.node() : (tx0 == null ? null : tx0.nodeName()),
                                 tx0 == null ? null : tx0.nodeName(),
                                 retryPolicyOverride,
@@ -552,15 +553,19 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, PayloadInputChannel, T> fn,
             @Nullable T defaultValue,
             boolean responseSchemaRequired,
-            @Nullable PartitionMapping aff,
+            WriteContext ctx,
             @Nullable ClientTransaction tx
     ) {
         int schemaVer = in.in().unpackInt();
-
+        UUID nodeId = in.in().unpackUuid();
         long token = in.in().unpackLong();
 
-        if (aff != null && tx != null && tx.hasCommitPartition()) {
-            tx.tryFinishEnlist(aff, token);
+        // Finish enlist on first request only.
+        if (ctx.enlistmentToken != null && ctx.enlistmentToken == 0) {
+            assert tx != null;
+            assert ctx.pm != null;
+
+            tx.tryFinishEnlist(ctx.pm, nodeId, token);
         }
 
         if (!responseSchemaRequired) {

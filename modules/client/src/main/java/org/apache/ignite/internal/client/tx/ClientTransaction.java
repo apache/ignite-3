@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +33,8 @@ import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
@@ -81,7 +83,7 @@ public class ClientTransaction implements Transaction {
     private final String nodeName;
 
     /** Direct enlistment map. */
-    private final Map<ReplicationGroupId, CompletableFuture<Long>> enlisted = new ConcurrentHashMap<>();
+    private final Map<PartitionGroupId, CompletableFuture<IgniteBiTuple<UUID, Long>>> enlisted = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -90,22 +92,22 @@ public class ClientTransaction implements Transaction {
      * @param id Transaction id.
      * @param isReadOnly Read-only flag.
      * @param txId Transaction id.
-     * @param pm The partition mapping or {@code null} if not known.
+     * @param cpm The commit partition mapping or {@code null} if not known.
      * @param coordId Tx coordinator id.
      */
-    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, UUID txId, @Nullable PartitionMapping pm, UUID coordId) {
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, UUID txId, @Nullable PartitionMapping cpm, UUID coordId) {
         this.ch = ch;
         this.id = id;
         this.isReadOnly = isReadOnly;
         this.txId = txId;
         this.nodeName = ch.protocolContext().clusterNode().name();
 
-        // If mapping is known, assign commit partition.
-        if (pm != null) {
-            assert pm.node().equals(this.nodeName) : "Invalid node name: " + pm.node() + " " + this.nodeName;
-
-            this.commitTableId = pm.tableId();
-            this.commitPartition = pm.partition();
+        if (cpm != null) {
+            // If mapping is known, assign commit partition.
+            // However, we don't require direct connection to a commit partition primary replica here because where is a guarantee that
+            // commit partition will be assigned to provided value at the txn beginning.
+            this.commitTableId = cpm.tableId();
+            this.commitPartition = cpm.partition();
         } else {
             this.commitTableId = NO_COMMIT_PARTITION;
             this.commitPartition = NO_COMMIT_PARTITION;
@@ -178,7 +180,16 @@ public class ClientTransaction implements Transaction {
 
         setState(STATE_COMMITTED);
 
-        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
+        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
+            w.out().packLong(id);
+            w.out().packInt(enlisted.size());
+            for (Entry<PartitionGroupId, CompletableFuture<IgniteBiTuple<UUID, Long>>> entry : enlisted.entrySet()) {
+                w.out().packInt(entry.getKey().objectId());
+                w.out().packInt(entry.getKey().partitionId());
+                w.out().packUuid(entry.getValue().getNow(null).get1());
+                w.out().packLong(entry.getValue().getNow(null).get2());
+            }
+        }, r -> null);
 
         mainFinishFut.handle((res, e) -> finishFut.get().complete(null));
 
@@ -259,7 +270,7 @@ public class ClientTransaction implements Transaction {
             // TODO avoid new object.
             TablePartitionId tablePartitionId = new TablePartitionId(ctx.pm.tableId(), ctx.pm.partition());
 
-            CompletableFuture<Long> fut = enlisted.compute(tablePartitionId, (k, v) -> {
+            CompletableFuture<IgniteBiTuple<UUID, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
                 if (v == null) {
                     first[0] = true;
                     return new CompletableFuture<>();
@@ -273,20 +284,25 @@ public class ClientTransaction implements Transaction {
                 // For the first request return completed future.
                 return CompletableFutures.nullCompletedFuture();
             } else {
-                return fut.thenAccept(val -> ctx.enlistmentToken = val);
+                return fut.thenAccept(tup -> ctx.enlistmentToken = tup.get2());
             }
         }
 
         return CompletableFutures.nullCompletedFuture();
     }
 
-    public void tryFinishEnlist(PartitionMapping pm, long token) {
+    public void tryFinishEnlist(PartitionMapping pm, UUID nodeId, long token) {
+        if (!hasCommitPartition()) {
+            return;
+        }
+
+        // TODO
         TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
 
-        CompletableFuture<Long> fut = enlisted.get(tablePartitionId);
+        CompletableFuture<IgniteBiTuple<UUID, Long>> fut = enlisted.get(tablePartitionId);
 
         if (fut != null && !fut.isDone()) {
-            fut.complete(token);
+            fut.complete(new IgniteBiTuple<>(nodeId, token));
         }
     }
 }

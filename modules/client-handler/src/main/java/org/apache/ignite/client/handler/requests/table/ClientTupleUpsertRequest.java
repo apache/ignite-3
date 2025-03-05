@@ -21,6 +21,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -61,8 +62,10 @@ public class ClientTupleUpsertRequest {
                         // This tx carries operation enlistment info.
                         RemoteReadWriteTransaction tx0 = (RemoteReadWriteTransaction) tx;
                         IgniteBiTuple<ClusterNode, Long> token = tx0.enlistedNodeAndConsistencyToken(null);
+                        out.packUuid(token.get1().id());
                         out.packLong(token.get2());
                     } else {
+                        out.packUuid(new UUID(0, 0));
                         out.packLong(0);
                     }
                 });
