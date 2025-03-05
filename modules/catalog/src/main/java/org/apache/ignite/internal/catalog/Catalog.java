@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -334,7 +333,7 @@ public class Catalog {
         }
 
         for (Entry<List<CatalogIndexDescriptor>> entry : indexesByTableId.int2ObjectEntrySet()) {
-            entry.setValue(unmodifiableList(entry.getValue()));
+            entry.setValue(List.copyOf(entry.getValue()));
         }
 
         return indexesByTableId;
@@ -350,7 +349,7 @@ public class Catalog {
         }
 
         for (Entry<List<CatalogTableDescriptor>> entry : tablesByZoneId.int2ObjectEntrySet()) {
-            entry.setValue(unmodifiableList(entry.getValue()));
+            entry.setValue(List.copyOf(entry.getValue()));
         }
 
         return tablesByZoneId;
