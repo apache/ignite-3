@@ -31,6 +31,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -101,7 +102,7 @@ public class ClockWaiter implements IgniteComponent {
 
         clock.removeUpdateListener(updateListener);
 
-        nowTracker.close();
+        nowTracker.close(new NodeStoppingException());
 
         IgniteUtils.shutdownAndAwaitTermination(futureExecutor, 10, SECONDS);
 
