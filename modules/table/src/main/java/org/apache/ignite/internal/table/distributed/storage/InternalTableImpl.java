@@ -58,6 +58,7 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -156,8 +157,6 @@ public class InternalTableImpl implements InternalTable {
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    public static final int DEFAULT_RW_TIMEOUT = 10_000;
-
     /** Partitions. */
     private final int partitions;
 
@@ -212,6 +211,9 @@ public class InternalTableImpl implements InternalTable {
     /** Attempts to take lock. */
     private final int attemptsObtainLock;
 
+    /** Default read-write transaction timeout. */
+    private final Supplier<Long> defaultRwTxTimeout;
+
     /**
      * Constructor.
      *
@@ -228,6 +230,9 @@ public class InternalTableImpl implements InternalTable {
      * @param placementDriver Placement driver.
      * @param transactionInflights Transaction inflights.
      * @param attemptsObtainLock Attempts to take lock.
+     * @param streamerFlushExecutor Streamer flush executor.
+     * @param streamerReceiverRunner Streamer receiver runner.
+     * @param defaultRwTxTimeout Default read-write transaction timeout.
      */
     public InternalTableImpl(
             QualifiedName tableName,
@@ -245,7 +250,8 @@ public class InternalTableImpl implements InternalTable {
             TransactionInflights transactionInflights,
             int attemptsObtainLock,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
-            StreamerReceiverRunner streamerReceiverRunner
+            StreamerReceiverRunner streamerReceiverRunner,
+            Supplier<Long> defaultRwTxTimeout
     ) {
         this.tableName = tableName;
         this.zoneId = zoneId;
@@ -263,6 +269,7 @@ public class InternalTableImpl implements InternalTable {
         this.attemptsObtainLock = attemptsObtainLock;
         this.streamerFlushExecutor = streamerFlushExecutor;
         this.streamerReceiverRunner = streamerReceiverRunner;
+        this.defaultRwTxTimeout = defaultRwTxTimeout;
     }
 
     /** {@inheritDoc} */
@@ -381,8 +388,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    // TODO: IGNITE-24244
-                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : DEFAULT_RW_TIMEOUT;
+                    long timeout = getTimeout(actualTx);
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -502,8 +508,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    // TODO: IGNITE-24244
-                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 3_000;
+                    long timeout = getTimeout(actualTx);
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -517,6 +522,18 @@ public class InternalTableImpl implements InternalTable {
 
             return completedFuture(r);
         }).thenCompose(identity());
+    }
+
+    private long getTimeout(InternalTransaction tx) {
+        if (tx.isReadOnly()) {
+            return tx.timeout();
+        }
+
+        if (tx.timeout() == 0 || tx.implicit()) {
+            return defaultRwTxTimeout.get();
+        }
+
+        return tx.timeout();
     }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
@@ -666,7 +683,7 @@ public class InternalTableImpl implements InternalTable {
                 assert hasError || r instanceof TimestampAware;
 
                 // Timestamp is set to commit timestamp for full transactions.
-                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true);
+                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, false);
 
                 if (e != null) {
                     sneakyThrow(e);
@@ -677,12 +694,18 @@ public class InternalTableImpl implements InternalTable {
         } else {
             if (write) { // Track only write requests from explicit transactions.
                 if (!transactionInflights.addInflight(tx.id(), false)) {
+                    int code = TX_ALREADY_FINISHED_ERR;
+                    if (tx.isRolledBackWithTimeoutExceeded()) {
+                        code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+                    }
+
                     return failedFuture(
-                            new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                                    "Transaction is already finished [tableName={}, partId={}, txState={}].",
+                            new TransactionException(code, format(
+                                    "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
-                                    tx.state()
+                                    tx.state(),
+                                    tx.isRolledBackWithTimeoutExceeded()
                             )));
                 }
 
@@ -750,7 +773,9 @@ public class InternalTableImpl implements InternalTable {
      * @param <T> Operation return type.
      * @return The future.
      */
-    private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full) {
+    private <T> CompletableFuture<T> postEnlist(
+            CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full
+    ) {
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
@@ -759,7 +784,14 @@ public class InternalTableImpl implements InternalTable {
             }
 
             if (e != null) {
-                return tx0.rollbackAsync().handle((ignored, err) -> {
+                CompletableFuture<Void> rollbackFuture;
+                if (isFinishedDueToTimeout(e)) {
+                    rollbackFuture = tx0.rollbackTimeoutExceededAsync();
+                } else {
+                    rollbackFuture = tx0.rollbackAsync();
+                }
+
+                return rollbackFuture.handle((ignored, err) -> {
                     if (err != null) {
                         e.addSuppressed(err);
                     }
@@ -880,7 +912,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> postEvaluate(CompletableFuture<R> fut, InternalTransaction tx) {
         return fut.handle((BiFunction<R, Throwable, CompletableFuture<R>>) (r, e) -> {
             if (e != null) {
-                return tx.finish(false, clockService.current(), false)
+                return tx.finish(false, clockService.current(), false, false)
                         .handle((ignored, err) -> {
                             if (err != null) {
                                 e.addSuppressed(err);
@@ -891,7 +923,7 @@ public class InternalTableImpl implements InternalTable {
                         }); // Preserve failed state.
             }
 
-            return tx.finish(true, clockService.current(), false).thenApply(ignored -> r);
+            return tx.finish(true, clockService.current(), false, false).thenApply(ignored -> r);
         }).thenCompose(identity());
     }
 
@@ -1200,8 +1232,7 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
-                // TODO: IGNITE-24244
-                long timeout = tx.isReadOnly() ? tx.timeout() : 3_000;
+                long timeout = getTimeout(tx);
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1735,16 +1766,21 @@ public class InternalTableImpl implements InternalTable {
 
                     PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGrpId);
                     opFut = enlistment != null ? completeScan(
-                        tx.id(),
-                        replicationGrpId,
-                        scanId,
-                        th,
-                        enlistment.primaryNodeConsistentId(),
-                        intentionallyClose
+                            tx.id(),
+                            replicationGrpId,
+                            scanId,
+                            th,
+                            enlistment.primaryNodeConsistentId(),
+                            intentionallyClose
                     ) : completedOrFailedFuture(null, th);
                 }
 
-                return postEnlist(opFut, intentionallyClose, actualTx, actualTx.implicit() && !intentionallyClose);
+                return postEnlist(
+                        opFut,
+                        intentionallyClose,
+                        actualTx,
+                        actualTx.implicit() && !intentionallyClose
+                );
             }
         };
     }
@@ -2061,6 +2097,17 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
+    private static boolean isFinishedDueToTimeout(Throwable e) {
+        Throwable unwrapped = unwrapCause(e);
+        if (!(unwrapped instanceof TransactionException)) {
+            return false;
+        }
+
+        TransactionException ex = (TransactionException) unwrapped;
+
+        return ex.code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+    }
+
     private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {
         private final TransactionInflights transactionInflights;
 
@@ -2325,11 +2372,13 @@ public class InternalTableImpl implements InternalTable {
 
     private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                    "Transaction is already finished () [txId={}, readOnly={}].",
-                    transaction.id(),
-                    transaction.isReadOnly()
-            ));
+            boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
+            throw new TransactionException(
+                    isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
+                    format("Transaction is already finished () [txId={}, readOnly={}].",
+                            transaction.id(),
+                            transaction.isReadOnly()
+                    ));
         }
     }
 }

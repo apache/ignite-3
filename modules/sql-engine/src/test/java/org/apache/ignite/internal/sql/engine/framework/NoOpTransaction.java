@@ -55,6 +55,8 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final boolean readOnly;
 
+    private boolean isRolledBackWithTimeoutExceeded = false;
+
     private final CompletableFuture<Void> commitFut = new CompletableFuture<>();
 
     private final CompletableFuture<Void> rollbackFut = new CompletableFuture<>();
@@ -105,7 +107,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false);
+        return finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, false);
     }
 
     @Override
@@ -115,7 +117,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false);
+        return finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, false);
     }
 
     @Override
@@ -172,7 +174,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
         CompletableFuture<Void> fut = commit ? commitFut : rollbackFut;
 
         fut.complete(null);
@@ -203,6 +205,17 @@ public final class NoOpTransaction implements InternalTransaction {
     @Override
     public CompletableFuture<Void> kill() {
         return rollbackAsync();
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        this.isRolledBackWithTimeoutExceeded = true;
+        return rollbackAsync();
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return isRolledBackWithTimeoutExceeded;
     }
 
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */

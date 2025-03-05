@@ -117,9 +117,10 @@ public interface InternalTransaction extends Transaction {
      * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node. The parameter
      *         is not used for read-write transactions.
      * @param full Full state transaction marker.
+     * @param timeoutExceeded Timeout exceeded flag (commit flag must be {@code false}).
      * @return The future.
      */
-    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full);
+    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded);
 
     /**
      * Checks if the transaction is finishing or finished. If {@code true}, no more operations can be performed on the transaction.
@@ -142,4 +143,20 @@ public interface InternalTransaction extends Transaction {
      * @return The future.
      */
     CompletableFuture<Void> kill();
+
+    /**
+     * Rolls back the transaction due to timeout exceeded. After this method is called,
+     * {@link #isRolledBackWithTimeoutExceeded()} will return {@code true}.
+     *
+     * @return The future.
+     */
+    CompletableFuture<Void> rollbackTimeoutExceededAsync();
+
+    /**
+     * Checks if the transaction was rolled back due to timeout exceeded. The only way to roll back a transaction due to timeout
+     * exceeded is to call {@link #rollbackTimeoutExceededAsync()}.
+     *
+     * @return {@code true} if the transaction was rolled back due to timeout exceeded, {@code false} otherwise.
+     */
+    boolean isRolledBackWithTimeoutExceeded();
 }

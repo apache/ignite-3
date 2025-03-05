@@ -162,7 +162,9 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+            public CompletableFuture<Void> finish(
+                    boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+            ) {
                 return nullCompletedFuture();
             }
 
@@ -179,6 +181,16 @@ public class FakeTxManager implements TxManager {
             @Override
             public CompletableFuture<Void> kill() {
                 return nullCompletedFuture();
+            }
+
+            @Override
+            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public boolean isRolledBackWithTimeoutExceeded() {
+                return false;
             }
         };
     }
@@ -208,6 +220,7 @@ public class FakeTxManager implements TxManager {
             HybridTimestampTracker timestampTracker,
             ReplicationGroupId commitPartition,
             boolean commit,
+            boolean timeoutExceeded,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
@@ -262,7 +275,9 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit) {
+    public void finishFull(
+            HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    ) {
         // No-op.
     }
 }
