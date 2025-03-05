@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
@@ -64,6 +65,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -158,7 +160,7 @@ public class RebalanceUtil {
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
 
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
@@ -166,14 +168,15 @@ public class RebalanceUtil {
 
         Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
 
-        Set<Assignment> partAssignments;
+        Set<Assignment> targetAssignmentSet;
 
         if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
             // All complicated logic here is needed because we want to return back to stable nodes
             // that are returned back after majority is lost and stable was narrowed.
             // Let's consider example:
+            // scale down big enough (for example, infinite)
             // stable = [A, B, C], dataNodes = [A, B, C]
-            // B, C left, stable = [A], dataNodes = [A, B, C]
+            // B, C left, stable = [A] due to partition reset, dataNodes = [A, B, C]
             // B returned, we want stable = [A, B], but in terms of data nodes they are not changed and equal [A, B, C]
             // So, because scale up mechanism in this case won't adjust stable, we need to add B to stable manually.
             // General idea is to filter offline nodes from data nodes, but we need to be careful and do not remove nodes
@@ -193,26 +196,34 @@ public class RebalanceUtil {
                 }
             }
 
-            partAssignments = resultingAssignments;
+            targetAssignmentSet = resultingAssignments;
         } else {
-            partAssignments = calculatedAssignments;
+            targetAssignmentSet = calculatedAssignments;
         }
 
-        boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
+        boolean isNewAssignments = !tableCfgPartAssignments.equals(targetAssignmentSet);
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments, assignmentsTimestamp);
+        Assignments targetAssignments = Assignments.of(targetAssignmentSet, assignmentsTimestamp);
+        AssignmentsQueue partAssignmentsPendingQueue = pendingAssignmentsCalculator()
+                .stable(Assignments.of(tableCfgPartAssignments, assignmentsTimestamp))
+                .target(targetAssignments)
+                .toQueue();
+
+        byte[] partAssignmentsPlannedBytes = targetAssignments.toBytes();
+        byte[] partAssignmentsPendingQueueBytes = partAssignmentsPendingQueue.toBytes();
+
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
         //              && ((isNewAssignments && empty(partition.assignments.stable))
         //                  || (partition.assignments.stable != calcPartAssignments() && !empty(partition.assignments.stable))):
-        //            partition.assignments.pending = calcPartAssignments()
+        //            partition.assignments.pending = partAssignmentsPendingQueue
         //            partition.change.trigger.revision = event.revision
         //        else:
-        //            if partition.assignments.pending != calcPartAssignments && !empty(partition.assignments.pending)
+        //            if partition.assignments.pending != partAssignmentsPendingQueue && !empty(partition.assignments.pending)
         //                partition.assignments.planned = calcPartAssignments()
         //                partition.change.trigger.revision = event.revision
-        //            else if partition.assignments.pending == calcPartAssignments
+        //            else if partition.assignments.pending == partAssignmentsPendingQueue
         //                remove(partition.assignments.planned)
         //                partition.change.trigger.revision = event.revision
         //                message after the metastorage invoke:
@@ -225,7 +236,8 @@ public class RebalanceUtil {
         //    else:
         //        skip
 
-        Condition newAssignmentsCondition = exists(partAssignmentsStableKey).and(value(partAssignmentsStableKey).ne(partAssignmentsBytes));
+        Condition newAssignmentsCondition = exists(partAssignmentsStableKey)
+                .and(value(partAssignmentsStableKey).ne(partAssignmentsPlannedBytes));
 
         if (isNewAssignments) {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
@@ -236,15 +248,15 @@ public class RebalanceUtil {
         Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(revisionBytes)),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
-                                put(partAssignmentsPendingKey, partAssignmentsBytes),
+                                put(partAssignmentsPendingKey, partAssignmentsPendingQueueBytes),
                                 put(partChangeTriggerKey, revisionBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
-                        iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
+                        iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsPendingQueueBytes), exists(partAssignmentsPendingKey)),
                                 ops(
-                                        put(partAssignmentsPlannedKey, partAssignmentsBytes),
+                                        put(partAssignmentsPlannedKey, partAssignmentsPlannedBytes),
                                         put(partChangeTriggerKey, revisionBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
-                                iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
+                                iif(value(partAssignmentsPendingKey).eq(partAssignmentsPendingQueueBytes),
                                         ops(
                                                 remove(partAssignmentsPlannedKey),
                                                 put(partChangeTriggerKey, revisionBytes)
@@ -264,14 +276,14 @@ public class RebalanceUtil {
                     LOG.info(
                             "Update metastore pending partitions key [key={}, partition={}, table={}/{}, newVal={}]",
                             partAssignmentsPendingKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments);
+                            partAssignmentsPendingQueue);
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
                             partAssignmentsPlannedKey, partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -279,7 +291,7 @@ public class RebalanceUtil {
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -288,7 +300,7 @@ public class RebalanceUtil {
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -296,7 +308,7 @@ public class RebalanceUtil {
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -428,9 +440,9 @@ public class RebalanceUtil {
     public static final String PLANNED_ASSIGNMENTS_PREFIX = "assignments.planned.";
 
     /** Key prefix for pending assignments. */
-    public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
+    public static final String PENDING_ASSIGNMENTS_QUEUE_PREFIX = "assignments.pending.";
 
-    public static final byte[] PENDING_ASSIGNMENTS_PREFIX_BYTES = "assignments.pending.".getBytes(UTF_8);
+    public static final byte[] PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES = "assignments.pending.".getBytes(UTF_8);
 
     /** Key prefix for stable assignments. */
     public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
@@ -472,8 +484,8 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray pendingPartAssignmentsKey(TablePartitionId partId) {
-        return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
+    public static ByteArray pendingPartAssignmentsQueueKey(TablePartitionId partId) {
+        return new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX + partId);
     }
 
     /**
@@ -611,7 +623,7 @@ public class RebalanceUtil {
      * @param partitionId Partition ID.
      * @return Future with partition assignments as a value.
      */
-    public static CompletableFuture<Set<Assignment>> partitionAssignments(
+    public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
             int partitionId
@@ -731,9 +743,9 @@ public class RebalanceUtil {
     ) {
         return IntStream.range(0, numberOfPartitions)
                 .mapToObj(p -> {
-                    Entry e = metaStorageManager.getLocally(pendingPartAssignmentsKey(new TablePartitionId(tableId, p)), revision);
+                    Entry e = metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, p)), revision);
 
-                    return e != null ? Assignments.fromBytes(e.value()) : null;
+                    return e != null && e.value() != null ? AssignmentsQueue.fromBytes(e.value()).poll() : null;
                 })
                 .collect(toList());
     }

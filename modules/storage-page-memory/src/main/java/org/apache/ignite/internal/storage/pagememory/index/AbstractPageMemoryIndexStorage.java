@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -146,20 +147,13 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     /** Closes the index storage. */
     public void close() {
-        if (!transitionToTerminalState(StorageState.CLOSED)) {
+        if (!transitionToClosedState(state, this::createStorageInfo)) {
             return;
         }
 
         busyLock.block();
 
         closeStructures();
-    }
-
-    /**
-     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
-     */
-    private boolean transitionToTerminalState(StorageState targetState) {
-        return StorageUtils.transitionToTerminalState(targetState, state);
     }
 
     /**
@@ -246,7 +240,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
      * @return {@code true} if this call actually made the transition and, hence, the caller must call {@link #closeStructures()}.
      */
     public boolean transitionToDestroyedState() {
-        if (!transitionToTerminalState(StorageState.DESTROYED)) {
+        if (!StorageUtils.transitionToDestroyedState(state)) {
             return false;
         }
 

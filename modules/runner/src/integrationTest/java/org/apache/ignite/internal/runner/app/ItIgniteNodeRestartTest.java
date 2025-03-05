@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPat
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -164,6 +164,7 @@ import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceF
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
@@ -210,7 +211,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -597,7 +597,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
-                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
 
         );
@@ -694,8 +694,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         ) {
             @Override
             public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
@@ -720,6 +720,28 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionsLogStorageFactory
         );
 
+        var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
+
+        var partitionReplicaLifecycleListener = new PartitionReplicaLifecycleManager(
+                catalogManager,
+                replicaMgr,
+                distributionZoneManager,
+                metaStorageMgr,
+                clusterSvc.topologyService(),
+                lowWatermark,
+                threadPoolsManager.tableIoExecutor(),
+                rebalanceScheduler,
+                threadPoolsManager.partitionOperationsExecutor(),
+                clockService,
+                placementDriverManager.placementDriver(),
+                schemaSyncService,
+                systemDistributedConfiguration,
+                sharedTxStateStorage,
+                txManager,
+                schemaManager,
+                outgoingSnapshotManager
+        );
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -742,7 +764,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 rebalanceScheduler,
                 threadPoolsManager.commonScheduler(),
                 clockService,
-                new OutgoingSnapshotsManager(clusterSvc.messagingService()),
+                outgoingSnapshotManager,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
@@ -754,21 +776,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 transactionInflights,
                 indexMetaStorage,
                 partitionsLogStorageFactory,
-                new PartitionReplicaLifecycleManager(
-                        catalogManager,
-                        replicaMgr,
-                        distributionZoneManager,
-                        metaStorageMgr,
-                        clusterSvc.topologyService(),
-                        lowWatermark,
-                        threadPoolsManager.tableIoExecutor(),
-                        rebalanceScheduler,
-                        threadPoolsManager.partitionOperationsExecutor(),
-                        clockService,
-                        placementDriverManager.placementDriver(),
-                        schemaSyncService,
-                        systemDistributedConfiguration
-                ),
+                partitionReplicaLifecycleListener,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         );

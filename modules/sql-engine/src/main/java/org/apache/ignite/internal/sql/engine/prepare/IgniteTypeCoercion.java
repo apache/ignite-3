@@ -284,7 +284,11 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     @Override
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
         RelDataType fromType = validator.deriveType(scope, node);
-        if (SqlTypeUtil.isInterval(toType)) {
+
+        // No need to cast between binary types.
+        if (SqlTypeUtil.isBinary(toType) && SqlTypeUtil.isBinary(fromType)) {
+            return false;
+        } else if (SqlTypeUtil.isInterval(toType)) {
             if (SqlTypeUtil.isInterval(fromType)) {
                 // Two different families of intervals: INTERVAL_DAY_TIME and INTERVAL_YEAR_MONTH.
                 return fromType.getSqlTypeName().getFamily() != toType.getSqlTypeName().getFamily();

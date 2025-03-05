@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -45,7 +46,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -122,6 +125,11 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     @Override
     public int tableId() {
         return tableId;
+    }
+
+    @Override
+    public int zoneId() {
+        return 0;
     }
 
     @Override
@@ -410,7 +418,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -452,7 +460,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
@@ -516,9 +524,9 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId) {
+    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId replicationGroupId) {
         List<ReplicaMeta> replicaMetas = placementDriver.primaryReplicas();
-        ReplicaMeta replica = replicaMetas.get(partitionId.partitionId());
+        ReplicaMeta replica = replicaMetas.get(partitionIndexFromReplicationGroupId(replicationGroupId));
 
         //noinspection DataFlowIssue
         return completedFuture(
@@ -550,5 +558,13 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                 JobTarget.node(node),
                 JobDescriptor.builder(StreamerReceiverJob.class).units(deploymentUnits).build(),
                 payload);
+    }
+
+    private int partitionIndexFromReplicationGroupId(ReplicationGroupId replicationGroupId) {
+        if (enabledColocation()) {
+            return ((ZonePartitionId) replicationGroupId).partitionId();
+        } else {
+            return ((TablePartitionId) replicationGroupId).partitionId();
+        }
     }
 }

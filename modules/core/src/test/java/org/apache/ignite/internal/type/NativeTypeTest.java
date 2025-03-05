@@ -208,4 +208,16 @@ public class NativeTypeTest {
         assertNotEquals(BYTES, blobOf(10));
         assertNotEquals(blobOf(10), BYTES);
     }
+
+    @Test
+    public void stringTypeDefaultLength() {
+        VarlenNativeType nativeType = (VarlenNativeType) STRING;
+        assertEquals(65536, nativeType.length());
+    }
+
+    @Test
+    public void blobTypeDefaultLength() {
+        VarlenNativeType nativeType = (VarlenNativeType) BYTES;
+        assertEquals(65536, nativeType.length());
+    }
 }

@@ -63,6 +63,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -77,6 +79,7 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -177,6 +180,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24633")
     public void testVacuum() throws InterruptedException {
         // We should test the TTL-triggered vacuum.
         setTxResourceTtl(1);
@@ -1054,7 +1058,24 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     @Nullable
     private static TransactionMeta volatileTxState(IgniteImpl node, UUID txId) {
         TxManagerImpl txManager = (TxManagerImpl) node.txManager();
-        return txManager.stateMeta(txId);
+
+        TxStateMeta txInMemoryState = txManager.stateMeta(txId);
+
+        if (txInMemoryState == null) {
+            return null;
+        }
+
+        if (TxState.isFinalState(txInMemoryState.txState())) {
+            long current = FastTimestamps.coarseCurrentTimeMillis();
+
+            Long initialTs = txInMemoryState.initialVacuumObservationTimestamp();
+
+            assertNotNull(initialTs);
+
+            assertTrue(current >= initialTs);
+        }
+
+        return txInMemoryState;
     }
 
     @Nullable

@@ -25,15 +25,16 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
@@ -189,6 +190,7 @@ import org.apache.ignite.internal.network.serialization.SerializationRegistrySer
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -241,6 +243,8 @@ import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtens
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -255,7 +259,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
@@ -554,10 +557,12 @@ public class IgniteImpl implements Ignite {
         try {
             lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
         } catch (NodeStoppingException e) {
-            assert false : "Unexpected exception: " + e;
+            throw new AssertionError("Unexpected exception", e);
         }
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
+
+        LOG.info("Local node configuration: {}", convertToHoconString(nodeConfigRegistry));
 
         NetworkConfiguration networkConfiguration = nodeConfigRegistry.getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
@@ -862,7 +867,7 @@ public class IgniteImpl implements Ignite {
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
-                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                         .thenApply(org.apache.ignite.internal.metastorage.Entry::value)
         );
 
@@ -940,24 +945,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler,
-                systemDistributedConfiguration
-        );
-
-        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
-                catalogManager,
-                replicaMgr,
-                distributionZoneManager,
-                metaStorageMgr,
-                clusterSvc.topologyService(),
-                lowWatermark,
-                threadPoolsManager.tableIoExecutor(),
-                rebalanceScheduler,
-                threadPoolsManager.partitionOperationsExecutor(),
-                clockService,
-                placementDriverMgr.placementDriver(),
-                schemaSyncService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1018,7 +1007,35 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.commonScheduler()
         );
 
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve(TX_STATE_DIR),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
+        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
+                catalogManager,
+                replicaMgr,
+                distributionZoneManager,
+                metaStorageMgr,
+                clusterSvc.topologyService(),
+                lowWatermark,
+                threadPoolsManager.tableIoExecutor(),
+                rebalanceScheduler,
+                threadPoolsManager.partitionOperationsExecutor(),
+                clockService,
+                placementDriverMgr.placementDriver(),
+                schemaSyncService,
+                systemDistributedConfiguration,
+                sharedTxStateStorage,
+                txManager,
+                schemaManager,
+                outgoingSnapshotsManager
+        );
+
         systemViewManager.register(txManager);
+        killCommandHandler.register(transactionKillHandler(txManager));
 
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
@@ -1028,13 +1045,6 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 txManager,
                 lowWatermark
-        );
-
-        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolve(TX_STATE_DIR),
-                threadPoolsManager.commonScheduler(),
-                threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
@@ -1176,7 +1186,7 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
-        killCommandHandler.register(((IgniteComputeImpl) compute).killHandler());
+        killCommandHandler.register(computeKillHandler(compute));
 
         authenticationManager = createAuthenticationManager();
 
@@ -1334,12 +1344,7 @@ public class IgniteImpl implements Ignite {
                     + "Please make sure that the classloader for loading services is correct.");
         }
 
-        var configModules = new ConfigurationModules(modules);
-
-        LOG.info("Configuration modules loaded [modules={}, localRoots={}, distRoots={}]",
-                modules, configModules.local().rootKeys(), configModules.distributed().rootKeys());
-
-        return configModules;
+        return new ConfigurationModules(modules);
     }
 
     /**
@@ -1470,8 +1475,8 @@ public class IgniteImpl implements Ignite {
                                 dataStorageMgr,
                                 schemaManager,
                                 outgoingSnapshotsManager,
-                                partitionReplicaLifecycleManager,
                                 sharedTxStateStorage,
+                                partitionReplicaLifecycleManager,
                                 distributedTblMgr,
                                 disasterRecoveryManager,
                                 indexManager,
@@ -1493,6 +1498,8 @@ public class IgniteImpl implements Ignite {
                 }, joinExecutor)
                 .thenComposeAsync(v -> {
                     LOG.info("Components started, performing recovery");
+
+                    LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
 
                     return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
                 }, joinExecutor)
@@ -1568,7 +1575,7 @@ public class IgniteImpl implements Ignite {
     private RuntimeException handleStartException(Throwable e) {
         String errMsg = "Unable to start [node=" + name + "]";
 
-        IgniteException igniteException = new IgniteException(INTERNAL_ERR, errMsg, e);
+        var igniteException = new IgniteException(extractCodeFrom(e), errMsg, e);
 
         ExecutorService lifecycleExecutor = stopExecutor();
 
@@ -1855,6 +1862,51 @@ public class IgniteImpl implements Ignite {
         );
     }
 
+    /** Returns a {@link OperationKillHandler kill handler} for the compute job. */
+    private static OperationKillHandler computeKillHandler(IgniteComputeInternal compute) {
+        return new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                UUID jobId = UUID.fromString(operationId);
+
+                return compute.cancelAsync(jobId)
+                        .thenApply(res -> res != null ? res : Boolean.FALSE);
+            }
+
+            @Override
+            public boolean local() {
+                return false;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.COMPUTE;
+            }
+        };
+    }
+
+    /** Returns a {@link OperationKillHandler kill handler} for the transaction. */
+    private static OperationKillHandler transactionKillHandler(TxManager txManager) {
+        return new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                UUID transactionId = UUID.fromString(operationId);
+
+                return txManager.kill(transactionId);
+            }
+
+            @Override
+            public boolean local() {
+                return true;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.TRANSACTION;
+            }
+        };
+    }
+
     @TestOnly
     public Loza raftManager() {
         return raftMgr;
@@ -1999,5 +2051,13 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public SystemDisasterRecoveryManager systemDisasterRecoveryManager() {
         return systemDisasterRecoveryManager;
+    }
+
+    /**
+     * Converts the entire configuration from the registry to a HOCON string without spaces, comments and quotes. For example,
+     * "ignite{clientConnector{connectTimeout=5000,idleTimeout=0}}".
+     */
+    private static String convertToHoconString(ConfigurationRegistry configRegistry) {
+        return HoconConverter.represent(configRegistry.superRoot(), List.of()).render(ConfigRenderOptions.concise().setJson(false));
     }
 }

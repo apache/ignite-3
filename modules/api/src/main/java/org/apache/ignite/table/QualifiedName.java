@@ -17,13 +17,12 @@
 
 package org.apache.ignite.table;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.identifierExtend;
-import static org.apache.ignite.lang.util.IgniteNameUtils.identifierStart;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 
 import java.io.Serializable;
-import java.util.NoSuchElementException;
+import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,19 +67,21 @@ public final class QualifiedName implements Serializable {
     public static QualifiedName parse(String simpleOrCanonicalName) {
         verifyObjectIdentifier(simpleOrCanonicalName);
 
-        Tokenizer tokenizer = new Tokenizer(simpleOrCanonicalName);
+        List<String> names = IgniteNameUtils.parseName(simpleOrCanonicalName);
 
-        String schemaName = DEFAULT_SCHEMA_NAME;
-        String objectName = tokenizer.nextToken();
-
-        if (tokenizer.hasNext()) {
-            // Canonical name
-            schemaName = objectName;
-            objectName = tokenizer.nextToken();
+        if (names.size() > 2) {
+            throw new IllegalArgumentException("Canonical name format mismatch: " + simpleOrCanonicalName);
         }
 
-        if (tokenizer.hasNext()) {
-            throw new IllegalArgumentException("Canonical name format mismatch: " + simpleOrCanonicalName);
+        String schemaName;
+        String objectName;
+
+        if (names.size() == 1) {
+            schemaName = DEFAULT_SCHEMA_NAME;
+            objectName = names.get(0);
+        } else {
+            schemaName = names.get(0);
+            objectName = names.get(1);
         }
 
         verifySchemaIdentifier(schemaName);
@@ -107,11 +108,15 @@ public final class QualifiedName implements Serializable {
      * @return Qualified name.
      */
     public static QualifiedName of(@Nullable String schemaName, String objectName) {
-        String schemaIdentifier = schemaName == null ? DEFAULT_SCHEMA_NAME : parseIdentifier(schemaName);
-        String objectIdentifier = parseIdentifier(objectName);
+        if (schemaName == null) {
+            schemaName = DEFAULT_SCHEMA_NAME;
+        }
 
-        verifySchemaIdentifier(schemaIdentifier);
-        verifyObjectIdentifier(objectIdentifier);
+        verifyObjectIdentifier(objectName);
+        verifySchemaIdentifier(schemaName);
+
+        String schemaIdentifier = parseIdentifier(schemaName);
+        String objectIdentifier = parseIdentifier(objectName);
 
         return new QualifiedName(schemaIdentifier, objectIdentifier);
     }
@@ -139,8 +144,7 @@ public final class QualifiedName implements Serializable {
 
     /** Returns qualified name in canonical form. */
     public String toCanonicalForm() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24021 Extract method and move to IgniteNameUtils
-        return quoteIfNeeded(schemaIdentifier) + '.' + quoteIfNeeded(objectIdentifier);
+        return IgniteNameUtils.canonicalName(schemaIdentifier, objectIdentifier);
     }
 
     /** {@inheritDoc} */
@@ -182,187 +186,6 @@ public final class QualifiedName implements Serializable {
     private static void verifySchemaIdentifier(@Nullable String identifier) {
         if (identifier != null && identifier.isEmpty()) {
             throw new IllegalArgumentException("Schema identifier can't be empty.");
-        }
-    }
-
-    /**
-     * Parse simple identifier.
-     *
-     * @param name Object name to parse.
-     * @return Unquoted case-sensitive name name or uppercased case-insensitive name.
-     * @see QualifiedName javadoc with syntax rules.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Move to IgniteNameUtils and replace parseSimple(String).
-    private static String parseIdentifier(String name) {
-        if (name == null || name.isEmpty()) {
-            return name;
-        }
-
-        var tokenizer = new Tokenizer(name);
-
-        String parsedName = tokenizer.nextToken();
-
-        if (tokenizer.hasNext()) {
-            throw new IllegalArgumentException("Fully qualified name is not expected [name=" + name + "]");
-        }
-
-        return parsedName;
-    }
-
-    /**
-     * Wraps the given name with double quotes if it not uppercased non-quoted name, e.g. "myColumn" -&gt; "\"myColumn\"", "MYCOLUMN" -&gt;
-     * "MYCOLUMN"
-     *
-     * @param identifier Object identifier.
-     * @return Quoted object name.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Move to IgniteNameUtils and replace current one.
-    private static String quoteIfNeeded(String identifier) {
-        if (identifier.isEmpty()) {
-            return identifier;
-        }
-
-        if (!identifierStart(identifier.codePointAt(0)) && !Character.isUpperCase(identifier.codePointAt(0))) {
-            return quote(identifier);
-        }
-
-        for (int pos = 1; pos < identifier.length(); pos++) {
-            int codePoint = identifier.codePointAt(pos);
-
-            if (!identifierExtend(codePoint) && !Character.isUpperCase(codePoint)) {
-                return quote(identifier);
-            }
-        }
-
-        return identifier;
-    }
-
-    /**
-     * Identifier chain tokenizer.
-     *
-     * <p>Splits provided identifier chain (complex identifier like PUBLIC.MY_TABLE) into its component parts.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Move to IgniteNameUtils and replace parseSimple(String).
-    static class Tokenizer {
-        private final String source;
-        private int currentPosition;
-        private boolean foundDot;
-
-        /**
-         * Creates a tokenizer for given string source.
-         *
-         * @param source Source string to split.
-         */
-        public Tokenizer(String source) {
-            this.source = source;
-        }
-
-        /** Returns {@code true} if at least one token is available. */
-        public boolean hasNext() {
-            return foundDot || !isEol();
-        }
-
-        /** Returns next token. */
-        public String nextToken() {
-            if (!hasNext()) {
-                throw new NoSuchElementException("No more tokens available.");
-            } else if (isEol()) {
-                assert foundDot;
-
-                foundDot = false;
-
-                return "";
-            }
-
-            boolean quoted = currentChar() == '"';
-
-            if (quoted) {
-                currentPosition++;
-            }
-
-            int start = currentPosition;
-            StringBuilder sb = new StringBuilder();
-            foundDot = false;
-
-            if (!quoted && !isEol()) {
-                if (identifierStart(source.codePointAt(currentPosition))) {
-                    currentPosition++;
-                } else {
-                    throwMalformedNameException();
-                }
-            }
-
-            for (; !isEol(); currentPosition++) {
-                char c = currentChar();
-
-                if (c == '"') {
-                    if (!quoted) {
-                        throwMalformedNameException();
-                    }
-
-                    if (hasNextChar() && nextChar() == '"') {  // quote is escaped
-                        sb.append(source, start, currentPosition + 1);
-
-                        start = currentPosition + 2;
-                        currentPosition += 1;
-
-                        continue;
-                    } else if (!hasNextChar() || nextChar() == '.') {
-                        // looks like we just found a closing quote
-                        sb.append(source, start, currentPosition);
-
-                        foundDot = hasNextChar();
-                        currentPosition += 2;
-
-                        return sb.toString();
-                    }
-
-                    throwMalformedNameException();
-                } else if (c == '.') {
-                    if (quoted) {
-                        continue;
-                    }
-
-                    sb.append(source, start, currentPosition);
-
-                    currentPosition++;
-                    foundDot = true;
-
-                    return sb.toString().toUpperCase();
-                } else if (!quoted
-                        && !identifierStart(source.codePointAt(currentPosition))
-                        && !identifierExtend(source.codePointAt(currentPosition))
-                ) {
-                    throwMalformedNameException();
-                }
-            }
-
-            if (quoted) {
-                // seems like there is no closing quote
-                throwMalformedNameException();
-            }
-
-            return source.substring(start).toUpperCase();
-        }
-
-        private boolean isEol() {
-            return currentPosition >= source.length();
-        }
-
-        private char currentChar() {
-            return source.charAt(currentPosition);
-        }
-
-        private boolean hasNextChar() {
-            return currentPosition + 1 < source.length();
-        }
-
-        private char nextChar() {
-            return source.charAt(currentPosition + 1);
-        }
-
-        private void throwMalformedNameException() {
-            throw new IllegalArgumentException("Malformed identifier [identifier=" + source + ", pos=" + currentPosition + ']');
         }
     }
 }

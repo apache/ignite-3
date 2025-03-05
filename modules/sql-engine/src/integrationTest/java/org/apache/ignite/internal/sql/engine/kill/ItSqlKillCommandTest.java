@@ -35,7 +35,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Collection;
 import java.util.List;
@@ -54,10 +53,10 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.ItComputeSystemViewTest.InfiniteJob;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.internal.sql.engine.systemviews.ItComputeSystemViewTest.InfiniteJob;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -104,9 +103,6 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @EnumSource(CancellableOperationType.class)
     public void killWithInvalidIdentifier(CancellableOperationType type) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23488 Remove assumption.
-        assumeTrue(type != CancellableOperationType.TRANSACTION, type + " not implemented yet");
-
         Consumer<String> exceptionChecker = query -> {
             SqlException err = assertThrowsSqlException(
                     SqlException.class,
@@ -126,9 +122,6 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @EnumSource(CancellableOperationType.class)
     public void killNonExistentOperation(CancellableOperationType type) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23488 Remove assumption.
-        assumeTrue(type != CancellableOperationType.TRANSACTION, type + " not implemented yet");
-
         assertThat(executeKill(CLUSTER.aliveNode(), type, UUID.randomUUID(), false), is(false));
 
         // NO WAIT should never return false.

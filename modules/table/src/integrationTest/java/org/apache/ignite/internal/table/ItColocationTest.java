@@ -62,7 +62,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -107,6 +106,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -148,6 +148,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     private static final int KEYS = 100;
 
     private static final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
+
+    private static final int TABLE_ID = 2;
 
     /** Dummy internal table for tests. */
     private static InternalTable intTable;
@@ -218,9 +220,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
-                    TablePartitionId commitPartition,
+                    ReplicationGroupId commitPartition,
                     boolean commitIntent,
-                    Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+                    Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();
@@ -232,7 +234,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
-        int tblId = 1;
+        int zoneId = 1;
 
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
@@ -257,14 +259,16 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(new TablePartitionId(tblId, i), r);
+            groupRafts.put(new TablePartitionId(TABLE_ID, i), r);
         }
 
         Answer<CompletableFuture<?>> clo = invocation -> {
-            ClusterNode node = invocation.getArgument(0);
+            String nodeName = invocation.getArgument(0);
+            ClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
-            TablePartitionIdMessage commitPartId = toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(2, 0));
+            TablePartitionIdMessage commitPartId =
+                    toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(TABLE_ID, 0));
 
             RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
 
@@ -280,7 +284,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         );
 
                 return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
-                        .tablePartitionId(commitPartId)
+                        .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .messageRowsToUpdate(rows)
                         .txId(UUID.randomUUID())
@@ -293,7 +297,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
                 return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
-                        .tablePartitionId(commitPartId)
+                        .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .rowUuid(UUID.randomUUID())
                         .messageRowToUpdate(PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
@@ -305,8 +309,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         .build());
             }
         };
-        when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(clo);
-        when(replicaService.invokeRaw(any(ClusterNode.class), any())).thenAnswer(
+        when(replicaService.invoke(any(String.class), any())).thenAnswer(clo);
+        when(replicaService.invokeRaw(any(String.class), any())).thenAnswer(
                 invocation -> clo.answer(invocation).thenApply(res -> new TimestampAwareReplicaResponse() {
                     @Override
                     public @Nullable Object result() {
@@ -341,8 +345,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         intTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "TEST"),
-                tblId,
-                PARTS,
+                zoneId, // zone id.
+                TABLE_ID, // table id.
+                PARTS, // number of partitions.
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
@@ -356,6 +361,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 null,
                 mock(StreamerReceiverRunner.class)
         );
+    }
+
+    private static ClusterNode clusterNodeByName(String nodeName) {
+        assertThat(nodeName, is(DummyInternalTableImpl.LOCAL_NODE.name()));
+
+        return DummyInternalTableImpl.LOCAL_NODE;
     }
 
     private static BinaryRowMessage binaryRowMessage(ByteBuffer tupleBuffer, SchemaVersionAwareReplicaRequest request) {

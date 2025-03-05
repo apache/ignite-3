@@ -153,7 +153,7 @@ public class ClientHandlerTupleTests {
 
         assertEquals(0, tuple.columnIndex("valByteCol"));
         assertEquals(3, tuple.columnIndex("valLongCol"));
-        assertEquals(-1, tuple.columnIndex("bad-name"));
+        assertEquals(-1, tuple.columnIndex("bad_name"));
     }
 
     @Test

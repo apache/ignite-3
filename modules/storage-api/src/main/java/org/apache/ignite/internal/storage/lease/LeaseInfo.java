@@ -43,4 +43,23 @@ public class LeaseInfo {
     public String primaryReplicaNodeName() {
         return primaryReplicaNodeName;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        LeaseInfo leaseInfo = (LeaseInfo) o;
+        return leaseStartTime == leaseInfo.leaseStartTime && primaryReplicaNodeId.equals(leaseInfo.primaryReplicaNodeId)
+                && primaryReplicaNodeName.equals(leaseInfo.primaryReplicaNodeName);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Long.hashCode(leaseStartTime);
+        result = 31 * result + primaryReplicaNodeId.hashCode();
+        result = 31 * result + primaryReplicaNodeName.hashCode();
+        return result;
+    }
 }

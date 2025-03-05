@@ -30,7 +30,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
@@ -59,6 +59,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -93,9 +94,13 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsLink;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.RendezvousDistributionFunction;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -105,6 +110,8 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -652,6 +659,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 0, 1, 4);
 
+        log.info("Test: stopping nodes.");
+
         stopNodesInParallel(1, 4);
         waitForScale(node0, 3);
 
@@ -944,7 +953,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1)
-    void testThoPhaseResetMaxLogIndex() throws Exception {
+    void testTwoPhaseResetMaxLogIndex() throws Exception {
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
@@ -1304,8 +1313,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Graceful change should reinit the assignments chain, in other words there should be only one link
         // in the chain - the current stable assignments.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, link2Assignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(link2Assignments));
+
+        assertIndexAndTermInLastChainLink(node0, partId);
 
         // Disable scale down to avoid unwanted rebalance.
         executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
@@ -1346,8 +1356,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertStableAssignments(node0, partId, linkFirstPhaseReset, 60_000);
 
         // Assignments chain consists of stable and the first phase of reset.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, link2Assignments, linkFirstPhaseReset));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(link2Assignments, linkFirstPhaseReset));
+
+        assertIndexAndTermInLastChainLink(node0, partId);
 
         // Unblock stable switch, wait for reset phase 2 assignments to replace phase 1 assignments in the chain.
         blockedLink.set(false);
@@ -1359,8 +1370,35 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertStableAssignments(node0, partId, resetAssignments, 60_000);
 
         // Assignments chain consists of stable and the second phase of reset.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, link2Assignments, resetAssignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(link2Assignments, resetAssignments));
+
+        assertIndexAndTermInLastChainLink(node0, partId);
+    }
+
+    private void assertIndexAndTermInLastChainLink(IgniteImpl node0, int partId) throws InterruptedException {
+        assertTrue(waitForCondition(() -> {
+            RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
+
+            TableManager tableManager = node0.distributedTableManager();
+
+            RaftGroupConfiguration raftGroupConfiguration = raftGroupConfigurationConverter.fromBytes(
+                    tableManager.cachedTable(TABLE_NAME).internalTable().storage().getMvPartition(partId).committedGroupConfiguration()
+            );
+
+            long term = raftGroupConfiguration.term();
+            long index = raftGroupConfiguration.index();
+
+            Iterator<AssignmentsLink> assignmentsChain = getAssignmentsChain(node0, partId).iterator();
+            AssignmentsLink lastLink = null;
+
+            while (assignmentsChain.hasNext()) {
+                lastLink = assignmentsChain.next();
+            }
+
+            assertNotNull(lastLink);
+
+            return index == lastLink.configurationIndex() && term == lastLink.configurationTerm();
+        }, 10_000));
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24160")
@@ -1394,8 +1432,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertStableAssignments(node0, partId, allAssignments);
 
         // Assignments chain is equal to the stable assignments.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, allAssignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments));
 
         // Write data(1) to all nodes.
         List<Throwable> errors = insertValues(table, partId, 0);
@@ -1423,8 +1460,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertStableAssignments(node0, partId, link2FirstPhaseReset, 60_000);
 
         // Assignments chain consists of stable and the first phase of reset.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, allAssignments, link2FirstPhaseReset));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2FirstPhaseReset));
 
         // Unblock stable switch, wait for reset phase 2 assignments to replace phase 1 assignments in the chain.
         blockedLink2.set(false);
@@ -1432,8 +1468,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertStableAssignments(node0, partId, link2Assignments, 30_000);
 
         // Assignments chain consists of stable and the second phase of reset.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, allAssignments, link2Assignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments));
 
         logger().info("Stopping nodes [ids={}].", Arrays.toString(new int[]{1, 2}));
         stopNodesInParallel(1, 2);
@@ -1444,10 +1479,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertStableAssignments(node0, partId, link3Assignments, 30_000);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, allAssignments, link2Assignments, link3Assignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments, link3Assignments));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testSecondResetRewritesUnfinishedFirstPhaseReset() throws Exception {
@@ -1513,8 +1548,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertStableAssignments(node0, partId, link2Assignments, 30_000);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, allAssignments, link2Assignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments));
 
         Assignments assignmentsPending = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),
@@ -1544,8 +1578,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertStableAssignments(node0, partId, link3Assignments, 30_000);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, allAssignments, link2Assignments, link3Assignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments, link3Assignments));
     }
 
     @Test
@@ -1607,8 +1640,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertStableAssignments(node0, partId, link2Assignments, 30_000);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, initialAssignments, link2Assignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(initialAssignments, link2Assignments));
 
         // Return back scale down.
         executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, 1));
@@ -1630,8 +1662,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Graceful change should reinit the assignments chain, in other words there should be only one link
         // in the chain - the current stable assignments.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Fix equals in AssignmentsLink
-        // assertAssignmentsChain(node0, partId, AssignmentsChain.of(1, 1, finalAssignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(finalAssignments));
     }
 
     private void setDistributionResetTimeout(IgniteImpl node, long timeout) {
@@ -1828,9 +1859,37 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private void assertAssignmentsChain(IgniteImpl node0, int partId, @Nullable AssignmentsChain expected) throws InterruptedException {
         assertTrue(
-                waitForCondition(() -> Objects.equals(expected, getAssignmentsChain(node0, partId)), 2000),
+                waitForCondition(() -> compareAssignmentsChainInTests(expected, getAssignmentsChain(node0, partId)), 2000),
                 () -> "Expected: " + expected + ", actual: " + getAssignmentsChain(node0, partId)
         );
+    }
+
+    private static boolean compareAssignmentsChainInTests(@Nullable AssignmentsChain expected, @Nullable AssignmentsChain actual) {
+        if (expected == null || actual == null) {
+            return expected == actual;
+        }
+
+        boolean same = true;
+
+        Iterator<AssignmentsLink> expectedIter = expected.iterator();
+
+        Iterator<AssignmentsLink> actualIter = actual.iterator();
+
+        while (expectedIter.hasNext()) {
+            if (!actualIter.hasNext() || !compareAssignmentLinks(expectedIter.next(), actualIter.next())) {
+                same = false;
+                break;
+            }
+        }
+
+        return same;
+    }
+
+    /**
+     * In tests, we do not use equals() method of AssignmentsLink, because we do not care about index and term.
+     */
+    private static boolean compareAssignmentLinks(AssignmentsLink expected, AssignmentsLink actual) {
+        return Objects.equals(expected.assignments(), actual.assignments());
     }
 
     /**
@@ -1876,7 +1935,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
-        return cause.getMessage() != null && cause.getMessage().contains("The primary replica has changed");
+        return ExceptionUtils.extractCodeFrom(cause) == Replicator.REPLICA_MISS_ERR;
     }
 
     private void startNodesInParallel(int... nodeIndexes) {
@@ -1946,13 +2005,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private @Nullable Assignments getPendingAssignments(IgniteImpl node, int partId) {
         CompletableFuture<Entry> pendingFut = node.metaStorageManager()
-                .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partId)));
+                .get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partId)));
 
         assertThat(pendingFut, willCompleteSuccessfully());
 
         Entry pending = pendingFut.join();
 
-        return pending.empty() ? null : Assignments.fromBytes(pending.value());
+        return pending.empty() ? null : AssignmentsQueue.fromBytes(pending.value()).poll();
     }
 
     private @Nullable Assignments getStableAssignments(IgniteImpl node, int partId) {

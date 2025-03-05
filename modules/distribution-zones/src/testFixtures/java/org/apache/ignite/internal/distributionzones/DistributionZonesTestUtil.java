@@ -17,24 +17,32 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -52,11 +60,17 @@ import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -71,14 +85,14 @@ public class DistributionZonesTestUtil {
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @param storageProfile Data storage, {@code null} if not set.
+     * @param storageProfile Storage profile.
      */
     public static void createZoneWithStorageProfile(
             CatalogManager catalogManager,
             String zoneName,
             int partitions,
             int replicas,
-            @Nullable String storageProfile
+            String storageProfile
     ) {
         createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, storageProfile);
     }
@@ -297,7 +311,7 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage with set of LogicalNodes as input.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesHistoryKey(int)} in storage with set of LogicalNodes as input.
      *
      * @param zoneId Zone id.
      * @param clusterNodes Data nodes.
@@ -313,17 +327,15 @@ public class DistributionZonesTestUtil {
                 ? null
                 : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(toSet());
 
-        assertValueInStorage(
-                keyValueStorage,
-                zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(value)),
+        assertDataNodesInStorage(
+                zoneId,
                 nodes,
-                2000
+                keyValueStorage
         );
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesHistoryKey(int)} in storage.
      *
      * @param zoneId Zone id.
      * @param nodes Data nodes.
@@ -335,56 +347,73 @@ public class DistributionZonesTestUtil {
             @Nullable Set<Node> nodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        assertValueInStorage(
-                keyValueStorage,
-                zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(value)),
-                nodes,
-                2000
-        );
+        assertDataNodesInStorage(zoneId, nodes, HybridTimestamp.MAX_VALUE, keyValueStorage);
     }
 
     /**
-     * Asserts {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} revision.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesHistoryKey(int)} in storage.
      *
-     * @param revision Revision.
      * @param zoneId Zone id.
+     * @param nodes Data nodes.
+     * @param timestamp Timestamp.
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void assertZoneScaleUpChangeTriggerKey(
-            @Nullable Long revision,
+    public static void assertDataNodesInStorage(
             int zoneId,
+            @Nullable Set<Node> nodes,
+            HybridTimestamp timestamp,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        assertValueInStorage(
-                keyValueStorage,
-                zoneScaleUpChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::bytesToLongKeepingOrder,
-                revision,
-                2000
-        );
+        byte[] key = zoneDataNodesHistoryKey(zoneId).bytes();
+
+        HybridTimestamp timestampToCheck = timestamp == HybridTimestamp.MAX_VALUE ? timestamp : timestamp.tick();
+
+        Supplier<Set<Node>> nodesGetter = () -> {
+            byte[] storageValue = keyValueStorage.get(key).value();
+
+            if (storageValue == null) {
+                return null;
+            }
+
+            DataNodesHistory history = DataNodesHistorySerializer.deserialize(storageValue);
+
+            DataNodesHistoryEntry dataNodes = history.dataNodesForTimestamp(timestampToCheck);
+
+            return dataNodes.dataNodes()
+                    .stream()
+                    .map(n -> new Node(n.nodeName(), n.nodeId()))
+                    .collect(toSet());
+        };
+
+        boolean success = waitForCondition(() -> {
+            Set<Node> actualNodes = nodesGetter.get();
+
+            return Objects.equals(actualNodes, nodes);
+        }, 2000);
+
+        // We do a second check simply to print a nice error message in case the condition above is not achieved.
+        if (!success) {
+            Set<Node> actualNodes = nodesGetter.get();
+            Set<String> actualNodeNames = actualNodes == null ? emptySet() : actualNodes.stream().map(Node::nodeName).collect(toSet());
+
+            assertEquals(nodes, actualNodes, "Nodes: " + actualNodeNames
+                    + ", timestamp=" + (timestampToCheck == HybridTimestamp.MAX_VALUE ? "[max]" : timestamp));
+        }
     }
 
     /**
-     * Asserts {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} revision.
+     * Creates a mock {@link LogicalNode} from a {@link Node}.
      *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param keyValueStorage Key-value storage.
-     * @throws InterruptedException If thread was interrupted.
+     * @param node Node.
+     * @return Logical node.
      */
-    public static void assertZoneScaleDownChangeTriggerKey(
-            @Nullable Long revision,
-            int zoneId,
-            KeyValueStorage keyValueStorage
-    ) throws InterruptedException {
-        assertValueInStorage(
-                keyValueStorage,
-                zoneScaleDownChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::bytesToLongKeepingOrder,
-                revision,
-                2000
+    public static LogicalNode logicalNodeFromNode(Node node) {
+        return new LogicalNode(
+                new ClusterNodeImpl(node.nodeId(), node.nodeName(), new NetworkAddress("localhost", 123)),
+                emptyMap(),
+                emptyMap(),
+                List.of("default")
         );
     }
 
@@ -401,7 +430,8 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes())).collect(toSet());
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
+                        .collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -557,7 +587,8 @@ public class DistributionZonesTestUtil {
         boolean success = waitForCondition(() -> {
             Set<String> dataNodes = null;
             try {
-                dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), catalogVersion.get(), zoneId).get(5, TimeUnit.SECONDS);
+                dataNodes = distributionZoneManager.dataNodesManager()
+                        .dataNodes(zoneId, HybridTimestamp.MAX_VALUE).get(5, TimeUnit.SECONDS);
             } catch (Exception e) {
                 // Ignore
             }
@@ -567,11 +598,40 @@ public class DistributionZonesTestUtil {
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
-            Set<String> dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), catalogVersion.get(), zoneId)
-                    .get(5, TimeUnit.SECONDS);
+            Set<String> dataNodes = distributionZoneManager.dataNodesManager()
+                    .dataNodes(zoneId, HybridTimestamp.MAX_VALUE).get(5, TimeUnit.SECONDS);
 
             assertThat(dataNodes, is(expectedValueNames));
         }
+    }
+
+    /**
+     * Deserialize the latest data nodes history entry from the given history in serialized format.
+     *
+     * @param bytes Serialized {@link DataNodesHistory}.
+     * @return Latest entry.
+     */
+    public static Set<NodeWithAttributes> deserializeLatestDataNodesHistoryEntry(byte[] bytes) {
+        return requireNonNull(parseDataNodes(bytes, HybridTimestamp.MAX_VALUE));
+    }
+
+    /**
+     * Get {@link DataNodesHistoryContext} from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @return Data node history context.
+     */
+    public static DataNodesHistoryContext dataNodeHistoryContext(MetaStorageManager metaStorageManager, int zoneId) {
+        CompletableFuture<Map<ByteArray, Entry>> fut = metaStorageManager.getAll(Set.of(
+                zoneDataNodesHistoryKey(zoneId),
+                zoneScaleUpTimerKey(zoneId),
+                zoneScaleDownTimerKey(zoneId)
+        ));
+
+        assertThat(fut, willCompleteSuccessfully());
+
+        return dataNodeHistoryContextFromValues(fut.join().values());
     }
 
     /**
@@ -665,9 +725,9 @@ public class DistributionZonesTestUtil {
     public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
         Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
 
-        Objects.requireNonNull(catalog);
+        requireNonNull(catalog);
 
-        return Objects.requireNonNull(catalog.defaultZone());
+        return requireNonNull(catalog.defaultZone());
     }
 
     /**

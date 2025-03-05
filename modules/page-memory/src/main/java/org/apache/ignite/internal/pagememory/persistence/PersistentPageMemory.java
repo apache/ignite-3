@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readP
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.CP_BUF_FILL_THRESHOLD;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -45,11 +46,11 @@ import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
-import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapInt;
-import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapLong;
 import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
+import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
+import static org.apache.ignite.internal.util.GridUnsafe.incrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
@@ -88,8 +89,6 @@ import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
@@ -101,6 +100,7 @@ import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplace
 import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicyFactory;
+import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
@@ -155,12 +155,6 @@ public class PersistentPageMemory implements PageMemory {
     /** Try again tag. */
     public static final int TRY_AGAIN_TAG = -1;
 
-    /**
-     * Threshold of the checkpoint buffer. We should start forcefully checkpointing its pages upon exceeding it. The value of {@code 2/3} is
-     * ported from {@code Ignite 2.x}.
-     */
-    private static final float CP_BUF_FILL_THRESHOLD = 2.0f / 3;
-
     /** Data region configuration view. */
     private final PersistentPageMemoryProfileView storageProfileView;
 
@@ -180,18 +174,13 @@ public class PersistentPageMemory implements PageMemory {
     private final DirectMemoryProvider directMemoryProvider;
 
     /** Segments array, {@code null} if not {@link #start() started}. */
-    @Nullable
-    private volatile Segment[] segments;
+    private volatile Segment @Nullable [] segments;
 
     /** Lock for segments changes. */
     private final Object segmentsLock = new Object();
 
     /** Offheap read write lock instance. */
     private final OffheapReadWriteLock rwLock;
-
-    /** Callback invoked to track changes in pages. {@code Null} if page tracking functionality is disabled. */
-    @Nullable
-    private final PageChangeTracker changeTracker;
 
     /** Field updater. */
     private static final AtomicIntegerFieldUpdater<PersistentPageMemory> pageReplacementWarnedFieldUpdater =
@@ -213,6 +202,9 @@ public class PersistentPageMemory implements PageMemory {
     /** Checkpoint page pool, {@code null} if not {@link #start() started}. */
     private volatile @Nullable PagePool checkpointPool;
 
+    /** Pages write throttle. */
+    private volatile @Nullable PagesWriteThrottlePolicy writeThrottle;
+
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
      * store, reads are protected by locking.
@@ -230,7 +222,6 @@ public class PersistentPageMemory implements PageMemory {
      * @param segmentSizes Segments sizes in bytes.
      * @param checkpointBufferSize Checkpoint buffer size in bytes.
      * @param pageStoreManager Page store manager.
-     * @param changeTracker Callback invoked to track changes in pages.
      * @param flushDirtyPageForReplacement Write callback invoked when a dirty page is removed for replacement.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
      * @param pageSize Page size in bytes.
@@ -242,7 +233,6 @@ public class PersistentPageMemory implements PageMemory {
             long[] segmentSizes,
             long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
-            @Nullable PageChangeTracker changeTracker,
             WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
             // TODO: IGNITE-17017 Move to common config
@@ -253,7 +243,6 @@ public class PersistentPageMemory implements PageMemory {
         this.ioRegistry = ioRegistry;
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
-        this.changeTracker = changeTracker;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
 
         directMemoryProvider = new UnsafeMemoryProvider(null);
@@ -282,6 +271,19 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         delayedPageReplacementTracker = new DelayedPageReplacementTracker(pageSize, flushDirtyPageForReplacement, LOG, sizes.length - 1);
+
+        this.writeThrottle = null;
+    }
+
+    /**
+     * Temporary method to enable throttling in tests.
+     *
+     * @param writeThrottle Page write throttling instance.
+     */
+    // TODO IGNITE-24548 Make a proper implementation.
+    @TestOnly
+    public void initThrottling(PagesWriteThrottlePolicy writeThrottle) {
+        this.writeThrottle = writeThrottle;
     }
 
     /** {@inheritDoc} */
@@ -519,6 +521,10 @@ public class PersistentPageMemory implements PageMemory {
         assert started;
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
+        if (writeThrottle != null) {
+            writeThrottle.onMarkDirty(false);
+        }
+
         long pageId = pageStoreManager.allocatePage(grpId, partId, flags);
 
         // We need to allocate page in memory for marking it dirty to save it in the next checkpoint.
@@ -612,13 +618,7 @@ public class PersistentPageMemory implements PageMemory {
     /** {@inheritDoc} */
     @Override
     public long acquirePage(int grpId, long pageId) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, IoStatisticsHolderNoOp.INSTANCE, false);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, statHolder, false);
+        return acquirePage(grpId, pageId, false);
     }
 
     /**
@@ -632,7 +632,7 @@ public class PersistentPageMemory implements PageMemory {
      * @see #acquirePage(int, long) Sets additional flag indicating that page was not found in memory and had to be allocated.
      */
     public long acquirePage(int grpId, long pageId, AtomicBoolean pageAllocated) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, IoStatisticsHolderNoOp.INSTANCE, false, pageAllocated);
+        return acquirePage(grpId, pageId, false, pageAllocated);
     }
 
     /**
@@ -645,14 +645,13 @@ public class PersistentPageMemory implements PageMemory {
      * @throws IgniteInternalCheckedException If failed.
      * @see #acquirePage(int, long) Will read page from file if it is not present in memory.
      */
-    public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder, boolean restore) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, statHolder, restore, null);
+    public long acquirePage(int grpId, long pageId, boolean restore) throws IgniteInternalCheckedException {
+        return acquirePage(grpId, pageId, restore, null);
     }
 
     private long acquirePage(
             int grpId,
             long pageId,
-            IoStatisticsHolder statHolder,
             boolean restore,
             @Nullable AtomicBoolean pageAllocated
     ) throws IgniteInternalCheckedException {
@@ -681,8 +680,6 @@ public class PersistentPageMemory implements PageMemory {
                 seg.acquirePage(absPtr);
 
                 seg.pageReplacementPolicy.onHit(relPtr);
-
-                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
 
                 return absPtr;
             }
@@ -792,10 +789,6 @@ public class PersistentPageMemory implements PageMemory {
 
             seg.acquirePage(absPtr);
 
-            if (!readPageFromStore) {
-                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
-            }
-
             return absPtr;
         } finally {
             seg.writeLock().unlock();
@@ -816,8 +809,6 @@ public class PersistentPageMemory implements PageMemory {
 
                 try {
                     pageStoreManager.read(grpId, pageId, buf, false);
-
-                    statHolder.trackPhysicalAndLogicalRead(pageAddr);
 
                     actualPageId = getPageId(buf);
                 } finally {
@@ -1163,11 +1154,6 @@ public class PersistentPageMemory implements PageMemory {
         boolean wasDirty = isDirty(page);
 
         try {
-            // If page is for restore, we shouldn't mark it as changed.
-            if (!restore && markDirty && !wasDirty && changeTracker != null) {
-                changeTracker.apply(page, fullId, this);
-            }
-
             assert getCrc(page + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
 
             if (markDirty) {
@@ -1183,6 +1169,10 @@ public class PersistentPageMemory implements PageMemory {
 
                 assert getVersion(page + PAGE_OVERHEAD) != 0 : dumpPage(pageId, fullId.groupId());
                 assert getType(page + PAGE_OVERHEAD) != 0 : hexLong(pageId);
+
+                if (writeThrottle != null && !restore && !wasDirty && markDirty) {
+                    writeThrottle.onMarkDirty(isInCheckpoint(fullId));
+                }
             } catch (AssertionError ex) {
                 LOG.debug("Failed to unlock page [fullPageId={}, binPage={}]", fullId, toHexString(page, systemPageSize()));
 
@@ -1459,13 +1449,13 @@ public class PersistentPageMemory implements PageMemory {
         private void acquirePage(long absPtr) {
             PageHeader.acquirePage(absPtr);
 
-            updateAtomicInt(acquiredPagesPtr, 1);
+            incrementAndGetInt(acquiredPagesPtr);
         }
 
         private void releasePage(long absPtr) {
             PageHeader.releasePage(absPtr);
 
-            updateAtomicInt(acquiredPagesPtr, -1);
+            decrementAndGetInt(acquiredPagesPtr);
         }
 
         /**
@@ -1759,29 +1749,15 @@ public class PersistentPageMemory implements PageMemory {
         public CheckpointPages checkpointPages() {
             return checkpointPages;
         }
-    }
 
-    private static int updateAtomicInt(long ptr, int delta) {
-        while (true) {
-            int old = getInt(ptr);
-
-            int updated = old + delta;
-
-            if (compareAndSwapInt(null, ptr, old, updated)) {
-                return updated;
-            }
-        }
-    }
-
-    private static long updateAtomicLong(long ptr, long delta) {
-        while (true) {
-            long old = getLong(ptr);
-
-            long updated = old + delta;
-
-            if (compareAndSwapLong(null, ptr, old, updated)) {
-                return updated;
-            }
+        /**
+         * Checks if segment is sufficiently full.
+         *
+         * @param dirtyRatioThreshold Max allowed dirty pages ration.
+         */
+        boolean shouldThrottle(double dirtyRatioThreshold) {
+            // Comparison using multiplication is faster than comparison using division.
+            return dirtyPagesCntr.doubleValue() > dirtyRatioThreshold * pages();
         }
     }
 
@@ -1792,21 +1768,6 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Callback invoked to track changes in pages.
-     */
-    @FunctionalInterface
-    public interface PageChangeTracker {
-        /**
-         * Callback body.
-         *
-         * @param page – Page pointer.
-         * @param fullPageId Full page ID.
-         * @param pageMemoryImpl Page memory.
-         */
-        void apply(long page, FullPageId fullPageId, PersistentPageMemory pageMemoryImpl);
-    }
-
-    /**
      * Heuristic method which allows a thread to check if it is safe to start memory structure modifications in regard with checkpointing.
      * May return false-negative result during or after partition eviction.
      *
@@ -1814,6 +1775,27 @@ public class PersistentPageMemory implements PageMemory {
      */
     public CheckpointUrgency checkpointUrgency() {
         return checkpointUrgency.get();
+    }
+
+    /**
+     * Checks if region is sufficiently full.
+     *
+     * @param dirtyRatioThreshold Max allowed dirty pages ration.
+     */
+    public boolean shouldThrottle(double dirtyRatioThreshold) {
+        Segment[] segments = this.segments;
+
+        if (segments == null) {
+            return false;
+        }
+
+        for (Segment segment : segments) {
+            if (segment.shouldThrottle(dirtyRatioThreshold)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1835,7 +1817,11 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     private void releaseCheckpointBufferPage(long tmpBufPtr) {
-        checkpointPool.releaseFreePage(tmpBufPtr);
+        int resultCounter = checkpointPool.releaseFreePage(tmpBufPtr);
+
+        if (writeThrottle != null && resultCounter == checkpointPool.pages() / 2) {
+            writeThrottle.wakeupThrottledThreads();
+        }
     }
 
     /**
@@ -2124,6 +2110,10 @@ public class PersistentPageMemory implements PageMemory {
 
         checkpointUrgency.set(NOT_REQUIRED);
 
+        if (writeThrottle != null) {
+            writeThrottle.onBeginCheckpoint();
+        }
+
         return CollectionUtils.concat(dirtyPageIds);
     }
 
@@ -2140,12 +2130,20 @@ public class PersistentPageMemory implements PageMemory {
                 seg.checkpointPages = null;
             }
         }
+
+        if (writeThrottle != null) {
+            writeThrottle.onFinishCheckpoint();
+        }
     }
 
     /**
      * Checks if the Checkpoint Buffer is currently close to exhaustion.
      */
     public boolean isCpBufferOverflowThresholdExceeded() {
+        if (writeThrottle != null) {
+            return writeThrottle.isCpBufferOverflowThresholdExceeded();
+        }
+
         assert started;
 
         PagePool checkpointPool = this.checkpointPool;

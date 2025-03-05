@@ -76,7 +76,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final CatalogManager catalogManager;
     private final SqlStatisticManager sqlStatisticManager;
 
-    private final Cache<Integer, SchemaPlus> schemaCache;
+    private final Cache<Integer, IgniteSchemas> schemaCache;
 
     /**
      * Table cache by (tableId, tableVersion).
@@ -107,7 +107,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(int catalogVersion) {
+    public IgniteSchemas schemas(int catalogVersion) {
         return schemaCache.get(
                 catalogVersion,
                 version -> createRootSchema(catalogManager.catalog(version))
@@ -117,10 +117,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(long timestamp) {
+    public IgniteSchemas schemas(long timestamp) {
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
 
-        return schema(catalogVersion);
+        return schemas(catalogVersion);
     }
 
     /** {@inheritDoc} */
@@ -137,12 +137,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     @Override
     public IgniteTable table(int catalogVersion, int tableId) {
         return fullDataTableCache.get(cacheKey(catalogVersion, tableId), key -> {
-            SchemaPlus rootSchema = schemaCache.get(catalogVersion);
+            IgniteSchemas rootSchema = schemaCache.get(catalogVersion);
 
             // Retrieve table from the schema (if it exists).
             if (rootSchema != null) {
-                for (String name : rootSchema.getSubSchemaNames()) {
-                    SchemaPlus subSchema = rootSchema.getSubSchema(name);
+                SchemaPlus schemaPlus = rootSchema.root();
+
+                for (String name : schemaPlus.getSubSchemaNames()) {
+                    SchemaPlus subSchema = schemaPlus.getSubSchema(name);
 
                     assert subSchema != null : name;
 
@@ -195,7 +197,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return cacheKey | part2;
     }
 
-    private SchemaPlus createRootSchema(Catalog catalog) {
+    private IgniteSchemas createRootSchema(Catalog catalog) {
         SchemaPlus rootSchema = Frameworks.createRootSchema(false);
 
         for (CatalogSchemaDescriptor schemaDescriptor : catalog.schemas()) {
@@ -203,7 +205,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             rootSchema.add(igniteSchema.getName(), igniteSchema);
         }
 
-        return rootSchema;
+        return new IgniteSchemas(rootSchema, catalog.version());
     }
 
     private IgniteSchema createSqlSchema(Catalog catalog, CatalogSchemaDescriptor schemaDescriptor) {
@@ -421,7 +423,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             defaultValueSupplier = null;
         }
 
-        CatalogColumnDescriptor columnDescriptor = new CatalogColumnDescriptor(
+        return new CatalogColumnDescriptor(
                 col.name(),
                 key,
                 nullable,
@@ -433,7 +435,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 defaultValueStrategy,
                 defaultValueSupplier
         );
-        return columnDescriptor;
     }
 
     private IgniteTableImpl createTableDataOnlyTable(
@@ -448,7 +449,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(catalog, table.zoneId());
 
-        return createTable(table, descriptor, tableIndexes, zoneDescriptor.partitions(), sqlStatisticManager);
+        return createTable(table, descriptor, tableIndexes, zoneDescriptor, sqlStatisticManager);
     }
 
     private Map<String, IgniteIndex> getIndexes(Catalog catalog, int tableId, int primaryKeyIndexId) {
@@ -494,7 +495,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             CatalogTableDescriptor catalogTableDescriptor,
             TableDescriptor tableDescriptor,
             Map<String, IgniteIndex> indexes,
-            int parititions,
+            CatalogZoneDescriptor zoneDescriptor,
             SqlStatisticManager sqlStatisticManager
     ) {
         IgniteIndex primaryIndex = indexes.values().stream()
@@ -521,7 +522,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 primaryKeyColumns,
                 statistic,
                 primaryKeyOnlyMap,
-                parititions
+                zoneDescriptor.partitions(),
+                zoneDescriptor.id()
         );
     }
 
@@ -583,6 +585,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         @Override
         public int partitions() {
             return table.partitions();
+        }
+
+        @Override
+        public int zoneId() {
+            return table.zoneId();
         }
     }
 }

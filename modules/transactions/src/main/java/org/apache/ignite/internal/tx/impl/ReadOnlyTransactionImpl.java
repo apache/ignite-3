@@ -26,8 +26,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -85,20 +86,22 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(
-            TablePartitionId tablePartitionId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    public void enlist(
+            ReplicationGroupId replicationGroupId,
+            int tableId,
+            ClusterNode primaryNode,
+            long consistencyToken
     ) {
+        // No-op.
+    }
+
+    @Override
+    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
         return null;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
-        return null;
-    }
-
-    @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
         return true;
     }
 

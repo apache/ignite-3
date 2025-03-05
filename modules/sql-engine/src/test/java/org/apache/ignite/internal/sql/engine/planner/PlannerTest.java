@@ -40,6 +40,7 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableIntList;
@@ -59,9 +60,11 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -136,6 +139,8 @@ public class PlannerTest extends AbstractPlannerTest {
                         .defaultSchema(schema)
                         .costFactory(new IgniteCostFactory(1, 100, 1, 1))
                         .build())
+                .catalogVersion(1)
+                .defaultSchemaName(publicSchema.getName())
                 .query(sql)
                 .build();
 
@@ -348,6 +353,59 @@ public class PlannerTest extends AbstractPlannerTest {
             assertNotNull(rex);
         } else {
             assertNull(rex);
+        }
+    }
+
+    @Test
+    public void testPlanningWhenDefaultSchemaIsMissing() throws Exception {
+        IgniteTable dept = departmentTable(IgniteDistributions.single())
+                .apply(TestBuilders.table())
+                .build();
+
+        IgniteTable emp = employerTable(IgniteDistributions.single())
+                .apply(TestBuilders.table())
+                .build();
+
+        IgniteSchema schema1 = new IgniteSchema("EMP_SCHEMA", 1, List.of(emp));
+        IgniteSchema schema2 = new IgniteSchema("DEPT_SCHEMA", 1, List.of(dept));
+        SchemaPlus schema = createRootSchema(List.of(schema1, schema2));
+
+        {
+            String sql = "SELECT d.*, e.* FROM dept_schema.dept d, emp_schema.emp e";
+
+            PlanningContext ctx = PlanningContext.builder()
+                    .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
+                            .defaultSchema(schema)
+                            .costFactory(new IgniteCostFactory(1, 100, 1, 1))
+                            .build())
+                    .catalogVersion(1)
+                    .defaultSchemaName("MISSING_SCHEMA")
+                    .query(sql)
+                    .build();
+
+            IgniteRel plan = physicalPlan(ctx);
+            assertNotNull(plan);
+        }
+
+        // tables are not accessible w/o correct schemas.
+        {
+            String sql = "SELECT d.*, e.* FROM dept_schema.dept d, emp e";
+
+            PlanningContext ctx = PlanningContext.builder()
+                    .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
+                            .defaultSchema(schema)
+                            .costFactory(new IgniteCostFactory(1, 100, 1, 1))
+                            .build())
+                    .catalogVersion(1)
+                    .defaultSchemaName("MISSING_SCHEMA")
+                    .query(sql)
+                    .build();
+
+            IgniteTestUtils.assertThrows(
+                    CalciteContextException.class,
+                    () -> physicalPlan(ctx),
+                    "Object 'EMP' not found"
+            );
         }
     }
 

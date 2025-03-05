@@ -71,7 +71,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
      */
     private static final long CHECK_POINT_INTERVAL_MS = LW_UPDATE_TIME_MS / 2;
 
-    /** Show be greater than 2 x {@link #LW_UPDATE_TIME_MS}. */
+    /** Should be greater than 2 x {@link #LW_UPDATE_TIME_MS}. */
     private static final long COMPACTION_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
 
     /** Transactions that are started in the test. */

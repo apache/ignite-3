@@ -22,6 +22,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
@@ -43,6 +44,8 @@ import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -67,6 +70,8 @@ public class ClientSqlExecuteRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
+            long requestId,
+            Map<Long, CancelHandle> cancelHandles,
             QueryProcessor sql,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics
@@ -83,12 +88,26 @@ public class ClientSqlExecuteRequest {
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
-        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, out::meta);
+        HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
 
-        return executeAsync(tx, sql, tsUpdater, statement, props.pageSize(), props.toSqlProps(), arguments)
-                .thenCompose(asyncResultSet -> {
-                    return writeResultSetAsync(out, resources, asyncResultSet, metrics);
-                });
+        CancelHandle cancelHandle = CancelHandle.create();
+        cancelHandles.put(requestId, cancelHandle);
+
+        return executeAsync(
+                tx,
+                sql,
+                tsUpdater,
+                statement,
+                cancelHandle.token(),
+                props.pageSize(),
+                props.toSqlProps(),
+                () -> cancelHandles.remove(requestId),
+                arguments
+        ).thenCompose(asyncResultSet -> {
+            out.meta(tsUpdater.get());
+
+            return writeResultSetAsync(out, resources, asyncResultSet, metrics);
+        });
     }
 
     private static CompletionStage<Void> writeResultSetAsync(
@@ -154,8 +173,10 @@ public class ClientSqlExecuteRequest {
             QueryProcessor qryProc,
             HybridTimestampTracker timestampTracker,
             String query,
+            CancellationToken token,
             int pageSize,
             SqlProperties props,
+            Runnable onComplete,
             @Nullable Object... arguments
     ) {
         try {
@@ -164,23 +185,30 @@ public class ClientSqlExecuteRequest {
                     .build();
 
             CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
-                    properties,
-                    timestampTracker,
-                    (InternalTransaction) transaction,
-                    null,
-                    query,
-                    arguments
-            ).thenCompose(cur -> cur.requestNextAsync(pageSize)
-                    .thenApply(
-                            batchRes -> new AsyncResultSetImpl<>(
-                                    cur,
-                                    batchRes,
-                                    pageSize
-                            )
+                        properties,
+                        timestampTracker,
+                        (InternalTransaction) transaction,
+                        token,
+                        query,
+                        arguments
                     )
-            );
+                    .thenCompose(cur -> {
+                                cur.onClose().whenComplete((none, ignore) -> onComplete.run());
+
+                                return cur.requestNextAsync(pageSize)
+                                        .thenApply(
+                                                batchRes -> new AsyncResultSetImpl<>(
+                                                        cur,
+                                                        batchRes,
+                                                        pageSize
+                                                )
+                                        );
+                            }
+                    );
 
             return fut.exceptionally((th) -> {
+                onComplete.run();
+
                 Throwable cause = ExceptionUtils.unwrapCause(th);
 
                 throw new CompletionException(mapToPublicSqlException(cause));

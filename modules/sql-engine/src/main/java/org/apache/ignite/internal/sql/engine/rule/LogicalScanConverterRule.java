@@ -45,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Converts a logical scan operator into its implementation.
@@ -72,8 +73,9 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     IgniteIndex index = table.indexes().get(rel.indexName());
 
                     RelDistribution distribution = table.distribution();
-                    RelCollation collation = index.collation();
-                    RelCollation outputCollation = index.type() == Type.HASH ? RelCollations.EMPTY : collation;
+                    RelCollation collation = index.type() == Type.HASH 
+                            ? RelCollations.EMPTY 
+                            : index.collation();
 
                     if (rel.projects() != null || rel.requiredColumns() != null) {
                         Mappings.TargetMapping mapping = createMapping(
@@ -83,12 +85,12 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         );
 
                         distribution = distribution.apply(mapping);
-                        outputCollation = outputCollation.apply(mapping);
+                        collation = collation.apply(mapping);
                     }
 
                     RelTraitSet traits = rel.getCluster().traitSetOf(IgniteConvention.INSTANCE)
                             .replace(distribution)
-                            .replace(outputCollation);
+                            .replace(collation);
 
                     return new IgniteIndexScan(
                             cluster,
@@ -173,7 +175,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
     /** Creates column mapping regarding the projection. */
     public static Mappings.TargetMapping createMapping(
-            List<RexNode> projects,
+            @Nullable List<RexNode> projects,
             ImmutableBitSet requiredColumns,
             int tableRowSize
     ) {

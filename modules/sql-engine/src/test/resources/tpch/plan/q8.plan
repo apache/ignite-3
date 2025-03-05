@@ -1,27 +1,102 @@
-Sort(sort0=[$0], dir0=[ASC])
-  Project(inputs=[0], exprs=[[/($1, $2)]])
-    ColocatedHashAggregate(group=[{0}], agg#0=[SUM($1)], agg#1=[SUM($2)])
-      Project(exprs=[[EXTRACT(FLAG(YEAR), $7), CASE(=($19, _UTF-8'BRAZIL'), *($3, -(1, $4)), 0.0000:DECIMAL(31, 4)), *($3, -(1, $4))]])
-        HashJoin(condition=[=($16, $2)], joinType=[inner])
-          HashJoin(condition=[=($14, $1)], joinType=[inner])
-            HashJoin(condition=[=($0, $5)], joinType=[inner])
-              Exchange(distribution=[single])
-                TableScan(table=[[PUBLIC, LINEITEM]], requiredColumns=[{0, 1, 2, 5, 6}])
-              HashJoin(condition=[=($1, $3)], joinType=[inner])
-                Exchange(distribution=[single])
-                  TableScan(table=[[PUBLIC, ORDERS]], filters=[AND(>=($t2, 1995-01-01), <=($t2, 1996-12-31))], requiredColumns=[{0, 1, 4}])
-                HashJoin(condition=[=($1, $2)], joinType=[inner])
-                  Exchange(distribution=[single])
-                    TableScan(table=[[PUBLIC, CUSTOMER]], requiredColumns=[{0, 3}])
-                  NestedLoopJoin(condition=[=($1, $2)], joinType=[inner])
-                    Exchange(distribution=[single])
-                      TableScan(table=[[PUBLIC, NATION]], requiredColumns=[{0, 2}])
-                    Exchange(distribution=[single])
-                      TableScan(table=[[PUBLIC, REGION]], filters=[=($t1, _UTF-8'AMERICA')], requiredColumns=[{0, 1}])
-            Exchange(distribution=[single])
-              TableScan(table=[[PUBLIC, PART]], filters=[=($t1, _UTF-8'ECONOMY ANODIZED STEEL')], requiredColumns=[{0, 4}])
-          HashJoin(condition=[=($1, $2)], joinType=[inner])
-            Exchange(distribution=[single])
-              TableScan(table=[[PUBLIC, SUPPLIER]], requiredColumns=[{0, 3}])
-            Exchange(distribution=[single])
-              TableScan(table=[[PUBLIC, NATION]], requiredColumns=[{0, 1}])
+Sort
+    collation: [O_YEAR ASC]
+    est. row count: 16635
+  Project
+      fields: [O_YEAR, MKT_SHARE]
+      exprs: [O_YEAR, /($f1, $f2)]
+      est. row count: 16635
+    ColocatedHashAggregate
+        group: [O_YEAR]
+        aggs: [SUM($f1), SUM(VOLUME)]
+        est. row count: 16635
+      Project
+          fields: [O_YEAR, $f1, VOLUME]
+          exprs: [EXTRACT(FLAG(YEAR), O_ORDERDATE), CASE(=(N_NAME, _UTF-8'BRAZIL'), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), 0.0000:DECIMAL(31, 4)), *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
+          est. row count: 166367
+        HashJoin
+            condition: =(S_SUPPKEY, L_SUPPKEY)
+            joinType: inner
+            est. row count: 166367
+          HashJoin
+              condition: =(P_PARTKEY, L_PARTKEY)
+              joinType: inner
+              est. row count: 166367
+            HashJoin
+                condition: =(L_ORDERKEY, O_ORDERKEY)
+                joinType: inner
+                est. row count: 499601
+              Exchange
+                  distribution: single
+                  est. row count: 6001215
+                TableScan
+                    table: [PUBLIC, LINEITEM]
+                    fields: [L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_EXTENDEDPRICE, L_DISCOUNT]
+                    est. row count: 6001215
+              HashJoin
+                  condition: =(O_CUSTKEY, C_CUSTKEY)
+                  joinType: inner
+                  est. row count: 124875
+                Exchange
+                    distribution: single
+                    est. row count: 375000
+                  TableScan
+                      table: [PUBLIC, ORDERS]
+                      filters: SEARCH(O_ORDERDATE, Sarg[[1995-01-01..1996-12-31]])
+                      fields: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE]
+                      est. row count: 375000
+                HashJoin
+                    condition: =(C_NATIONKEY, N_NATIONKEY)
+                    joinType: inner
+                    est. row count: 49950
+                  Exchange
+                      distribution: single
+                      est. row count: 150000
+                    TableScan
+                        table: [PUBLIC, CUSTOMER]
+                        fields: [C_CUSTKEY, C_NATIONKEY]
+                        est. row count: 150000
+                  NestedLoopJoin
+                      condition: =(N_REGIONKEY, R_REGIONKEY)
+                      joinType: inner
+                      est. row count: 8
+                    Exchange
+                        distribution: single
+                        est. row count: 25
+                      TableScan
+                          table: [PUBLIC, NATION]
+                          fields: [N_NATIONKEY, N_REGIONKEY]
+                          est. row count: 25
+                    Exchange
+                        distribution: single
+                        est. row count: 2
+                      TableScan
+                          table: [PUBLIC, REGION]
+                          filters: =(R_NAME, _UTF-8'AMERICA')
+                          fields: [R_REGIONKEY, R_NAME]
+                          est. row count: 2
+            Exchange
+                distribution: single
+                est. row count: 66600
+              TableScan
+                  table: [PUBLIC, PART]
+                  filters: =(P_TYPE, _UTF-8'ECONOMY ANODIZED STEEL')
+                  fields: [P_PARTKEY, P_TYPE]
+                  est. row count: 66600
+          HashJoin
+              condition: =(S_NATIONKEY, N_NATIONKEY)
+              joinType: inner
+              est. row count: 10000
+            Exchange
+                distribution: single
+                est. row count: 10000
+              TableScan
+                  table: [PUBLIC, SUPPLIER]
+                  fields: [S_SUPPKEY, S_NATIONKEY]
+                  est. row count: 10000
+            Exchange
+                distribution: single
+                est. row count: 25
+              TableScan
+                  table: [PUBLIC, NATION]
+                  fields: [N_NATIONKEY, N_NAME]
+                  est. row count: 25

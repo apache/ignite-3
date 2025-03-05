@@ -20,24 +20,23 @@ package org.apache.ignite.internal.tx.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 
 /** Message for transferring a {@link TxMeta}. */
 @Transferable(TxMessageGroup.TX_META_MESSAGE)
 public interface TxMetaMessage extends TransactionMetaMessage {
     /** List of enlisted partition groups. */
-    List<TablePartitionIdMessage> enlistedPartitions();
+    List<EnlistedPartitionGroupMessage> enlistedPartitions();
 
     /** Converts to {@link TxMeta}. */
     default TxMeta asTxMeta() {
-        List<TablePartitionIdMessage> enlistedPartitionMessages = enlistedPartitions();
-        var enlistedPartitions = new ArrayList<TablePartitionId>(enlistedPartitionMessages.size());
+        List<EnlistedPartitionGroupMessage> enlistedPartitionMessages = enlistedPartitions();
+        var enlistedPartitions = new ArrayList<EnlistedPartitionGroup>(enlistedPartitionMessages.size());
 
-        for (int i = 0; i < enlistedPartitionMessages.size(); i++) {
-            enlistedPartitions.add(enlistedPartitionMessages.get(i).asTablePartitionId());
+        for (EnlistedPartitionGroupMessage enlistedPartitionMessage : enlistedPartitionMessages) {
+            enlistedPartitions.add(enlistedPartitionMessage.asPartitionInfo());
         }
 
         return new TxMeta(txState(), enlistedPartitions, commitTimestamp());

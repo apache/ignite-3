@@ -101,7 +101,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
 
         assertThat(storage.flush(), willCompleteSuccessfully());
 
-        tableStorage.stop();
+        tableStorage.close();
 
         tableStorage = createTableStorage();
 
@@ -109,7 +109,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
 
         storage = tableStorage.getOrCreatePartitionStorage(0);
 
-        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, GROUP_CONFIGURATION, LEASE_INFO);
 
         checkStorageContainsRows(storage, rows);
     }

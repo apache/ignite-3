@@ -766,7 +766,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertNull(res.transactionId());
-        assertNull(res.commitTableId());
+        assertNull(res.commitTableOrZoneId());
         assertEquals(ReadResult.UNDEFINED_COMMIT_PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow));
 
@@ -775,7 +775,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertEquals(txId2, res.transactionId());
-        assertEquals(COMMIT_TABLE_ID, res.commitTableId());
+        assertEquals(COMMIT_TABLE_ID, res.commitTableOrZoneId());
         assertEquals(PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow2));
     }
@@ -1218,7 +1218,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertTrue(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(not(ReadResult.UNDEFINED_COMMIT_PARTITION_ID)));
-                assertThat(result.commitTableId(), is(notNullValue()));
+                assertThat(result.commitTableOrZoneId(), is(notNullValue()));
                 assertThat(result.transactionId(), is(notNullValue()));
                 assertThat(result.commitTimestamp(), is(nullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));
@@ -1242,7 +1242,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertFalse(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(ReadResult.UNDEFINED_COMMIT_PARTITION_ID));
-                assertThat(result.commitTableId(), is(nullValue()));
+                assertThat(result.commitTableOrZoneId(), is(nullValue()));
                 assertThat(result.transactionId(), is(nullValue()));
                 assertThat(result.commitTimestamp(), is(notNullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));

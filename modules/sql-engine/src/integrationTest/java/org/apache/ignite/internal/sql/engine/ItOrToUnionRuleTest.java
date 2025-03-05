@@ -91,8 +91,6 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
 
     /**
      * Check 'OR -> UNION' rule is applied for equality conditions on indexed columns.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testEqualityOrToUnionAllRewrite() {
@@ -100,6 +98,7 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE category = 'Video' "
                 + "OR subcategory ='Camera Lens'")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
@@ -113,8 +112,6 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
 
     /**
      * Check 'OR -> UNION' rule is applied for mixed conditions on indexed columns.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testMixedOrToUnionAllRewrite() {
@@ -122,6 +119,7 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE category = 'Photo' "
                 + "OR (subcat_id > 12 AND subcat_id < 22)")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCAT_ID"))
@@ -144,9 +142,10 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE subcategory = 'Camera Lens' "
                 + "OR subcategory = 'Other'")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(not(containsUnion(true)))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
-                .matches(containsString("searchBounds=[[MultiBounds"))
+                .matches(containsString("searchBounds: [MultiBounds"))
                 .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
                 .returns(4, "Photo", 1, "Other", 12, "Charger 1")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
@@ -204,8 +203,6 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
 
     /**
      * Check 'OR -> UNION' rule is not applied if all columns are not indexed.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testAllNonIndexedOrToUnionAllRewrite() {

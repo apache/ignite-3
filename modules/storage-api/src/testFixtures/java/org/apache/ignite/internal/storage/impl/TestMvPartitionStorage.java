@@ -236,7 +236,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableId,
+            int commitTableOrZoneId,
             int commitPartitionId
     ) throws TxIdMismatchException {
         checkStorageClosed();
@@ -251,10 +251,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
                 res[0] = versionChain.row;
 
-                return VersionChain.forWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, versionChain.next);
+                return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain.next);
             }
 
-            return VersionChain.forWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, versionChain);
+            return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
         });
 
         return res[0];
@@ -685,6 +685,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
+        if (rebalance) {
+            throw new StorageRebalanceException();
+        }
+
         closed = true;
 
         clear0();

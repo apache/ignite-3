@@ -17,22 +17,25 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.lang.String.format;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -41,8 +44,11 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
@@ -168,11 +174,15 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         assertRecoveryKeyIsEmpty(node);
 
+        log.info("Test: stopping nodes.");
+
         stopNodes(1, 2);
 
         waitAndAssertRecoveryKeyIsNotEmpty(node, 30_000);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+
+        log.info("Test: restarting nodes.");
 
         startNode(1);
         startNode(2);
@@ -194,17 +204,17 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNode(2);
 
-        long revision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node, HA_ZONE_NAME, Set.of(stopNode));
+        long revision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node, HA_ZONE_NAME, Set.of(stopNode));
 
         waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
         assertTrue(
                 node
                         .distributionZoneManager()
-                        .zonesState()
-                        .get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
-                        .partitionDistributionResetTask()
-                        .isDone()
+                        .dataNodesManager()
+                        .zoneTimers(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
+                        .partitionReset
+                        .taskIsDone()
         );
 
         assertTrue(node.disasterRecoveryManager().ongoingOperationsById().isEmpty());
@@ -224,16 +234,17 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNodes(2, 1);
 
-        long revision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node, SC_ZONE_NAME, Set.of(lastStopNode));
+        long revision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node, SC_ZONE_NAME, Set.of(lastStopNode));
 
         waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
-        assertNull(
+        assertFalse(
                 node
                         .distributionZoneManager()
-                        .zonesState()
-                        .get(zoneIdByName(node.catalogManager(), SC_ZONE_NAME))
-                        .partitionDistributionResetTask()
+                        .dataNodesManager()
+                        .zoneTimers(zoneIdByName(node.catalogManager(), SC_ZONE_NAME))
+                        .partitionReset
+                        .taskIsScheduled()
         );
 
         assertRecoveryKeyIsEmpty(node);
@@ -253,11 +264,19 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNodes(1, 2, 3, 4);
 
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+
+        assertThat(errors, is(empty()));
+
         waitAndAssertRecoveryKeyIsNotEmpty(node);
 
         assertRecoveryRequestForHaZoneTable(node);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+
+        log.info("Test: restarting nodes.");
 
         var node1 = startNode(1);
 
@@ -276,6 +295,8 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
                 PARTITION_IDS,
                 Set.of(node.name(), node1.name(), node2.name())
         );
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
     }
 
     @Test
@@ -298,6 +319,132 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
     }
 
     @Test
+    void testRebalanceInHaZone() throws InterruptedException {
+        createHaZoneWithTable();
+
+        startNode(3);
+
+        IgniteImpl node = igniteImpl(0);
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+
+        Set<String> fourNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        executeSql(format("ALTER ZONE %s SET REPLICAS=%d", HA_ZONE_NAME, 4));
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, fourNodes);
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2, 3);
+
+        stopNode(3);
+
+        Set<String> threeNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", HA_ZONE_NAME, 1));
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
+    }
+
+    @Test
+    void testRestartNodesOneByOne() throws InterruptedException {
+        startNode(3);
+        startNode(4);
+
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+
+        for (int i = 0; i < 5; i++) {
+            restartNode(i);
+        }
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        node = igniteImpl(0);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
+
+        assertValuesPresentOnNodes(node.clock().now(), node.tables().table(HA_TABLE_NAME), 0, 1, 2, 3, 4);
+    }
+
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode (7 nodes, A, B, C, D, E, F, G)</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 5 minutes</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (4 nodes A, B, C, D)</li>
+     *   <li>Manually execute partition reset before 'partitionDistributionResetTimeout' expires</li>
+     *   <li>Wait for the partition to become available (E, F, G), no new writes</li>
+     *   <li>Set 'partitionDistributionResetTimeout' to 1 sec to trigger automatic reset</li>
+     *   <li>Verify the second (automatic) reset triggered</li>
+     *   <li>No data should be lost</li>
+     * </ol>
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
+    void testManualRecovery() throws InterruptedException {
+        startNode(3);
+        startNode(4);
+        startNode(5);
+        startNode(6);
+
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+        Table table = node.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+
+        changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
+
+        assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2, 3, 4, 5, 6);
+
+        stopNodes(3, 4, 5, 6);
+
+        triggerManualReset(node);
+
+        Set<String> threeNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+
+        // This entry comes from the manual reset.
+        Entry manualResetTrigger = getRecoveryTriggerKey(node);
+        assertFalse(manualResetTrigger.empty());
+
+        long manualResetRev = manualResetTrigger.revision();
+
+        changePartitionDistributionTimeout(node, 1);
+
+        assertTrue(waitForCondition(() -> {
+                    Entry recoveryTrigger = getRecoveryTriggerKey(node);
+
+                    return !recoveryTrigger.empty() && recoveryTrigger.revision() > manualResetRev;
+                },
+                5_000
+        ));
+
+        assertRecoveryRequestForHaZoneTable(node);
+        assertRecoveryRequestCount(node, 2);
+
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+    }
+
+    @Test
     void testScaleDownTimerIsWorkingForHaZone() throws InterruptedException {
         IgniteImpl node = igniteImpl(0);
 
@@ -315,24 +462,62 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         KeyValueStorage keyValueStorage = ((MetaStorageManagerImpl) node.metaStorageManager()).storage();
 
-        Supplier<Long> getScaleDownRevision = () ->
-                bytesToLongKeepingOrder(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value());
-
-        long revisionOfScaleDown = getScaleDownRevision.get();
+        String stoppedNodeName = node(2).name();
 
         stopNode(2);
-
-        assertTrue(waitForCondition(() -> getScaleDownRevision.get() > revisionOfScaleDown, 5_000));
 
         Set<LogicalNode> expectedNodes = runningNodes()
                 .map(n -> unwrapIgniteImpl(n).clusterService().topologyService().localMember())
                 .map(LogicalNode::new)
                 .collect(Collectors.toUnmodifiableSet());
 
-        DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage(
+        assertFalse(expectedNodes.contains(stoppedNodeName));
+
+        assertDataNodesFromLogicalNodesInStorage(
                 zoneId,
                 expectedNodes,
                 keyValueStorage
         );
+    }
+
+    /**
+     * Test scenario.
+     * <ol>
+     *   <li>Create a zone in HA mode with 7 nodes (A, B, C, D, E, F, G).</li>
+     *   <li>Insert data and wait for replication to all nodes.</li>
+     *   <li>Stop a majority of nodes (A, B, C, D).</li>
+     *   <li>Wait for the partition to become available on the remaining nodes (E, F, G).</li>
+     *   <li>Start node A.</li>
+     *   <li>Verify that node A cleans up its state.</li>
+     * </ol>
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24509")
+    void testNodeStateCleanupAfterRestartInHaMode() throws Exception {
+        startNode(3);
+        startNode(4);
+        startNode(5);
+        startNode(6);
+
+        createHaZoneWithTable();
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+        assertValuesPresentOnNodes(node0.clock().now(), table, 0, 1, 2, 3, 4, 5, 6);
+
+        alterZone(node0.catalogManager(), HA_ZONE_NAME, INFINITE_TIMER_VALUE, null, null);
+
+        stopNodes(3, 4, 5, 6);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0, 1, 2));
+
+        startNode(6);
+
+        assertValuesNotPresentOnNodes(node0.clock().now(), table, 6);
     }
 }

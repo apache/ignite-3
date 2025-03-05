@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+PY_VERS="3.9,3.10,3.11,3.12,3.13"
 PACKAGE_NAME="pyignite_dbapi"
 SRC_DIR="$(pwd)"
 DISTR_DIR="$SRC_DIR/distr/"
@@ -60,9 +61,9 @@ run_wheel_arch() {
         exit 1
     fi
 
-    WHEEL_DIR="$DISTR_DIR/$1"
+    WHEEL_DIR="$DISTR_DIR"
     mkdir -p "$WHEEL_DIR"
-    docker run --rm -e PLAT=$PLAT -v "$SRC_DIR":/$PACKAGE_NAME -v "$CPP_DIR":/cpp -v "$WHEEL_DIR":/wheels $DOCKER_IMAGE $PRE_CMD /$PACKAGE_NAME/scripts/build_wheels.sh
+    docker run --rm -e PLAT=$PLAT -v "$SRC_DIR":/$PACKAGE_NAME -v "$CPP_DIR":/cpp -v "$WHEEL_DIR":/dist $DOCKER_IMAGE $PRE_CMD /$PACKAGE_NAME/scripts/build_wheels.sh "$PY_VERS"
 }
 
 while [[ $# -ge 1 ]]; do
@@ -76,7 +77,7 @@ done
 
 normalize_path
 
-docker run --rm -v "$SRC_DIR":/$PACKAGE_NAME -v "$CPP_DIR":/cpp -v "$DISTR_DIR":/dist $DEFAULT_DOCKER_IMAGE /$PACKAGE_NAME/scripts/create_sdist.sh
+docker run --rm -v "$SRC_DIR":/$PACKAGE_NAME -v "$CPP_DIR":/cpp -v "$DISTR_DIR":/dist $DEFAULT_DOCKER_IMAGE /$PACKAGE_NAME/scripts/create_sdist.sh "$PY_VERS"
 
 docker build scripts/ -t ignite_python_wheels_build
 

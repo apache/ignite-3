@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
@@ -54,6 +55,7 @@ import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
+import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicatesValidator;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -188,10 +191,16 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         try {
             String confString = Files.readString(configPath.toAbsolutePath());
 
+            Collection<ValidationIssue> duplicates = ConfigurationDuplicatesValidator.validate(confString);
+
+            if (!duplicates.isEmpty()) {
+                throw new ConfigurationValidationException(duplicates);
+            }
+
             ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
 
             return ConfigFactory.parseString(patch(confString, module), parseOptions);
-        } catch (Parse | ConfigurationValidationException | IOException e) {
+        } catch (Parse | IOException e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
         }
     }

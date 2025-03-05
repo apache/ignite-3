@@ -170,6 +170,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
      * In details:
@@ -180,14 +181,14 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param rowId Row id.
      * @param row Table row to update. {@code null} means value removal.
      * @param txId Transaction id.
-     * @param commitTableId Commit table id.
+     * @param commitTableOrZoneId Commit table/zone id.
      * @param commitPartitionId Commit partitionId.
      * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
      *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**

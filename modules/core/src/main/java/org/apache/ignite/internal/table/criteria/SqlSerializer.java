@@ -18,19 +18,17 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalOrSimpleName;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.criteria.Column;
 import org.apache.ignite.table.criteria.Criteria;
@@ -237,12 +235,9 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
                     .append("SELECT");
 
             if (!nullOrBlank(indexName)) {
-                if (!canonicalOrSimpleName(indexName)) {
-                    throw new IllegalArgumentException("Index name must be alphanumeric with underscore and start with letter. Was: "
-                            + indexName);
-                }
+                String normalizedIndexName = IgniteNameUtils.parseIdentifier(indexName);
 
-                ser.append(" /*+ FORCE_INDEX(").append(normalizeIndexName(indexName)).append(") */");
+                ser.append(" /*+ FORCE_INDEX(").append(quoteIfNeeded(normalizedIndexName)).append(") */");
             }
 
             ser.append(" * FROM ").append(tableName.toCanonicalForm());
@@ -259,10 +254,6 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             }
 
             return ser;
-        }
-
-        private static String normalizeIndexName(String name) {
-            return quote(name.toUpperCase(Locale.ROOT));
         }
     }
 }

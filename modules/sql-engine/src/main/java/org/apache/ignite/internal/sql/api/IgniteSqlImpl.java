@@ -62,8 +62,10 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -73,7 +75,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -211,11 +212,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     ) {
         Objects.requireNonNull(query);
 
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, cancellationToken, query, arguments).join());
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        CompletableFuture<AsyncResultSet<SqlRow>> future = executeAsync(transaction, cancellationToken, query, arguments);
+        return new SyncResultSetAdapter<>(sync(future));
     }
 
     /** {@inheritDoc} */
@@ -228,11 +226,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     ) {
         Objects.requireNonNull(statement);
 
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, cancellationToken, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        CompletableFuture<AsyncResultSet<SqlRow>> future = executeAsync(transaction, cancellationToken, statement, arguments);
+        return new SyncResultSetAdapter<>(sync(future));
     }
 
     /** {@inheritDoc} */
@@ -245,11 +240,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, cancellationToken, query, arguments).join());
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        CompletableFuture<AsyncResultSet<T>> future = executeAsync(transaction, mapper, cancellationToken, query, arguments);
+        return new SyncResultSetAdapter<>(sync(future));
     }
 
     /** {@inheritDoc} */
@@ -262,31 +254,20 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        CompletableFuture<AsyncResultSet<T>> future = executeAsync(transaction, mapper, statement, arguments);
+        return new SyncResultSetAdapter<>(sync(future));
     }
 
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        try {
-            return executeBatchAsync(transaction, dmlQuery, batch).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return sync(executeBatchAsync(transaction, dmlQuery, batch));
     }
 
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        try {
-            return executeBatchAsync(transaction, dmlStatement, batch).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return sync(executeBatchAsync(transaction, dmlStatement, batch));
     }
 
     /** {@inheritDoc} */
@@ -300,11 +281,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        try {
-            executeScriptAsync(cancellationToken, query, arguments).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        sync(executeScriptAsync(cancellationToken, query, arguments));
     }
 
     /** {@inheritDoc} */
@@ -371,9 +348,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-24021
-            //  Use correct implementation to parse identifier.
-            String schemaName = QualifiedName.fromSimple(statement.defaultSchema()).objectName();
+            String schemaName = IgniteNameUtils.parseIdentifier(statement.defaultSchema());
 
             SqlProperties properties = toPropertiesBuilder(statement)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
@@ -683,6 +658,10 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private static SqlException nodeIsStoppingException() {
         return new SqlException(NODE_STOPPING_ERR, "Node is stopping");
+    }
+
+    private static <T> T sync(CompletableFuture<T> future) {
+        return IgniteUtils.getInterruptibly(future);
     }
 
     private static class ScriptHandler {

@@ -50,8 +50,28 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
 
     /** {@inheritDoc} */
     @Override
+    public int getMinPrecision(SqlTypeName typeName) {
+        switch (typeName) {
+            case TIME:
+            case TIME_WITH_LOCAL_TIME_ZONE:
+            case TIMESTAMP:
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                // Calcite's default min precision is 1
+                return CatalogUtils.MIN_TIME_PRECISION;
+            default:
+                return super.getMinPrecision(typeName);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public int getMaxPrecision(SqlTypeName typeName) {
         switch (typeName) {
+            case CHAR:
+            case VARCHAR:
+            case BINARY:
+            case VARBINARY:
+                return CatalogUtils.MAX_VARLEN_LENGTH;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
             case TIMESTAMP:

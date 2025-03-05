@@ -35,6 +35,7 @@ import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManage
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreeReusePageMemoryTest;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -47,6 +48,11 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
             value = "mock.engine = aipersist"
     )
     private StorageProfileConfiguration dataRegionCfg;
+
+    @BeforeAll
+    static void initLockOffset() {
+        lockOffset = PersistentPageMemory.PAGE_LOCK_OFFSET;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -66,13 +72,11 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
                 10 * MiB,
                 new TestPageReadWriteManager(),
-                (page, fullPageId, pageMemoryImpl) -> {
-                },
                 (fullPageId, buf, tag) -> {
                 },
                 mockCheckpointTimeoutLock(true),
                 PAGE_SIZE,
-                new OffheapReadWriteLock(128)
+                wrapLock(new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL))
         );
     }
 

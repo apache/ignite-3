@@ -133,7 +133,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
 
     @Nullable
     private ClientColumn column(String columnName) {
-        return schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
+        return schema.columnSafe(IgniteNameUtils.parseIdentifier(columnName));
     }
 
     private ClientColumn column(int binaryTupleIndex) {

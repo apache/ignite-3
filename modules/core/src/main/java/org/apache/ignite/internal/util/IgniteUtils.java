@@ -55,7 +55,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -752,7 +754,7 @@ public class IgniteUtils {
      * @throws CancellationException If this future was cancelled.
      * @throws ExecutionException If this future completed exceptionally.
      */
-    public static <T> T getUninterruptibly(CompletableFuture<T> future) throws ExecutionException {
+    public static <T> T getUninterruptibly(Future<T> future) throws ExecutionException {
         boolean interrupted = false;
 
         try {
@@ -769,6 +771,62 @@ public class IgniteUtils {
             }
         }
     }
+
+    /**
+     * Waits if necessary for this future to complete, and then returns its result ignoring interrupts.
+     *
+     * @param future Future to wait on.
+     * @param timeout Timeout in milliseconds.
+     * @return Result value.
+     * @throws CancellationException If this future was cancelled.
+     * @throws ExecutionException If this future completed exceptionally.
+     */
+    public static <T> T getUninterruptibly(Future<T> future, long timeout) throws ExecutionException, TimeoutException {
+        boolean interrupted = false;
+
+        try {
+            long start = System.currentTimeMillis();
+            while (true) {
+                long current = System.currentTimeMillis();
+                long wait = timeout - (current - start);
+                if (wait < 0) {
+                    throw new TimeoutException("Timeout waiting for future completion [timeout=" + timeout + "ms]");
+                }
+
+                try {
+                    return future.get(wait, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /**
+     * Blocks until the future is completed and either returns the value from the normal completion, or throws an exception if the future
+     * was completed exceptionally. The exception might be wrapped in a copy preserving the error code.
+     *
+     * <p>The wait is interruptible. That is, the thread can be interrupted; in such case, {@link InterruptedException} is thrown sneakily.
+     *
+     * @param future Future to wait on.
+     * @return Value from the future.
+     */
+    public static <T> T getInterruptibly(Future<T> future) {
+        try {
+            return future.get();
+        } catch (ExecutionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw ExceptionUtils.sneakyThrow(e);
+        }
+    }
+
 
     /**
      * Stops workers from given collection and waits for their completion.

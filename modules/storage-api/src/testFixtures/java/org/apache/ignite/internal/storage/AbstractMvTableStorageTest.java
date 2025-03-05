@@ -851,7 +851,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
 
         assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
 
-        assertDoesNotThrow(mvPartitionStorage::close);
+        assertThrows(StorageException.class, mvPartitionStorage::close);
+
+        assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, saneMvPartitionMeta()), willCompleteSuccessfully());
     }
 
     @Test

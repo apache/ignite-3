@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -137,10 +139,11 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        );
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = idGenerator.transactionIdFor(beginTimestamp);
@@ -161,10 +164,11 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        );
 
         // First cleanup fails:
         when(messagingService.invoke(anyString(), any(), anyLong()))
@@ -197,10 +201,11 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        );
 
         // First cleanup fails:
         when(messagingService.invoke(anyString(), any(), anyLong()))

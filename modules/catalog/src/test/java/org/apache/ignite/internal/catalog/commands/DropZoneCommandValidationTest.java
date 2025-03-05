@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneCantBeDroppedValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,7 +54,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
                 .build();
 
         assertThrows(
-                DistributionZoneCantBeDroppedValidationException.class,
+                CatalogValidationException.class,
                 () -> cmd.get(new UpdateContext(catalog)),
                 "Default distribution zone can't be dropped"
         );
@@ -72,7 +70,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
         );
 
         assertThrows(
-                DistributionZoneCantBeDroppedValidationException.class,
+                CatalogValidationException.class,
                 () -> DropZoneCommand.builder().zoneName(ZONE_NAME).build().get(new UpdateContext(catalog)),
                 format("Distribution zone '{}' is assigned to the table '{}'", ZONE_NAME, tableName)
         );
@@ -89,7 +87,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
                 .build();
 
         assertThrows(
-                DistributionZoneNotFoundValidationException.class,
+                CatalogValidationException.class,
                 () -> command.get(new UpdateContext(catalog)),
                 "Distribution zone with name 'some_zone' not found"
         );

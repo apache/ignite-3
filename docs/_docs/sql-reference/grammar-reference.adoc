@@ -20,16 +20,22 @@ This section describes grammar elements that are common to multiple SQL function
 
 [.diagram-container]
 Diagram(
+Choice(0,
 Sequence(
-Optional('('),
+Choice(0,
+Sequence(
 Choice(0,Sequence(
 NonTerminal('column_name'),
+NonTerminal('data_type'))
+)),
+Sequence(
+Terminal('('),
+OneOrMore(Sequence(
+NonTerminal('column_name'),
 NonTerminal('data_type')),
-NonTerminal(',')
-),
-Optional(')')
-),
-)
+Terminal(',')
+),Terminal(')')
+)))))
 
 Keywords and parameters:
 
@@ -43,14 +49,25 @@ Referenced by:
 
 '''
 
-== column_list
+== column_name_or_list
 
 [.diagram-container]
-Diagram(Sequence(
-Optional('('),
-OneOrMore(NonTerminal('column_name'), ','),
-Optional(')')),
-)
+Diagram(
+Choice(0,
+Sequence(
+Choice(0,
+Sequence(
+Choice(0,Sequence(
+NonTerminal('column_name'))
+)),
+Sequence(
+Terminal('('),
+OneOrMore(Sequence(
+NonTerminal('column_name')),
+Terminal(',')
+),Terminal(')')
+)))))
+
 
 Keywords and parameters:
 
@@ -196,22 +213,22 @@ Parameters:
 When a parameter is specified, you can provide it as a literal value or as an identifier. For example:
 
 ----
-CREATE ZONE test_zone WITH STORAGE_PROFILES='default';
-CREATE TABLE test_table (id INT PRIMARY KEY, val INT) ZONE test_zone;
+CREATE ZONE test_zone;
+CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone;
 ----
 
 In this case, `test_zone` is the identifier, and is used as an identifier. When used like this, the parameters are not case-sensitive.
 
 ----
-CREATE ZONE "test_zone" WITH STORAGE_PROFILES='default';
-CREATE TABLE test_table (id INT PRIMARY KEY, val INT) ZONE "test_zone";
+CREATE ZONE "test_zone";
+CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone';
 ----
 
 In this case, `test_zone` is created as a literal value, and is used as a literal. When used like this, the parameter is case-sensitive.
 
 ----
-CREATE ZONE test_zone WITH STORAGE_PROFILES='default';
-CREATE TABLE test_table (id INT PRIMARY KEY, val INT) ZONE TEST_ZONE;
+CREATE ZONE test_zone;
+CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=`TEST_ZONE`;
 ----
 
 In this case, `test_zone` is created as an identifier, and is case-insensitive. As such, when `TEST_ZONE` is used as a literal, it still matches the identifier.

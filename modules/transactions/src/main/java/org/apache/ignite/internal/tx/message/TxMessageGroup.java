@@ -22,8 +22,11 @@ import org.apache.ignite.internal.network.annotations.MessageGroup;
 /**
  * Message types for transactions.
  */
-@MessageGroup(groupType = 5, groupName = "TxMessages")
+@MessageGroup(groupType = TxMessageGroup.GROUP_TYPE, groupName = "TxMessages")
 public class TxMessageGroup {
+    /** Transaction messages group type. */
+    public static final short GROUP_TYPE = 5;
+
     /**
      * Message type for {@link TxFinishReplicaRequest}.
      */
@@ -108,4 +111,15 @@ public class TxMessageGroup {
 
     /** Message type for {@link CleanupReplicatedInfoMessage}. */
     public static final short CLEANUP_REPLICATED_INFO_MESSAGE = 18;
+
+    /** Message type for {@link PartitionEnlistmentMessage}. */
+    public static final short PARTITION_ENLISTMENT_MESSAGE = 19;
+
+    /** Message type for {@link EnlistedPartitionGroupMessage}. */
+    public static final short ENLISTED_PARTITION_GROUP_MESSAGE = 20;
+
+    /**
+     * Message type for {@link TableWriteIntentSwitchReplicaRequest}.
+     */
+    public static final short TABLE_WRITE_INTENT_SWITCH_REQUEST = 21;
 }

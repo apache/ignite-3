@@ -94,10 +94,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         TxStateRocksDbPartitionStorage storage = storages.get(partitionId);
 
         if (storage == null) {
-            storage = new TxStateRocksDbPartitionStorage(
-                partitionId,
-                this
-            );
+            storage = new TxStateRocksDbPartitionStorage(partitionId, this);
 
             storage.start();
         }
@@ -128,7 +125,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void stop() {
+    public void close() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -165,10 +162,5 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to destroy the transaction state storage of the table: " + id, e);
         }
-    }
-
-    @Override
-    public void close() {
-        stop();
     }
 }

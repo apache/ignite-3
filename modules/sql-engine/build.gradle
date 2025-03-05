@@ -58,7 +58,10 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
-    api libs.calcite.core
+    api(libs.calcite.core) {
+        exclude group: 'org.apache.calcite.avatica', module: 'avatica-metrics'
+        exclude group: 'org.apache.httpcomponents.core5', module: 'httpcore5'
+    }
     implementation libs.calcite.linq4j
     implementation libs.value.annotations
     implementation libs.janino.compiler
@@ -121,6 +124,7 @@ dependencies {
     testImplementation libs.archunit.junit5
 
     integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.netty.handler
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-catalog')
@@ -130,6 +134,7 @@ dependencies {
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(":ignite-network-api")
@@ -154,6 +159,12 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.awaitility
+
+    constraints {
+        api('com.google.protobuf:protobuf-java:4.29.3'){
+            because 'previous versions have a CVE'
+        }
+    }
 }
 
 integrationTest {

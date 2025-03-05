@@ -116,10 +116,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .leaseStartTime(timestamp.longValue())
                     .safeTime(timestamp)
                     .requiredCatalogVersion(10_000)
-                    .tablePartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
-                            .partitionId(2048)
-                            .tableId(10_000)
-                            .build())
+                    .tableId(10_000)
                     .txCoordinatorId(UUID.randomUUID())
                     .messageRowsToUpdate(map)
                     .build();
@@ -130,10 +127,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .safeTime(timestamp)
                     .rowUuid(uuid)
                     .requiredCatalogVersion(10_000)
-                    .tablePartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
-                            .partitionId(2048)
-                            .tableId(10_000)
-                            .build())
+                    .tableId(10_000)
                     .txCoordinatorId(UUID.randomUUID())
                     .messageRowToUpdate(timedBinaryRowMessage)
                     .build();

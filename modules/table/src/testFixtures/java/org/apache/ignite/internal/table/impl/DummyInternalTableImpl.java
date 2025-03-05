@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -79,11 +81,13 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -106,11 +110,9 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -152,6 +154,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public static final HybridClock CLOCK = new TestHybridClock(() -> 2000);
 
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
+
+    /** ID of the zone to which the corresponding table belongs. */
+    public static final int ZONE_ID = 2;
 
     private static final int PART_ID = 0;
 
@@ -261,8 +266,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         super(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
-                nextTableId.getAndIncrement(),
-                1,
+                ZONE_ID, // zone id.
+                nextTableId.getAndIncrement(), // table id.
+                1, // number of partitions.
                 new SingleClusterNodeResolver(LOCAL_NODE),
                 txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),
                 mock(MvTableStorage.class),
@@ -310,39 +316,19 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         ClusterNode node = invocationOnMock.getArgument(0);
 
                         return replicaListener.invoke(invocationOnMock.getArgument(1), node.id())
-                                .thenApply(r -> new TimestampAwareReplicaResponse() {
-                                    @Override
-                                    public @Nullable Object result() {
-                                        return r.result();
-                                    }
-
-                                    @Override
-                                    public @Nullable HybridTimestamp timestamp() {
-                                        return CLOCK.now();
-                                    }
-
-                                    @Override
-                                    public MessageSerializer<NetworkMessage> serializer() {
-                                        return null;
-                                    }
-
-                                    @Override
-                                    public short messageType() {
-                                        return 0;
-                                    }
-
-                                    @Override
-                                    public short groupType() {
-                                        return 0;
-                                    }
-
-                                    @Override
-                                    public NetworkMessage clone() {
-                                        return null;
-                                    }
-                                });
+                                .thenApply(DummyInternalTableImpl::dummyTimestampAwareResponse);
                     })
                     .when(replicaSvc).invokeRaw(any(ClusterNode.class), any());
+
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        String nodeConsistenId = invocationOnMock.getArgument(0);
+                        UUID nodeId = deriveUuidFrom(nodeConsistenId);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId)
+                                .thenApply(DummyInternalTableImpl::dummyTimestampAwareResponse);
+                    })
+                    .when(replicaSvc).invokeRaw(anyString(), any());
         }
 
         AtomicLong raftIndex = new AtomicLong(1);
@@ -456,7 +442,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
-                PART_ID,
+                enabledColocation() ? new ZonePartitionId(ZONE_ID, PART_ID) : new TablePartitionId(tableId, PART_ID),
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
@@ -522,6 +508,40 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
             assertThat(svc.run(primaryReplicaChangeCommand), willCompleteSuccessfully());
         }
+    }
+
+    private static TimestampAwareReplicaResponse dummyTimestampAwareResponse(ReplicaResult r) {
+        return new TimestampAwareReplicaResponse() {
+            @Override
+            public @Nullable Object result() {
+                return r.result();
+            }
+
+            @Override
+            public @Nullable HybridTimestamp timestamp() {
+                return CLOCK.now();
+            }
+
+            @Override
+            public MessageSerializer<NetworkMessage> serializer() {
+                return null;
+            }
+
+            @Override
+            public short messageType() {
+                return 0;
+            }
+
+            @Override
+            public short groupType() {
+                return 0;
+            }
+
+            @Override
+            public NetworkMessage clone() {
+                return null;
+            }
+        };
     }
 
     /**

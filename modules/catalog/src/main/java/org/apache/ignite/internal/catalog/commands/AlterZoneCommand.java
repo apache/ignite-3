@@ -115,7 +115,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
 
         CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(zone);
 
-        return List.of(new AlterZoneEntry(descriptor));
+        return List.of(new AlterZoneEntry(descriptor, zone));
     }
 
     private CatalogZoneDescriptor fromParamsAndPreviousValue(CatalogZoneDescriptor previous) {

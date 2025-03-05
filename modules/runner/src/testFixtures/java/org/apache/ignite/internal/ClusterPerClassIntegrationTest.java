@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -47,7 +47,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -168,6 +167,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     @Timeout(60)
     void stopCluster() {
         CLUSTER.shutdown();
+
+        MicronautCleanup.removeShutdownHooks();
     }
 
     /** Drops all visible tables. */
@@ -189,7 +190,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         latestCatalog.schemas().stream()
                 .filter(schema -> !CatalogUtils.SYSTEM_SCHEMAS.contains(schema.name()))
                 .filter(schema -> !SqlCommon.DEFAULT_SCHEMA_NAME.equals(schema.name()))
-                .forEach(schema -> sql("DROP SCHEMA " + quote(schema.name()) + " CASCADE"));
+                .forEach(schema -> sql("DROP SCHEMA " + quoteIfNeeded(schema.name()) + " CASCADE"));
     }
 
     /** Drops all visible zones. */

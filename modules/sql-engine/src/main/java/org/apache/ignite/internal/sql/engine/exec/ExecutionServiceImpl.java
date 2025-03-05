@@ -61,15 +61,17 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleBoolean;
@@ -114,6 +116,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
@@ -180,6 +183,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private final KillCommandHandler killCommandHandler;
 
     private final ExpressionFactory<RowT> expressionFactory;
+
+    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     /**
      * Constructor.
@@ -370,7 +375,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private IgniteRel relationalTreeFromJsonString(int catalogVersion, String jsonFragment) {
-        SchemaPlus rootSchema = sqlSchemaManager.schema(catalogVersion);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(catalogVersion);
+        SchemaPlus rootSchema = schemas.root();
 
         return physNodesCache.computeIfAbsent(
                 new FragmentCacheKey(catalogVersion, jsonFragment),
@@ -1138,37 +1144,46 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
+                private void enlist(int tableId, int zoneId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
 
                     int partsCnt = assignments.size();
 
-                    tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
+                    tx.assignCommitPartition(targetReplicationGroupId(tableId, zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
                     for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
-                        TablePartitionId tablePartId = new TablePartitionId(tableId, partWithToken.getKey());
+                        ReplicationGroupId replicationGroupId = targetReplicationGroupId(tableId, zoneId, partWithToken.getKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
-                        tx.enlist(tablePartId,
-                                new IgniteBiTuple<>(
-                                        topSrvc.getByConsistentId(assignment.name()),
-                                        assignment.enlistmentConsistencyToken())
+                        tx.enlist(
+                                replicationGroupId,
+                                tableId,
+                                topSrvc.getByConsistentId(assignment.name()),
+                                assignment.enlistmentConsistencyToken()
                         );
                     }
                 }
 
                 private void enlist(SourceAwareIgniteRel rel) {
-                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
+                    IgniteTable igniteTable = rel.getTable().unwrap(IgniteTable.class);
 
                     ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
                     Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
-                    enlist(tableId, assignments);
+                    enlist(igniteTable.id(), igniteTable.zoneId(), assignments);
                 }
             }.visit(mappedFragment.fragment().root());
+        }
+
+        private ReplicationGroupId targetReplicationGroupId(int tableId, int zoneId, int partitionId) {
+            if (enabledColocation) {
+                return new ZonePartitionId(zoneId, partitionId);
+            } else {
+                return new TablePartitionId(tableId, partitionId);
+            }
         }
 
         private CompletableFuture<Void> close(CancellationReason reason) {

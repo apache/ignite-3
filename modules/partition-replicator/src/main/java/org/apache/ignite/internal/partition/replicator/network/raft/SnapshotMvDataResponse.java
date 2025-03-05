@@ -30,6 +30,7 @@ import org.jetbrains.annotations.Nullable;
  * Snapshot partition data response message.
  */
 @Transferable(PartitionReplicationMessageGroup.SNAPSHOT_MV_DATA_RESPONSE)
+// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
 public interface SnapshotMvDataResponse extends NetworkMessage {
     /** List of version chains. */
     List<ResponseEntry> rows();
@@ -43,6 +44,9 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
     @SuppressWarnings("PublicInnerClass")
     @Transferable(PartitionReplicationMessageGroup.SNAPSHOT_MV_DATA_RESPONSE_ENTRY)
     interface ResponseEntry extends NetworkMessage {
+        /** Table ID of the table that this row belongs to. */
+        int tableId();
+
         /** Individual row id. */
         UUID rowId();
 
@@ -58,8 +62,8 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         /** Transaction id for write-intent if it's present. */
         @Nullable UUID txId();
 
-        /** Commit table id for write-intent if it's present. */
-        @Nullable Integer commitTableId();
+        /** Commit table/zone id for write-intent if it's present. */
+        @Nullable Integer commitTableOrZoneId();
 
         /** Commit partition id for write-intent if it's present. {@link ReadResult#UNDEFINED_COMMIT_PARTITION_ID} otherwise. */
         int commitPartitionId();

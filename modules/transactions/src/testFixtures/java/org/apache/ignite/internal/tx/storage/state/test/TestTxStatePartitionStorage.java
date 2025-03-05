@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state.test;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
@@ -32,6 +33,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -52,9 +55,16 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
 
     private volatile long lastAppliedTerm;
 
+    private volatile byte @Nullable [] config;
+
+    @Nullable
+    private volatile LeaseInfo leaseInfo;
+
     private final AtomicReference<CompletableFuture<Void>> rebalanceFutureReference = new AtomicReference<>();
 
     private volatile boolean closed;
+
+    private volatile boolean destroyed;
 
     @Override
     @Nullable
@@ -66,14 +76,14 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public void putForRebalance(UUID txId, TxMeta txMeta) {
-        checkStorageClosed();
+        checkStorageClosedOrDestroyed();
 
         storage.put(txId, txMeta);
     }
 
     @Override
     public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
-        checkStorageClosed();
+        checkStorageClosedOrDestroyed();
 
         TxMeta old = storage.get(txId);
 
@@ -164,7 +174,9 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public void destroy() {
-        close();
+        destroyed = true;
+
+        doClear();
     }
 
     @Override
@@ -192,16 +204,16 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public void close() {
-        assert rebalanceFutureReference.get() == null;
+        checkStorageInProgressOfRebalance();
 
         closed = true;
 
-        storage.clear();
+        doClear();
     }
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        checkStorageClosed();
+        checkStorageClosedOrDestroyed();
 
         CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
 
@@ -209,7 +221,7 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
             throwRebalanceInProgressException();
         }
 
-        storage.clear();
+        doClear();
 
         lastAppliedIndex = REBALANCE_IN_PROGRESS;
         lastAppliedTerm = REBALANCE_IN_PROGRESS;
@@ -221,7 +233,7 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public CompletableFuture<Void> abortRebalance() {
-        checkStorageClosed();
+        checkStorageClosedOrDestroyed();
 
         CompletableFuture<Void> rebalanceFuture = rebalanceFutureReference.getAndSet(null);
 
@@ -230,17 +242,12 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
         }
 
         return rebalanceFuture
-                .whenComplete((unused, throwable) -> {
-                    storage.clear();
-
-                    lastAppliedIndex = 0;
-                    lastAppliedTerm = 0;
-                });
+                .whenComplete((unused, throwable) -> doClear());
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
-        checkStorageClosed();
+    public CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta) {
+        checkStorageClosedOrDestroyed();
 
         CompletableFuture<Void> rebalanceFuture = rebalanceFutureReference.getAndSet(null);
 
@@ -249,23 +256,67 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
         }
 
         return rebalanceFuture
-                .whenComplete((unused, throwable) -> lastApplied(lastAppliedIndex, lastAppliedTerm));
+                .whenComplete((unused, throwable) -> {
+                    lastAppliedIndex = partitionMeta.lastAppliedIndex();
+                    lastAppliedTerm = partitionMeta.lastAppliedTerm();
+                    config = partitionMeta.groupConfig();
+
+                    if (partitionMeta.primaryReplicaNodeId() != null) {
+                        leaseInfo = new LeaseInfo(
+                                partitionMeta.leaseStartTime(),
+                                partitionMeta.primaryReplicaNodeId(),
+                                partitionMeta.primaryReplicaNodeName()
+                        );
+                    }
+                });
     }
 
     @Override
     public CompletableFuture<Void> clear() {
-        checkStorageClosed();
+        checkStorageClosedOrInProgressOfRebalance();
 
-        if (rebalanceFutureReference.get() != null) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, "In the process of rebalancing");
-        }
+        doClear();
 
+        return nullCompletedFuture();
+    }
+
+    private void doClear() {
         storage.clear();
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
+        config = null;
+        leaseInfo = null;
+    }
 
-        return nullCompletedFuture();
+    @Override
+    public void committedGroupConfiguration(byte[] config, long index, long term) {
+        checkStorageClosedOrInProgressOfRebalance();
+
+        this.config = config;
+
+        lastAppliedIndex = index;
+        lastAppliedTerm = term;
+    }
+
+    @Override
+    public byte @Nullable [] committedGroupConfiguration() {
+        return config;
+    }
+
+    @Override
+    public void leaseInfo(LeaseInfo leaseInfo, long index, long term) {
+        checkStorageClosedOrInProgressOfRebalance();
+
+        this.leaseInfo = leaseInfo;
+
+        lastAppliedIndex = index;
+        lastAppliedTerm = term;
+    }
+
+    @Override
+    public @Nullable LeaseInfo leaseInfo() {
+        return leaseInfo;
     }
 
     @Override
@@ -273,22 +324,26 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
         return S.toString(TestTxStatePartitionStorage.class, this);
     }
 
-    private void checkStorageInProgreesOfRebalance() {
+    private void checkStorageInProgressOfRebalance() {
         if (rebalanceFutureReference.get() != null) {
             throwRebalanceInProgressException();
         }
     }
 
-    private void checkStorageClosed() {
+    private void checkStorageClosedOrDestroyed() {
         if (closed) {
             throwStorageClosedException();
+        }
+
+        if (destroyed) {
+            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Storage is destroyed");
         }
     }
 
     private void checkStorageClosedOrInProgressOfRebalance() {
-        checkStorageClosed();
+        checkStorageClosedOrDestroyed();
 
-        checkStorageInProgreesOfRebalance();
+        checkStorageInProgressOfRebalance();
     }
 
     private static void throwStorageClosedException() {

@@ -19,13 +19,11 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.SchemaExistsException;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -49,7 +47,7 @@ public class CreateSchemaCommand implements CatalogCommand {
 
         if (systemSchemaCommand) {
             if (!CatalogUtils.isSystemSchema(schemaName)) {
-                throw new CatalogValidationException(format("Not a system schema, schema: '{}'", schemaName));
+                throw new CatalogValidationException("Not a system schema, schema: '{}'", schemaName);
             }
         } else {
             if (CatalogUtils.isSystemSchema(schemaName)) {
@@ -76,7 +74,7 @@ public class CreateSchemaCommand implements CatalogCommand {
         if (ifNotExists && schema != null) {
             return List.of();
         } else if (schema != null) {
-            throw new SchemaExistsException(format("Schema with name '{}' already exists.", schemaName));
+            throw new CatalogValidationException("Schema with name '{}' already exists.", schemaName);
         }
 
         CatalogSchemaDescriptor newSchema = new CatalogSchemaDescriptor(

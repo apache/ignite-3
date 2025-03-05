@@ -79,15 +79,15 @@ public interface TransactionApi {
     );
 
     /**
-     * Cancels a specific transaction identified by transactionId.
+     * Kill a specific transaction identified by transactionId.
      *
      * @param transactionId The unique identifier of the transaction.
-     * @return The result of the cancellation operation.
+     * @return The result of the kill operation.
      */
-    @Operation(summary = "Cancel transaction.", description = "Cancels a specific transaction identified by jotransactionIdbId.")
+    @Operation(summary = "Kill transaction.", description = "Kills a specific transaction identified by transactionId.")
     @ApiResponse(
             responseCode = "200",
-            description = "Successfully cancelled the transaction.",
+            description = "Successfully killed the transaction.",
             content = @Content(mediaType = APPLICATION_JSON)
     )
     @ApiResponse(
@@ -101,7 +101,7 @@ public interface TransactionApi {
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
     )
     @Delete("/{transactionId}")
-    CompletableFuture<Void> cancelTransaction(@Schema(name = "transactionId",
+    CompletableFuture<Void> killTransaction(@Schema(name = "transactionId",
             description = "The unique identifier of the transaction.", requiredMode = REQUIRED) UUID transactionId
     );
 }

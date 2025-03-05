@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -36,9 +37,9 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
 
     private static final String DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME = "metastorageCompactionDataAvailabilityTime";
 
-    private static final long INTERVAL_DEFAULT_VALUE = Long.MAX_VALUE;
+    private static final long INTERVAL_DEFAULT_VALUE = TimeUnit.MINUTES.toMillis(1);
 
-    private static final long DATA_AVAILABILITY_TIME_DEFAULT_VALUE = Long.MAX_VALUE;
+    private static final long DATA_AVAILABILITY_TIME_DEFAULT_VALUE = TimeUnit.HOURS.toMillis(1);
 
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {

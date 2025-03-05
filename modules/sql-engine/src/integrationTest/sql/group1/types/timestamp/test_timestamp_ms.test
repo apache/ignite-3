@@ -8,7 +8,8 @@ SELECT CAST('2001-04-20 14:42:11.123' AS TIMESTAMP) a, CAST('2001-04-20 14:42:11
 2001-04-20 14:42:11.123	2001-04-20 14:42:11
 
 #  many ms
-query I
+statement error: TIMESTAMP precision 20 must be between 0 and 9
 SELECT TIMESTAMP '2001-04-20 14:42:11.12300000000000000000';
-----
-2001-04-20 14:42:11.123
+
+statement error: TIMESTAMP precision 10 must be between 0 and 9
+SELECT CAST('2001-04-20 14:42:11.123' AS TIMESTAMP(10));

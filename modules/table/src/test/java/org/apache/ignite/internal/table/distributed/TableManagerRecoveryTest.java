@@ -93,6 +93,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -120,8 +122,6 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -285,7 +285,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class);
         TopologyService topologyService = mock(TopologyService.class);
         DistributionZoneManager distributionZoneManager = mock(DistributionZoneManager.class);
-        TxManager tm = mock(TxManager.class);
+        TxManager txManager = mock(TxManager.class);
         Loza rm = mock(Loza.class);
         RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
 
@@ -338,11 +338,35 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
+        sm = new SchemaManager(revisionUpdater, catalogManager);
+
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
                 workDir.resolve("tx-state"),
                 scheduledExecutor,
                 partitionOperationsExecutor,
                 logSyncer
+        );
+
+        var outgoingSnapshotManager = new OutgoingSnapshotsManager(node.name(), clusterService.messagingService());
+
+        var partitionReplicaLifecycleListener = new PartitionReplicaLifecycleManager(
+                catalogManager,
+                replicaMgr,
+                distributionZoneManager,
+                metaStorageManager,
+                topologyService,
+                lowWatermark,
+                ForkJoinPool.commonPool(),
+                mock(ScheduledExecutorService.class),
+                partitionOperationsExecutor,
+                clockService,
+                placementDriver,
+                schemaSyncService,
+                systemDistributedConfiguration,
+                sharedTxStateStorage,
+                txManager,
+                sm,
+                outgoingSnapshotManager
         );
 
         tableManager = new TableManager(
@@ -357,17 +381,17 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 replicaMgr,
                 null,
                 null,
-                tm,
+                txManager,
                 dsm,
                 sharedTxStateStorage,
                 metaStorageManager,
-                sm = new SchemaManager(revisionUpdater, catalogManager),
+                sm,
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 scheduledExecutor,
                 scheduledExecutor,
                 clockService,
-                new OutgoingSnapshotsManager(clusterService.messagingService()),
+                outgoingSnapshotManager,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
@@ -379,21 +403,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService),
                 indexMetaStorage,
                 logSyncer,
-                new PartitionReplicaLifecycleManager(
-                        catalogManager,
-                        replicaMgr,
-                        distributionZoneManager,
-                        metaStorageManager,
-                        topologyService,
-                        lowWatermark,
-                        ForkJoinPool.commonPool(),
-                        mock(ScheduledExecutorService.class),
-                        partitionOperationsExecutor,
-                        clockService,
-                        placementDriver,
-                        schemaSyncService,
-                        systemDistributedConfiguration
-                ),
+                partitionReplicaLifecycleListener,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         ) {

@@ -18,7 +18,7 @@
 package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
 import java.util.UUID;
 
@@ -32,7 +32,7 @@ public class ColumnAlreadyExistsException extends IgniteException {
      * @param name Column name.
      */
     public ColumnAlreadyExistsException(String name) {
-        super(COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + quote(name) + ']');
+        super(COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + quoteIfNeeded(name) + ']');
     }
 
     /**

@@ -26,7 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -60,6 +60,13 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Table id.
      */
     int tableId();
+
+    /**
+     * Returns the zone ID that the table belongs to.
+     *
+     * @return Zone id.
+     */
+    int zoneId();
 
     /**
      * Gets a name of the table.
@@ -391,7 +398,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -463,7 +470,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
@@ -520,7 +527,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partitionId Replication group ID.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId);
+    CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partitionId);
 
     /**
      * Returns the <em>estimated size</em> of this table.

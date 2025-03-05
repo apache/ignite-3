@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyProject;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.not;
 
@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
-import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -194,7 +193,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-                .matches(containsSubPlan("KeyValueGet(table=[[PUBLIC, DEVELOPER]]"))
+                .matches(matchesOnce("KeyValueGet.*?table: \\[PUBLIC, DEVELOPER\\]"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
@@ -573,6 +572,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrCondition5() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR name='Mozart'")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
@@ -696,7 +696,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrderByNoIndexedColumn() {
         assertQuery("SELECT * FROM Developer ORDER BY age DESC, depid ASC")
-                .matches(containsAnyProject("PUBLIC", "DEVELOPER"))
+                .matches(containsAnyScan("PUBLIC", "DEVELOPER"))
                 .matches(containsSubPlan("Sort"))
                 .returns(8, "Stravinsky", 7, "Spt", 89)
                 .returns(7, "Verdy", 6, "Rankola", 88)
@@ -764,14 +764,14 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId < 2 AND depId < ?")
                 .withParams(3)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=null, upperBound=$LEAST2(2, ?0)"))
+                .matches(containsString("searchBounds: [RangeBounds [lowerBound=null, upperBound=$LEAST2(2, ?0)"))
                 .returns(3)
                 .check();
 
         assertQuery("SELECT id FROM Developer WHERE depId > 19 AND depId > ?")
                 .withParams(20)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(19, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(19, ?0), upperBound=null:INTEGER"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -779,7 +779,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId > 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=null:INTEGER"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -787,7 +787,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId >= 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=null:INTEGER"))
                 .returns(21)
                 .returns(22)
                 .returns(23)
@@ -796,7 +796,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId BETWEEN ? AND ? AND depId > 19")
                 .withParams(19, 21)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(?0, 19), upperBound=?1"))
+                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(?0, 19), upperBound=?1"))
                 .returns(21)
                 .returns(22)
                 .check();
@@ -805,7 +805,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Birthday WHERE name BETWEEN 'B' AND 'D' AND name > ?")
                 .withParams("Bach")
                 .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
-                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(_UTF-8'B':VARCHAR(65536) "
+                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(_UTF-8'B':VARCHAR(65536) "
                         + "CHARACTER SET \"UTF-8\", ?0), upperBound=_UTF-8'D':VARCHAR(65536) CHARACTER SET \"UTF-8\""))
                 .returns(2)
                 .returns(6)
@@ -842,7 +842,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
         // Not nullable column, filter is always - false.
         assertQuery("SELECT * FROM T1 WHERE id IS NULL")
-                .matches(QueryChecker.matches(".*tuples=\\[\\[\\]\\].*"))
+                .matches(matchesOnce("tuples: \\[\\]"))
                 .check();
     }
 
@@ -885,6 +885,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testNullCondition2() {
         assertQuery("SELECT * FROM T1 WHERE (val <= 5) or (val is null)")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
                 .matches(not(containsUnion()))
                 .returns(1, null)
@@ -899,6 +900,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testNullCondition3() {
         assertQuery("SELECT * FROM T1 WHERE (val >= 5) or (val is null)")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
                 .matches(not(containsUnion()))
                 .returns(1, null)

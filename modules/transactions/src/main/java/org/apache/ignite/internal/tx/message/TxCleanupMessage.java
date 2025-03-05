@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +42,7 @@ public interface TxCleanupMessage extends TimestampAware {
      *
      * @return Replication groups aggregated by expected primary replica nodes.
      */
-    @Nullable List<TablePartitionIdMessage> groups();
+    @Nullable List<EnlistedPartitionGroupMessage> groups();
 
     /**
      * Returns {@code True} if a commit request.

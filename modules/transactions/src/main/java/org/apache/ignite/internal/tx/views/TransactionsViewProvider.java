@@ -17,27 +17,26 @@
 
 package org.apache.ignite.internal.tx.views;
 
-import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
-import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,19 +47,11 @@ public class TransactionsViewProvider {
 
     public static final String READ_WRITE = "READ_WRITE";
 
-    private volatile Iterable<TxInfo> dataSource;
+    private volatile TxInfoDataSource dataSource;
 
     /** Initializes provider with data sources. */
-    public void init(
-            UUID localNodeId,
-            Collection<UUID> roTxIds,
-            Map<UUID, TxStateMeta> rwTxStates
-    ) {
-        this.dataSource = new TxInfoDataSource(
-                localNodeId,
-                roTxIds,
-                rwTxStates
-        );
+    public void init(UUID localNodeId, Map<UUID, TxStateMeta> txStates) {
+        this.dataSource = new TxInfoDataSource(localNodeId, txStates);
     }
 
     /** Returns a {@code TRANSACTIONS} system view. */
@@ -81,63 +72,75 @@ public class TransactionsViewProvider {
         return SystemViews.<TxInfo>nodeViewBuilder()
                 .name("TRANSACTIONS")
                 .nodeNameColumnAlias("COORDINATOR_NODE_ID")
+                .<String>addColumn("TRANSACTION_STATE", stringType, tx -> tx.state)
+                .<String>addColumn("TRANSACTION_ID", stringType, tx -> tx.id)
+                .<Instant>addColumn("TRANSACTION_START_TIME", timestampType, tx -> tx.startTime)
+                .<String>addColumn("TRANSACTION_TYPE", stringType, tx -> tx.type)
+                .<String>addColumn("TRANSACTION_PRIORITY", stringType, tx -> tx.priority)
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .<String>addColumn("STATE", stringType, tx -> tx.state)
                 .<String>addColumn("ID", stringType, tx -> tx.id)
                 .<Instant>addColumn("START_TIME", timestampType, tx -> tx.startTime)
                 .<String>addColumn("TYPE", stringType, tx -> tx.type)
                 .<String>addColumn("PRIORITY", stringType, tx -> tx.priority)
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(dataProvider)
                 .build();
     }
 
     static class TxInfoDataSource implements Iterable<TxInfo> {
         private final UUID localNodeId;
+        private final Map<UUID, TxStateMeta> txStates;
 
-        private final Iterable<UUID> roTxIds;
-
-        private final Map<UUID, TxStateMeta> rwTxStates;
-
-        TxInfoDataSource(UUID localNodeId, Iterable<UUID> roTxIds, Map<UUID, TxStateMeta> rwTxStates) {
+        TxInfoDataSource(UUID localNodeId, Map<UUID, TxStateMeta> txStates) {
             this.localNodeId = localNodeId;
-            this.roTxIds = roTxIds;
-            this.rwTxStates = rwTxStates;
+            this.txStates = txStates;
         }
 
         @Override
         public Iterator<TxInfo> iterator() {
-            return CollectionUtils.concat(
-                    new TransformingIterator<>(roTxIds.iterator(), TxInfo::readOnly),
-                    rwTxStates.entrySet().stream()
-                            .filter(e -> localNodeId.equals(e.getValue().txCoordinatorId())
-                                    && e.getValue().tx() != null && !e.getValue().tx().isReadOnly()
-                                    && !isFinalState(e.getValue().txState()))
-                            .map(e -> TxInfo.readWrite(e.getKey(), e.getValue().txState()))
-                            .iterator()
-            );
+            return txStates.entrySet().stream()
+                    .flatMap(entry -> {
+                        UUID id = entry.getKey();
+                        TxStateMeta txStateMeta = entry.getValue();
+                        UUID coordinatorId = txStateMeta.txCoordinatorId();
+                        InternalTransaction tx = txStateMeta.tx();
+
+                        if (!Objects.equals(localNodeId, coordinatorId)) {
+                            return Stream.empty();
+                        }
+
+                        // Currently the read-only transaction status does not change and it is always in the PENDING state.
+                        if ((tx != null && tx.isReadOnly() && tx.isFinishingOrFinished()) || isFinalState(txStateMeta.txState())) {
+                            return Stream.empty();
+                        }
+
+                        return Stream.of(new TxInfo(id, txStateMeta.txState(), deriveTransactionType(tx)));
+                    })
+                    .iterator();
+        }
+
+        private static String deriveTransactionType(@Nullable InternalTransaction tx) {
+            assert tx != null;
+
+            return tx.isReadOnly() ? READ_ONLY : READ_WRITE;
         }
     }
 
     static class TxInfo {
         private final String id;
-        private final @Nullable String state;
+        private final String state;
         private final Instant startTime;
         private final String type;
         private final String priority;
 
-        static TxInfo readOnly(UUID id) {
-            return new TxInfo(id, PENDING, true);
-        }
-
-        static TxInfo readWrite(UUID id, TxState txState) {
-            return new TxInfo(id, txState, false);
-        }
-
-        private TxInfo(UUID id, @Nullable TxState state, boolean readOnly) {
-            this.id = id.toString();
-            this.state = state == null ? null : state.name();
-            this.startTime = Instant.ofEpochMilli(TransactionIds.beginTimestamp(id).getPhysical());
-            this.type = readOnly ? READ_ONLY : READ_WRITE;
-            this.priority = TransactionIds.priority(id).name();
+        TxInfo(UUID txId, TxState txState, String type) {
+            this.id = txId.toString();
+            this.state = txState.name();
+            this.startTime = Instant.ofEpochMilli(TransactionIds.beginTimestamp(txId).getPhysical());
+            this.type = type;
+            this.priority = TransactionIds.priority(txId).name();
         }
     }
 }

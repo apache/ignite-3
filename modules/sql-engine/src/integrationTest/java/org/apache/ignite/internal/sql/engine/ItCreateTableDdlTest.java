@@ -36,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -521,19 +523,19 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'STRING' must be at least 1",
+                "VARCHAR length 0 must be between 1 and 2147483647. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARCHAR(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
+                "BINARY length 0 must be between 1 and 2147483647. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
+                "VARBINARY length 0 must be between 1 and 2147483647. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
         );
     }
@@ -593,6 +595,118 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 "Type INTERVAL YEAR cannot be used in a column definition [column=P]",
                 () -> sql("ALTER TABLE TEST ADD COLUMN p INTERVAL YEAR")
         );
+    }
+
+    @Test
+    public void testCreateTableWithIncorrectType() {
+        // Char
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR(2147483648) )")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(2147483648) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARBINARY(2147483648) )")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL precision 10000000 must be between 1 and 32767. [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(10000000) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL scale 10000000 must be between 0 and 32767. [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(100, 10000000) )")
+        );
+
+        // Time
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIME precision 10000000 must be between 0 and 9. [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val TIME(10000000) )")
+        );
+
+        // Timestamp
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIMESTAMP precision 10000000 must be between 0 and 9. [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val TIMESTAMP(10000000) )")
+        );
+    }
+
+    @Test
+    public void testNotFittingDefaultValues() {
+        // Char
+
+        String longString = "1".repeat(101);
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR(100) DEFAULT '" + longString + "' )")
+        );
+
+        // Binary
+
+        String longByteString = "01".repeat(101);
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(100) DEFAULT x'" + longByteString + "' )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARBINARY(100) DEFAULT x'" + longByteString + "' )")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(5) DEFAULT 1000000 )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(3, 2) DEFAULT 333.123 )")
+        );
+
+        // Time
+
+        sql("CREATE TABLE test_time (id INT PRIMARY KEY, val TIME(2) DEFAULT '00:00:00.1234' )");
+        sql("INSERT INTO test_time VALUES (1, DEFAULT)");
+        assertQuery("SELECT val FROM test_time")
+                .returns(LocalTime.of(0, 0, 0, 120_000_000))
+                .check();
+
+        // Timestamp
+
+        sql("CREATE TABLE test_ts (id INT PRIMARY KEY, val TIMESTAMP(2) DEFAULT '2000-01-01 00:00:00.1234' )");
+        sql("INSERT INTO test_ts VALUES (1, DEFAULT)");
+        assertQuery("SELECT val FROM test_ts")
+                .returns(LocalDateTime.of(2000, 1, 1, 0, 0, 0, 120_000_000))
+                .check();
     }
 
     private static @Nullable CatalogTableDescriptor getTable(IgniteImpl node, String tableName) {

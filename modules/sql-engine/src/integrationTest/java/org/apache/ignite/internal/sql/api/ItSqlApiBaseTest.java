@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -640,8 +641,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 SqlBatchException.class,
-                Sql.SCHEMA_NOT_FOUND_ERR,
-                "Schema not found [schemaName=NON_EXISTING_SCHEMA]",
+                Sql.STMT_VALIDATION_ERR,
+                "Object 'TEST' not found",
                 () -> executeBatch(statement, args));
     }
 
@@ -1074,7 +1075,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public void testKillCommand() {
         IgniteSql sql = igniteSql();
 
-        try (ResultSet<SqlRow> rs = executeLazy(sql, "SELECT x FROM system_range(0, 100000)")) {
+        try (ResultSet<SqlRow> rs = executeLazy(sql, null, "SELECT x FROM system_range(0, 100000)")) {
             assertThat(rs.hasNext(), is(true));
 
             List<QueryInfo> queries = queryProcessor().runningQueries();
@@ -1201,6 +1202,106 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    public void rowToString() {
+        SqlRow row = executeForRead(igniteSql(), "SELECT 1 as COL_A, '2' as COL_B").next();
+
+        assertEquals(row.getClass().getSimpleName() + " [COL_A=1, COL_B=2]", row.toString());
+    }
+
+    @Test
+    public abstract void cancelStatement() throws InterruptedException;
+
+    @Test
+    public abstract void cancelQueryString() throws InterruptedException;
+
+    @Test
+    public void cancelQueryBeforeExecution() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+        cancelHandle.cancel();
+
+        expectQueryCancelled(() -> executeLazy(igniteSql(), token, "SELECT 1"));
+    }
+
+    @Test
+    public void cancelMultipleQueriesUsingSameToken() {
+        IgniteSql sql = igniteSql();
+        Statement statement = sql.statementBuilder()
+                .query("SELECT * FROM system_range(0, 10000000000)")
+                .pageSize(1)
+                .build();
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        ResultSet<SqlRow> query1rs = executeLazy(sql, token, statement);
+        ResultSet<SqlRow> query2rs = executeLazy(sql, token, statement);
+        ResultSet<SqlRow> query3rs = executeLazy(sql, token, statement);
+
+        CompletableFuture<Void> cancelFut = cancelHandle.cancelAsync();
+
+        expectQueryCancelled(() -> query1rs.forEachRemaining(r -> {}));
+        expectQueryCancelled(() -> query2rs.forEachRemaining(r -> {}));
+        expectQueryCancelled(() -> query3rs.forEachRemaining(r -> {}));
+
+        await(cancelFut);
+    }
+
+    /**
+     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started),
+     * the query will either not be started or will be cancelled. That is, it is impossible for a remote cancellation request
+     * to be processed by the server before the query itself is started.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void cancelQueryDuringExecution() throws Exception {
+        IgniteSql sql = igniteSql();
+        String query = "SELECT * FROM system_range(0, 10000000000)";
+
+        int triesCount = 10;
+        CyclicBarrier startBarrier = new CyclicBarrier(2);
+
+        for (int i = triesCount - 1; i >= 0; i--) {
+            CancelHandle cancelHandle = CancelHandle.create();
+            CancellationToken token = cancelHandle.token();
+            long delay = i;
+
+            CompletableFuture<Void> cancelFut = IgniteTestUtils.runAsync(() -> {
+                startBarrier.await();
+
+                if (delay > 0) {
+                    Thread.sleep(delay);
+                }
+
+                cancelHandle.cancel();
+            });
+
+            startBarrier.await();
+
+            ResultSet<SqlRow> rs;
+
+            try {
+                rs = executeLazy(sql, token, query);
+            } catch (SqlException e) {
+                assertEquals(Sql.EXECUTION_CANCELLED_ERR, e.code());
+
+                continue;
+            }
+
+            expectQueryCancelled(() -> {
+                while (rs.hasNext()) {
+                    rs.next();
+                }
+            });
+
+            await(cancelFut);
+
+            startBarrier.reset();
+        }
+    }
+
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, String query, Object... args) {
         return executeForRead(sql, null, query, args);
     }
@@ -1250,7 +1351,14 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected abstract void execute(IgniteSql sql, @Nullable Transaction tx, @Nullable CancellationToken token, String query);
 
     /** Executes query but only fetches the first page. */
-    protected abstract ResultSet<SqlRow> executeLazy(IgniteSql sql, String query, Object... args);
+    private ResultSet<SqlRow> executeLazy(IgniteSql sql, @Nullable CancellationToken token, String query, Object... args) {
+        Statement statement = sql.statementBuilder().query(query).build();
+
+        return executeLazy(sql, token, statement, args);
+    }
+
+    /** Executes statement but only fetches the first page. */
+    protected abstract ResultSet<SqlRow> executeLazy(IgniteSql sql, @Nullable CancellationToken token, Statement statement, Object... args);
 
     protected abstract void executeScript(IgniteSql sql, String query, Object... args);
 

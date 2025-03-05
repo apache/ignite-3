@@ -17,13 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.CancelHandle;
 
 /**
  * Client SQL execute script request.
@@ -38,7 +41,10 @@ public class ClientSqlExecuteScriptRequest {
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
-            QueryProcessor sql
+            ClientMessagePacker out,
+            QueryProcessor sql,
+            long requestId,
+            Map<Long, CancelHandle> cancelHandleMap
     ) {
         ClientSqlProperties props = new ClientSqlProperties(in);
         String script = in.unpackString();
@@ -49,13 +55,26 @@ public class ClientSqlExecuteScriptRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24275 Script must return updated time to client.
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, ts -> {});
+        HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Pass cancellation token to the query processor.
+        CancelHandle cancelHandle = CancelHandle.create();
+        cancelHandleMap.put(requestId, cancelHandle);
+
         return IgniteSqlImpl.executeScriptCore(
-                sql, tsUpdater, () -> true, () -> {}, script, null, arguments, props.toSqlProps()
-        );
+                sql,
+                tsUpdater,
+                () -> true,
+                () -> {},
+                script,
+                cancelHandle.token(),
+                arguments,
+                props.toSqlProps()
+        ).whenComplete((none, error) -> {
+            cancelHandleMap.remove(requestId);
+
+            // Unconditionally update observable time because script may be applied partially.
+            out.meta(tsUpdater.get());
+        });
     }
 }

@@ -53,6 +53,27 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     }
 
     @Test
+    @DisplayName("Should execute sequence of statements without error")
+    void createSelectAlterSelect() {
+        String[] statements = {
+                "CREATE TABLE test(id INT PRIMARY KEY, val1 INT, val2 INT)",
+                "SELECT * FROM test",
+                "ALTER TABLE test DROP COLUMN val2",
+                "SELECT * FROM test",
+        };
+
+        for (String statement : statements) {
+            execute("sql", statement, "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertExitCodeIsZero,
+                    this::assertOutputIsNotEmpty,
+                    this::assertErrOutputIsEmpty
+            );
+        }
+    }
+
+    @Test
     @DisplayName("Should display readable error when wrong jdbc is given")
     void wrongJdbcUrl() {
         execute("sql", "select * from person", "--jdbc-url", "jdbc:ignite:thin://no-such-host.com:10800");

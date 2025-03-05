@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.runtime.Resources.BaseMessage;
 import org.apache.calcite.runtime.Resources.ExInst;
@@ -85,8 +86,14 @@ public interface IgniteResource {
     @BaseMessage("{0} datatype is not supported'")
     ExInst<SqlValidatorException> dataTypeIsNotSupported(String a0);
 
-    @BaseMessage("Length for type {0} must be at least 1")
-    ExInst<SqlValidatorException> invalidStringLength(String typeName);
+    @BaseMessage("{0} length {1,number,#} must be between {2,number,#} and {3,number,#}.")
+    ExInst<SqlValidatorException> invalidLengthForType(String typeName, int value, int min, int max);
+
+    @BaseMessage("{0} precision {1,number,#} must be between {2,number,#} and {3,number,#}.")
+    ExInst<SqlValidatorException> invalidPrecisionForType(String typeName, int value, int min, int max);
+
+    @BaseMessage("{0} scale {1,number,#} must be between {2,number,#} and {3,number,#}.")
+    ExInst<SqlValidatorException> invalidScaleForType(String typeName, int value, int min, int max);
 
     @BaseMessage("Column N#{0} matched using NATURAL keyword or USING clause "
             + "has incompatible types in this context: ''{1}'' to ''{2}''")
@@ -97,6 +104,9 @@ public interface IgniteResource {
 
     @BaseMessage("A recursive query is not supported.")
     ExInst<SqlValidatorException> recursiveQueryIsNotSupported();
+
+    @BaseMessage("Unexpected statement: {0} ")
+    ExInst<CalciteException> unexpectedStatement(String type);
 
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {

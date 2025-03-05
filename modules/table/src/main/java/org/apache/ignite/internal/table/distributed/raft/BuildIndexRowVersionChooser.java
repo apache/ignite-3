@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;

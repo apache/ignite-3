@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 
 /** Message for transferring a {@link CleanupReplicatedInfo}. */
 @Transferable(TxMessageGroup.CLEANUP_REPLICATED_INFO_MESSAGE)
@@ -32,15 +32,15 @@ public interface CleanupReplicatedInfoMessage extends NetworkMessage {
     UUID txId();
 
     /** Partitions. */
-    List<TablePartitionIdMessage> partitions();
+    List<ReplicationGroupIdMessage> partitions();
 
     /** Converts to {@link CleanupReplicatedInfo}. */
     default CleanupReplicatedInfo asCleanupReplicatedInfo() {
-        List<TablePartitionIdMessage> partitionMessages = partitions();
-        List<TablePartitionId> partitions = new ArrayList<>(partitionMessages.size());
+        List<ReplicationGroupIdMessage> partitionMessages = partitions();
+        List<ReplicationGroupId> partitions = new ArrayList<>(partitionMessages.size());
 
-        for (int i = 0; i < partitionMessages.size(); i++) {
-            partitions.add(partitionMessages.get(i).asTablePartitionId());
+        for (ReplicationGroupIdMessage partitionMessage : partitionMessages) {
+            partitions.add(partitionMessage.asReplicationGroupId());
         }
 
         return new CleanupReplicatedInfo(txId(), partitions);

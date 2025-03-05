@@ -37,7 +37,7 @@ class OneColumnMapperImpl<ObjectT> implements OneColumnMapper<ObjectT> {
 
     OneColumnMapperImpl(Class<ObjectT> targetType, @Nullable String mappedColumn, @Nullable TypeConverter<ObjectT, ?> converter) {
         this.targetType = targetType;
-        this.mappedColumn = IgniteNameUtils.parseSimpleName(mappedColumn);
+        this.mappedColumn = mappedColumn == null ? null : IgniteNameUtils.parseIdentifier(mappedColumn);
         this.converter = converter;
     }
 

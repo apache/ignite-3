@@ -36,6 +36,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicatesValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -138,15 +139,16 @@ public class ClusterInitializer {
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
-            String initialClusterConfiguration = patchClusterConfigurationWithDynamicDefaults(clusterConfiguration);
-            validateConfiguration(initialClusterConfiguration);
+            String patchedClusterConfiguration = patchClusterConfigurationWithDynamicDefaults(clusterConfiguration);
+
+            validateConfiguration(patchedClusterConfiguration, clusterConfiguration);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(msNodeNameSet)
                     .cmgNodes(cmgNodeNameSet)
                     .clusterName(clusterName)
                     .clusterId(UUID.randomUUID())
-                    .initialClusterConfiguration(initialClusterConfiguration)
+                    .initialClusterConfiguration(patchedClusterConfiguration)
                     .build();
 
             return invokeMessage(cmgNodes, initMessage)
@@ -261,12 +263,15 @@ public class ClusterInitializer {
         return configurationDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon == null ? "" : hocon);
     }
 
-    private void validateConfiguration(String hocon) {
-        if (hocon != null) {
-            List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(hocon);
-            if (!issues.isEmpty()) {
-                throw new ConfigurationValidationException(issues);
-            }
+    private void validateConfiguration(String patchedHocon, @Nullable String initialHocon) {
+        List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(patchedHocon);
+
+        if (initialHocon != null) {
+            issues.addAll(ConfigurationDuplicatesValidator.validate(initialHocon));
+        }
+
+        if (!issues.isEmpty()) {
+            throw new ConfigurationValidationException(issues);
         }
     }
 }
