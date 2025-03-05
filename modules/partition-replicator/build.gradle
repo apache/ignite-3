@@ -55,6 +55,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-storage-api'))
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-transactions'))
+    testImplementation testFixtures(project(':ignite-placement-driver-api'))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
