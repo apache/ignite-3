@@ -17,20 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.Collections.singleton;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
-
 import java.io.Serializable;
+import static java.util.Collections.singleton;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -52,21 +45,28 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.anyLong;
 import org.mockito.MockSettings;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
 
@@ -82,6 +82,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final String TEST_NODE_NAME = "standalone-ms-node";
 
     private static final UUID TEST_NODE_ID = UUID.randomUUID();
+
+    private static final ClusterNode TEST_NODE = new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, mock(NetworkAddress.class));
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
@@ -196,7 +198,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         when(clusterService.nodeName()).thenReturn(TEST_NODE_NAME);
 
         TopologyService topologyService = mock(TopologyService.class, LENIENT_SETTINGS);
-        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, mock(NetworkAddress.class)));
+        when(topologyService.localMember()).thenReturn(TEST_NODE);
 
         when(clusterService.topologyService()).thenReturn(topologyService);
 
@@ -259,7 +261,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static RaftManager mockRaftManager() {
         ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
         RaftManager raftManager = mock(RaftManager.class, LENIENT_SETTINGS);
-        TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
+        TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class, LENIENT_SETTINGS);
 
         try {
             when(raftManager.startRaftGroupNodeAndWaitNodeReady(
@@ -300,8 +302,16 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 return runCommand(command, listener);
             }
         };
-        lenient().when(raftGroupService.run(any())).thenAnswer(answer);
-        lenient().when(raftGroupService.run(any(), anyLong())).thenAnswer(answer);
+        when(raftGroupService.run(any())).thenAnswer(answer);
+        when(raftGroupService.run(any(), anyLong())).thenAnswer(answer);
+
+        when(raftGroupService.subscribeLeader(any())).thenAnswer(invocation -> {
+            LeaderElectionListener callback = invocation.getArgument(0);
+
+            callback.onLeaderElected(TEST_NODE, 0);
+
+            return nullCompletedFuture();
+        });
 
         return raftManager;
     }
@@ -311,13 +321,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         ConfigurationValue<Long> value = mock(ConfigurationValue.class, LENIENT_SETTINGS);
 
         when(configuration.idleSyncTimeInterval()).thenReturn(value);
-        when(value.value()).thenReturn(1000L);
+        when(value.value()).thenReturn(50L);
 
         return configuration;
-    }
-
-    private static RaftConfiguration mockRaftConfiguration() {
-        return mock(RaftConfiguration.class, LENIENT_SETTINGS);
     }
 
     private static CompletableFuture<Serializable> runCommand(Command command, RaftGroupListener listener) {
