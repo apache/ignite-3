@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import it.unimi.dsi.fastutil.ints.Int2BooleanFunction;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
 import java.util.Set;
@@ -179,7 +180,8 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
         Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-        IntArrayList tableIds = getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId);
+        IntArrayList tableIds =
+                getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, id -> !localNodeIsPrimaryReplicaForTableIds.contains(id));
 
         localNodeIsPrimaryReplicaForTableIds.addAll(tableIds);
 
@@ -208,7 +210,8 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
         Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-        IntArrayList tableIds = getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId);
+        IntArrayList tableIds =
+                getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, localNodeIsPrimaryReplicaForTableIds::contains);
 
         localNodeIsPrimaryReplicaForTableIds.removeAll(tableIds);
 
@@ -218,21 +221,25 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         }
     }
 
-    private IntArrayList getTableIdsForPrimaryReplicaElected(Catalog catalog, PartitionGroupId partitionGroupId) {
+    private IntArrayList getTableIdsForPrimaryReplicaElected(
+            Catalog catalog,
+            PartitionGroupId partitionGroupId,
+            Int2BooleanFunction filter
+    ) {
         var tableIds = new IntArrayList();
 
         if (enabledColocation()) {
             ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
             for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
-                if (localNodeIsPrimaryReplicaForTableIds.contains(table.id())) {
+                if (filter.apply(table.id())) {
                     tableIds.add(table.id());
                 }
             }
         } else {
             TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
 
-            if (localNodeIsPrimaryReplicaForTableIds.contains(tablePartitionId.tableId())) {
+            if (filter.apply(tablePartitionId.tableId())) {
                 tableIds.add(tablePartitionId.tableId());
             }
         }
