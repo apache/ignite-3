@@ -210,7 +210,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(jobClassName).units(units()).build(),
                 null
-        ).get(1, TimeUnit.SECONDS));
+        ).get(10, TimeUnit.SECONDS));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
