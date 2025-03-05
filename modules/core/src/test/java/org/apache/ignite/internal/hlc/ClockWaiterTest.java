@@ -23,10 +23,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -99,6 +99,6 @@ class ClockWaiterTest {
 
         assertThat(waiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        assertThat(future, willThrow(CancellationException.class));
+        assertThat(future, willThrow(NodeStoppingException.class));
     }
 }
