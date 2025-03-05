@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
-import it.unimi.dsi.fastutil.ints.Int2BooleanFunction;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntPredicate;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -219,7 +219,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
     private static IntArrayList getTableIdsForPrimaryReplicaElected(
             Catalog catalog,
             PartitionGroupId partitionGroupId,
-            Int2BooleanFunction filter
+            IntPredicate predicate
     ) {
         var tableIds = new IntArrayList();
 
@@ -227,14 +227,14 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
             ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
             for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
-                if (filter.apply(table.id())) {
+                if (predicate.test(table.id())) {
                     tableIds.add(table.id());
                 }
             }
         } else {
             TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
 
-            if (filter.apply(tablePartitionId.tableId())) {
+            if (predicate.test(tablePartitionId.tableId())) {
                 tableIds.add(tablePartitionId.tableId());
             }
         }
