@@ -161,7 +161,7 @@ dependencies {
     testFixturesImplementation libs.awaitility
 
     constraints {
-        api('com.google.protobuf:protobuf-java:4.29.3'){
+        api('com.google.protobuf:protobuf-java:4.30.0'){
             because 'previous versions have a CVE'
         }
     }
