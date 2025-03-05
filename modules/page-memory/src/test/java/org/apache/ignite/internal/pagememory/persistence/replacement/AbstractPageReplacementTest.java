@@ -162,11 +162,10 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 new long[]{MAX_MEMORY_SIZE},
                 10 * MiB,
                 filePageStoreManager,
-                (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
+                checkpointManager::writePageToDeltaFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
-                () -> null,
                 PAGE_SIZE,
-                new OffheapReadWriteLock(128)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
         dataRegionList.add(() -> pageMemory);

@@ -83,7 +83,11 @@ class ZoneResourcesManager implements ManuallyCloseable {
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
-    ZonePartitionResources allocateZonePartitionResources(ZonePartitionId zonePartitionId, int partitionCount) {
+    ZonePartitionResources allocateZonePartitionResources(
+            ZonePartitionId zonePartitionId,
+            int partitionCount,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+    ) {
         ZoneResources zoneResources = resourcesByZoneId.computeIfAbsent(
                 zonePartitionId.zoneId(),
                 zoneId -> new ZoneResources(createTxStateStorage(zoneId, partitionCount))
@@ -93,8 +97,6 @@ class ZoneResourcesManager implements ManuallyCloseable {
                 .getOrCreatePartitionStorage(zonePartitionId.partitionId());
 
         var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
-
-        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
         var raftGroupListener = new ZonePartitionRaftListener(
                 zonePartitionId,
@@ -169,6 +171,17 @@ class ZoneResourcesManager implements ManuallyCloseable {
         });
     }
 
+    void removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
+        ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
+
+        resources.replicaListenerFuture()
+                .thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaListener(tableId));
+
+        resources.raftListener().removeTableProcessor(tableId);
+
+        resources.snapshotStorageFactory().removeMvPartition(tableId);
+    }
+
     @TestOnly
     @Nullable
     TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
@@ -182,6 +195,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
     }
 
     private static class ZoneResources {
+
         final TxStateStorage txStateStorage;
 
         final Map<Integer, ZonePartitionResources> resourcesByPartitionId = new ConcurrentHashMap<>();

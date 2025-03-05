@@ -235,13 +235,12 @@ public class FilePageStoreManager implements PageReadWriteManager {
     public PageStore write(
             int grpId,
             long pageId,
-            ByteBuffer pageBuf,
-            boolean calculateCrc
+            ByteBuffer pageBuf
     ) throws IgniteInternalCheckedException {
         try {
             FilePageStore pageStore = getStoreWithCheckExists(new GroupPartitionId(grpId, partitionId(pageId)));
 
-            pageStore.write(pageId, pageBuf, calculateCrc);
+            pageStore.write(pageId, pageBuf);
 
             return pageStore;
         } catch (IgniteInternalCheckedException e) {

@@ -319,7 +319,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     private void checkAlterZoneEntry() {
         CatalogStorageProfilesDescriptor profiles =
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
-        UpdateEntry entry1 = new AlterZoneEntry(newCatalogZoneDescriptor("zone1", profiles), newCatalogZoneDescriptor("zone0", profiles));
+        UpdateEntry entry1 = new AlterZoneEntry(newCatalogZoneDescriptor("zone1", profiles));
 
         checkSerialization(entry1, entry1);
     }

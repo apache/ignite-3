@@ -441,6 +441,12 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return sql(CLUSTER.node(nodeIndex), tx, null, zoneId, sql, args);
     }
 
+    protected static void sqlScript(String query, Object... args) {
+        IgniteSql sql = CLUSTER.aliveNode().sql();
+
+        sql.executeScript(query, args);
+    }
+
     private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
         List<List<Object>> res = new ArrayList<>();
 

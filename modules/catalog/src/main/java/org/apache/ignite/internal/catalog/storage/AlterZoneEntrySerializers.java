@@ -34,7 +34,6 @@ public class AlterZoneEntrySerializers {
     /**
      * Serializer for {@link AlterZoneEntry}.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24170 This should be version 2, you need to add the original version 1.
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class AlterZoneEntrySerializerV1 implements CatalogObjectSerializer<AlterZoneEntry> {
         private final CatalogEntrySerializerProvider serializers;
@@ -49,17 +48,13 @@ public class AlterZoneEntrySerializers {
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_ZONE.id());
 
             CatalogZoneDescriptor descriptor = (CatalogZoneDescriptor) serializer.readFrom(input);
-            // TODO This was added in version 2.
-            CatalogZoneDescriptor previousDescriptor = (CatalogZoneDescriptor) serializer.readFrom(input);
 
-            return new AlterZoneEntry(descriptor, previousDescriptor);
+            return new AlterZoneEntry(descriptor);
         }
 
         @Override
         public void writeTo(AlterZoneEntry object, IgniteDataOutput output) throws IOException {
             serializers.get(1, object.descriptor().typeId()).writeTo(object.descriptor(), output);
-            // TODO This was added in version 2.
-            serializers.get(1, object.previousDescriptor().typeId()).writeTo(object.previousDescriptor(), output);
         }
     }
 }

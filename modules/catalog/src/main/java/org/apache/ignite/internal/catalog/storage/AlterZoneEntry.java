@@ -34,27 +34,18 @@ import org.apache.ignite.internal.tostring.S;
 public class AlterZoneEntry implements UpdateEntry, Fireable {
     private final CatalogZoneDescriptor descriptor;
 
-    private final CatalogZoneDescriptor previousDescriptor;
-
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a zone to alter.
-     * @param previousDescriptor A previous descriptor of a zone.
      */
-    public AlterZoneEntry(CatalogZoneDescriptor descriptor, CatalogZoneDescriptor previousDescriptor) {
+    public AlterZoneEntry(CatalogZoneDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.previousDescriptor = previousDescriptor;
     }
 
     /** Returns descriptor of a zone to alter. */
     public CatalogZoneDescriptor descriptor() {
         return descriptor;
-    }
-
-    /** Returns previous descriptor of a zone. */
-    public CatalogZoneDescriptor previousDescriptor() {
-        return previousDescriptor;
     }
 
     @Override
@@ -69,7 +60,7 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new AlterZoneEventParameters(causalityToken, catalogVersion, descriptor, previousDescriptor);
+        return new AlterZoneEventParameters(causalityToken, catalogVersion, descriptor);
     }
 
     @Override

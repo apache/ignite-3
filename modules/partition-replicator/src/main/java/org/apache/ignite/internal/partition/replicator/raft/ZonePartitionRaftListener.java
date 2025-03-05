@@ -189,11 +189,17 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         partitionSnapshots().acquireReadLock();
 
         try {
-            boolean crossTableCommand = command instanceof UpdateMinimumActiveTxBeginTimeCommand;
-
-            if (command instanceof PrimaryReplicaChangeCommand) {
-                // This is a hack for tests, this command is not issued in production because no zone-wide placement driver exists yet.
-                // FIXME: https://issues.apache.org/jira/browse/IGNITE-24374
+            if (command instanceof TableAwareCommand) {
+                result = processTableAwareCommand(
+                        ((TableAwareCommand) command).tableId(),
+                        command,
+                        commandIndex,
+                        commandTerm,
+                        safeTimestamp
+                );
+            } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
+            } else if (command instanceof PrimaryReplicaChangeCommand) {
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
 
                 if (commandIndex > txStateStorage.lastAppliedIndex()) {
@@ -209,17 +215,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
                     result = new IgniteBiTuple<>(null, true);
                 }
-            } else if (command instanceof TableAwareCommand) {
-                result = processTableAwareCommand(
-                        ((TableAwareCommand) command).tableId(),
-                        command,
-                        commandIndex,
-                        commandTerm,
-                        safeTimestamp
-                );
-            } else if (crossTableCommand) {
-                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Cleanup when all commands will be covered.
                 AbstractCommandHandler<?> commandHandler =
                         commandHandlers.handler(command.groupType(), command.messageType());
 
@@ -238,7 +235,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
                 }
 
-                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, clo.index());
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
             }
 
             synchronized (tableProcessorsStateLock) {
@@ -305,8 +302,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     @Override
     public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
         synchronized (tableProcessorsStateLock) {
-            tableProcessors.values()
-                    .forEach(listener -> listener.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm));
+            partitionSnapshots().acquireReadLock();
+
+            try {
+                tableProcessors.values()
+                        .forEach(listener -> listener.onConfigurationCommitted(config, lastAppliedIndex, lastAppliedTerm));
+            } finally {
+                partitionSnapshots().releaseReadLock();
+            }
 
             byte[] configBytes = raftGroupConfigurationConverter.toBytes(config);
 
@@ -314,6 +317,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
             this.lastAppliedIndex = max(this.lastAppliedIndex, lastAppliedIndex);
             this.lastAppliedTerm = max(this.lastAppliedTerm, lastAppliedTerm);
+
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, lastAppliedIndex);
         }
     }
 
@@ -336,6 +341,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         synchronized (tableProcessorsStateLock) {
             lastAppliedIndex = max(lastAppliedIndex, txStateStorage.lastAppliedIndex());
             lastAppliedTerm = max(lastAppliedTerm, txStateStorage.lastAppliedTerm());
+
+            storageIndexTracker.update(lastAppliedIndex, null);
         }
 
         return true;
@@ -369,6 +376,15 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
             assert prev == null : "Listener for table partition " + tablePartitionId + " already exists";
         }
+    }
+
+    /**
+     * Removes a given Table Partition-level Raft processor from the set of managed processors.
+     *
+     * @param tableId Table's identifier.
+     */
+    public void removeTableProcessor(int tableId) {
+        tableProcessors.remove(tableId);
     }
 
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
