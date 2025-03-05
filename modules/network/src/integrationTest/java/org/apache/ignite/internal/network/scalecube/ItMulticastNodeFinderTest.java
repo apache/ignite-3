@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.scalecube;
 
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -35,7 +36,6 @@ import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.MulticastNodeFinder;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -64,18 +64,14 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         this.testInfo = testInfo;
     }
 
-    /** Tear down method. */
     @AfterEach
     void tearDown() {
         assertThat(stopAsync(new ComponentContext(), services), willCompleteSuccessfully());
     }
 
-    /**
-     * Tests that restarting nodes get discovered in an established topology.
-     */
     @ParameterizedTest
     @ValueSource(ints = {-1, 255})
-    public void testFindNodes(int ttl) {
+    void testFindNodes(int ttl) throws InterruptedException {
         List<NetworkAddress> addresses = findLocalAddresses(INIT_PORT + 1, INIT_PORT + 6);
 
         services = addresses.stream()
@@ -129,7 +125,7 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
      * @return Created Cluster Service.
      */
     private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
-        ClusterService clusterService = ClusterServiceTestUtils.clusterService(
+        ClusterService clusterService = clusterService(
                 testInfo,
                 addr.port(),
                 nodeFinder,

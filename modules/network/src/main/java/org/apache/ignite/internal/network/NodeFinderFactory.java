@@ -53,7 +53,6 @@ public class NodeFinderFactory {
                 return Arrays.stream(nodeFinderConfiguration.netClusterNodes())
                         .map(NetworkAddress::from)
                         .collect(collectingAndThen(toUnmodifiableList(), StaticNodeFinder::new));
-
             case MULTICAST:
                 MulticastView multicastConfig = nodeFinderConfiguration.multicast();
 
