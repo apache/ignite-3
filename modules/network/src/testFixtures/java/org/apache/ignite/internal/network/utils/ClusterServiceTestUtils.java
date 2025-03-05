@@ -43,7 +43,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NodeFinder;
-import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
@@ -194,8 +193,6 @@ public class ClusterServiceTestUtils {
                 new FailureManager(new NoOpFailureHandler()),
                 defaultChannelTypeRegistry()
         );
-
-        assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
 
         return new AbstractClusterService(nodeName, clusterSvc.topologyService(), clusterSvc.messagingService(), serializationRegistry) {
             @Override

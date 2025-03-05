@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -54,7 +55,7 @@ public class StaticNodeFinder implements NodeFinder {
     }
 
     @Override
-    public List<NetworkAddress> findNodes() {
+    public Collection<NetworkAddress> findNodes() {
         return addresses.parallelStream()
                 .flatMap(
                         originalAddress -> Arrays.stream(resolveAll(originalAddress.host()))
