@@ -703,7 +703,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     );
                 })
                 .thenCompose(leaderWithTerm -> {
-                    if (leaderWithTerm.isEmpty() || !replicaPrimacyEngine.isTokenStillValidPrimary(request.enlistmentConsistencyToken())) {
+                    if (leaderWithTerm.isEmpty() || !replicaPrimacyEngine.tokenStillMatchesPrimary(request.enlistmentConsistencyToken())) {
                         return nullCompletedFuture();
                     }
 
