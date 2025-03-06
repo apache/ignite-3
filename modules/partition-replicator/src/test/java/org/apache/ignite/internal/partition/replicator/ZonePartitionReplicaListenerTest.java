@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -166,7 +165,7 @@ class ZonePartitionReplicaListenerTest extends BaseIgniteAbstractTest {
         );
 
         PrimaryReplicaRequest request = mock(requestClass);
-        lenient().when(request.enlistmentConsistencyToken()).thenReturn(leaseStartTime);
+        when(request.enlistmentConsistencyToken()).thenReturn(leaseStartTime);
 
         assertThat(partitionReplicaListener.invoke(request, localNode.id()), willThrow(PrimaryReplicaMissException.class));
     }
