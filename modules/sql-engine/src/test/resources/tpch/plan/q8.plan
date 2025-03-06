@@ -55,7 +55,7 @@ Sort
                         table: [PUBLIC, CUSTOMER]
                         fields: [C_CUSTKEY, C_NATIONKEY]
                         est. row count: 150000
-                  NestedLoopJoin
+                  HashJoin
                       condition: =(N_REGIONKEY, R_REGIONKEY)
                       joinType: inner
                       est. row count: 8
