@@ -34,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class ReplicaPrimacy {
+    private static final ReplicaPrimacy EMPTY = new ReplicaPrimacy(null, null);
+
     private final @Nullable Long leaseStartTime;
     private final @Nullable Boolean isPrimary;
 
@@ -46,7 +48,7 @@ public class ReplicaPrimacy {
      * Creates an instance representing no primacy information.
      */
     public static ReplicaPrimacy empty() {
-        return new ReplicaPrimacy(null, null);
+        return EMPTY;
     }
 
     /**
