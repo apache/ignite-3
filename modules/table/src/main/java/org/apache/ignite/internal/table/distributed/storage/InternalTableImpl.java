@@ -1997,7 +1997,7 @@ public class InternalTableImpl implements InternalTable {
         Function<ReplicaMeta, PendingTxPartitionEnlistment> enlistClo = replicaMeta -> {
             ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
 
-            tx.enlist(partGroupId, tableId, getClusterNode(replicaMeta), enlistmentConsistencyToken(replicaMeta));
+            tx.enlist(partGroupId, tableId, getClusterNode(replicaMeta).name(), enlistmentConsistencyToken(replicaMeta));
 
             return tx.enlistedPartition(partGroupId);
         };

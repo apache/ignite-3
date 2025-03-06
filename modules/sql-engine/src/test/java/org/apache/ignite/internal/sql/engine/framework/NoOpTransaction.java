@@ -195,11 +195,11 @@ public final class NoOpTransaction implements InternalTransaction {
     public void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            ClusterNode primaryNode,
+            String primaryNodeConsistentId,
             long consistencyToken
     ) {
         requireNonNull(replicationGroupId, "replicationGroupId");
-        requireNonNull(primaryNode, "primaryNode");
+        requireNonNull(primaryNodeConsistentId, "primaryNodeConsistentId");
 
         // No-op.
     }

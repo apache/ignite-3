@@ -87,7 +87,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
         ClusterNode primaryReplicaNode = getPrimaryReplica(tblPartId);
 
-        tx.enlist(tblPartId, internalTbl.tableId(), primaryReplicaNode, term);
+        tx.enlist(tblPartId, internalTbl.tableId(), primaryReplicaNode.name(), term);
 
         return tx;
     }
