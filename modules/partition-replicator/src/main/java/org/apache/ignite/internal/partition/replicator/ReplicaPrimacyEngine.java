@@ -61,7 +61,7 @@ public class ReplicaPrimacyEngine {
      * Validates replica primacy.
      *
      * <ul>
-     *     <li>For {@link PrimaryReplicaRequest}s, ensures that the primary replica is known, that it is hosted to this node,
+     *     <li>For {@link PrimaryReplicaRequest}s, ensures that the primary replica is known, that it is hosted on this node,
      *     that it has not expired and corresponds to the request (i.e. it has not changed). If something of the above is violated, the
      *     future is completed with a {@link PrimaryReplicaMissException}.</li>
      *     <li>For {@link ReadOnlyReplicaRequest}s and {@link ReplicaSafeTimeSyncRequest}s, detects whether this node is/was a primary
