@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.storage;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.storage.AbstractChangeIndexStatusEntry.schemaByIndexId;
 
-import java.io.IOException;
 import java.util.Arrays;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -29,18 +28,13 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes removal of an index from the Catalog (not the same as dropping it [that just initates the drop sequence]).
  */
 public class RemoveIndexEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<RemoveIndexEntry> SERIALIZER = new RemoveIndexEntrySerializer();
-
     private final int indexId;
 
     /**
@@ -50,6 +44,10 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
      */
     public RemoveIndexEntry(int indexId) {
         this.indexId = indexId;
+    }
+
+    public int indexId() {
+        return indexId;
     }
 
     @Override
@@ -91,22 +89,5 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link RemoveIndexEntry}.
-     */
-    private static class RemoveIndexEntrySerializer implements CatalogObjectSerializer<RemoveIndexEntry> {
-        @Override
-        public RemoveIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int indexId = input.readVarIntAsInt();
-
-            return new RemoveIndexEntry(indexId);
-        }
-
-        @Override
-        public void writeTo(RemoveIndexEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeVarInt(entry.indexId);
-        }
     }
 }
