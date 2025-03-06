@@ -435,7 +435,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
-        long timeout = options.timeoutMillis() == 0 ? txConfig.readWriteTimeout().value() : options.timeoutMillis();
+        long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeout().value());
 
         var transaction = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
 
@@ -449,6 +449,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
 
         return transaction;
+    }
+
+    private static long getTimeoutOrDefault(InternalTxOptions options, long defaultValue) {
+        return options.timeoutMillis() == 0 ? defaultValue : options.timeoutMillis();
     }
 
     private ReadOnlyTransactionImpl beginReadOnlyTransaction(
@@ -477,7 +481,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            long timeout = options.timeoutMillis() == 0 ? txConfig.readOnlyTimeout().value() : options.timeoutMillis();
+            long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeout().value());
 
             var transaction = new ReadOnlyTransactionImpl(
                     this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture

@@ -117,7 +117,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
-        // Set a short timeout for the test.
+        // Set a short timeout for the test because it uses defaultTimeouts for implicit transactions,
+        // It is too long to wait for 30 seconds (default value for Read-Write Transactions).
         builder.clusterConfiguration("{ignite.transaction.readWriteTimeout: 5000}");
     }
 
@@ -1050,7 +1051,10 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(
                 // Default values for timeout is too long for the test,
-                // change it to 10 seconds in order to make the test faster.
+                // So the test changes them to 5 secs. As a result,
+                // implicit RW transactions have 5 secs timeout.
+                // But we want explicit transaction to be longer that implicit one,
+                // so here we set timeout to 10 seconds.
                 new TransactionOptions().timeoutMillis(10_000).readOnly(readOnly)
         );
 

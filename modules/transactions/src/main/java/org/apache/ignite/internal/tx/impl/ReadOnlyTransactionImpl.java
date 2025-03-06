@@ -131,7 +131,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
                 finish(false, readTimestamp, false, true),
                 TX_ROLLBACK_ERR
-        ).thenAccept(unused -> this.timeoutExceeded = true);
+        );
     }
 
     @Override
@@ -148,6 +148,8 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         txFuture.complete(null);
 
         ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()), timeoutExceeded);
+
+        this.timeoutExceeded = timeoutExceeded;
 
         return txFuture;
     }
