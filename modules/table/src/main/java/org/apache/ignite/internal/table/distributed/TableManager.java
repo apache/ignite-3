@@ -150,6 +150,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -912,7 +913,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
-            Function<RaftCommandRunner, ReplicaListener> createListener = raftClient -> createReplicaListener(
+            Function<RaftCommandRunner, ReplicaTableProcessor> createListener = raftClient -> createReplicaListener(
                     zonePartitionId,
                     table,
                     safeTimeTracker,
@@ -949,7 +950,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
                     zonePartitionId,
-                    tablePartitionId,
+                    tableId,
                     createListener,
                     tablePartitionRaftListener,
                     partitionStorageAccess

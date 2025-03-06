@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.handlers;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +36,7 @@ public abstract class AbstractCommandHandler<T extends WriteCommand> {
      * @param safeTimestamp Safe timestamp.
      * @throws IgniteInternalException if an exception occurred during processing the command.
      */
-    public final IgniteBiTuple<Serializable, Boolean> handle(
+    public final CommandResult handle(
             WriteCommand command,
             long commandIndex,
             long commandTerm,
@@ -54,7 +53,7 @@ public abstract class AbstractCommandHandler<T extends WriteCommand> {
      * @param commandTerm Term of the RAFT command.
      * @param safeTimestamp Safe timestamp.
      */
-    protected abstract IgniteBiTuple<Serializable, Boolean> handleInternally(
+    protected abstract CommandResult handleInternally(
             T command,
             long commandIndex,
             long commandTerm,

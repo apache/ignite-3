@@ -826,7 +826,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 noopEventLog
         );
 
-        sqlRef.set(new IgniteSqlImpl(qryEngine, HybridTimestampTracker.atomicTracker(null)));
+        sqlRef.set(new IgniteSqlImpl(qryEngine, HybridTimestampTracker.atomicTracker(null), threadPoolsManager.commonScheduler()));
 
         // Preparing the result map.
 
