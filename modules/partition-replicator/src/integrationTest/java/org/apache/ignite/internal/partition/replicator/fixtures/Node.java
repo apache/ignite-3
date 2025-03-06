@@ -88,6 +88,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -288,6 +289,9 @@ public class Node {
     private final SystemViewManager systemViewManager;
 
     private final SqlQueryProcessor sqlQueryProcessor;
+
+    /** Index building manager. */
+    private final IndexBuildingManager indexBuildingManager;
 
     /** Interceptor for {@link MetaStorageManager#invoke} calls. */
     @FunctionalInterface
@@ -763,6 +767,19 @@ public class Node {
                 lowWatermark
         );
 
+        indexBuildingManager = new IndexBuildingManager(
+                name,
+                replicaSvc,
+                catalogManager,
+                metaStorageManager,
+                indexManager,
+                indexMetaStorage,
+                placementDriverManager.placementDriver(),
+                clusterService,
+                logicalTopologyService,
+                clockService
+        );
+
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
 
         sqlQueryProcessor = new SqlQueryProcessor(
@@ -844,6 +861,7 @@ public class Node {
                 partitionReplicaLifecycleManager,
                 tableManager,
                 indexManager,
+                indexBuildingManager,
                 resourceVacuumManager,
                 systemViewManager,
                 sqlQueryProcessor
