@@ -91,37 +91,11 @@ public class ReplicaPrimacyEngine {
     ) {
         Long enlistmentConsistencyToken = primaryReplicaRequest.enlistmentConsistencyToken();
 
-        Function<ReplicaMeta, ReplicaPrimacy> validateClo = primaryReplicaMeta -> {
-            if (primaryReplicaMeta == null) {
-                throw new PrimaryReplicaMissException(
-                        localNode.name(),
-                        null,
-                        localNode.id(),
-                        null,
-                        enlistmentConsistencyToken,
-                        null,
-                        null
-                );
-            }
-
-            long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
-
-            if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
-                    || clockService.before(primaryReplicaMeta.getExpirationTime(), now)
-                    || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
-            ) {
-                throw new PrimaryReplicaMissException(
-                        localNode.name(),
-                        primaryReplicaMeta.getLeaseholder(),
-                        localNode.id(),
-                        primaryReplicaMeta.getLeaseholderId(),
-                        enlistmentConsistencyToken,
-                        currentEnlistmentConsistencyToken,
-                        null);
-            }
-
-            return ReplicaPrimacy.forPrimaryReplicaRequest(primaryReplicaMeta.getStartTime().longValue());
-        };
+        Function<ReplicaMeta, ReplicaPrimacy> validateClo = primaryReplicaMeta -> validatePrimacy(
+                now,
+                primaryReplicaMeta,
+                enlistmentConsistencyToken
+        );
 
         ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
 
@@ -134,6 +108,38 @@ public class ReplicaPrimacyEngine {
         }
 
         return placementDriver.getPrimaryReplica(replicationGroupId, now).thenApply(validateClo);
+    }
+
+    private ReplicaPrimacy validatePrimacy(HybridTimestamp now, ReplicaMeta primaryReplicaMeta, Long enlistmentConsistencyToken) {
+        if (primaryReplicaMeta == null) {
+            throw new PrimaryReplicaMissException(
+                    localNode.name(),
+                    null,
+                    localNode.id(),
+                    null,
+                    enlistmentConsistencyToken,
+                    null,
+                    null
+            );
+        }
+
+        long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
+
+        if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
+                || clockService.before(primaryReplicaMeta.getExpirationTime(), now)
+                || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
+        ) {
+            throw new PrimaryReplicaMissException(
+                    localNode.name(),
+                    primaryReplicaMeta.getLeaseholder(),
+                    localNode.id(),
+                    primaryReplicaMeta.getLeaseholderId(),
+                    enlistmentConsistencyToken,
+                    currentEnlistmentConsistencyToken,
+                    null);
+        }
+
+        return ReplicaPrimacy.forPrimaryReplicaRequest(primaryReplicaMeta.getStartTime().longValue());
     }
 
     private CompletableFuture<ReplicaPrimacy> isLocalNodePrimaryReplicaAt(HybridTimestamp timestamp) {
