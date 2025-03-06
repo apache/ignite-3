@@ -90,7 +90,7 @@ public class ItClusterInitDefaultMsCmgTest extends CliCommandTestNotInitializedI
         List<String> msNodes = List.of(listPattern.split(matcher.group(2)));
 
         // Compare lists with expected
-        List<String> expectedNodes = IntStream.range(0, 5)
+        List<String> expectedNodes = IntStream.range(0, initialNodes() - 1)
                 .mapToObj(i -> CLUSTER.nodeName(i))
                 .collect(Collectors.toList());
         assertThat("cmgNodes do not match expected nodes", cmgNodes, containsInAnyOrder(expectedNodes.toArray()));
