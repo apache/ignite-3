@@ -813,7 +813,7 @@ public class Node {
     }
 
     public IgniteSql sql() {
-        IgniteSqlImpl igniteSql = new IgniteSqlImpl(sqlQueryProcessor, observableTimestampTracker);
+        IgniteSqlImpl igniteSql = new IgniteSqlImpl(sqlQueryProcessor, observableTimestampTracker, threadPoolsManager.commonScheduler());
         return new PublicApiThreadingIgniteSql(igniteSql, ForkJoinPool.commonPool());
     }
 
