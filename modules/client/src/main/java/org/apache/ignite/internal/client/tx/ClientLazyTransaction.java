@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -32,13 +33,13 @@ import org.jetbrains.annotations.Nullable;
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
-    private final long observableTimestamp;
+    private final HybridTimestampTracker observableTimestamp;
 
     private final @Nullable TransactionOptions options;
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
-    ClientLazyTransaction(long observableTimestamp, @Nullable TransactionOptions options) {
+    ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options) {
         this.observableTimestamp = observableTimestamp;
         this.options = options;
     }

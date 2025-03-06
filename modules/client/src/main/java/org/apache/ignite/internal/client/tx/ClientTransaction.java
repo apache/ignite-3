@@ -29,10 +29,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -85,6 +88,8 @@ public class ClientTransaction implements Transaction {
     /** Direct enlistment map. */
     private final Map<PartitionGroupId, CompletableFuture<IgniteBiTuple<UUID, Long>>> enlisted = new ConcurrentHashMap<>();
 
+    private final HybridTimestampTracker tracker;
+
     /**
      * Constructor.
      *
@@ -95,12 +100,13 @@ public class ClientTransaction implements Transaction {
      * @param cpm The commit partition mapping or {@code null} if not known.
      * @param coordId Tx coordinator id.
      */
-    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, UUID txId, @Nullable PartitionMapping cpm, UUID coordId) {
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, UUID txId, @Nullable PartitionMapping cpm, UUID coordId, HybridTimestampTracker tracker) {
         this.ch = ch;
         this.id = id;
         this.isReadOnly = isReadOnly;
         this.txId = txId;
         this.nodeName = ch.protocolContext().clusterNode().name();
+        this.tracker = tracker;
 
         if (cpm != null) {
             // If mapping is known, assign commit partition.
@@ -182,6 +188,7 @@ public class ClientTransaction implements Transaction {
 
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
             w.out().packLong(id);
+            w.out().packLong(tracker.get().longValue());
             w.out().packInt(enlisted.size());
             for (Entry<PartitionGroupId, CompletableFuture<IgniteBiTuple<UUID, Long>>> entry : enlisted.entrySet()) {
                 w.out().packInt(entry.getKey().objectId());

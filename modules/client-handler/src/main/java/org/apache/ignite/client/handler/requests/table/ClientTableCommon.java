@@ -46,6 +46,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -426,7 +427,7 @@ public class ClientTableCommon {
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
                 // use readTimestamp() instead of now().
-                out.meta(tx.readTimestamp()); // TODO FIXME remove.
+                out.meta(tx.readTimestamp()); // TODO REMOVE
             }
 
             return tx;
@@ -454,7 +455,6 @@ public class ClientTableCommon {
             @Nullable TableViewInternal table,
             boolean readOnly
     ) {
-
         InternalTransaction tx = readTx(in, out, resources, txManager.localNode());
 
         if (tx == null) {

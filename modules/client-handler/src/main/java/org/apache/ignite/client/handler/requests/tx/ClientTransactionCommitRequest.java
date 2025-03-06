@@ -27,6 +27,7 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -56,8 +57,12 @@ public class ClientTransactionCommitRequest {
             ClockService clockService,
             IgniteTablesInternal igniteTables
     ) throws IgniteInternalCheckedException {
-        // TODO adjust HLC
         long resourceId = in.unpackLong();
+        long causality = in.unpackLong();
+
+        // Update causality.
+        clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
+
         InternalTransaction tx = resources.remove(resourceId).get(InternalTransaction.class);
 
         // Attempt to merge server and client transactions.

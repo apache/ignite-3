@@ -26,6 +26,7 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -64,7 +65,7 @@ public class ClientTransactions implements IgniteTransactions {
             ReliableChannel ch,
             @Nullable PartitionMapping pm,
             @Nullable TransactionOptions options,
-            long observableTimestamp
+            HybridTimestampTracker observableTimestamp
     ) {
         if (options != null && options.timeoutMillis() != 0 && !options.readOnly()) {
             // TODO: IGNITE-16193
@@ -78,24 +79,24 @@ public class ClientTransactions implements IgniteTransactions {
                 w -> {
                     w.out().packBoolean(readOnly);
                     w.out().packLong(options == null ? 0 : options.timeoutMillis());
-                    w.out().packLong(observableTimestamp);
+                    w.out().packLong(observableTimestamp.get().longValue());
                     w.out().packInt(pm == null ? -1 : pm.tableId());
                     w.out().packInt(pm == null ? -1 : pm.partition());
                 },
-                r -> readTx(r, readOnly, pm),
+                r -> readTx(r, readOnly, pm, observableTimestamp),
                 pm == null ? null : pm.node(),
                 null,
                 null,
                 false);
     }
 
-    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly, @Nullable PartitionMapping pm) {
+    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly, @Nullable PartitionMapping pm, HybridTimestampTracker tracker) {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
         UUID txId = in.unpackUuid();
         UUID coordId = in.unpackUuid();
 
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly, txId, pm, coordId);
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly, txId, pm, coordId, tracker);
     }
 }

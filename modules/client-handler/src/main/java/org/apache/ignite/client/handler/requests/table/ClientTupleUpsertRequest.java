@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
@@ -51,7 +52,8 @@ public class ClientTupleUpsertRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            TxManager txManager
+            TxManager txManager,
+            ClockService clockService
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
@@ -64,6 +66,7 @@ public class ClientTupleUpsertRequest {
                         IgniteBiTuple<ClusterNode, Long> token = tx0.enlistedNodeAndConsistencyToken(null);
                         out.packUuid(token.get1().id());
                         out.packLong(token.get2());
+                        out.meta(clockService.current());
                     } else {
                         out.packUuid(new UUID(0, 0));
                         out.packLong(0);

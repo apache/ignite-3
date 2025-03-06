@@ -261,7 +261,7 @@ public class ClientSql implements IgniteSql {
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
 
-            w.out().packLong(ch.observableTimestamp());
+            w.out().packLong(ch.observableTimestamp().get().longValue());
         };
 
         PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), marshallers, r.in(), mapper);
@@ -302,7 +302,7 @@ public class ClientSql implements IgniteSql {
 
             w.out().packString(statement.query());
             w.out().packBatchedArgumentsAsBinaryTupleArray(batch);
-            w.out().packLong(ch.observableTimestamp());
+            w.out().packLong(ch.observableTimestamp().get().longValue());
         };
 
         PayloadReader<long[]> payloadReader = r -> {
@@ -337,7 +337,7 @@ public class ClientSql implements IgniteSql {
 
             w.out().packString(query);
             w.out().packObjectArrayAsBinaryTuple(arguments);
-            w.out().packLong(ch.observableTimestamp());
+            w.out().packLong(ch.observableTimestamp().get().longValue());
         };
 
         return ch.serviceAsync(ClientOp.SQL_EXEC_SCRIPT, payloadWriter, null);

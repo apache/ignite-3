@@ -207,8 +207,8 @@ public final class ReliableChannel implements AutoCloseable {
         return clientCfg;
     }
 
-    public long observableTimestamp() {
-        return HybridTimestamp.hybridTimestampToLong(observableTimeTracker.get());
+    public HybridTimestampTracker observableTimestamp() {
+        return observableTimeTracker;
     }
 
     /**
