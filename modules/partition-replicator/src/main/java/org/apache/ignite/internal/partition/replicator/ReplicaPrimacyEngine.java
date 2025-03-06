@@ -62,7 +62,7 @@ public class ReplicaPrimacyEngine {
      *
      * <ul>
      *     <li>For {@link PrimaryReplicaRequest}s, ensures that the primary replica is known, that it is hosted on this node,
-     *     that it has not expired and the request was sent while the same replica was primary. If something of the above is violated, the
+     *     that it has not expired and the request was sent while the same replica was primary. If anything of the above is violated, the
      *     future is completed with a {@link PrimaryReplicaMissException}.</li>
      *     <li>For {@link ReadOnlyReplicaRequest}s and {@link ReplicaSafeTimeSyncRequest}s, detects whether this node is/was a primary
      *     at the corresponding timestamp.</li>
