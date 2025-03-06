@@ -95,7 +95,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
         // Wait for an exception.
         assertTrue(
-                waitForCondition(() -> timeoutExceeded(table, rwTx), 10_000),
+                waitForCondition(() -> timeoutExceeded(table, rwTx), 1_000, 10_000),
                 "Write operation should throw an exception with TX_ALREADY_FINISHED_WITH_TIMEOUT_ER error code"
         );
 
