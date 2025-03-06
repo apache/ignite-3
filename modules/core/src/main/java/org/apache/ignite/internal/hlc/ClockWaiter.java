@@ -21,9 +21,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -31,13 +29,13 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.TrackerClosedException;
 
 /**
  * Allows to wait for the supplied clock to reach a required timestamp. It only uses the clock itself,
@@ -101,7 +99,7 @@ public class ClockWaiter implements IgniteComponent {
 
         clock.removeUpdateListener(updateListener);
 
-        nowTracker.close();
+        nowTracker.close(new NodeStoppingException());
 
         IgniteUtils.shutdownAndAwaitTermination(futureExecutor, 10, SECONDS);
 
@@ -142,24 +140,7 @@ public class ClockWaiter implements IgniteComponent {
         // The future might be completed in a random thread, so let's move its completion execution to a special thread pool
         // because the user's code following the future completion might run arbitrarily heavy operations and we don't want
         // to put them on an innocent thread invoking now()/update() on the clock.
-        return future
-                .handleAsync((res, ex) -> {
-                    scheduledFuture.cancel(true);
-
-                    if (ex != null) {
-                        translateTrackerClosedException(ex);
-                    }
-
-                    return res;
-                }, futureExecutor);
-    }
-
-    private static void translateTrackerClosedException(Throwable ex) {
-        if (ex instanceof TrackerClosedException) {
-            throw new CancellationException();
-        } else {
-            throw new CompletionException(ex);
-        }
+        return future.thenRunAsync(() -> scheduledFuture.cancel(true), futureExecutor);
     }
 
     private void triggerTrackerUpdate() {

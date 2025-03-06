@@ -1112,7 +1112,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
             if (ex != null && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
                     && !hasCauseOrSuppressed(ex, CancellationException.class)) {
-                LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId());
+                LOG.error("Could not advance safe time for {}", ex, replica.groupId());
             }
         });
     }

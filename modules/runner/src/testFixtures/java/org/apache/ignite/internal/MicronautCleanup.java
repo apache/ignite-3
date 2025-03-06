@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 /**
@@ -58,9 +59,19 @@ class MicronautCleanup {
     }
 
     private static boolean isMicronautHook(Thread hook) {
-        Runnable target = IgniteTestUtils.getFieldValue(hook, Thread.class, "target");
+        Runnable target = getUnderlyingRunnable(hook);
 
         return target != null && target.getClass().toString().contains("Micronaut");
+    }
+
+    private static Runnable getUnderlyingRunnable(Thread hook) {
+        try {
+            return IgniteTestUtils.getFieldValue(hook, Thread.class, "target");
+        } catch (IgniteInternalException e) {
+            // Java 21+ doesn't have a target field, but it has a holder field instead
+            Object holder = IgniteTestUtils.getFieldValue(hook, Thread.class, "holder");
+            return IgniteTestUtils.getFieldValue(holder, "task");
+        }
     }
 
     private static void removeHooksSafely(Set<Thread> hooksToRemove) {

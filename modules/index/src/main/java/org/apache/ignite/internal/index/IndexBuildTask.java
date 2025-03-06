@@ -20,7 +20,9 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
@@ -37,9 +39,11 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -219,10 +223,13 @@ class IndexBuildTask {
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds) {
         boolean finish = rowIds.size() < batchSize;
 
-        TablePartitionId tablePartitionId = new TablePartitionId(taskId.getTableId(), taskId.getPartitionId());
+        ReplicationGroupIdMessage groupIdMessage = enabledColocation()
+                ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(taskId.getZoneId(), taskId.getPartitionId()))
+                : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()));
 
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
-                .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
+                .groupId(groupIdMessage)
+                .tableId(taskId.getTableId())
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
@@ -240,8 +247,8 @@ class IndexBuildTask {
 
     private String createCommonIndexInfo() {
         return IgniteStringFormatter.format(
-                "tableId={}, partitionId={}, indexId={}",
-                taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
+                "zoneId = {}, tableId={}, partitionId={}, indexId={}",
+                taskId.getZoneId(), taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
         );
     }
 

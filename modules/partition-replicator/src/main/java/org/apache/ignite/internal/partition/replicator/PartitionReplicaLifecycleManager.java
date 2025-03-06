@@ -133,7 +133,6 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -1428,13 +1427,13 @@ public class PartitionReplicaLifecycleManager extends
      * Load a new table partition listener to the zone replica.
      *
      * @param zonePartitionId Zone partition id.
-     * @param tablePartitionId Table partition id.
+     * @param tableId Table id.
      * @param tablePartitionReplicaProcessorFactory Factory for creating table-specific partition replicas.
      * @param raftTableProcessor Raft table processor for the table-specific partition.
      */
     public void loadTableListenerToZoneReplica(
             ZonePartitionId zonePartitionId,
-            TablePartitionId tablePartitionId,
+            int tableId,
             Function<RaftCommandRunner, ReplicaTableProcessor> tablePartitionReplicaProcessorFactory,
             RaftTableProcessor raftTableProcessor,
             PartitionMvStorageAccess partitionMvStorageAccess
@@ -1446,13 +1445,13 @@ public class PartitionReplicaLifecycleManager extends
         // a HB relationship between zone and table creation) zone-wide replica must already be started, this future will always be
         // completed and the listeners will be registered immediately.
         resources.replicaListenerFuture().thenAccept(zoneReplicaListener -> zoneReplicaListener.addTableReplicaProcessor(
-                tablePartitionId,
+                tableId,
                 tablePartitionReplicaProcessorFactory
         ));
 
-        resources.raftListener().addTableProcessor(tablePartitionId, raftTableProcessor);
+        resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
 
-        resources.snapshotStorageFactory().addMvPartition(tablePartitionId.tableId(), partitionMvStorageAccess);
+        resources.snapshotStorageFactory().addMvPartition(tableId, partitionMvStorageAccess);
     }
 
     /**
@@ -1514,5 +1513,11 @@ public class PartitionReplicaLifecycleManager extends
     @TestOnly
     public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         return requireNonNull(zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId));
+    }
+
+    @TestOnly
+    public HybridTimestamp currentSafeTimeForZonePartition(int zoneId, int partId) {
+        return requireNonNull(zoneResourcesManager.getZonePartitionResources(new ZonePartitionId(zoneId, partId))).raftListener()
+                .currentSafeTime();
     }
 }

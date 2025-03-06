@@ -139,7 +139,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
     public void close() throws Exception {
         stopSafeTimeScheduler(Long.MAX_VALUE);
 
-        safeTime.close();
+        safeTime.close(new NodeStoppingException());
     }
 
     @Override

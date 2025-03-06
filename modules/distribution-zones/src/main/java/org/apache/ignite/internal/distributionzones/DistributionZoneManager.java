@@ -56,6 +56,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -242,7 +243,7 @@ public class DistributionZoneManager extends
 
             return allOf(
                     restoreLogicalTopologyChangeEvent(recoveryRevision),
-                    dataNodesManager.startAsync(catalogManager.catalog(catalogVersion).zones(), recoveryRevision)
+                    dataNodesManager.startAsync(currentZones(), recoveryRevision)
             ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
         });
     }
@@ -324,15 +325,9 @@ public class DistributionZoneManager extends
             return;
         }
 
-        long updateTimestamp = timestampByRevision(causalityToken);
-
-        if (updateTimestamp == -1) {
-            return;
-        }
-
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
-        for (CatalogZoneDescriptor zoneDescriptor : catalogManager.activeCatalog(updateTimestamp).zones()) {
+        for (CatalogZoneDescriptor zoneDescriptor : currentZones()) {
             int zoneId = zoneDescriptor.id();
 
             if (zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
@@ -543,9 +538,7 @@ public class DistributionZoneManager extends
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-        int catalogVersion = catalogManager.activeCatalogVersion(timestamp.longValue());
-
-        for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
+        for (CatalogZoneDescriptor zone : currentZones()) {
             CompletableFuture<Void> f = dataNodesManager.onTopologyChange(
                     zone,
                     revision,
@@ -562,6 +555,15 @@ public class DistributionZoneManager extends
         futures.add(saveRecoverableStateToMetastorage(revision, newLogicalTopology));
 
         return allOf(futures.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Returns the current zones in the Catalog. Must always be called from the meta storage thread.
+     */
+    private Collection<CatalogZoneDescriptor> currentZones() {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        return catalogManager.catalog(catalogVersion).zones();
     }
 
     /**

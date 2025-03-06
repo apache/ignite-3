@@ -950,7 +950,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
                     zonePartitionId,
-                    tablePartitionId,
+                    tableId,
                     createListener,
                     tablePartitionRaftListener,
                     partitionStorageAccess
