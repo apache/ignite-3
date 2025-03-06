@@ -88,7 +88,7 @@ public class RenameZoneCommand extends AbstractZoneCommand {
                 zone.consistencyMode()
         );
 
-        return List.of(new AlterZoneEntry(descriptor, zone));
+        return List.of(new AlterZoneEntry(descriptor));
     }
 
     private void validate() {

@@ -86,6 +86,7 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -921,6 +922,10 @@ public class Node {
 
     public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
+    }
+
+    public HybridTimestamp currentSafeTimeForZonePartition(int zoneId, int partId) {
+        return partitionReplicaLifecycleManager.currentSafeTimeForZonePartition(zoneId, partId);
     }
 
     public DataStorageManager dataStorageManager() {

@@ -452,7 +452,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 handler,
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
-                operationContext.timeZoneId()
+                operationContext.timeZoneId(),
+                -1
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -940,7 +941,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     handler,
                     Commons.parametersMap(ctx.parameters()),
                     txAttributes,
-                    ctx.timeZoneId()
+                    ctx.timeZoneId(),
+                    -1
             );
         }
 

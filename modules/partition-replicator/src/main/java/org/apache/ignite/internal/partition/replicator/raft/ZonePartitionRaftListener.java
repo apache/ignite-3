@@ -53,6 +53,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxManager;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * RAFT listener for the zone partition.
@@ -199,6 +201,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 );
             } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
+            } else if (command instanceof SafeTimeSyncCommand) {
+                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
             } else if (command instanceof PrimaryReplicaChangeCommand) {
                 result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
 
@@ -266,6 +270,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
+        if (tableProcessors.isEmpty()) {
+            synchronized (tableProcessorsStateLock) {
+                return new IgniteBiTuple<>(null, lastAppliedIndex < commandIndex);
+            }
+        }
+
         IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
 
         tableProcessors.values().forEach(processor -> {
@@ -404,5 +414,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private PartitionSnapshots partitionSnapshots() {
         return partitionsSnapshots.partitionSnapshots(partitionKey);
+    }
+
+    @TestOnly
+    public HybridTimestamp currentSafeTime() {
+        return safeTimeTracker.current();
     }
 }

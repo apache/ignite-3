@@ -239,14 +239,14 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
             ReplicationGroupId grpId,
             Entry entry,
-            Function<byte[], Set<Assignment>> deserFunction
+            Function<byte[], Set<Assignment>> deserializer
     ) {
         byte[] value = entry.value();
 
         // MetaStorage iterator should not return nulls as values.
         assert value != null;
 
-        Set<Assignment> assignmentNodes = deserFunction.apply(value);
+        Set<Assignment> assignmentNodes = deserializer.apply(value);
 
         groupIdToAssignmentsMap.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
     }
