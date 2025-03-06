@@ -18,16 +18,15 @@
 package org.apache.ignite.internal.partition.replicator.raft;
 
 import static java.lang.Math.max;
+import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
 import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 
-import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -180,7 +179,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         @Nullable HybridTimestamp safeTimestamp = clo.safeTimestamp();
         assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand : command;
 
-        IgniteBiTuple<Serializable, Boolean> result;
+        CommandResult result;
 
         // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
         // storages!
@@ -211,7 +210,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
 
                     if (updateLeaseInfoInTxStorage((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm)) {
-                        result = new IgniteBiTuple<>(null, true);
+                        result = EMPTY_APPLIED_RESULT;
                     }
                 } else {
                     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Cleanup when all commands will be covered.
@@ -221,13 +220,13 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     if (commandHandler == null) {
                         LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
 
-                        result = new IgniteBiTuple<>(null, true);
+                        result = EMPTY_APPLIED_RESULT;
                     } else {
                         result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
                     }
                 }
 
-                if (Boolean.TRUE.equals(result.get2())) {
+                if (result.wasApplied()) {
                     // Adjust safe time before completing update to reduce waiting.
                     if (safeTimestamp != null) {
                         updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
@@ -245,7 +244,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
         // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
         // trigger other actions taking same locks.
-        clo.result(result.get1());
+        clo.result(result.result());
     }
 
     /**
@@ -257,27 +256,25 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * @param safeTimestamp Safe timestamp.
      * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
      */
-    private IgniteBiTuple<Serializable, Boolean> processCrossTableProcessorsCommand(
+    private CommandResult processCrossTableProcessorsCommand(
             WriteCommand command,
             long commandIndex,
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
         if (tableProcessors.isEmpty()) {
-            return new IgniteBiTuple<>(null, lastAppliedIndex < commandIndex);
+            return new CommandResult(null, lastAppliedIndex < commandIndex);
         }
 
-        IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
+        boolean wasApplied = false;
 
-        tableProcessors.values().forEach(processor -> {
-            IgniteBiTuple<Serializable, Boolean> r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
-            // Need to adjust the safe time if any of the table processors successfully handled the command.
-            if (Boolean.TRUE.equals(r.get2())) {
-                result.set2(Boolean.TRUE);
-            }
-        });
+        for (RaftTableProcessor processor : tableProcessors.values()) {
+            CommandResult r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
 
-        return result;
+            wasApplied = wasApplied || r.wasApplied();
+        }
+
+        return new CommandResult(null, wasApplied);
     }
 
     /**
@@ -288,9 +285,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * @param commandIndex Command index.
      * @param commandTerm Command term.
      * @param safeTimestamp Safe timestamp.
-     * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
+     * @return Result of the command processing.
      */
-    private IgniteBiTuple<Serializable, Boolean> processTableAwareCommand(
+    private CommandResult processTableAwareCommand(
             int tableId,
             WriteCommand command,
             long commandIndex,

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.raft;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,7 +38,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -301,7 +301,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         private long lastAppliedTerm;
 
         @Override
-        public synchronized IgniteBiTuple<Serializable, Boolean> processCommand(WriteCommand command, long commandIndex, long commandTerm,
+        public synchronized CommandResult processCommand(WriteCommand command, long commandIndex, long commandTerm,
                 @Nullable HybridTimestamp safeTimestamp) {
             if (command instanceof PrimaryReplicaChangeCommand) {
                 PrimaryReplicaChangeCommand primaryReplicaChangeCommand = (PrimaryReplicaChangeCommand) command;
@@ -316,7 +316,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
             lastAppliedIndex = commandIndex;
             lastAppliedTerm = commandTerm;
 
-            return new IgniteBiTuple<>(commandIndex, true);
+            return EMPTY_APPLIED_RESULT;
         }
 
         @Override

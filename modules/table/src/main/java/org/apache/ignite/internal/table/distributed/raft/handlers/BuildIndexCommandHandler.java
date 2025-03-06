@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.table.distributed.raft.handlers;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
+import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_NOT_APPLIED_RESULT;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,11 +31,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -87,7 +88,7 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
     }
 
     @Override
-    protected IgniteBiTuple<Serializable, Boolean> handleInternally(
+    protected CommandResult handleInternally(
             BuildIndexCommand command,
             long commandIndex,
             long commandTerm,
@@ -95,14 +96,14 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
     ) throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new IgniteBiTuple<>(null, false);
+            return EMPTY_NOT_APPLIED_RESULT;
         }
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(command.indexId());
 
         if (indexMeta == null || indexMeta.isDropped()) {
             // Index has been dropped.
-            return new IgniteBiTuple<>(null, true);
+            return EMPTY_APPLIED_RESULT;
         }
 
         BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(indexMeta);
@@ -110,7 +111,7 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
         BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(indexMeta);
 
         storage.runConsistently(locker -> {
-            var rowUuids = new ArrayList<UUID>(command.rowIds());
+            var rowUuids = new ArrayList<>(command.rowIds());
 
             // Natural UUID order matches RowId order within the same partition.
             Collections.sort(rowUuids);
@@ -138,7 +139,7 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
             );
         }
 
-        return new IgniteBiTuple<>(null, true);
+        return EMPTY_APPLIED_RESULT;
     }
 
     private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(IndexMeta indexMeta) {
