@@ -125,7 +125,6 @@ public class ClusterInitializer {
             throw new IllegalArgumentException("CMG node names must not contain duplicates: " + metaStorageNodeNames);
         }
 
-
         if (msNodeNameSet.isEmpty() && cmgNodeNameSet.isEmpty()) {
             var clusterNodes = clusterService.topologyService().allMembers();
             var topologySize = clusterNodes.size();
