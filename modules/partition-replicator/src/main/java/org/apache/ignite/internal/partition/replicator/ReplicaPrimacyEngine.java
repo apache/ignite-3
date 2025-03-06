@@ -91,7 +91,7 @@ public class ReplicaPrimacyEngine {
     ) {
         Long enlistmentConsistencyToken = primaryReplicaRequest.enlistmentConsistencyToken();
 
-        Function<ReplicaMeta, ReplicaPrimacy> validateClo = primaryReplicaMeta -> validatePrimacy(
+        Function<ReplicaMeta, ReplicaPrimacy> validateClo = primaryReplicaMeta -> validateReplicaPrimacy(
                 now,
                 primaryReplicaMeta,
                 enlistmentConsistencyToken
@@ -110,7 +110,7 @@ public class ReplicaPrimacyEngine {
         return placementDriver.getPrimaryReplica(replicationGroupId, now).thenApply(validateClo);
     }
 
-    private ReplicaPrimacy validatePrimacy(HybridTimestamp now, ReplicaMeta primaryReplicaMeta, Long enlistmentConsistencyToken) {
+    private ReplicaPrimacy validateReplicaPrimacy(HybridTimestamp now, ReplicaMeta primaryReplicaMeta, Long enlistmentConsistencyToken) {
         if (primaryReplicaMeta == null) {
             throw new PrimaryReplicaMissException(
                     localNode.name(),
