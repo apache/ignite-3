@@ -174,7 +174,12 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public long timeout() {
+            public long getTimeout() {
+                return 10_000;
+            }
+
+            @Override
+            public long getTimeoutOrDefault(long defaultTimeout) {
                 return 10_000;
             }
 

@@ -214,6 +214,9 @@ public class InternalTableImpl implements InternalTable {
     /** Default read-write transaction timeout. */
     private final Supplier<Long> defaultRwTxTimeout;
 
+    /** Default read-only transaction timeout. */
+    private final Supplier<Long> defaultReadTxTimeout;
+
     /**
      * Constructor.
      *
@@ -233,6 +236,7 @@ public class InternalTableImpl implements InternalTable {
      * @param streamerFlushExecutor Streamer flush executor.
      * @param streamerReceiverRunner Streamer receiver runner.
      * @param defaultRwTxTimeout Default read-write transaction timeout.
+     * @param defaultReadTxTimeout Default read-only transaction timeout.
      */
     public InternalTableImpl(
             QualifiedName tableName,
@@ -251,7 +255,8 @@ public class InternalTableImpl implements InternalTable {
             int attemptsObtainLock,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner,
-            Supplier<Long> defaultRwTxTimeout
+            Supplier<Long> defaultRwTxTimeout,
+            Supplier<Long> defaultReadTxTimeout
     ) {
         this.tableName = tableName;
         this.zoneId = zoneId;
@@ -270,6 +275,7 @@ public class InternalTableImpl implements InternalTable {
         this.streamerFlushExecutor = streamerFlushExecutor;
         this.streamerReceiverRunner = streamerReceiverRunner;
         this.defaultRwTxTimeout = defaultRwTxTimeout;
+        this.defaultReadTxTimeout = defaultReadTxTimeout;
     }
 
     /** {@inheritDoc} */
@@ -374,7 +380,8 @@ public class InternalTableImpl implements InternalTable {
             fut = enlistAndInvoke(
                     actualTx,
                     partId,
-                    enlistmentConsistencyToken -> fac.apply(actualTx, partGroupId, enlistmentConsistencyToken),
+                    enlistmentConsistencyToken -> fac.apply(
+                            actualTx, partGroupId, enlistmentConsistencyToken),
                     actualTx.implicit(),
                     noWriteChecker
             );
@@ -383,7 +390,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = getTimeout(actualTx);
+                    long timeout = actualTx.getTimeoutOrDefault(getDefaultTimeout(actualTx));
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -503,7 +510,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = getTimeout(actualTx);
+                    long timeout = actualTx.getTimeoutOrDefault(getDefaultTimeout(actualTx));
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -519,17 +526,6 @@ public class InternalTableImpl implements InternalTable {
         }).thenCompose(identity());
     }
 
-    private long getTimeout(InternalTransaction tx) {
-        if (tx.isReadOnly()) {
-            return tx.timeout();
-        }
-
-        if (tx.timeout() == 0 || tx.implicit()) {
-            return defaultRwTxTimeout.get();
-        }
-
-        return tx.timeout();
-    }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
         return tx == null ? txManager.beginImplicitRw(observableTimestampTracker) : tx;
@@ -1227,7 +1223,8 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
-                long timeout = getTimeout(tx);
+                long timeout = tx.getTimeoutOrDefault(getDefaultTimeout(tx));
+
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1240,6 +1237,10 @@ public class InternalTableImpl implements InternalTable {
 
             return completedFuture(r);
         }).thenCompose(identity());
+    }
+
+    private long getDefaultTimeout(InternalTransaction tx) {
+        return tx.isReadOnly() ? defaultReadTxTimeout.get() : defaultRwTxTimeout.get();
     }
 
     /** {@inheritDoc} */

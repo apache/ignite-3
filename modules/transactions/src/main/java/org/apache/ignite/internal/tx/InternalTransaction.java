@@ -135,7 +135,14 @@ public interface InternalTransaction extends Transaction {
      *
      * @return The transaction timeout.
      */
-    long timeout();
+    long getTimeout();
+
+    /**
+     * Returns the transaction timeout in millis or the default timeout if the transaction timeout is set to 0.
+     *
+     * @return The transaction timeout.
+     */
+    long getTimeoutOrDefault(long defaultTimeout);
 
     /**
      * Kills this transaction.

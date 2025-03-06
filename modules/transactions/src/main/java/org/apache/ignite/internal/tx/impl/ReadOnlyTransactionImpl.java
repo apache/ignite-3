@@ -160,6 +160,11 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
+    public long getTimeoutOrDefault(long defaultTimeout) {
+        return timeout == 0 ? defaultTimeout : timeout;
+    }
+
+    @Override
     public CompletableFuture<Void> kill() {
         return finish(false, readTimestamp, false, false);
     }

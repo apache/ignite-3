@@ -244,6 +244,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 0,
                 () -> mock(ScheduledExecutorService.class),
                 mock(StreamerReceiverRunner.class),
+                () -> 10_000L,
                 () -> 10_000L
         );
     }

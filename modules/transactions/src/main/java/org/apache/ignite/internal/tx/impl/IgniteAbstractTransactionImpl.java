@@ -155,7 +155,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
     /** {@inheritDoc} */
     @Override
-    public long timeout() {
+    public long getTimeout() {
         return timeout;
     }
 

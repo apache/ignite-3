@@ -259,6 +259,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         return finishFuture != null;
     }
 
+    @Override
+    public long getTimeoutOrDefault(long defaultTimeout) {
+        return timeout == 0 ? defaultTimeout : timeout;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean isReadOnly() {

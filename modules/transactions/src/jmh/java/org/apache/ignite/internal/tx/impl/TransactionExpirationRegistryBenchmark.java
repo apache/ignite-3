@@ -182,7 +182,12 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public long timeout() {
+        public long getTimeout() {
+            return 0;
+        }
+
+        @Override
+        public long getTimeoutOrDefault(long defaultTimeout) {
             return 0;
         }
 

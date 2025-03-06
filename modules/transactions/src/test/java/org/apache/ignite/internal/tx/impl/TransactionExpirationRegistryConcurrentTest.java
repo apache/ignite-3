@@ -243,8 +243,13 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public long timeout() {
+        public long getTimeout() {
             return 0;
+        }
+
+        @Override
+        public long getTimeoutOrDefault(long defaultTimeout) {
+            return defaultTimeout;
         }
 
         @Override
