@@ -139,6 +139,7 @@ public class ReplicaPrimacyEngine {
     private CompletableFuture<ReplicaPrimacy> isLocalNodePrimaryReplicaAt(HybridTimestamp timestamp) {
         return placementDriver.getPrimaryReplica(replicationGroupId, timestamp)
                 .thenApply(primaryReplica -> ReplicaPrimacy.forIsPrimary(
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-24714 - should we also check lease expiration?
                         primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId())
                 ));
     }
