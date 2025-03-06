@@ -728,7 +728,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
             Replica replica = replicaFut.get(1, SECONDS);
 
-            return replica != null && (((ZonePartitionReplicaListener) replica.listener()).tableReplicaListeners().size() == count);
+            return replica != null && (((ZonePartitionReplicaListener) replica.listener()).tableReplicaProcessors().size() == count);
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
