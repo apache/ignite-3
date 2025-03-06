@@ -542,8 +542,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public boolean validateEnlistment(int partId, UUID nodeId, long token, InternalTransaction tx) {
-        // No-op.
+    public boolean mergeEnlistment(int partId, UUID nodeId, long token, InternalTransaction tx) {
         return false;
     }
 

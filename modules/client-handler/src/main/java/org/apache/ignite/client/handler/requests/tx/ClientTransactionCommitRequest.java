@@ -31,8 +31,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
-import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 
 /**
@@ -76,7 +74,7 @@ public class ClientTransactionCommitRequest {
                     return failedFuture(new TransactionException(TX_COMMIT_ERR, "Table not found [id=" + tableId + ']'));
                 }
 
-                if (!table.internalTable().validateEnlistment(partId, nodeId, token, tx)) {
+                if (!table.internalTable().mergeEnlistment(partId, nodeId, token, tx)) {
                     return failedFuture(new TransactionException(TX_COMMIT_ERR, "Invalid enlistment token [id=" + tableId + ']'));
                 }
             }
