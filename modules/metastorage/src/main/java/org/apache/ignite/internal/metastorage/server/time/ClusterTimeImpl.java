@@ -26,6 +26,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureType;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -38,6 +42,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Cluster time implementation with additional methods to adjust time and update safe time.
@@ -50,6 +55,8 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
     private final IgniteSpinBusyLock busyLock;
 
     private final HybridClock clock;
+
+    private final FailureManager failureManager;
 
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
             new PendingComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
@@ -86,13 +93,28 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param busyLock Busy lock.
      * @param clock Node's hybrid clock.
      */
+    @TestOnly
     public ClusterTimeImpl(String nodeName, IgniteSpinBusyLock busyLock, HybridClock clock) {
+        this(nodeName, busyLock, clock, new FailureManager(new NoOpFailureHandler()));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param busyLock Busy lock.
+     * @param clock Node's hybrid clock.
+     * @param failureManager Failure manager to use when reporting failures.
+     */
+    public ClusterTimeImpl(String nodeName, IgniteSpinBusyLock busyLock, HybridClock clock, FailureManager failureManager) {
         this.nodeName = nodeName;
         this.busyLock = busyLock;
         this.clock = clock;
+        this.failureManager = failureManager;
     }
 
     /**
@@ -200,6 +222,8 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
 
         void start() {
             schedule();
+
+            LOG.info("Started safe time scheduler");
         }
 
         synchronized void schedule() {
@@ -209,28 +233,40 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
             }
 
             currentTask = executorService.schedule(() -> {
-                if (!busyLock.enterBusy()) {
-                    return;
-                }
-
                 try {
-                    syncTimeAction.syncTime(clock.now())
-                            .whenComplete((v, e) -> {
-                                if (e != null) {
-                                    Throwable cause = unwrapCause(e);
+                    tryToSyncTimeAndReschedule();
+                } catch (Throwable t) {
+                    failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, t));
 
-                                    if (!(cause instanceof CancellationException) && !(cause instanceof NodeStoppingException)) {
-                                        LOG.error("Unable to perform idle time sync", e);
-                                    }
-                                }
-                            });
-
-                    // Re-schedule the task again.
-                    schedule();
-                } finally {
-                    busyLock.leaveBusy();
+                    if (t instanceof Error) {
+                        throw t;
+                    }
                 }
             }, configuration.idleSyncTimeInterval().value(), TimeUnit.MILLISECONDS);
+        }
+
+        private void tryToSyncTimeAndReschedule() {
+            if (!busyLock.enterBusy()) {
+                return;
+            }
+
+            try {
+                syncTimeAction.syncTime(clock.now())
+                        .whenComplete((v, e) -> {
+                            if (e != null) {
+                                Throwable cause = unwrapCause(e);
+
+                                if (!(cause instanceof CancellationException) && !(cause instanceof NodeStoppingException)) {
+                                    LOG.error("Unable to perform idle time sync", e);
+                                }
+                            }
+                        });
+
+                // Re-schedule the task again.
+                schedule();
+            } finally {
+                busyLock.leaveBusy();
+            }
         }
 
         void stop() {
