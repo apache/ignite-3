@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -85,21 +84,6 @@ public class ItBuildIndexTest extends ItAbstractColocationTest {
             Tuple key = Tuple.create().set("KEY", 1L);
             Tuple value = Tuple.create().set("VAL", 1).set("DOUBLEVAL", 1.0);
             tableView.putAll(tx, Map.of(key, value));
-        });
-
-        // This async transaction is needed to update safe time, just because the idle safe time propagation is not implemented yet.
-        // https://issues.apache.org/jira/browse/IGNITE-22620
-        CompletableFuture.runAsync(() -> {
-            try {
-                Thread.sleep(1_000);
-                node.transactions().runInTransaction(tx -> {
-                    Tuple key = Tuple.create().set("KEY", 1L);
-                    Tuple value = Tuple.create().set("VAL", 1).set("DOUBLEVAL", 1.0);
-                    tableView.putAll(tx, Map.of(key, value));
-                });
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
         });
 
         node.sql().execute(null, "CREATE INDEX TEST_INDEX ON TEST_TABLE (DOUBLEVAL)").close();
