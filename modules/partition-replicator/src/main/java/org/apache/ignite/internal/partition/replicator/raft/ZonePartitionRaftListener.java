@@ -22,9 +22,9 @@ import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STA
 
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -50,7 +50,6 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
@@ -75,8 +74,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
-    /** Mapping table ID to table request processor. */
-    private final Map<Integer, RaftTableProcessor> tableProcessors = new ConcurrentHashMap<>();
+    /**
+     * Mapping of table ID to table request processor.
+     *
+     * <p>Concurrent access is guarded by {@link #tableProcessorsStateLock}.
+     */
+    private final Map<Integer, RaftTableProcessor> tableProcessors = new HashMap<>();
 
     private final TxStatePartitionStorage txStateStorage;
 
@@ -188,66 +191,56 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         // (because it's already truncated in the leader's log), so it will have to install a snapshot again, and then
         // repeat same thing over and over again.
 
-        partitionSnapshots().acquireReadLock();
+        synchronized (tableProcessorsStateLock) {
+            partitionSnapshots().acquireReadLock();
 
-        try {
-            if (command instanceof TableAwareCommand) {
-                result = processTableAwareCommand(
-                        ((TableAwareCommand) command).tableId(),
-                        command,
-                        commandIndex,
-                        commandTerm,
-                        safeTimestamp
-                );
-            } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
-            } else if (command instanceof SafeTimeSyncCommand) {
-                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
-            } else if (command instanceof PrimaryReplicaChangeCommand) {
-                result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
-
-                if (commandIndex > txStateStorage.lastAppliedIndex()) {
-                    var primaryReplicaChangeCommand = (PrimaryReplicaChangeCommand) command;
-
-                    var leaseInfo = new LeaseInfo(
-                            primaryReplicaChangeCommand.leaseStartTime(),
-                            primaryReplicaChangeCommand.primaryReplicaNodeId(),
-                            primaryReplicaChangeCommand.primaryReplicaNodeName()
+            try {
+                if (command instanceof TableAwareCommand) {
+                    result = processTableAwareCommand(
+                            ((TableAwareCommand) command).tableId(),
+                            command,
+                            commandIndex,
+                            commandTerm,
+                            safeTimestamp
                     );
+                } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+                    result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
+                } else if (command instanceof SafeTimeSyncCommand) {
+                    result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
+                } else if (command instanceof PrimaryReplicaChangeCommand) {
+                    result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
 
-                    txStateStorage.leaseInfo(leaseInfo, commandIndex, commandTerm);
-
-                    result = new IgniteBiTuple<>(null, true);
-                }
-            } else {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Cleanup when all commands will be covered.
-                AbstractCommandHandler<?> commandHandler =
-                        commandHandlers.handler(command.groupType(), command.messageType());
-
-                if (commandHandler == null) {
-                    LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
-
-                    result = new IgniteBiTuple<>(null, true);
+                    if (updateLeaseInfoInTxStorage((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm)) {
+                        result = new IgniteBiTuple<>(null, true);
+                    }
                 } else {
-                    result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Cleanup when all commands will be covered.
+                    AbstractCommandHandler<?> commandHandler =
+                            commandHandlers.handler(command.groupType(), command.messageType());
+
+                    if (commandHandler == null) {
+                        LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
+
+                        result = new IgniteBiTuple<>(null, true);
+                    } else {
+                        result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
+                    }
                 }
-            }
 
-            if (Boolean.TRUE.equals(result.get2())) {
-                // Adjust safe time before completing update to reduce waiting.
-                if (safeTimestamp != null) {
-                    updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+                if (Boolean.TRUE.equals(result.get2())) {
+                    // Adjust safe time before completing update to reduce waiting.
+                    if (safeTimestamp != null) {
+                        updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+                    }
+
+                    updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
                 }
 
-                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
-            }
-
-            synchronized (tableProcessorsStateLock) {
                 lastAppliedIndex = max(lastAppliedIndex, commandIndex);
                 lastAppliedTerm = max(lastAppliedTerm, commandTerm);
+            } finally {
+                partitionSnapshots().releaseReadLock();
             }
-        } finally {
-            partitionSnapshots().releaseReadLock();
         }
 
         // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
@@ -271,9 +264,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             @Nullable HybridTimestamp safeTimestamp
     ) {
         if (tableProcessors.isEmpty()) {
-            synchronized (tableProcessorsStateLock) {
-                return new IgniteBiTuple<>(null, lastAppliedIndex < commandIndex);
-            }
+            return new IgniteBiTuple<>(null, lastAppliedIndex < commandIndex);
         }
 
         IgniteBiTuple<Serializable, Boolean> result = new IgniteBiTuple<>(null, false);
@@ -309,6 +300,22 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         return tableProcessors.get(tableId).processCommand(command, commandIndex, commandTerm, safeTimestamp);
     }
 
+    private boolean updateLeaseInfoInTxStorage(PrimaryReplicaChangeCommand command, long commandIndex, long commandTerm) {
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return false;
+        }
+
+        var leaseInfo = new LeaseInfo(
+                command.leaseStartTime(),
+                command.primaryReplicaNodeId(),
+                command.primaryReplicaNodeName()
+        );
+
+        txStateStorage.leaseInfo(leaseInfo, commandIndex, commandTerm);
+
+        return true;
+    }
+
     @Override
     public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
         synchronized (tableProcessorsStateLock) {
@@ -334,16 +341,10 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        long lastAppliedIndex;
-        long lastAppliedTerm;
-
         synchronized (tableProcessorsStateLock) {
-            lastAppliedIndex = this.lastAppliedIndex;
-            lastAppliedTerm = this.lastAppliedTerm;
+            onSnapshotSaveHandler.onSnapshotSave(lastAppliedIndex, lastAppliedTerm, tableProcessors.values())
+                    .whenComplete((unused, throwable) -> doneClo.accept(throwable));
         }
-
-        onSnapshotSaveHandler.onSnapshotSave(lastAppliedIndex, lastAppliedTerm, tableProcessors.values())
-                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
     @Override
@@ -362,7 +363,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     public void onShutdown() {
         cleanupSnapshots();
 
-        tableProcessors.values().forEach(RaftTableProcessor::onShutdown);
+        synchronized (tableProcessorsStateLock) {
+            tableProcessors.values().forEach(RaftTableProcessor::onShutdown);
+        }
     }
 
     /**
@@ -374,7 +377,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * version. Until the Catalog version is updated, commands targeting the table being added will be rejected by an interceptor that
      * requires the Catalog version to be equal to a particular value.
      */
-    public void addTableProcessor(TablePartitionId tablePartitionId, RaftTableProcessor processor) {
+    public void addTableProcessor(int tableId, RaftTableProcessor processor) {
         synchronized (tableProcessorsStateLock) {
             RaftGroupConfiguration configuration = raftGroupConfigurationConverter.fromBytes(txStateStorage.committedGroupConfiguration());
 
@@ -382,9 +385,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
             processor.initialize(configuration, leaseInfo, lastAppliedIndex, lastAppliedTerm);
 
-            RaftTableProcessor prev = tableProcessors.put(tablePartitionId.tableId(), processor);
+            RaftTableProcessor prev = tableProcessors.put(tableId, processor);
 
-            assert prev == null : "Listener for table partition " + tablePartitionId + " already exists";
+            assert prev == null : "Listener for table " + tableId + " already exists";
         }
     }
 
@@ -394,7 +397,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * @param tableId Table's identifier.
      */
     public void removeTableProcessor(int tableId) {
-        tableProcessors.remove(tableId);
+        synchronized (tableProcessorsStateLock) {
+            tableProcessors.remove(tableId);
+        }
     }
 
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(

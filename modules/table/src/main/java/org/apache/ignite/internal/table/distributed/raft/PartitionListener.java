@@ -112,8 +112,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final UUID localNodeId;
 
-    // This variable is volatile, because it may be updated outside the Raft thread under the colocation feature.
-    private volatile Set<String> currentGroupTopology;
+    private Set<String> currentGroupTopology;
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
@@ -538,10 +537,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     }
 
     private void setCurrentGroupTopology(RaftGroupConfiguration config) {
-        var currentGroupTopology = new HashSet<>(config.peers());
+        currentGroupTopology = new HashSet<>(config.peers());
         currentGroupTopology.addAll(config.learners());
-
-        this.currentGroupTopology = currentGroupTopology;
     }
 
     @Override
