@@ -157,7 +157,7 @@ public class ReplicaPrimacyEngine {
     /**
      * Checks whether the token is still valid primary.
      *
-     * @param suspectedEnlistmentConsistencyToken Enlistment consistency token.
+     * @param suspectedEnlistmentConsistencyToken Enlistment consistency token that is going to be checked.
      */
     public boolean isTokenStillValidPrimary(long suspectedEnlistmentConsistencyToken) {
         HybridTimestamp currentTime = clockService.current();
