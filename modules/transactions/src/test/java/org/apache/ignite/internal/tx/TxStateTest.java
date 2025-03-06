@@ -123,20 +123,13 @@ public class TxStateTest {
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /** Checks that the transferable ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
-    void testFromOrdinal() {
-        assertEquals(TxState.PENDING, TxState.fromOrdinal(0));
-
-        assertEquals(TxState.FINISHING, TxState.fromOrdinal(1));
-
-        assertEquals(TxState.ABORTED, TxState.fromOrdinal(2));
-
-        assertEquals(TxState.COMMITTED, TxState.fromOrdinal(3));
-
-        assertEquals(TxState.ABANDONED, TxState.fromOrdinal(4));
-
-        assertThrows(IllegalArgumentException.class, () -> TxState.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> TxState.fromOrdinal(5));
+    void testTransferableId() {
+        assertEquals(0, TxState.PENDING.transferableId());
+        assertEquals(1, TxState.FINISHING.transferableId());
+        assertEquals(2, TxState.ABORTED.transferableId());
+        assertEquals(3, TxState.COMMITTED.transferableId());
+        assertEquals(4, TxState.ABANDONED.transferableId());
     }
 }
