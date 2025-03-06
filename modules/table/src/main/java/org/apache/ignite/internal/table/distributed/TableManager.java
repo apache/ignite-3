@@ -31,13 +31,13 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.subtract;
@@ -163,6 +163,7 @@ import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSc
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -236,6 +237,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -604,6 +606,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         partitionReplicaLifecycleManager.listen(
+                LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
+                this::onZoneReplicaStopped
+        );
+
+        partitionReplicaLifecycleManager.listen(
                 LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
                 this::onZoneReplicaDestroyed
         );
@@ -641,7 +648,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             processAssignmentsOnRecovery(recoveryRevision);
 
             if (!enabledColocation()) {
-                metaStorageMgr.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES), pendingAssignmentsRebalanceListener);
+                metaStorageMgr.registerPrefixWatch(
+                        new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
+                        pendingAssignmentsRebalanceListener
+                );
                 metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
                 metaStorageMgr.registerPrefixWatch(
                         new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES),
@@ -670,7 +680,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
-            executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+            if (!enabledColocation()) {
+                executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+            }
 
             return nullCompletedFuture();
         });
@@ -717,32 +729,36 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
+    private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
+        if (!enabledColocation()) {
+            return falseCompletedFuture();
+        }
+
+        Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+
+        CompletableFuture<?>[] futures = zoneTables.stream()
+                .map(table -> supplyAsync(() -> tableStopFuture(table), ioExecutor).thenCompose(identity()))
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(futures).thenApply(v -> false);
+    }
+
     private CompletableFuture<Boolean> onZoneReplicaDestroyed(LocalPartitionReplicaEventParameters parameters) {
         if (!enabledColocation()) {
             return falseCompletedFuture();
         }
 
+        ZonePartitionId zonePartitionId = parameters.zonePartitionId();
+
         return inBusyLockAsync(busyLock, () -> {
-            Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
-
-            CompletableFuture<?>[] futures = zoneTables.stream()
-                    .map(table -> {
-                        closePartitionTrackers(table.internalTable(), parameters.zonePartitionId().partitionId());
-
-                        TablePartitionId tablePartitionId = new TablePartitionId(
-                                table.tableId(),
-                                parameters.zonePartitionId().partitionId()
-                        );
-
-                        return mvGc.removeStorage(tablePartitionId)
-                                .thenComposeAsync(
-                                        v -> inBusyLockAsync(busyLock, () -> weakStopAndDestroyPartition(
-                                                tablePartitionId,
-                                                parameters.causalityToken())
-                                        ),
-                                        ioExecutor
-                                );
-                    })
+            CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
+                    .map(table -> supplyAsync(
+                            () -> inBusyLockAsync(
+                                    busyLock,
+                                    () -> weakStopAndDestroyPartition(
+                                            new TablePartitionId(table.tableId(), zonePartitionId.partitionId()),
+                                            parameters.causalityToken())),
+                            ioExecutor))
                     .toArray(CompletableFuture[]::new);
 
             return allOf(futures);
@@ -858,7 +874,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         inBusyLock(busyLock, () -> {
             var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
-            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22522 After switching to the colocation track, the storageIndexTracker
+            //  will no longer need to be transferred to the table listeners.
+            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L) {
+                @Override
+                public void update(Long newValue, @Nullable Void futureResult) {
+                    throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
+                            + " will be updated.");
+                }
+
+                @Override
+                public CompletableFuture<Void> waitFor(Long valueToWait) {
+                    throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
+                            + " will be updated.");
+                }
+            };
 
             PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
@@ -867,8 +897,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     tableId,
                     partitionStorages.getMvPartitionStorage()
             );
-
-            storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
 
             PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                     partId,
@@ -921,7 +949,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
                     zonePartitionId,
-                    tablePartitionId,
+                    tableId,
                     createListener,
                     tablePartitionRaftListener,
                     partitionStorageAccess
@@ -934,6 +962,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
 
+            // We do not wait future in order not to block meta storage updates.
             replicaMgr.weakStopReplica(
                     groupId,
                     WeakReplicaStopReason.PRIMARY_EXPIRED,
@@ -946,7 +975,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void processAssignmentsOnRecovery(long recoveryRevision) {
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
-        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES);
+        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
 
         startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
                 stableAssignmentsPrefix,
@@ -1541,9 +1570,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
             metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
             metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
-        }
 
-        cleanUpTablesResources(tables);
+            // All table resources under colocation track should be stopped on AFTER_REPLICA_STOP local event handler only.
+            cleanUpTablesResources(tables);
+        }
     }
 
     @Override
@@ -1934,9 +1964,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
         //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
-            var replicationGroupId = new TablePartitionId(tableId, partitionId);
+            if (enabledColocation()) {
+                partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
+                        new ZonePartitionId(internalTable.zoneId(), partitionId),
+                        tableId
+                );
+            }
 
-            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyPartition(replicationGroupId, table);
+            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyPartition(new TablePartitionId(tableId, partitionId), table);
         }
 
         return allOf(stopReplicaAndDestroyFutures)
@@ -1952,7 +1987,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public List<Table> tables() {
-        return join(tablesAsync());
+        return sync(tablesAsync());
     }
 
     @Override
@@ -2011,12 +2046,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public Table table(QualifiedName name) {
-        return join(tableAsync(name));
+        return sync(tableAsync(name));
     }
 
     @Override
     public TableViewInternal table(int id) throws NodeStoppingException {
-        return join(tableAsync(id));
+        return sync(tableAsync(id));
     }
 
     @Override
@@ -2075,7 +2110,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public TableViewInternal tableView(QualifiedName name) {
-        return join(tableViewAsync(name));
+        return sync(tableViewAsync(name));
     }
 
     @Override
@@ -2149,18 +2184,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
     }
 
-    /**
-     * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.
-     *
-     * @param future Completable future.
-     * @return Future result.
-     */
-    private static <T> T join(CompletableFuture<T> future) {
-        try {
-            return future.join();
-        } catch (CompletionException ex) {
-            throw convertThrowable(ex.getCause());
-        }
+    private static <T> T sync(CompletableFuture<T> future) {
+        return IgniteUtils.getInterruptibly(future);
     }
 
     /**
@@ -2207,14 +2232,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return nullCompletedFuture();
         }
 
-        TablePartitionId replicaGrpId = extractTablePartitionId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_PREFIX_BYTES);
+        TablePartitionId replicaGrpId = extractTablePartitionId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
 
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, replicaGrpId, revision);
 
         AssignmentsChain assignmentsChain = assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
 
-        Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
 
         return tablesVv.get(revision)
                 .thenApply(ignore -> {
@@ -2456,7 +2481,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Assignments pendingAssignments,
             long currentRevision
     ) {
-        metaStorageMgr.get(pendingPartAssignmentsKey(replicationGroupId)).thenAccept(latestPendingAssignmentsEntry -> {
+        metaStorageMgr.get(pendingPartAssignmentsQueueKey(replicationGroupId)).thenAccept(latestPendingAssignmentsEntry -> {
             // Do not change peers of the raft group if this is a stale event.
             // Note that we start raft node before for the sake of the consistency in a
             // starting and stopping raft nodes.
@@ -2689,13 +2714,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
         return supplyAsync(() -> {
-            Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsKey(tablePartitionId), revision);
+            Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(tablePartitionId), revision);
 
             byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
 
             Assignments pendingAssignments = pendingAssignmentsFromMetaStorage == null
                     ? Assignments.EMPTY
-                    : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
+                    : AssignmentsQueue.fromBytes(pendingAssignmentsFromMetaStorage).poll();
 
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
@@ -2814,7 +2839,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
-            stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
+            // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped.
+            stopReplicaFuture = enabledColocation()
+                    ? trueCompletedFuture()
+                    : replicaMgr.stopReplica(tablePartitionId);
         } catch (NodeStoppingException e) {
             // No-op.
             stopReplicaFuture = falseCompletedFuture();

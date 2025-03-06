@@ -31,6 +31,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.ReplicaSafeTimeSyncRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasS
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
@@ -83,6 +83,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
     private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
     private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
+    private final ReplicaSafeTimeSyncRequestHandler replicaSafeTimeSyncRequestHandler;
 
     /**
      * The constructor.
@@ -154,6 +155,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                         ZonePartitionReplicaListener::createAbandonedTxRecoveryEnlistment
                 )
         );
+
+        replicaSafeTimeSyncRequestHandler = new ReplicaSafeTimeSyncRequestHandler(clockService, raftCommandApplicator);
     }
 
     private static PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
@@ -187,7 +190,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             return processTableAwareRequest(request, senderId);
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
         if (request instanceof TxFinishReplicaRequest) {
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                     .thenApply(res -> new ReplicaResult(res, null));
@@ -251,7 +253,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            LOG.debug("Non table request is not supported by the zone partition yet " + request);
+            return replicaSafeTimeSyncRequestHandler.handle((ReplicaSafeTimeSyncRequest) request);
         } else {
             LOG.warn("Non table request is not supported by the zone partition yet " + request);
         }
@@ -266,11 +268,20 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     /**
      * Add table partition listener to the current zone replica listener.
      *
-     * @param partitionId Table partition id.
+     * @param tableId Table id.
      * @param replicaListener Table replica listener.
      */
-    public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
-        replicas.put(partitionId.tableId(), replicaListener.apply(raftClient));
+    public void addTableReplicaListener(int tableId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
+        replicas.put(tableId, replicaListener.apply(raftClient));
+    }
+
+    /**
+     * Removes table partition listener by table replication identifier from the current zone replica listener.
+     *
+     * @param tableId Table's identifier.
+     */
+    public void removeTableReplicaListener(int tableId) {
+        replicas.remove(tableId);
     }
 
     /**

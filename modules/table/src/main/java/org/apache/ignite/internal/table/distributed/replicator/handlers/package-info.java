@@ -15,33 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.metric;
-
 /**
- * Holder of IO statistics.
+ * This package contains replica request handlers that is used by
+ * {@link org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener}.
  */
-public interface IoStatisticsHolder {
-    /**
-     * Track logical read of given page.
-     *
-     * @param pageAddr Address of page.
-     */
-    void trackLogicalRead(long pageAddr);
-
-    /**
-     * Track physical and logical read of given page.
-     *
-     * @param pageAddr Start address of page.
-     */
-    void trackPhysicalAndLogicalRead(long pageAddr);
-
-    /**
-     * Returns a number of logical reads.
-     */
-    long logicalReads();
-
-    /**
-     * Returns a number of physical reads.
-     */
-    long physicalReads();
-}
+package org.apache.ignite.internal.table.distributed.replicator.handlers;

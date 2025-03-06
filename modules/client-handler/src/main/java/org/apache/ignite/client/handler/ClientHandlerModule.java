@@ -294,13 +294,17 @@ public class ClientHandlerModule implements IgniteComponent {
                     @Override
                     protected void initChannel(Channel ch) {
                         if (!busyLock.enterBusy()) {
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("Client handler stopped, dropping client connection [remoteAddress=" + ch.remoteAddress() + ']');
+                            }
+
                             ch.close();
                             return;
                         }
 
-                        try {
-                            long connectionId = CONNECTION_ID_GEN.incrementAndGet();
+                        long connectionId = CONNECTION_ID_GEN.incrementAndGet();
 
+                        try {
                             if (LOG.isDebugEnabled()) {
                                 LOG.debug("New client connection [connectionId=" + connectionId
                                         + ", remoteAddress=" + ch.remoteAddress() + ']');
@@ -329,6 +333,11 @@ public class ClientHandlerModule implements IgniteComponent {
                             );
 
                             metrics.connectionsInitiatedIncrement();
+                        } catch (Throwable t) {
+                            LOG.error("Failed to initialize client connection [connectionId=" + connectionId
+                                    + ", remoteAddress=" + ch.remoteAddress() + "]:" + t.getMessage(), t);
+
+                            ch.close();
                         } finally {
                             busyLock.leaveBusy();
                         }

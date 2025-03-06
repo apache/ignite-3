@@ -28,7 +28,9 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColo
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -60,6 +62,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
@@ -106,8 +109,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         createZone(node, "test_zone", 1, 1);
 
@@ -229,8 +230,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         Node node = getNode(0);
 
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-
         assertTrue(waitForCondition(() -> node.distributionZoneManager.logicalTopology().size() == 3, 10_000L));
 
         createZone(node, "test_zone", 2, 2);
@@ -270,8 +269,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(3, nodeAttributesConfigurations);
 
         Node node = getNode(0);
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         createZone(node, "test_zone", 2, 3);
 
@@ -315,8 +312,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         Node node = getNode(replicaAssignment.consistentId());
 
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-
         DistributionZonesTestUtil.createZone(node.catalogManager, "test_zone", 1, 1);
 
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
@@ -346,8 +341,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         DistributionZonesTestUtil.createZone(node.catalogManager, zoneName, 1, 3);
 
@@ -547,8 +540,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         Node node = getNode(replicaAssignment1.consistentId());
 
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
-
         createZone(node, "test_zone", 2, 1);
 
         {
@@ -591,7 +582,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         // Prepare a single node cluster.
         startCluster(1);
         Node node = getNode(0);
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         // Prepare a zone.
         String zoneName = "test_zone";
@@ -647,6 +637,77 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         // Commit the open transaction.
         assertDoesNotThrow(tx::commit);
+    }
+
+    @Test
+    public void testReplicaSafeTimeSyncRequest() throws Exception {
+        startCluster(2);
+        Node node0 = getNode(0);
+        Node node1 = getNode(1);
+
+        // Prepare a zone.
+        String zoneName = "test_zone";
+        createZone(node0, zoneName, 1, 2);
+        int zoneId =  DistributionZonesTestUtil.getZoneId(node0.catalogManager, zoneName, node0.hybridClock.nowLong());
+        int partId = 0;
+
+        // Wait for sure that zone replication group was created on both nodes.
+        waitForZoneReplicaStartedOnNode(node0, zoneId, partId);
+        waitForZoneReplicaStartedOnNode(node1, zoneId, partId);
+
+        // Check that time was adjusted even without tables.
+        checkSafeTimeWasAdjustedForZoneGroup(node0, zoneId, partId);
+        checkSafeTimeWasAdjustedForZoneGroup(node1, zoneId, partId);
+
+        // Create a table to work with.
+        String tableName = "test_table";
+        createTable(node0, zoneName, tableName);
+
+        // Check that time was adjusted with a table too.
+        checkSafeTimeWasAdjustedForZoneGroup(node0, zoneId, partId);
+        checkSafeTimeWasAdjustedForZoneGroup(node1, zoneId, partId);
+    }
+
+    private static void waitForZoneReplicaStartedOnNode(Node node, int zoneId, int partId) throws InterruptedException {
+        ZonePartitionId zoneReplicationId = new ZonePartitionId(zoneId, partId);
+
+        assertTrue(waitForCondition(() -> node.replicaManager.replica(zoneReplicationId) != null, AWAIT_TIMEOUT_MILLIS));
+        assertThat(node.replicaManager.replica(zoneReplicationId), willCompleteSuccessfully());
+    }
+
+    private static void checkSafeTimeWasAdjustedForZoneGroup(Node node, int zoneId, int partId) throws InterruptedException {
+        HybridTimestamp node0safeTimeBefore = node.currentSafeTimeForZonePartition(zoneId, partId);
+
+        assertTrue(waitForCondition(
+                () -> node0safeTimeBefore.compareTo(node.currentSafeTimeForZonePartition(zoneId, partId)) < 0,
+                AWAIT_TIMEOUT_MILLIS
+        ));
+    }
+
+    @Test
+    public void testNodeStop() throws Exception {
+        // Prepare a single node cluster.
+        startCluster(1);
+        Node node = getNode(0);
+
+        // Prepare a zone.
+        String zoneName = "test_zone";
+        createZone(node, zoneName, 1, 1);
+
+        // Create a table to work with.
+        String tableName = "test_table";
+        createTable(node, zoneName, tableName);
+        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+        InternalTable internalTable = node.tableManager.table(tableId).internalTable();
+
+        // Stop the node
+        stopNode(0);
+
+        // Check that the storages close method was triggered
+        verify(internalTable.storage())
+                .close();
+        verify(internalTable.txStateStorage())
+                .close();
     }
 
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {

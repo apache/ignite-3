@@ -396,7 +396,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
      * @param expRes   Expected result.
      */
     private void verifyJoin(Object[][] left, Object[][] right, JoinRelType joinType, Object[][] expRes, JoinAlgo algo) {
-        ExecutionContext<Object[]> ctx = executionContext(true);
+        ExecutionContext<Object[]> ctx = executionContext();
 
         IgniteTypeFactory tf = ctx.getTypeFactory();
 

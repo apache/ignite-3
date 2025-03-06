@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.partitiondistribution.Assignments.fromB
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
@@ -116,7 +115,6 @@ import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPar
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessageBuilder;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -200,6 +198,7 @@ import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -370,6 +369,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
     private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
     private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
+    private final BuildIndexReplicaRequestHandler buildIndexReplicaRequestHandler;
 
     /**
      * The constructor.
@@ -484,9 +484,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                 clusterNodeResolver,
                 replicationGroupId,
                 localNode,
-                txRecoveryEngine
-        );
+                txRecoveryEngine);
 
+        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
+                indexMetaStorage,
+                txRwOperationTracker,
+                safeTime,
+                raftCommandApplicator);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24665
+        // Consider extracting the following code to a separate class BuildIndexEventListener.
         prepareIndexBuilderTxRwOperationTracker();
     }
 
@@ -867,6 +874,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return nullCompletedFuture();
         } else if (request instanceof TxFinishReplicaRequest) {
+            assert !enabledColocation() : request;
+
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request);
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
             return processWriteIntentSwitchAction((WriteIntentSwitchReplicaRequest) request);
@@ -881,7 +890,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             return processReplicaSafeTimeSyncRequest(isPrimary);
         } else if (request instanceof BuildIndexReplicaRequest) {
-            return processBuildIndexReplicaRequest((BuildIndexReplicaRequest) request);
+            return buildIndexReplicaRequestHandler.handle((BuildIndexReplicaRequest) request);
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
             return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
@@ -1684,19 +1693,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         WriteIntentSwitchReplicatedInfo result = writeIntentSwitchReplicatedInfoFor(request);
 
-        if (enabledColocation()) {
-            // We don't need to apply Raft command as zone replication listener will do it for us.
-            return completedFuture(result);
-        }
+        assert !enabledColocation() : request;
 
-        // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
-        // or txBeginTs [if it's an abort]). But there seems to be no guarantee that the compactor will not remove this version.
-        // TODO: IGNITE-24574 Introduce a mechanism to save the chosen catalog version from being compacted too early.
         @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
         HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
-        commandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
 
-        return reliableCatalogVersions.reliableCatalogVersionFor(commandTimestamp)
+        return reliableCatalogVersions.safeReliableCatalogVersionFor(commandTimestamp)
                 .thenCompose(catalogVersion -> applyWriteIntentSwitchCommandToGroup(request, catalogVersion))
                 .thenApply(res -> result);
     }
@@ -3680,16 +3682,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         return localNode.id().equals(nodeId);
     }
 
-    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
-                .indexId(request.indexId())
-                .rowIds(request.rowIds())
-                .finish(request.finish())
-                // We are sure that there will be no error here since the primary replica is sent the request to itself.
-                .requiredCatalogVersion(buildingChangeInfo.catalogVersion())
-                .build();
-    }
-
     private CompletableFuture<?> processOperationRequestWithTxOperationManagementLogic(
             UUID senderId,
             ReplicaRequest request,
@@ -3856,22 +3848,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private CompletableFuture<?> processBuildIndexReplicaRequest(BuildIndexReplicaRequest request) {
-        IndexMeta indexMeta = indexMetaStorage.indexMeta(request.indexId());
-
-        if (indexMeta == null || indexMeta.isDropped()) {
-            // Index has been dropped.
-            return nullCompletedFuture();
-        }
-
-        MetaIndexStatusChange registeredChangeInfo = indexMeta.statusChange(REGISTERED);
-        MetaIndexStatusChange buildingChangeInfo = indexMeta.statusChange(BUILDING);
-
-        return txRwOperationTracker.awaitCompleteTxRwOperations(registeredChangeInfo.catalogVersion())
-                .thenCompose(unused -> safeTime.waitFor(hybridTimestamp(buildingChangeInfo.activationTimestamp())))
-                .thenCompose(unused -> raftCommandRunner.run(toBuildIndexCommand(request, buildingChangeInfo)));
     }
 
     private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {

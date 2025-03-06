@@ -26,6 +26,7 @@ import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_CRITICAL
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -165,23 +166,30 @@ public class CheckpointTimeoutLock {
 
                         if (urgency != CheckpointUrgency.MUST_TRIGGER) {
                             // Allow to take the checkpoint read lock, if urgency is not "must trigger". We optimistically assume that
-                            // triggerred checkpoint will start soon, without us having to explicitly wait for it and without page memory
+                            // triggered checkpoint will start soon, without us having to explicitly wait for it and without page memory
                             // overflow.
                             return;
                         }
 
                         checkpointReadWriteLock.readUnlock();
 
-                        if (timeout > 0 && coarseCurrentTimeMillis() - start >= timeout) {
+                        long elapsed = coarseCurrentTimeMillis() - start;
+                        if (timeout > 0 && elapsed >= timeout) {
                             failCheckpointReadLock();
                         }
 
                         try {
-                            getUninterruptibly(checkpoint.futureFor(LOCK_RELEASED));
+                            if (timeout > 0) {
+                                getUninterruptibly(checkpoint.futureFor(LOCK_RELEASED), timeout - elapsed);
+                            } else {
+                                getUninterruptibly(checkpoint.futureFor(LOCK_RELEASED));
+                            }
                         } catch (ExecutionException e) {
                             throw new IgniteInternalException("Failed to wait for checkpoint begin", e.getCause());
                         } catch (CancellationException e) {
                             throw new IgniteInternalException("Failed to wait for checkpoint begin", e);
+                        } catch (TimeoutException e) {
+                            failCheckpointReadLock();
                         }
                     }
                 } catch (CheckpointReadLockTimeoutException e) {

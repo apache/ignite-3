@@ -203,7 +203,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         when(updateLogMock.startAsync(componentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, delayDuration::get);
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
 
         reset(updateLogMock);
@@ -342,7 +342,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         when(updateLogMock.stopAsync(stopComponentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, delayDuration::get);
 
         assertThat(manager.startAsync(startComponentContext), willCompleteSuccessfully());
 

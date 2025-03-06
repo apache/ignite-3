@@ -703,18 +703,18 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         InOrder inOrder = inOrder(partitionDataStorage, indexUpdateHandler);
 
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row0.uuid()), false), 10, 1);
+        commandListener.processCommand(createBuildIndexCommand(indexId, List.of(row0.uuid()), false), 10, 1, null);
 
         inOrder.verify(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), eq(row0.increment()));
         inOrder.verify(partitionDataStorage).lastApplied(10, 1);
 
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row1.uuid()), true), 20, 2);
+        commandListener.processCommand(createBuildIndexCommand(indexId, List.of(row1.uuid()), true), 20, 2, null);
 
         inOrder.verify(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), eq(null));
         inOrder.verify(partitionDataStorage).lastApplied(20, 2);
 
         // Let's check that the command with a lower commandIndex than in the storage will not be executed.
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row2.uuid()), false), 5, 1);
+        commandListener.processCommand(createBuildIndexCommand(indexId, List.of(row2.uuid()), false), 5, 1, null);
 
         inOrder.verify(indexUpdateHandler, never()).buildIndex(eq(indexId), any(Stream.class), eq(row2.increment()));
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
@@ -723,6 +723,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
                 .indexId(indexId)
+                .tableId(TABLE_ID)
                 .rowIds(rowUuids)
                 .finish(finish)
                 .build();
