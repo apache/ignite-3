@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.raft;
 
-import java.io.Serializable;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
@@ -37,9 +35,9 @@ public interface RaftTableProcessor {
      * @param commandIndex Command index.
      * @param commandTerm Command term.
      * @param safeTimestamp Safe timestamp.
-     * @return Tuple of result and whether the command was applied.
+     * @return Result of the command processing.
      */
-    IgniteBiTuple<Serializable, Boolean> processCommand(
+    CommandResult processCommand(
             WriteCommand command,
             long commandIndex,
             long commandTerm,

@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.raft.handlers;
 
-import java.io.Serializable;
+import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
+import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_NOT_APPLIED_RESULT;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
+import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -62,7 +64,7 @@ public class MinimumActiveTxTimeCommandHandler extends AbstractCommandHandler<Up
     }
 
     @Override
-    protected IgniteBiTuple<Serializable, Boolean> handleInternally(
+    protected CommandResult handleInternally(
             UpdateMinimumActiveTxBeginTimeCommand command,
             long commandIndex,
             long commandTerm,
@@ -70,7 +72,7 @@ public class MinimumActiveTxTimeCommandHandler extends AbstractCommandHandler<Up
     ) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new IgniteBiTuple<>(null, false);
+            return EMPTY_NOT_APPLIED_RESULT;
         }
 
         long timestamp = command.timestamp();
@@ -82,6 +84,6 @@ public class MinimumActiveTxTimeCommandHandler extends AbstractCommandHandler<Up
                     }
                 });
 
-        return new IgniteBiTuple<>(null, true);
+        return EMPTY_APPLIED_RESULT;
     }
 }
