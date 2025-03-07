@@ -93,6 +93,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         return tx;
     }
 
+    // TODO: IGNITE-22522 - inline this after switching to ZonePartitionId.
     ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
         return new TablePartitionId(tableOrZoneId, partId);
     }
