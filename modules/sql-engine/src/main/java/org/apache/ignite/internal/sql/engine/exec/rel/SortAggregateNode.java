@@ -42,6 +42,9 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
+    /** Special value to highlights that all row were received and we are not waiting any more. */
+    static final int NOT_WAITING = -1;
+
     private final AggregateType type;
 
     private final RowFactory<RowT> rowFactory;
@@ -63,6 +66,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private int waiting;
 
     private int cmpRes;
+
+    private boolean inLoop;
 
     /**
      * Constructor.
@@ -104,16 +109,10 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         requested = rowsCnt;
 
-        if (!outBuf.isEmpty()) {
-            doPush();
-        }
-
         if (waiting == 0) {
-            waiting = inBufSize;
-
-            source().request(inBufSize);
-        } else if (waiting < 0 && requested > 0) {
-            downstream().end();
+            source().request(waiting = inBufSize);
+        } else if (!inLoop) {
+            execute(this::doPush);
         }
     }
 
@@ -154,7 +153,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         if (waiting == 0 && requested > 0) {
             waiting = inBufSize;
 
-            this.execute(() -> source().request(inBufSize));
+            source().request(inBufSize);
         }
     }
 
@@ -166,20 +165,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         checkState();
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         if (grp != null) {
             outBuf.add(grp.row());
-
-            doPush();
         }
 
-        if (requested > 0) {
-            downstream().end();
-        }
-
-        grp = null;
-        prevRow = null;
+        doPush();
     }
 
     /** {@inheritDoc} */
@@ -229,10 +221,25 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private void doPush() throws Exception {
-        while (requested > 0 && !outBuf.isEmpty()) {
-            requested--;
+        checkState();
 
-            downstream().push(outBuf.poll());
+        inLoop = true;
+        try {
+            while (requested > 0 && !outBuf.isEmpty()) {
+                requested--;
+
+                downstream().push(outBuf.poll());
+            }
+        } finally {
+            inLoop = false;
+        }
+
+        if (requested > 0 && waiting == NOT_WAITING && outBuf.isEmpty()) {
+            requested = 0;
+            downstream().end();
+
+            grp = null;
+            prevRow = null;
         }
     }
 
