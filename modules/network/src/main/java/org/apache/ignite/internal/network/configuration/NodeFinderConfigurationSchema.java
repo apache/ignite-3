@@ -32,6 +32,7 @@ public class NodeFinderConfigurationSchema {
     @Value(hasDefault = true)
     public final String[] netClusterNodes = new String[0];
 
+    /** Configuration specific to multicast node finder. */
     @ConfigValue
     public MulticastConfigurationSchema multicast;
 }

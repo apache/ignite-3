@@ -21,6 +21,6 @@ package org.apache.ignite.internal.network.configuration;
 public enum NodeFinderType {
     /** Node finder with a preconfigured list of ip addresses. */
     STATIC,
-    /** Uses multicast to discover nodes. */
+    /** Uses multicast to find nodes. */
     MULTICAST
 }

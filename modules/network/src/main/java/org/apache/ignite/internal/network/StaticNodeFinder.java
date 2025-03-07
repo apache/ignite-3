@@ -64,6 +64,11 @@ public class StaticNodeFinder implements NodeFinder {
                 .collect(toList());
     }
 
+    @Override
+    public void start() {
+        // No-op
+    }
+
     private static String[] resolveAll(String host) {
         InetAddress[] inetAddresses;
         try {

@@ -36,4 +36,7 @@ public interface NodeFinder extends ManuallyCloseable {
     default void close() {
         // No-op.
     }
+
+    /** Start the node finder. */
+    void start();
 }

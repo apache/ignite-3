@@ -182,7 +182,8 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 ClusterConfig clusterConfig = clusterConfig(configView.membership());
-                NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder(), connectionMgr.localAddress());
+                NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder(), nodeName(), connectionMgr.localAddress());
+                finder.start();
 
                 ClusterImpl cluster = new ClusterImpl(clusterConfig)
                         .handler(cl -> new ClusterMessageHandler() {

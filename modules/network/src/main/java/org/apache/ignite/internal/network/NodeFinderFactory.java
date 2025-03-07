@@ -35,9 +35,10 @@ public class NodeFinderFactory {
      * Creates a {@link NodeFinder} based on the provided configuration.
      *
      * @param nodeFinderConfiguration Node finder configuration.
+     * @param nodeName Node name.
      * @return Node finder.
      */
-    public static NodeFinder createNodeFinder(NodeFinderView nodeFinderConfiguration, InetSocketAddress localAddress) {
+    public static NodeFinder createNodeFinder(NodeFinderView nodeFinderConfiguration, String nodeName, InetSocketAddress localAddress) {
         String typeString = nodeFinderConfiguration.type();
 
         NodeFinderType type;
@@ -56,17 +57,14 @@ public class NodeFinderFactory {
             case MULTICAST:
                 MulticastView multicastConfig = nodeFinderConfiguration.multicast();
 
-                MulticastNodeFinder multicastNodeFinder = new MulticastNodeFinder(
+                return new MulticastNodeFinder(
                         multicastConfig.group(),
                         multicastConfig.port(),
-                        multicastConfig.discoveryResultWaitMillis(),
+                        multicastConfig.resultWaitTime(),
                         multicastConfig.ttl(),
+                        nodeName,
                         localAddress
                 );
-
-                multicastNodeFinder.start();
-
-                return multicastNodeFinder;
             default:
                 throw new IllegalArgumentException("Unsupported NodeFinder type " + type);
         }

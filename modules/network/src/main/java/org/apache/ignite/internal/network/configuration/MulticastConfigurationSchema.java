@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.configuration;
 
+import static org.apache.ignite.internal.network.MulticastNodeFinder.MAX_TTL;
+import static org.apache.ignite.internal.network.MulticastNodeFinder.UNBOUNDED_TTL;
+
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
@@ -24,19 +27,23 @@ import org.apache.ignite.configuration.validation.Range;
 /** Configuration for multicast node finder. */
 @Config
 public class MulticastConfigurationSchema {
+    /** Address to use for multicast requests. */
     @Value(hasDefault = true)
     @MulticastAddress
-    public final String group = "228.1.2.4";
+    public final String group = "239.0.0.0";
 
+    /** Port to use for multicast requests. */
     @Value(hasDefault = true)
-    @Range(min = 0, max = 65535)
-    public final int port = 47400;
+    @Range(min = 1, max = 65535)
+    public final int port = 47401;
 
+    /** Time to wait for multicast responses. */
     @Value(hasDefault = true)
     @Range(min = 0)
-    public final int discoveryResultWaitMillis = 500;
+    public final int resultWaitTime = 500;
 
+    /** Time to live for multicast packets. */
     @Value(hasDefault = true)
-    @Range(min = -1, max = 255)
-    public final int ttl = -1;
+    @Range(min = UNBOUNDED_TTL, max = MAX_TTL)
+    public final int ttl = UNBOUNDED_TTL;
 }

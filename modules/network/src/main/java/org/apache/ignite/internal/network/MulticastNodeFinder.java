@@ -17,17 +17,19 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.lang.System.currentTimeMillis;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.lang.ErrorGroups.Network.NODE_FINDER_ERR;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.StandardSocketOptions;
 import java.util.ArrayList;
@@ -41,8 +43,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -50,17 +54,19 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Multicast-based IP finder.
  *
- * <p>When TCP discovery starts this finder sends multicast request and waits for some time when other nodes
- * reply to this request with messages containing their addresses.
+ * <p>It sends multicast request and waits for configured time when other nodes reply to this request with messages containing their
+ * addresses.
  */
 public class MulticastNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(MulticastNodeFinder.class);
 
     /** Discovery request message. */
-    private static final byte[] REQUEST_MESSAGE = "IGNI".getBytes(UTF_8);
+    private static final byte[] REQUEST_MESSAGE = "IGNT".getBytes(UTF_8);
 
     /** Buffer size for receiving responses. */
     private static final int RECEIVE_BUFFER_SIZE = 1024;
+    public static final int UNBOUNDED_TTL = -1;
+    public static final int MAX_TTL = 255;
 
     private static final int REQ_ATTEMPTS = 2;
 
@@ -69,13 +75,13 @@ public class MulticastNodeFinder implements NodeFinder {
     private final int resultWaitMillis;
     private final int ttl;
 
-    private final InetSocketAddress localAddress;
+    private final InetSocketAddress localAddressToAdvertise;
     private final ExecutorService threadPool;
 
     /** Flag to control running state of listener tasks. */
     private volatile boolean stopped = false;
 
-    /** Listener tasks for each eligible interface. */
+    /** Listener futures for each eligible interface. */
     private final List<CompletableFuture<Void>> listenerFutures = new ArrayList<>();
 
     /**
@@ -85,21 +91,23 @@ public class MulticastNodeFinder implements NodeFinder {
      * @param multicastPort Multicast port.
      * @param resultWaitMillis Wait time for responses.
      * @param ttl Time-to-live for multicast packets.
-     * @param localAddress Local node address.
+     * @param nodeName Node name.
+     * @param localAddressToAdvertise Local node address.
      */
     public MulticastNodeFinder(
             String multicastGroup,
             int multicastPort,
             int resultWaitMillis,
             int ttl,
-            InetSocketAddress localAddress
+            String nodeName,
+            InetSocketAddress localAddressToAdvertise
     ) {
         this.multicastSocketAddress = new InetSocketAddress(multicastGroup, multicastPort);
         this.multicastPort = multicastPort;
         this.resultWaitMillis = resultWaitMillis;
         this.ttl = ttl;
-        this.localAddress = localAddress;
-        this.threadPool = Executors.newFixedThreadPool(4);
+        this.localAddressToAdvertise = localAddressToAdvertise;
+        this.threadPool = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG));
     }
 
     @Override
@@ -108,28 +116,28 @@ public class MulticastNodeFinder implements NodeFinder {
         List<CompletableFuture<Collection<NetworkAddress>>> discoveryFutures = new ArrayList<>();
 
         for (NetworkInterface networkInterface : getEligibleNetworkInterfaces()) {
-            discoveryFutures.add(supplyAsync(() -> discoverOnInterface(networkInterface), threadPool));
+            discoveryFutures.add(supplyAsync(() -> findOnInterface(networkInterface), threadPool));
         }
 
         for (CompletableFuture<Collection<NetworkAddress>> future : discoveryFutures) {
             try {
-                result.addAll(future.join());
+                result.addAll(future.get(resultWaitMillis * REQ_ATTEMPTS * 2L, TimeUnit.MILLISECONDS));
             } catch (Exception e) {
-                LOG.error("Error during node discovery", e);
+                throw new IgniteInternalException(NODE_FINDER_ERR, "Error during multicast node finding", e);
             }
         }
 
         if (result.isEmpty()) {
             LOG.warn("No nodes discovered on interfaces, using unbound multicast socket");
-            result.addAll(discoverOnInterface(null));
+            result.addAll(findOnInterface(null));
         }
 
-        LOG.info("Discovered nodes: {}", result);
+        LOG.info("Found nodes: {}", result);
 
         return result;
     }
 
-    private Collection<NetworkAddress> discoverOnInterface(@Nullable NetworkInterface networkInterface) {
+    private Collection<NetworkAddress> findOnInterface(@Nullable NetworkInterface networkInterface) {
         Set<NetworkAddress> discovered = new HashSet<>();
         byte[] responseBuffer = new byte[RECEIVE_BUFFER_SIZE];
 
@@ -144,15 +152,15 @@ public class MulticastNodeFinder implements NodeFinder {
                 waitForResponses(responseBuffer, socket, discovered);
             }
         } catch (Exception e) {
-            LOG.error("Error during discovery on interface: " + networkInterface, e);
+            throw new IgniteInternalException(NODE_FINDER_ERR, "Error during multicast node finding interface: " + networkInterface, e);
         }
 
         return discovered;
     }
 
     private void waitForResponses(byte[] responseBuffer, MulticastSocket socket, Set<NetworkAddress> discovered) throws IOException {
-        long endTime = coarseCurrentTimeMillis() + resultWaitMillis;
-        while (coarseCurrentTimeMillis() < endTime) {
+        long endTime = currentTimeMillis() + resultWaitMillis;
+        while (currentTimeMillis() < endTime) {
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
 
             try {
@@ -164,7 +172,7 @@ public class MulticastNodeFinder implements NodeFinder {
                 );
 
                 InetSocketAddress address = ByteUtils.fromBytes(data);
-                if (!address.equals(localAddress)) {
+                if (!address.equals(localAddressToAdvertise)) {
                     discovered.add(NetworkAddress.from(address));
                 }
             } catch (SocketTimeoutException ignored) {
@@ -182,7 +190,7 @@ public class MulticastNodeFinder implements NodeFinder {
 
         socket.setSoTimeout(resultWaitMillis);
 
-        if (ttl != -1) {
+        if (ttl != UNBOUNDED_TTL) {
             socket.setTimeToLive(ttl);
         }
     }
@@ -197,7 +205,7 @@ public class MulticastNodeFinder implements NodeFinder {
             configureSocket(socket, networkInterface);
             socket.joinGroup(multicastSocketAddress, networkInterface);
 
-            byte[] responseData = ByteUtils.toBytes(localAddress);
+            byte[] responseData = ByteUtils.toBytes(localAddressToAdvertise);
             byte[] requestBuffer = new byte[REQUEST_MESSAGE.length];
 
             while (!stopped) {
@@ -230,7 +238,7 @@ public class MulticastNodeFinder implements NodeFinder {
             }
         } catch (Exception e) {
             if (!stopped) {
-                LOG.error("Error in multicast listener on interface: " + networkInterface, e);
+                throw new IgniteInternalException(NODE_FINDER_ERR, "Error in multicast listener on interface: " + networkInterface, e);
             } else {
                 LOG.info("Multicast listener shutting down on interface: " + networkInterface);
             }
@@ -252,7 +260,7 @@ public class MulticastNodeFinder implements NodeFinder {
                     eligible.add(networkInterface);
                 }
             }
-        } catch (Exception e) {
+        } catch (SocketException e) {
             LOG.error("Failed to enumerate network interfaces", e);
         }
 
@@ -270,7 +278,7 @@ public class MulticastNodeFinder implements NodeFinder {
         shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
     }
 
-    /** Starts address senders to respond to multicast requests. */
+    @Override
     public void start() {
         for (NetworkInterface networkInterface : getEligibleNetworkInterfaces()) {
             listenerFutures.add(runAsync(() -> listenOnInterface(networkInterface), threadPool));
