@@ -261,7 +261,7 @@ public class MulticastNodeFinder implements NodeFinder {
                 }
             }
         } catch (SocketException e) {
-            LOG.error("Failed to enumerate network interfaces", e);
+            throw new IgniteInternalException(NODE_FINDER_ERR, "Error getting network interfaces", e);
         }
 
         return eligible;
