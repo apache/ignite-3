@@ -527,6 +527,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 networkConfig.value(),
                 serializationService,
                 node.name(),
+                node.id(),
                 bootstrapFactory,
                 staleIdDetector,
                 clusterIdSupplier,
