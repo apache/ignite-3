@@ -859,20 +859,6 @@ public class DataNodesManager {
      * @return Data nodes.
      */
     public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp) {
-        return dataNodes(zoneId, timestamp, null);
-    }
-
-    /**
-     * Returns data nodes for the given zone and timestamp. It doesn't recalculate the data nodes, it just retrieves them from data nodes
-     * history. For information how data nodes are calculated, see {@link #onTopologyChange}, {@link #onZoneFilterChange} and {@link
-     * #onAutoAdjustAlteration} methods.
-     *
-     * @param zoneId Zone ID.
-     * @param timestamp Timestamp.
-     * @param catalogVersion Catalog version.
-     * @return Data nodes.
-     */
-    public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp, @Nullable Integer catalogVersion) {
         DataNodesHistory volatileHistory = dataNodesHistoryVolatile.get(zoneId);
         if (volatileHistory != null && volatileHistory.entryIsPresentAtExactTimestamp(timestamp)) {
             return completedFuture(volatileHistory.dataNodesForTimestamp(timestamp)
@@ -883,11 +869,7 @@ public class DataNodesManager {
             );
         }
 
-        if (catalogVersion == null) {
-            catalogVersion = catalogManager.activeCatalogVersion(timestamp.longValue());
-        }
-
-        CatalogZoneDescriptor zone = catalogManager.catalog(catalogVersion).zone(zoneId);
+        CatalogZoneDescriptor zone = catalogManager.activeCatalog(timestamp.longValue()).zone(zoneId);
 
         if (zone == null) {
             return failedFuture(new DistributionZoneNotFoundException(zoneId));
