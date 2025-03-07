@@ -19,6 +19,8 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.concurrent.CompletableFuture;
@@ -97,7 +99,11 @@ class ItColocationTxRecoveryTest extends ItAbstractColocationTest {
         );
 
         assertThat(primaryReplicaFuture, willCompleteSuccessfully());
-        return primaryReplicaFuture.join();
+
+        ReplicaMeta replicaMeta = primaryReplicaFuture.join();
+        assertThat(replicaMeta, is(notNullValue()));
+
+        return replicaMeta;
     }
 
     private Node findAnyOtherNode(ReplicaMeta primaryReplica) {
