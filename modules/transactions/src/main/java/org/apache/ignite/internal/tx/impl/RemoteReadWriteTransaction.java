@@ -16,38 +16,34 @@ import org.jetbrains.annotations.Nullable;
 public class RemoteReadWriteTransaction implements InternalTransaction {
     private final UUID txId;
     private final TablePartitionId commitGroupId;
-    private long token;
+    private IgniteBiTuple<ClusterNode, Long> token;
     private final UUID coord;
-    private final ClusterNode localNode;
 
     public RemoteReadWriteTransaction(UUID txId, TablePartitionId commitGroupId, UUID coord, long token, ClusterNode localNode) {
         this.txId = txId;
         this.commitGroupId = commitGroupId;
-        this.token = token;
+        this.token = token == 0 ? null : new IgniteBiTuple<>(localNode, token);
         this.coord = coord;
-        this.localNode = localNode;
     }
 
     @Override
     public void commit() throws TransactionException {
-
+        throw new AssertionError("Remote transaction can't be finished directly");
     }
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return null;
+        throw new AssertionError("Remote transaction can't be finished directly");
     }
 
     @Override
     public void rollback() throws TransactionException {
-        assert false;
+        throw new AssertionError("Remote transaction can't be finished directly");
     }
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        assert false;
-
-        return null;
+        throw new AssertionError("Remote transaction can't be finished directly");
     }
 
     @Override
@@ -62,7 +58,7 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
 
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId) {
-        return token == 0 ? null : new IgniteBiTuple<>(localNode, token);
+        return token;
     }
 
     @Override
@@ -83,9 +79,9 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, int tableId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
-        this.token = nodeAndConsistencyToken.get2();
+        this.token = nodeAndConsistencyToken;
 
-        return new IgniteBiTuple<>(localNode, token); // TODO FIXME
+        return null;
     }
 
     @Override

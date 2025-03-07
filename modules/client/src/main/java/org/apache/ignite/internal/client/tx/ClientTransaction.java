@@ -40,6 +40,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -86,7 +87,7 @@ public class ClientTransaction implements Transaction {
     private final String nodeName;
 
     /** Direct enlistment map. */
-    private final Map<PartitionGroupId, CompletableFuture<IgniteBiTuple<UUID, Long>>> enlisted = new ConcurrentHashMap<>();
+    private final Map<TablePartitionId, CompletableFuture<IgniteBiTuple<UUID, Long>>> enlisted = new ConcurrentHashMap<>();
 
     private final HybridTimestampTracker tracker;
 
@@ -190,8 +191,8 @@ public class ClientTransaction implements Transaction {
             w.out().packLong(id);
             w.out().packLong(tracker.get().longValue());
             w.out().packInt(enlisted.size());
-            for (Entry<PartitionGroupId, CompletableFuture<IgniteBiTuple<UUID, Long>>> entry : enlisted.entrySet()) {
-                w.out().packInt(entry.getKey().objectId());
+            for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<UUID, Long>>> entry : enlisted.entrySet()) {
+                w.out().packInt(entry.getKey().tableId());
                 w.out().packInt(entry.getKey().partitionId());
                 w.out().packUuid(entry.getValue().getNow(null).get1());
                 w.out().packLong(entry.getValue().getNow(null).get2());

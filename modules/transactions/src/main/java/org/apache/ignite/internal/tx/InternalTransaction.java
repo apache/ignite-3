@@ -74,7 +74,7 @@ public interface InternalTransaction extends Transaction {
      * @param replicationGroupId Replication group id to enlist.
      * @param tableId Table ID for enlistment.
      * @param nodeAndConsistencyToken Primary replica cluster node and consistency token to enlist for given replication group.
-     * @return {@code True} if a partition is enlisted into the transaction.
+     * @return {@code True} if a partition is enlisted into the transaction. // TODO FIXME remove return value.
      */
     IgniteBiTuple<ClusterNode, Long> enlist(
             ReplicationGroupId replicationGroupId,
