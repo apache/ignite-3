@@ -35,11 +35,8 @@ import org.jetbrains.annotations.TestOnly;
  * When the page in question is not included in the current checkpoint and Checkpoint Buffer is filled over 2/3,
  * uses exponentially growing sleep time to throttle.
  * Otherwise, uses average checkpoint write speed and instant speed of marking pages as dirty.<br>
- *
- * @see <a href="https://github.com/apache/ignite/tree/master/modules/core/src/main/java/org/apache/ignite/internal/processors/cache/persistence/pagemem#speed-based-throttling">Speed-based throttling description</a>
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
-    /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
     /**
@@ -48,10 +45,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
      */
     static final long NO_THROTTLING_MARKER = Long.MIN_VALUE;
 
-    /** Page memory. */
     private final PersistentPageMemory pageMemory;
 
-    /** Checkpoint progress provider. */
     private final Supplier<CheckpointProgress> cpProgress;
 
     /** Threads set. Contains threads which are currently parked because of throttling. */
@@ -65,7 +60,6 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
      * */
     private final IntervalBasedMeasurement markSpeedAndAvgParkTime = new IntervalBasedMeasurement(250, 3);
 
-    /** Checkpoint lock state provider. */
     private final CheckpointLockStateChecker cpLockStateChecker;
 
     /** Previous warning time, nanos. */
@@ -77,10 +71,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     /** Warning threshold: minimal level of pressure that causes warning messages to log. */
     private static final double WARN_THRESHOLD = 0.2;
 
-    /** Checkpoint buffer protection logic. */
     private final ExponentialBackoffThrottlingStrategy cpBufferProtector = new ExponentialBackoffThrottlingStrategy();
 
-    /** Clean pages protection logic. */
     private final SpeedBasedMemoryConsumptionThrottlingStrategy cleanPagesProtector;
 
     /** Checkpoint Buffer-related logic used to keep it safe. */
@@ -156,9 +148,6 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         }
     }
 
-    /**
-     * Returns a number of written pages.
-     */
     private int cpWrittenPages() {
         CheckpointProgress cpProgress = this.cpProgress.get();
 
@@ -235,9 +224,6 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         unparkParkedThreads();
     }
 
-    /**
-     * Unparks parked threads.
-     */
     private void unparkParkedThreads() {
         parkedThreads.forEach(LockSupport::unpark);
     }

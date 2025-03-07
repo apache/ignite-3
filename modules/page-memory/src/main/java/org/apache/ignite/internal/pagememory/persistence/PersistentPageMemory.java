@@ -1442,9 +1442,6 @@ public class PersistentPageMemory implements PageMemory {
             }
         }
 
-        /**
-         * Returns a dirty pages ratio.
-         */
         private double dirtyPagesRatio() {
             return dirtyPagesCntr.doubleValue() / pages();
         }
