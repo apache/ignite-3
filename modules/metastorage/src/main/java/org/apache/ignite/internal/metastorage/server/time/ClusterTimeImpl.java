@@ -272,6 +272,8 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
         }
 
         void stop() {
+            LOG.info("Stopping safe time scheduler");
+
             synchronized (this) {
                 if (currentTask != null) {
                     currentTask.cancel(false);
