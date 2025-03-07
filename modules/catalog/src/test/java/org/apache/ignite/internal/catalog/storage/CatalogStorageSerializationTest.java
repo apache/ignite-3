@@ -116,7 +116,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
     @Test
     public void alterZone() {
         List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
-        List<UpdateEntry> entries = List.of(new AlterZoneEntry(zones.get(0)));
+        List<UpdateEntry> entries = List.of(
+                new AlterZoneEntry(zones.get(1)),
+                new AlterZoneEntry(zones.get(2))
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "AlterZoneEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -130,7 +133,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void setDefaultZone() {
-        List<UpdateEntry> entries = List.of(new SetDefaultZoneEntry(state.id()), new SetDefaultZoneEntry(state.id()));
+        List<UpdateEntry> entries = List.of(
+                new SetDefaultZoneEntry(state.id()),
+                new SetDefaultZoneEntry(state.id())
+        );
         List<UpdateEntry> actual = checkEntries(entries, "SetDefaultZoneEntry.bin");
 
         assertEquals(entries.size(), actual.size());
@@ -144,7 +150,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void dropZone() {
-        List<UpdateEntry> entries = List.of(new DropZoneEntry(state.id()), new DropZoneEntry(state.id()));
+        List<UpdateEntry> entries = List.of(
+                new DropZoneEntry(state.id()),
+                new DropZoneEntry(state.id())
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "DropZoneEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -179,7 +188,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void dropSchema() {
-        List<UpdateEntry> entries = List.of(new DropSchemaEntry(state.id()), new DropSchemaEntry(state.id()));
+        List<UpdateEntry> entries = List.of(
+                new DropSchemaEntry(state.id()),
+                new DropSchemaEntry(state.id())
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "DropSchemaEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -214,7 +226,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void renameTable() {
-        List<UpdateEntry> entries = List.of(new RenameTableEntry(state.id(), "NEW_NAME"));
+        List<UpdateEntry> entries = List.of(
+                new RenameTableEntry(state.id(), "NEW_NAME1"),
+                new RenameTableEntry(state.id(), "NEW_NAME2")
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "RenameTableEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -229,7 +244,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void dropTable() {
-        List<UpdateEntry> entries = List.of(new DropTableEntry(state.id()), new DropTableEntry(state.id()));
+        List<UpdateEntry> entries = List.of(
+                new DropTableEntry(state.id()),
+                new DropTableEntry(state.id())
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "DropTableEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -291,7 +309,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void removeIndex() {
-        List<UpdateEntry> entries = List.of(new RemoveIndexEntry(state.id()), new RemoveIndexEntry(state.id()));
+        List<UpdateEntry> entries = List.of(
+                new RemoveIndexEntry(state.id()),
+                new RemoveIndexEntry(state.id())
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "RemoveIndexEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -306,7 +327,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void makeIndexAvailable() {
-        List<UpdateEntry> entries = List.of(new MakeIndexAvailableEntry(1804), new MakeIndexAvailableEntry(65742));
+        List<UpdateEntry> entries = List.of(
+                new MakeIndexAvailableEntry(state.id()),
+                new MakeIndexAvailableEntry(state.id())
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "MakeIndexAvailableEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -321,7 +345,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void startBuildingIndex() {
-        List<UpdateEntry> entries = List.of(new StartBuildingIndexEntry(state.id()), new StartBuildingIndexEntry(state.id()));
+        List<UpdateEntry> entries = List.of(
+                new StartBuildingIndexEntry(state.id()),
+                new StartBuildingIndexEntry(state.id())
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "StartBuildingIndexEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -336,7 +363,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void dropIndex() {
-        List<UpdateEntry> entries = List.of(new DropIndexEntry(1), new DropIndexEntry(42));
+        List<UpdateEntry> entries = List.of(
+                new DropIndexEntry(state.id()),
+                new DropIndexEntry(state.id())
+        );
 
         List<UpdateEntry> actual = checkEntries(entries, "DropIndexEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -383,8 +413,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
     private <T extends MarshallableEntry> T checkEntry(T entry, String fileName) {
         CatalogObjectSerializer<MarshallableEntry> serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(
-                1,
-                entry.typeId()
+                1, entry.typeId()
         );
 
         String resourceName = "storage/" + fileName;
