@@ -39,7 +39,6 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -114,7 +113,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            ClusterNode primaryNode,
+            String primaryNodeConsistentId,
             long consistencyToken
     ) {
         assertReplicationGroupType(replicationGroupId);
@@ -130,7 +129,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
             PendingTxPartitionEnlistment enlistment = enlisted.computeIfAbsent(
                     replicationGroupId,
-                    k -> new PendingTxPartitionEnlistment(primaryNode.name(), consistencyToken)
+                    k -> new PendingTxPartitionEnlistment(primaryNodeConsistentId, consistencyToken)
             );
 
             enlistment.addTableId(tableId);

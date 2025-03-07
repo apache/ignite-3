@@ -231,7 +231,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId partitionIdForEnlistment = targetReplicationGroupId(1, 0);
 
-        tx.enlist(partitionIdForEnlistment, 10, REMOTE_NODE, 1L);
+        tx.enlist(partitionIdForEnlistment, 10, REMOTE_NODE.name(), 1L);
 
         PendingTxPartitionEnlistment actual = tx.enlistedPartition(partitionIdForEnlistment);
         assertEquals(REMOTE_NODE.name(), actual.primaryNodeConsistentId());
@@ -319,7 +319,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
-        tx.enlist(replicationGroupId, 10, REMOTE_NODE, 1L);
+        tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
         tx.commit();
@@ -340,7 +340,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
-        tx.enlist(replicationGroupId, 10, REMOTE_NODE, 1L);
+        tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
         tx.rollback();
@@ -368,7 +368,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
-        tx.enlist(replicationGroupId, 10, REMOTE_NODE, 1L);
+        tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
@@ -396,7 +396,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
-        tx.enlist(replicationGroupId, 10, REMOTE_NODE, 1L);
+        tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
@@ -633,14 +633,14 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Prepare transaction.
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ClusterNode node = mock(ClusterNode.class);
+        String nodeName = "SomeNode";
 
         ReplicationGroupId partitionIdForEnlistment1 = targetReplicationGroupId(1, 0);
-        tx.enlist(partitionIdForEnlistment1, 10, node, 1L);
+        tx.enlist(partitionIdForEnlistment1, 10, nodeName, 1L);
         tx.assignCommitPartition(partitionIdForEnlistment1);
 
         ReplicationGroupId partitionIdForEnlistment2 = targetReplicationGroupId(2, 0);
-        tx.enlist(partitionIdForEnlistment2, 20, node, 1L);
+        tx.enlist(partitionIdForEnlistment2, 20, nodeName, 1L);
 
         when(placementDriver.getPrimaryReplica(eq(partitionIdForEnlistment1), any()))
                 .thenReturn(completedFuture(
@@ -777,7 +777,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
-        tx.enlist(replicationGroupId, 10, REMOTE_NODE, 1L);
+        tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
         return tx;

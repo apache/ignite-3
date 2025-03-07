@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
@@ -194,9 +195,12 @@ public final class NoOpTransaction implements InternalTransaction {
     public void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            ClusterNode primaryNode,
+            String primaryNodeConsistentId,
             long consistencyToken
     ) {
+        requireNonNull(replicationGroupId, "replicationGroupId");
+        requireNonNull(primaryNodeConsistentId, "primaryNodeConsistentId");
+
         // No-op.
     }
 

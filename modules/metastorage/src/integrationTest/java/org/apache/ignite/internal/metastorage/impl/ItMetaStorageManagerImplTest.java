@@ -297,7 +297,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(MetastorageRepair.class),
                 RaftGroupOptionsConfigurer.EMPTY,
                 readOperationForCompactionTracker,
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                new NoOpFailureManager()
         );
 
         assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());

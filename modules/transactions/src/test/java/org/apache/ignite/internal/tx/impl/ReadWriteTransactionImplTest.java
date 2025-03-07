@@ -124,8 +124,8 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         tx.assignCommitPartition(txCommitPart);
 
-        tx.enlist(targetReplicationGroupId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE, 0L);
-        tx.enlist(targetReplicationGroupId(ZONE_ID, 2), TABLE_ID, CLUSTER_NODE, 0L);
+        tx.enlist(targetReplicationGroupId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE.name(), 0L);
+        tx.enlist(targetReplicationGroupId(ZONE_ID, 2), TABLE_ID, CLUSTER_NODE.name(), 0L);
 
         if (commit) {
             if (txState == null) {
@@ -142,11 +142,14 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         }
 
         TransactionException ex = assertThrows(TransactionException.class,
-                () -> tx.enlist(targetReplicationGroupId(ZONE_ID, 5), TABLE_ID, CLUSTER_NODE, 0L));
+                () -> tx.enlist(targetReplicationGroupId(ZONE_ID, 5), TABLE_ID, CLUSTER_NODE.name(), 0L));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
 
-        ex = assertThrows(TransactionException.class, () -> tx.enlist(targetReplicationGroupId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE, 0L));
+        ex = assertThrows(
+                TransactionException.class,
+                () -> tx.enlist(targetReplicationGroupId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE.name(), 0L)
+        );
 
         assertTrue(ex.getMessage().contains(txState.toString()));
     }
