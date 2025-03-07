@@ -31,7 +31,7 @@ class MulticastAddressValidatorTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void notAValidAddressValidationFails() {
+    public void notValidAddressValidationFails() {
         validate("256.0.0.0", "Multicast group is not a valid address");
     }
 
