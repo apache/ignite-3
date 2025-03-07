@@ -80,8 +80,8 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
             checkCachePlanStatistics("SELECT * FROM T t1, T t2, T t3", prepareService, 4, 6);
 
             // Here, the very first plan has been evicted from cache.
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, 4, 8);
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, 5, 8);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 5, 6);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 6, 6);
         } finally {
             prepareService.stop();
         }
