@@ -497,6 +497,9 @@ public class ErrorGroups {
 
         /** Could not resolve address. */
         public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Could not find nodes. */
+        public static final int NODE_FINDER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Node configuration error group. */
