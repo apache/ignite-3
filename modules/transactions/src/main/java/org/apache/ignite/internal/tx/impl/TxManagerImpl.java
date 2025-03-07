@@ -358,21 +358,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
     }
 
-    // TODO: IGNITE-24363 - change action argument type to ReplicaGroupId.
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
-            Consumer<TablePartitionId> action
+            Consumer<ReplicationGroupId> action
     ) {
         return inBusyLock(busyLock, () -> {
             assertReplicationGroupType(eventParameters.groupId());
 
-            if (!(eventParameters.groupId() instanceof TablePartitionId)) {
+            if (!(eventParameters.groupId() instanceof TablePartitionId) && !(eventParameters.groupId() instanceof ZonePartitionId)) {
                 return falseCompletedFuture();
             }
 
-            TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
-
-            action.accept(groupId);
+            action.accept(eventParameters.groupId());
 
             return falseCompletedFuture();
         });
@@ -973,7 +970,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,

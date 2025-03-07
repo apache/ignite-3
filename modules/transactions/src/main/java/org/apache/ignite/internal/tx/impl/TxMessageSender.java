@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,7 +32,6 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
@@ -240,14 +238,14 @@ public class TxMessageSender {
      * Send TxCleanupRecoveryRequest.
      *
      * @param primaryConsistentId Node id to send the request to.
-     * @param tablePartitionId Table partition id.
+     * @param replicationGroupId Replication group ID corresponding to a partition.
      * @return Completable future of ReplicaResponse.
      */
-    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, TablePartitionId tablePartitionId) {
+    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, ReplicationGroupId replicationGroupId) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txCleanupRecoveryRequest()
-                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
+                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
                         .build()
         );
     }
