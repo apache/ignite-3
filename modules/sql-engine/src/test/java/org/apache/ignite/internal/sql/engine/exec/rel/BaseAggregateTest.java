@@ -32,7 +32,10 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -58,6 +61,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * A test class that defines basic test scenarios to verify the execution of each type of aggregate.
@@ -67,7 +71,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
     @ParameterizedTest
     @EnumSource
     public void count(TestAggregateType testAgg) {
-        ExecutionContext<Object[]> ctx = executionContext(true);
+        ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
@@ -108,7 +112,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
     @ParameterizedTest
     @EnumSource
     public void countDistinct(TestAggregateType testAgg) {
-        ExecutionContext<Object[]> ctx = executionContext(false);
+        ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
@@ -317,8 +321,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
      * Checks single aggregate and appropriate {@link Accumulators.SingleVal} implementation.
      *
      * @param scanInput Input data.
-     * @param output    Expectation result.
-     * @param mustFail  {@code true} If expression must throw exception.
+     * @param output Expectation result.
+     * @param mustFail {@code true} If expression must throw exception.
      **/
     @SuppressWarnings("ThrowableNotThrown")
     public void singleAggr(
@@ -581,7 +585,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
         for (int i = 0; i < 2; i++) {
             RootNode<Object[]> root = new RootNode<>(ctx) {
                 /** {@inheritDoc} */
-                @Override public void close() {
+                @Override
+                public void close() {
                     // NO-OP
                 }
             };
@@ -593,6 +598,67 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             assertFalse(root.hasNext());
 
             await(ctx.submit(aggChain::rewind, root::onError));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void aggregateNodeWithDifferentBufferSize(boolean singleGroup) {
+        int buffSize = 1;
+
+        aggregateNodeWith(buffSize, 0, singleGroup);
+        aggregateNodeWith(buffSize, 1, singleGroup);
+        aggregateNodeWith(buffSize, 10, singleGroup);
+
+        buffSize = 10;
+        aggregateNodeWith(buffSize, 0, singleGroup);
+        aggregateNodeWith(buffSize, buffSize - 1, singleGroup);
+        aggregateNodeWith(buffSize, buffSize, singleGroup);
+        aggregateNodeWith(buffSize, buffSize + 1, singleGroup);
+        aggregateNodeWith(buffSize, 2 * buffSize, singleGroup);
+
+        buffSize = Commons.IN_BUFFER_SIZE;
+        aggregateNodeWith(buffSize, 0, singleGroup);
+        aggregateNodeWith(buffSize, buffSize - 1, singleGroup);
+        aggregateNodeWith(buffSize, buffSize, singleGroup);
+        aggregateNodeWith(buffSize, buffSize + 1, singleGroup);
+    }
+
+    void aggregateNodeWith(int bufferSize, int dataSize, boolean singleGroup) {
+        ExecutionContext<Object[]> ctx = executionContext(bufferSize);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, () -> IntStream.range(0, dataSize).mapToObj(this::row).iterator());
+
+        AggregateCall call = createAggregateCall(
+                SqlStdOperatorTable.COUNT,
+                ImmutableList.of(),
+                tf.createSqlType(SqlTypeName.INTEGER)
+        );
+
+        List<ImmutableBitSet> grpSets = singleGroup ? List.of(ImmutableBitSet.of()) : List.of(ImmutableBitSet.of(0));
+
+        SingleNode<Object[]> aggChain = createAggregateNodesChain(
+                TestAggregateType.COLOCATED,
+                ctx,
+                grpSets,
+                call,
+                rowType,
+                scan,
+                !singleGroup
+        );
+
+        RootNode<Object[]> root = new RootNode<>(ctx);
+        root.register(aggChain);
+
+        if (singleGroup) {
+            assertTrue(root.hasNext());
+            assertArrayEquals(row(dataSize), root.next());
+            assertFalse(root.hasNext());
+        } else {
+            long count = StreamSupport.stream(Spliterators.spliteratorUnknownSize(root, Spliterator.ORDERED), false).count();
+
+            assertEquals(dataSize, count);
         }
     }
 

@@ -86,7 +86,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    private void doJoin() throws Exception {
+    protected void doJoin() throws Exception {
         checkState();
 
         join();
@@ -311,11 +311,20 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null)) {
                     checkState();
+
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::doJoin);
+
+                        return;
+                    }
+
 
                     if (left == null) {
                         left = leftInBuf.remove();
@@ -477,11 +486,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null || waitingRight == NOT_WAITING)) {
                     checkState();
+
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::doJoin);
+
+                        return;
+                    }
 
                     if (left == null) {
                         left = leftInBuf.remove();
@@ -663,11 +680,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && (right != null || !rightInBuf.isEmpty() || rightMaterialization != null)) {
                     checkState();
+
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::doJoin);
+
+                        return;
+                    }
 
                     if (left == null && !leftInBuf.isEmpty()) {
                         left = leftInBuf.remove();
@@ -870,11 +895,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && !(right == null && rightInBuf.isEmpty() && rightMaterialization == null && waitingRight != NOT_WAITING)) {
                     checkState();
+
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::doJoin);
+
+                        return;
+                    }
 
                     if (left == null && !leftInBuf.isEmpty()) {
                         left = leftInBuf.remove();
@@ -1075,10 +1108,18 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty())) {
                     checkState();
+
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::doJoin);
+
+                        return;
+                    }
 
                     if (left == null) {
                         left = leftInBuf.remove();
@@ -1154,11 +1195,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty())
                         && !(right == null && rightInBuf.isEmpty() && waitingRight != NOT_WAITING)) {
                     checkState();
+
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::doJoin);
+
+                        return;
+                    }
 
                     if (left == null) {
                         left = leftInBuf.remove();

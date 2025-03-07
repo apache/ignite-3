@@ -114,7 +114,7 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         throw new IndexOutOfBoundsException();
     }
 
-    private void pushLeft(RowT row) throws Exception {
+    protected void pushLeft(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
 
@@ -157,7 +157,7 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         return sources().get(1);
     }
 
-    private void doJoin() throws Exception {
+    protected void doJoin() throws Exception {
         checkState();
 
         join();

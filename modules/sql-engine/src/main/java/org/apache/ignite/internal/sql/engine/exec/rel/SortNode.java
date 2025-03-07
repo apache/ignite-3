@@ -119,7 +119,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            this.execute(this::flush);
+            this.execute(this::doFlush);
         }
     }
 
@@ -154,6 +154,12 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         flush();
     }
 
+    private void doFlush() throws Exception {
+        checkState();
+
+        flush();
+    }
+
     private void flush() throws Exception {
         if (isClosed()) {
             return;
@@ -176,7 +182,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
                     if (++processed >= inBufSize) {
                         // Allow the others to do their job.
-                        this.execute(this::flush);
+                        this.execute(this::doFlush);
 
                         return;
                     }
@@ -194,7 +200,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
                 if (++processed >= inBufSize && requested > 0) {
                     // allow others to do their job
-                    this.execute(this::flush);
+                    this.execute(this::doFlush);
 
                     return;
                 }

@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -33,6 +37,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -47,13 +52,14 @@ import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
+import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** Tests to verify {@link DataSourceScanNode}. */
 @SuppressWarnings("resource")
-public class DataSourceScanNodeSelfTest extends AbstractExecutionTest<RowWrapper> {
+public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
     private static final RowSchema ROW_SCHEMA = RowSchema.builder()
             .addField(NativeTypes.INT32)
             .addField(NativeTypes.INT64)
@@ -217,6 +223,42 @@ public class DataSourceScanNodeSelfTest extends AbstractExecutionTest<RowWrapper
 
         assertThat(actualRows, equalTo(expectedRows));
     }
+
+    @Test
+    public void dataSourceScanNodeWithVariousBufferSize() {
+        int bufferSize = 1;
+        checkDataSourceScan(bufferSize, 0);
+        checkDataSourceScan(bufferSize, 1);
+        checkDataSourceScan(bufferSize, 10);
+
+        bufferSize = IN_BUFFER_SIZE;
+        checkDataSourceScan(bufferSize, 0);
+        checkDataSourceScan(bufferSize, 1);
+        checkDataSourceScan(bufferSize, bufferSize - 1);
+        checkDataSourceScan(bufferSize, bufferSize);
+        checkDataSourceScan(bufferSize, bufferSize + 1);
+        checkDataSourceScan(bufferSize, 2 * bufferSize);
+    }
+
+    private void checkDataSourceScan(int bufferSize, int sourceSize) {
+        ExecutionContext<RowWrapper> ctx = executionContext(bufferSize);
+
+        RowSchema schema = RowSchema.builder().addField(NativeTypes.INT32).build();
+        RowFactory<RowWrapper> rowFactory = ctx.rowHandler().factory(schema);
+        BinaryTupleSchema tupleSchema = fromRowSchema(schema);
+        TupleFactory tupleFactory = tupleFactoryFromSchema(tupleSchema);
+
+        ScannableDataSource dataSource = new IterableDataSource(DataProvider.fromRow(tupleFactory.create(42), sourceSize));
+        DataSourceScanNode<RowWrapper> scanNode = new DataSourceScanNode<>(ctx, rowFactory, tupleSchema, dataSource, null, null, null);
+        RootNode<RowWrapper> rootNode = new RootNode<>(ctx);
+
+        rootNode.register(scanNode);
+
+        long count = StreamSupport.stream(Spliterators.spliteratorUnknownSize(rootNode, Spliterator.ORDERED), false).count();
+
+        assertEquals(sourceSize, count);
+    }
+
 
     @SuppressWarnings("DataFlowIssue")
     private static List<RowWrapper> initScanAndGetResults(

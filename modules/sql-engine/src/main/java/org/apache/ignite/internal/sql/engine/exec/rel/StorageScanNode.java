@@ -132,10 +132,18 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         checkState();
 
         if (requested > 0 && !inBuff.isEmpty()) {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && !inBuff.isEmpty()) {
                     checkState();
+
+                    if (processed++ >= inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::push);
+
+                        return;
+                    }
 
                     RowT row = inBuff.poll();
 
