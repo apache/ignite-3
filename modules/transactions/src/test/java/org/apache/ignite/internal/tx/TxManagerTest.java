@@ -79,7 +79,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -229,7 +229,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ReplicationGroupId partitionIdForEnlistment = new ZonePartitionId(1, 0);
+        ReplicationGroupId partitionIdForEnlistment = targetReplicationGroupId(1, 0);
 
         tx.enlist(partitionIdForEnlistment, 10, REMOTE_NODE.name(), 1L);
 
@@ -237,6 +237,11 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(REMOTE_NODE.name(), actual.primaryNodeConsistentId());
         assertEquals(1L, actual.consistencyToken());
         assertEquals(Set.of(10), actual.tableIds());
+    }
+
+    // TODO: IGNITE-22522 - inline this after switching to ZonePartitionId.
+    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
+        return new TablePartitionId(tableOrZoneId, partId);
     }
 
     @Test
@@ -312,7 +317,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ZonePartitionId replicationGroupId = new ZonePartitionId(1, 0);
+        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
@@ -333,7 +338,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ZonePartitionId replicationGroupId = new ZonePartitionId(1, 0);
+        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
@@ -361,7 +366,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ZonePartitionId replicationGroupId = new ZonePartitionId(1, 0);
+        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
@@ -389,7 +394,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ZonePartitionId replicationGroupId = new ZonePartitionId(1, 0);
+        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
@@ -630,11 +635,11 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         String nodeName = "SomeNode";
 
-        ZonePartitionId partitionIdForEnlistment1 = new ZonePartitionId(1, 0);
+        ReplicationGroupId partitionIdForEnlistment1 = targetReplicationGroupId(1, 0);
         tx.enlist(partitionIdForEnlistment1, 10, nodeName, 1L);
         tx.assignCommitPartition(partitionIdForEnlistment1);
 
-        ReplicationGroupId partitionIdForEnlistment2 = new ZonePartitionId(2, 0);
+        ReplicationGroupId partitionIdForEnlistment2 = targetReplicationGroupId(2, 0);
         tx.enlist(partitionIdForEnlistment2, 20, nodeName, 1L);
 
         when(placementDriver.getPrimaryReplica(eq(partitionIdForEnlistment1), any()))
@@ -770,7 +775,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     private InternalTransaction prepareTransaction() {
         InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
-        ZonePartitionId replicationGroupId = new ZonePartitionId(1, 0);
+        ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
