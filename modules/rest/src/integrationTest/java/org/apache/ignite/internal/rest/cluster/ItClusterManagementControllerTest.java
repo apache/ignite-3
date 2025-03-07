@@ -54,6 +54,18 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
     }
 
     @Test
+    void testInitNoMsCmg() throws Exception {
+        // Given body with just cluster name
+        String givenBody = "{\"clusterName\": \"cluster\"}";
+
+        // When
+        HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", givenBody));
+
+        // Then
+        assertThat(initResponse.statusCode(), is(HttpStatus.OK.getCode()));
+    }
+
+    @Test
     void testInitAlreadyInitializedWithAnotherNodes() throws Exception {
         // Given cluster is not initialized
         HttpResponse<String> stateResponseBeforeInit = send(get("/management/v1/cluster/state"));

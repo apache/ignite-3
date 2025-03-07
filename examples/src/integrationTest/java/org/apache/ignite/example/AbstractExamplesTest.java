@@ -57,7 +57,6 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
         );
 
         InitParameters initParameters = InitParameters.builder()
-                .metaStorageNodeNames(TEST_NODE_NAME)
                 .clusterName("cluster")
                 .build();
 

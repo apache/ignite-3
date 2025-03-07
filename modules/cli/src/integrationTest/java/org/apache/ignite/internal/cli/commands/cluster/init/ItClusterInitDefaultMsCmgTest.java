@@ -18,11 +18,17 @@
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.io.File;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
-import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -34,22 +40,23 @@ import org.junit.jupiter.api.Test;
  * test class. It'd ideal to refactor the base classes to have a CLI init test class with multiple test cases.
  * This may be needed if more tests are added.
  */
-public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBase {
+public class ItClusterInitDefaultMsCmgTest extends CliCommandTestNotInitializedIntegrationBase {
+    @Override
+    protected int initialNodes() {
+        // Use 6 nodes so that there is one that's not in MS and CMG by default.
+        return 6;
+    }
+
     @Test
-    @DisplayName("Init cluster with basic authentication")
-    void initClusterWithBasicAuthentication() throws InterruptedException {
+    @DisplayName("Init cluster with default MS and CMG")
+    void initClusterWithDefaultMsAndCmg() throws InterruptedException {
 
         // when
         connect(NODE_URL);
 
-        File clusterConfigurationFile = TestConfigManagerHelper.readClusterConfigurationWithEnabledAuthFile();
-
         execute(
                 "cluster", "init",
-                "--metastorage-group", CLUSTER.nodeName(1),
-                "--cluster-management-group", CLUSTER.nodeName(2),
-                "--name", "cluster",
-                "--config-files", clusterConfigurationFile.getAbsolutePath()
+                "--name", "cluster"
         );
 
         assertAll(
@@ -61,42 +68,36 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
         // then
         awaitClusterInitialized();
 
-        // basic authentication has been enabled
-        assertRestIsUnavailable();
-
-        // set basic authentication settings
-        execute("cli", "config", "set", "ignite.auth.basic.username=admin");
-        execute("cli", "config", "set", "ignite.auth.basic.password=password");
-
-        // REST is available
-        assertRestIsAvailable();
-
         execute("cluster", "topology", "logical");
         assertExitCodeIsZero();
         for (int i = 0; i < initialNodes(); i++) {
             assertOutputContains(CLUSTER.nodeName(i));
         }
+
+        execute("cluster", "status");
+        assertExitCodeIsZero();
+
+        String output = getOutput();
+
+        // Extract node lists using regex
+        Pattern pattern = Pattern.compile("cmgNodes: \\[(.*?)], msNodes: \\[(.*?)]");
+        Matcher matcher = pattern.matcher(output);
+        assertThat("Expected cmgNodes and msNodes lists in output", matcher.find(), is(true));
+
+        // Parse the extracted node lists
+        Pattern listPattern = Pattern.compile(", ");
+        List<String> cmgNodes = List.of(listPattern.split(matcher.group(1)));
+        List<String> msNodes = List.of(listPattern.split(matcher.group(2)));
+
+        // Compare lists with expected
+        List<String> expectedNodes = IntStream.range(0, initialNodes() - 1)
+                .mapToObj(i -> CLUSTER.nodeName(i))
+                .collect(Collectors.toList());
+        assertThat("cmgNodes do not match expected nodes", cmgNodes, containsInAnyOrder(expectedNodes.toArray()));
+        assertThat("msNodes do not match expected nodes", msNodes, containsInAnyOrder(expectedNodes.toArray()));
     }
 
     private void awaitClusterInitialized() throws InterruptedException {
         waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 30_000);
-    }
-
-    private void assertRestIsUnavailable() {
-        execute("cluster", "config", "show");
-
-        assertAll(
-                () -> assertErrOutputContains("Authentication error"),
-                this::assertOutputIsEmpty
-        );
-    }
-
-    private void assertRestIsAvailable() {
-        execute("cluster", "config", "show");
-
-        assertAll(
-                this::assertErrOutputIsEmpty,
-                this::assertOutputIsNotEmpty
-        );
     }
 }

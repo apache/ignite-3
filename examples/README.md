@@ -43,8 +43,7 @@ NODE_IP_ADDRESS=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{
 
 6. Initialize the node:
 ```shell
-docker run -it apacheignite/ignite3 cli cluster init --url http://$NODE_IP_ADDRESS:10300 --name myCluster1 \
-  --cluster-management-group defaultNode --metastorage-group defaultNode
+docker run --rm -it apacheignite/ignite3 cli cluster init --url http://$NODE_IP_ADDRESS:10300 --name myCluster1
 ```
 
 7. Run the example via IDE.
@@ -80,7 +79,7 @@ $IGNITE_HOME/bin/ignite3db start
 
 6. Initialize the cluster using Ignite CLI from the CLI part:
 ```shell
-$IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1 --metastorage-group defaultNode --cluster-management-group defaultNode
+$IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1
 ```
 
 7. Run the example from the IDE.
