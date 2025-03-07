@@ -30,11 +30,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.assertj.core.api.BDDAssertions;
 import org.junit.jupiter.api.Test;
 
@@ -411,16 +408,15 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         return (List) deserializedUpdate.entries();
     }
 
-    private <T extends MarshallableEntry> T checkEntry(T entry, String fileName) {
-        CatalogObjectSerializer<MarshallableEntry> serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(
-                1, entry.typeId()
-        );
-
+    private <T extends UpdateLogEvent> T checkEntry(T entry, String fileName) {
         String resourceName = "storage/" + fileName;
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+        UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
+        marshaller.marshall(entry);
 
         byte[] srcBytes;
 
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourceName)) {
             assertNotNull(is, "Resource does not exist: " + resourceName);
             while (is.available() > 0) {
@@ -431,10 +427,6 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
             throw new UncheckedIOException("Unable to resource", e);
         }
 
-        try (IgniteUnsafeDataInput is = new IgniteUnsafeDataInput(srcBytes)) {
-            return (T) serializer.readFrom(is);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Unable to read object", e);
-        }
+        return (T) marshaller.unmarshall(srcBytes);
     }
 }
