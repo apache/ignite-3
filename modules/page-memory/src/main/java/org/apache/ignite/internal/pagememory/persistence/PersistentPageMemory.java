@@ -1316,7 +1316,7 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Returns a max dirty pages ratio amongst all segments.
+     * Returns max dirty pages ratio among all segments.
      */
     public double dirtyPagesRatio() {
         if (segments == null) {

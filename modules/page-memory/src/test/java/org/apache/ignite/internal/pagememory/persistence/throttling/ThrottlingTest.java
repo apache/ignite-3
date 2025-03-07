@@ -43,9 +43,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link PagesWriteSpeedBasedThrottle} ported from Ignite 2.
+ * Tests for {@link PagesWriteSpeedBasedThrottle}.
  */
-public class IgniteThrottlingTest extends IgniteAbstractTest {
+public class ThrottlingTest extends IgniteAbstractTest {
     /** Page memory 2 gigabytes. */
     private final PersistentPageMemory pageMemory2g = mock(PersistentPageMemory.class);
 
