@@ -98,8 +98,8 @@ public class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
             tuple.set("field" + i, FIELD_VAL);
         }
 
-        // client = IgniteClient.builder().addresses("127.0.0.1:10800", "127.0.0.1:10801").build();
-        client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+        client = IgniteClient.builder().addresses("127.0.0.1:10800", "127.0.0.1:10801").build();
+        //client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
         table = (ClientTable) client.tables().table(TABLE_NAME);
         kvView = table.keyValueView();
     }
@@ -135,7 +135,7 @@ public class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + ClientKvBenchmark.class.getSimpleName() + ".*")
-                .jvmArgsAppend("-Djmh.executor=VIRTUAL")
+                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
                 // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc")
                 .build();
 
@@ -149,7 +149,7 @@ public class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     protected int nodes() {
-        return 1;
+        return 2;
     }
 
     @Override

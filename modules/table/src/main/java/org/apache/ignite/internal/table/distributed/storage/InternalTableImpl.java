@@ -1134,10 +1134,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
-        if (tx instanceof RemoteReadWriteTransaction) {
-            System.out.println("DBG: remote");
-        }
-
         return enlistInTx(
                 row,
                 tx,

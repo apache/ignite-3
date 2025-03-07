@@ -439,6 +439,15 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false, tx);
     }
 
+    private String resolvePreferredNode(@Nullable ClientTransaction tx, @Nullable PartitionMapping pm) {
+        // Try direct mapping if conditions are met.
+        if (tx != null && tx.hasCommitPartition() && pm != null) {
+            return pm.node();
+        }
+
+        return tx != null ? tx.nodeName() : null;
+    }
+
     /**
      * Performs a schema-based operation.
      *
@@ -477,17 +486,17 @@ public class ClientTable implements Table {
         CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    PartitionMapping aff = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema);
+                    PartitionMapping pm = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema);
 
                     WriteContext ctx = new WriteContext();
-                    ctx.pm = aff;
+                    ctx.pm = pm;
 
-                    return ClientLazyTransaction.ensureStarted(tx, ch, aff).thenCompose(tx0 -> {
+                    return ClientLazyTransaction.ensureStarted(tx, ch, pm).thenCompose(tx0 -> {
                         return ch.serviceAsync(opCode,
-                                (opChannel) -> tx0 == null || aff == null ? nullCompletedFuture() : tx0.enlistFuture(opChannel, ctx),
+                                (opChannel) -> tx0 == null || pm == null ? nullCompletedFuture() : tx0.enlistFuture(opChannel, ctx),
                                 w -> writer.accept(schema, w, ctx),
                                 r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
-                                aff != null ? aff.node() : (tx0 == null ? null : tx0.nodeName()),
+                                resolvePreferredNode(tx0, pm),
                                 tx0 == null ? null : tx0.nodeName(),
                                 retryPolicyOverride,
                                 expectNotifications);
