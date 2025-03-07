@@ -386,9 +386,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
-    /** Versioned value used only at manager startup to correctly fire table creation events. */
-    private final IncrementalVersionedValue<Void> startVv;
-
     /** Ends at the {@link IgniteComponent#stopAsync(ComponentContext)} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
@@ -437,8 +434,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final Map<Integer, Set<TableImpl>> tablesPerZone = new ConcurrentHashMap<>();
 
-    private final CompletableFuture<Void> recoveryFuture = new CompletableFuture<>();
-
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
@@ -457,12 +452,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
      * @param ioExecutor Separate executor for IO operations like partition storage initialization or partition raft group meta data
-     *     persisting.
+     *         persisting.
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
-     *     will be executed.
+     *         will be executed.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
-     * @param commonScheduler Common Scheduled executor. Needed only for asynchronous start of scheduled operations without performing
-     *      blocking, long or IO operations.
+     * @param commonScheduler Common Scheduled executor. Needed only for asynchronous start of scheduled operations without
+     *         performing blocking, long or IO operations.
      * @param clockService hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
@@ -595,8 +590,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableId -> tablesById().get(tableId)
         );
 
-        startVv = new IncrementalVersionedValue<>(registry);
-
         this.sharedTxStateStorage = txStateRocksDbSharedStorage;
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
@@ -634,19 +627,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             fullStateTransferIndexChooser.start();
 
-            CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
-
-            assert recoveryFinishFuture.isDone();
-
             rebalanceRetryDelayConfiguration.init();
 
-            long recoveryRevision = recoveryFinishFuture.join().revision();
-
             cleanUpResourcesForDroppedTablesOnRecoveryBusy();
-
-            startTables(recoveryRevision, lowWatermark.getLowWatermark());
-
-            processAssignmentsOnRecovery(recoveryRevision);
 
             if (!enabledColocation()) {
                 metaStorageMgr.registerPrefixWatch(
@@ -685,13 +668,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
             }
 
-            return nullCompletedFuture();
-        });
-    }
+            CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
-    @TestOnly
-    public CompletableFuture<Void> recoveryFuture() {
-        return recoveryFuture;
+            assert recoveryFinishFuture.isDone();
+
+            long recoveryRevision = recoveryFinishFuture.join().revision();
+
+            return startTables(recoveryRevision, lowWatermark.getLowWatermark())
+                    .thenCompose(v -> processAssignmentsOnRecovery(recoveryRevision));
+        });
     }
 
     private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
@@ -974,28 +959,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return falseCompletedFuture();
     }
 
-    private void processAssignmentsOnRecovery(long recoveryRevision) {
-        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
-        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
+    private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
+        return recoverStableAssignments(recoveryRevision)
+                .thenCompose(v -> recoverPendingAssignments(recoveryRevision));
+    }
 
-        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
-                stableAssignmentsPrefix,
+    private CompletableFuture<Void> recoverStableAssignments(long recoveryRevision) {
+        return handleAssignmentsOnRecovery(
+                new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES),
                 recoveryRevision,
-                (entry, rev) ->  handleChangeStableAssignmentEvent(entry, rev, true),
+                (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
-        ));
-        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
-                pendingAssignmentsPrefix,
+        );
+    }
+
+    private CompletableFuture<Void> recoverPendingAssignments(long recoveryRevision) {
+        return handleAssignmentsOnRecovery(
+                new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
                 recoveryRevision,
                 (entry, rev) -> handleChangePendingAssignmentEvent(entry, rev, true),
                 "pending"
-        )).whenComplete((v, th) -> {
-            if (th != null) {
-                recoveryFuture.completeExceptionally(th);
-            } else {
-                recoveryFuture.complete(null);
-            }
-        });
+        );
     }
 
     private CompletableFuture<Void> handleAssignmentsOnRecovery(
@@ -1039,10 +1023,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     /**
-     * Writes the set of assignments to meta storage. If there are some assignments already, gets them from meta storage. Returns
-     * the list of assignments that really are in meta storage.
+     * Writes the set of assignments to meta storage. If there are some assignments already, gets them from meta storage. Returns the list
+     * of assignments that really are in meta storage.
      *
-     * @param tableId  Table id.
+     * @param tableId Table id.
      * @param assignmentsFuture Assignments future, to get the assignments that should be written.
      * @return Real list of assignments.
      */
@@ -1502,19 +1486,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Boolean> isLocalNodeIsPrimary(CompletableFuture<ReplicaMeta> primaryReplicaFuture) {
         return primaryReplicaFuture.thenApply(primaryReplicaMeta -> primaryReplicaMeta != null
-                    && primaryReplicaMeta.getLeaseholder() != null
-                    && primaryReplicaMeta.getLeaseholder().equals(localNode().name())
+                && primaryReplicaMeta.getLeaseholder() != null
+                && primaryReplicaMeta.getLeaseholder().equals(localNode().name())
         );
     }
 
     /**
      * Returns future with {@link ReplicaMeta} if primary is presented or null otherwise.
      * <br>
-     * Internally we use there {@link PlacementDriver#getPrimaryReplica} with a penultimate
-     * safe time value, because metastore is waiting for pending or stable assignments events handling over and only then metastore will
-     * increment the safe time. On the other hand placement driver internally is waiting the metastore for given safe time plus
-     * {@link ClockService#maxClockSkewMillis}. So, if given time is just {@link ClockService#now}, then there is a dead lock: metastore
-     * is waiting until assignments handling is over, but internally placement driver is waiting for a non-applied safe time.
+     * Internally we use there {@link PlacementDriver#getPrimaryReplica} with a penultimate safe time value, because metastore is waiting
+     * for pending or stable assignments events handling over and only then metastore will increment the safe time. On the other hand
+     * placement driver internally is waiting the metastore for given safe time plus {@link ClockService#maxClockSkewMillis}. So, if given
+     * time is just {@link ClockService#now}, then there is a dead lock: metastore is waiting until assignments handling is over, but
+     * internally placement driver is waiting for a non-applied safe time.
      * <br>
      * To solve this issue we pass to {@link PlacementDriver#getPrimaryReplica} current time minus the skew, so placement driver could
      * successfully get primary replica for the time stamp before the handling has began. Also there a corner case for tests that are using
@@ -1595,7 +1579,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS)
+                    () -> {
+                        ScheduledExecutorService streamerFlushExecutor;
+
+                        synchronized (this) {
+                            streamerFlushExecutor = this.streamerFlushExecutor;
+                        }
+
+                        shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+                    }
             );
         } catch (Exception e) {
             return failedFuture(e);
@@ -1853,9 +1845,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     /**
-     * Check if the table already has assignments in the meta storage locally.
-     * So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
-     * of the new ones.
+     * Check if the table already has assignments in the meta storage locally. So, it means, that it is a recovery process and we should use
+     * the meta storage local assignments instead of calculation of the new ones.
      */
     private CompletableFuture<List<Assignments>> getOrCreateAssignments(
             CatalogTableDescriptor tableDescriptor,
@@ -2979,7 +2970,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return tables.stream().filter(table -> table.qualifiedName().equals(QualifiedName.fromSimple(name))).findAny().orElse(null);
     }
 
-    private void startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
+    private CompletableFuture<Void> startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
         int earliestCatalogVersion = lwm == null
                 ? catalogService.earliestCatalogVersion()
                 : catalogService.activeCatalogVersion(lwm.longValue());
@@ -3015,7 +3006,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
         }
 
-        CompletableFuture<Void> allTablesStartedFuture = allOf(startTableFutures.toArray(CompletableFuture[]::new))
+        return allOf(startTableFutures.toArray(CompletableFuture[]::new))
                 .whenComplete(copyStateTo(readyToProcessReplicaStarts))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
@@ -3024,15 +3015,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         LOG.debug("Tables started successfully");
                     }
                 });
-
-        // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
-        startVv.update(recoveryRevision, (unused, throwable) -> allTablesStartedFuture);
     }
 
     /**
      * Returns the future that will complete when, either the future from the argument or {@link #stopManagerFuture} will complete,
-     * successfully or exceptionally. Allows to protect from getting stuck at {@link IgniteComponent#stopAsync(ComponentContext)}
-     * when someone is blocked (by using {@link #busyLock}) for a long time.
+     * successfully or exceptionally. Allows to protect from getting stuck at {@link IgniteComponent#stopAsync(ComponentContext)} when
+     * someone is blocked (by using {@link #busyLock}) for a long time.
      *
      * @param future Future.
      */
