@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link DropIndexEntry}.
@@ -33,14 +33,32 @@ public class DropIndexEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class DropIndexEntrySerializerV1 implements CatalogObjectSerializer<DropIndexEntry> {
         @Override
-        public DropIndexEntry readFrom(IgniteDataInput input) throws IOException {
+        public DropIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int indexId = input.readVarIntAsInt();
 
             return new DropIndexEntry(indexId);
         }
 
         @Override
-        public void writeTo(DropIndexEntry entry, IgniteDataOutput out) throws IOException {
+        public void writeTo(DropIndexEntry entry, CatalogObjectDataOutput out) throws IOException {
+            out.writeVarInt(entry.indexId());
+        }
+    }
+
+    /**
+     * Serializer for {@link DropIndexEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class DropIndexEntrySerializerV2 implements CatalogObjectSerializer<DropIndexEntry> {
+        @Override
+        public DropIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int indexId = input.readVarIntAsInt();
+
+            return new DropIndexEntry(indexId);
+        }
+
+        @Override
+        public void writeTo(DropIndexEntry entry, CatalogObjectDataOutput out) throws IOException {
             out.writeVarInt(entry.indexId());
         }
     }

@@ -32,9 +32,13 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.assertj.core.api.BDDAssertions;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -57,7 +61,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         );
 
         SnapshotEntry expectedEntry = new SnapshotEntry(catalog1);
-        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntry.bin");
+        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, expectedEntry, "SnapshotEntry.bin");
 
         assertEquals(expectedEntry.typeId(), actualEntry.typeId());
         BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
@@ -75,7 +79,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         );
 
         SnapshotEntry expectedEntry = new SnapshotEntry(catalog1);
-        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntryNoDefaultZone.bin");
+        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, expectedEntry, "SnapshotEntryNoDefaultZone.bin");
 
         assertEquals(expectedEntry.typeId(), actualEntry.typeId());
         BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
@@ -472,7 +476,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T extends UpdateEntry> List<T> checkEntries(List<T> entries, String fileName) {
         VersionedUpdate update = new VersionedUpdate(1, 100L, (List<UpdateEntry>) entries);
-        VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, fileName);
+        VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, update, fileName);
 
         assertEquals(update.version(), deserializedUpdate.version());
         assertEquals(update.typeId(), deserializedUpdate.typeId());
@@ -481,10 +485,29 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         return (List) deserializedUpdate.entries();
     }
 
-    private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String fileName) {
-        String resourceName = "storage/" + fileName;
+    protected int protocolVersion() {
+        return 1;
+    }
 
-        UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
+    protected String dirName() {
+        return "storage";
+    }
+
+    protected boolean expectExactVersion() {
+        return false;
+    }
+
+    private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, T entry, String fileName) {
+        String resourceName = dirName() + "/" + fileName;
+
+        CatalogEntrySerializerProvider provider;
+        if (expectExactVersion()) {
+            provider = new VersionCheckingProvider(protocolVersion());
+        } else {
+            provider = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
+        }
+
+        UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl(provider, protocolVersion());
 
         byte[] srcBytes;
 
@@ -500,5 +523,39 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         }
 
         return entryClass.cast(marshaller.unmarshall(srcBytes));
+    }
+
+    private static class VersionCheckingProvider implements CatalogEntrySerializerProvider {
+
+        private final CatalogEntrySerializerProvider provider;
+
+        private final int expected;
+
+        private VersionCheckingProvider(int expected) {
+            this.provider = DEFAULT_PROVIDER;
+            this.expected = expected;
+        }
+
+        @Override
+        public <T extends MarshallableEntry> CatalogObjectSerializer<T> get(int version, int typeId) {
+            CatalogObjectSerializer<MarshallableEntry> serializer = provider.get(version, typeId);
+
+            checkVersion(typeId, version);
+
+            return (CatalogObjectSerializer<T>) serializer;
+        }
+
+        @Override
+        public int latestSerializerVersion(int typeId) {
+            int latest = provider.latestSerializerVersion(typeId);
+            checkVersion(typeId, latest);
+            return latest;
+        }
+
+        private void checkVersion(int typeId, int version) {
+            if (version != expected) {
+                Assertions.fail("Requested unexpected version for type " + typeId + ". All version must be " + expected);
+            }
+        }
     }
 }
