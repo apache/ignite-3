@@ -81,8 +81,11 @@ class ItColocationTxRecoveryTest extends ItAbstractColocationTest {
         assertDoesNotThrow(() -> kvView.put(conflictingTx, KEY, 111));
     }
 
-    private static void putInitialValue(Node node0) {
-        node0.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class).put(null, KEY, 42);
+    private static void putInitialValue(Node node) {
+        node.tableManager
+                .table(TEST_TABLE_NAME1)
+                .keyValueView(Long.class, Integer.class)
+                .put(null, KEY, 42);
     }
 
     private ReplicaMeta getPrimaryReplica(int zoneId) {
