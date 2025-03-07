@@ -112,6 +112,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApp
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.TxRecoveryMessageHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -356,13 +357,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinishMarker replicaTxFinishMarker;
-    private final TxRecoveryEngine txRecoveryEngine;
 
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
+    private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
+    private final TxRecoveryMessageHandler txRecoveryMessageHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
     private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
-    private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
     private final BuildIndexReplicaRequestHandler buildIndexReplicaRequestHandler;
 
     /**
@@ -445,7 +446,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
         replicaTxFinishMarker = new ReplicaTxFinishMarker(txManager);
-        txRecoveryEngine = new TxRecoveryEngine(
+        TxRecoveryEngine txRecoveryEngine = new TxRecoveryEngine(
                 txManager,
                 clusterNodeResolver,
                 replicationGroupId,
@@ -463,18 +464,21 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 replicationGroupId
         );
 
-        minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
-                clockService,
-                raftCommandApplicator);
-
-        vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
-
         txStateCommitPartitionReplicaRequestHandler = new TxStateCommitPartitionReplicaRequestHandler(
                 txStatePartitionStorage,
                 txManager,
                 clusterNodeResolver,
                 localNode,
-                txRecoveryEngine);
+                txRecoveryEngine
+        );
+
+        txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine);
+
+        minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
+                clockService,
+                raftCommandApplicator);
+
+        vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
 
         buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
                 indexMetaStorage,
@@ -489,8 +493,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
     private PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
-        // Enlistment consistency token is not required for the rollback, so it is 0L.
         assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+        // Enlistment consistency token is not required for the rollback, so it is 0L.
         // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId.
         return new PendingTxPartitionEnlistment(node.name(), 0L, ((TablePartitionId) replicationGroupId).tableId());
     }
@@ -599,7 +603,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         }
 
         if (request instanceof TxRecoveryMessage) {
-            return processTxRecoveryMessage((TxRecoveryMessage) request, senderId);
+            assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+
+            return txRecoveryMessageHandler.handle((TxRecoveryMessage) request, senderId);
         }
 
         if (request instanceof TxCleanupRecoveryRequest) {
@@ -659,28 +665,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         runPersistentStorageScan();
 
         return nullCompletedFuture();
-    }
-
-    /**
-     * Processes transaction recovery request on a commit partition.
-     *
-     * @param request Tx recovery request.
-     * @return The future is complete when the transaction state is finalized.
-     */
-    private CompletableFuture<Void> processTxRecoveryMessage(TxRecoveryMessage request, UUID senderId) {
-        UUID txId = request.txId();
-
-        TxMeta txMeta = txStatePartitionStorage.get(txId);
-
-        // Check whether a transaction has already been finished.
-        if (txMeta != null && isFinalState(txMeta.txState())) {
-            // Tx recovery message is processed on the commit partition.
-            return txRecoveryEngine.runCleanupOnNode(replicationGroupId, txId, senderId);
-        }
-
-        LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
-
-        return txRecoveryEngine.triggerTxRecovery(txId, senderId);
     }
 
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {
