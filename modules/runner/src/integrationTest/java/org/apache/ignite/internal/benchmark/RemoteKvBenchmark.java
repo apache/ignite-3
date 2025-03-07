@@ -57,7 +57,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(1)
-@Threads(8)
+@Threads(32)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
@@ -138,7 +138,7 @@ public class RemoteKvBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + RemoteKvBenchmark.class.getSimpleName() + ".*")
-                //.jvmArgsAppend("-Djmh.executor=VIRTUAL")
+                .jvmArgsAppend("-Djmh.executor=VIRTUAL")
                 // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc")
                 .build();
 
