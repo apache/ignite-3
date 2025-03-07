@@ -145,7 +145,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     );
                 });
 
-        lenient().when(txManager.finish(any(), any(), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
+        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
 
         lenient().when(replicaService.invoke(anyString(), any())).then(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
@@ -243,7 +243,9 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService),
                 0,
                 () -> mock(ScheduledExecutorService.class),
-                mock(StreamerReceiverRunner.class)
+                mock(StreamerReceiverRunner.class),
+                () -> 10_000L,
+                () -> 10_000L
         );
     }
 
@@ -380,7 +382,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     private Map<ReplicationGroupId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
         ArgumentCaptor<Map<ReplicationGroupId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
-        verify(txManager).finish(any(), any(), anyBoolean(), enlistmentsCaptor.capture(), any());
+        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
         return enlistmentsCaptor.getValue();
     }

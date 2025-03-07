@@ -112,7 +112,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> commitAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(true, readTimestamp, false),
+                finish(true, readTimestamp, false, false),
                 TX_COMMIT_ERR
         );
     }
@@ -120,14 +120,23 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, readTimestamp, false),
+                finish(false, readTimestamp, false, false),
                 TX_ROLLBACK_ERR
         );
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, readTimestamp, false, true),
+                TX_ROLLBACK_ERR
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
         assert !full : "Read-only transactions cannot be full.";
+        assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
         if (!finishGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
@@ -137,7 +146,9 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         txFuture.complete(null);
 
-        ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
+        ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()), timeoutExceeded);
+
+        this.timeoutExceeded = timeoutExceeded;
 
         return txFuture;
     }
@@ -148,7 +159,12 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
+    public long getTimeoutOrDefault(long defaultTimeout) {
+        return timeout == 0 ? defaultTimeout : timeout;
+    }
+
+    @Override
     public CompletableFuture<Void> kill() {
-        return finish(false, readTimestamp, false);
+        return finish(false, readTimestamp, false, false);
     }
 }

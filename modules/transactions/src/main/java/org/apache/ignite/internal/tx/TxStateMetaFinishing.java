@@ -43,9 +43,12 @@ public class TxStateMetaFinishing extends TxStateMeta {
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition id.
+     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      */
-    public TxStateMetaFinishing(@Nullable UUID txCoordinatorId, @Nullable ReplicationGroupId commitPartitionId) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null);
+    public TxStateMetaFinishing(
+            @Nullable UUID txCoordinatorId, @Nullable ReplicationGroupId commitPartitionId, @Nullable Boolean isFinishingDueToTimeout
+    ) {
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, isFinishingDueToTimeout);
     }
 
     /**

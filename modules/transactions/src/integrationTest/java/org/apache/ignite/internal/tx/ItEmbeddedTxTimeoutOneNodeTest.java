@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.readonly;
+package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.tx.impl.ReadOnlyTransactionImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.tx.Transaction;
 
-class ItEmbeddedReadOnlyTxTimeoutOneNodeTest extends ItReadOnlyTxTimeoutOneNodeTest {
+class ItEmbeddedTxTimeoutOneNodeTest extends ItTxTimeoutOneNodeTest {
     @Override
     Ignite ignite() {
         return cluster.aliveNode();
     }
 
     @Override
-    ReadOnlyTransactionImpl transactionImpl(Transaction tx) {
-        return Wrappers.unwrap(tx, ReadOnlyTransactionImpl.class);
+    InternalTransaction toInternalTransaction(Transaction tx) {
+        return Wrappers.unwrap(tx, InternalTransaction.class);
     }
 }
