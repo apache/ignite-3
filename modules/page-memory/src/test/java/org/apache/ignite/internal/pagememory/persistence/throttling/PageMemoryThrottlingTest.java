@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -36,7 +37,6 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.OpenOption;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -60,14 +60,13 @@ import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FakeP
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
-import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
@@ -77,13 +76,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests {@link PersistentPageMemory} and {@link PagesWriteThrottlePolicy} interactions.
  */
 @ExtendWith(ConfigurationExtension.class)
-@ExtendWith(WorkDirectoryExtension.class)
-public class PageMemoryThrottlingTest extends BaseIgniteAbstractTest {
+public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private static final int PAGE_SIZE = 4096;
 
     private static final int SEGMENT_SIZE = 128 * Constants.MiB;
@@ -95,9 +95,6 @@ public class PageMemoryThrottlingTest extends BaseIgniteAbstractTest {
     private static final int PART_ID = 1;
 
     private static PageIoRegistry ioRegistry;
-
-    @WorkDirectory
-    private Path workDir;
 
     // We use very small readLock timeout here on purpose.
     @InjectConfiguration("mock {checkpointThreads = 1, readLockTimeout = 50}")
@@ -159,7 +156,15 @@ public class PageMemoryThrottlingTest extends BaseIgniteAbstractTest {
                 new long[]{SEGMENT_SIZE},
                 CHECKPOINT_BUFFER_SIZE,
                 pageStoreManager,
-                checkpointManager::writePageToDeltaFilePageStore,
+                (pageMem, pageId, pageBuf) -> {
+                    checkpointManager.writePageToDeltaFilePageStore(pageMem, pageId, pageBuf);
+
+                    // Almost the same code that happens in data region, but here the region is mocked.
+                    CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
+
+                    assertNotNull(checkpointProgress);
+                    checkpointProgress.evictedPagesCounter().incrementAndGet();
+                },
                 checkpointManager.checkpointTimeoutLock(),
                 PAGE_SIZE,
                 new OffheapReadWriteLock(2)
@@ -354,13 +359,25 @@ public class PageMemoryThrottlingTest extends BaseIgniteAbstractTest {
     /**
      * Tests that there's no checkpoint read lock timeouts during the high load.
      */
-    @Test
-    void hugeLoadDoesNotBreakCheckpointReadLock() {
-        pageMemory.initThrottling(new TargetRatioPagesWriteThrottle(
-                pageMemory,
-                checkpointManager::currentCheckpointProgress,
-                checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread
-        ));
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void hugeLoadDoesNotBreakCheckpointReadLock(boolean speedBasedThrottling) {
+        PagesWriteThrottlePolicy writeThrottle;
+        if (speedBasedThrottling) {
+            writeThrottle = new PagesWriteSpeedBasedThrottle(
+                    pageMemory,
+                    checkpointManager::currentCheckpointProgress,
+                    checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread
+            );
+        } else {
+            writeThrottle = new TargetRatioPagesWriteThrottle(
+                    pageMemory,
+                    checkpointManager::currentCheckpointProgress,
+                    checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread
+            );
+        }
+
+        pageMemory.initThrottling(writeThrottle);
 
         long[] pageIds = new long[SEGMENT_SIZE / PAGE_SIZE * 2];
 
