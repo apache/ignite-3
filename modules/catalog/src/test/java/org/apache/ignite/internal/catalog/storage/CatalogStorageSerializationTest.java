@@ -116,7 +116,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
     @Test
     public void alterZone() {
         List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
-        List<UpdateEntry> entries = List.of(new AlterZoneEntry(zones.get(0), zones.get(1)));
+        List<UpdateEntry> entries = List.of(new AlterZoneEntry(zones.get(0)));
 
         List<UpdateEntry> actual = checkEntries(entries, "AlterZoneEntry.bin");
         assertEquals(entries.size(), actual.size());
@@ -369,6 +369,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private <T extends UpdateEntry> List<T> checkEntries(List<T> entries, String fileName) {
         VersionedUpdate update = new VersionedUpdate(1, 100L, (List<UpdateEntry>) entries);
         VersionedUpdate deserializedUpdate = checkEntry(update, fileName);
@@ -377,11 +378,14 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         assertEquals(update.typeId(), deserializedUpdate.typeId());
         assertEquals(update.delayDurationMs(), deserializedUpdate.delayDurationMs());
 
-        return entries;
+        return (List) deserializedUpdate.entries();
     }
 
     private <T extends MarshallableEntry> T checkEntry(T entry, String fileName) {
-        CatalogObjectSerializer<MarshallableEntry> serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(entry.typeId());
+        CatalogObjectSerializer<MarshallableEntry> serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(
+                1,
+                entry.typeId()
+        );
 
         String resourceName = "storage/" + fileName;
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
