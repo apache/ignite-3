@@ -985,24 +985,24 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("CREATE INDEX t_idx ON t(i1, i2)");
             sql("INSERT INTO t VALUES (1, null, 0), (2, 1, null), (3, 2, 2), (4, 3, null)");
 
-            assertQuery("SELECT * FROM t WHERE i1 = ?")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ * FROM t WHERE i1 = ?")
                     .withParams(null)
-                    .matches(containsTableScan("PUBLIC", "T"))
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .check();
 
-            assertQuery("SELECT * FROM t WHERE i1 = 1 AND i2 = ?")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ * FROM t WHERE i1 = 1 AND i2 = ?")
                     .withParams(new Object[] { null })
-                    .matches(containsTableScan("PUBLIC", "T"))
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .check();
 
             // Multi ranges.
-            assertQuery("SELECT * FROM t WHERE i1 IN (1, 2, 3) AND i2 = ?")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ * FROM t WHERE i1 IN (1, 2, 3) AND i2 = ?")
                     .withParams(new Object[] { null })
-                    .matches(containsTableScan("PUBLIC", "T"))
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .check();
 
-            assertQuery("SELECT i1, i2 FROM t WHERE i1 IN (1, 2) AND i2 IS NULL")
-                    .matches(containsTableScan("PUBLIC", "T"))
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i1, i2 FROM t WHERE i1 IN (1, 2) AND i2 IS NULL")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(1, null)
                     .check();
 
