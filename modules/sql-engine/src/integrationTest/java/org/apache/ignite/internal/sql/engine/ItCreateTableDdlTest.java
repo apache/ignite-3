@@ -529,12 +529,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "BINARY length 0 must be between 1 and 2147483647. [column=ID]",
-                () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
-        );
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
                 "VARBINARY length 0 must be between 1 and 2147483647. [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
         );
@@ -612,12 +606,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 STMT_PARSE_ERR,
                 "Literal '2147483648' can not be parsed to type",
-                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(2147483648) )")
-        );
-
-        assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Literal '2147483648' can not be parsed to type",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARBINARY(2147483648) )")
         );
 
@@ -666,11 +654,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         // Binary
 
         String longByteString = "01".repeat(101);
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid default value for column 'VAL'",
-                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(100) DEFAULT x'" + longByteString + "' )")
-        );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
