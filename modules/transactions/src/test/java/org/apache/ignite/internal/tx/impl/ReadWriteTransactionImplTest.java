@@ -35,7 +35,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -59,8 +58,6 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
             "test-node",
             new NetworkAddress("localhost", 1234)
     );
-
-    private static final IgniteBiTuple NODE_AND_TOKEN = new IgniteBiTuple(CLUSTER_NODE, 0L);
 
     private static final int TABLE_ID = 1;
     private static final int ZONE_ID = 2;
@@ -121,8 +118,8 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         tx.assignCommitPartition(TX_COMMIT_PART);
 
-        tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE, 0L);
-        tx.enlist(new ZonePartitionId(ZONE_ID, 2), TABLE_ID, CLUSTER_NODE, 0L);
+        tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE.name(), 0L);
+        tx.enlist(new ZonePartitionId(ZONE_ID, 2), TABLE_ID, CLUSTER_NODE.name(), 0L);
 
         if (commit) {
             if (txState == null) {
@@ -139,11 +136,11 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         }
 
         TransactionException ex = assertThrows(TransactionException.class,
-                () -> tx.enlist(new ZonePartitionId(ZONE_ID, 5), TABLE_ID, CLUSTER_NODE, 0L));
+                () -> tx.enlist(new ZonePartitionId(ZONE_ID, 5), TABLE_ID, CLUSTER_NODE.name(), 0L));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
 
-        ex = assertThrows(TransactionException.class, () -> tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE, 0L));
+        ex = assertThrows(TransactionException.class, () -> tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE.name(), 0L));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
     }
