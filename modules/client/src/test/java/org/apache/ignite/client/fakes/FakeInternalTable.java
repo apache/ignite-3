@@ -128,6 +128,11 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
+    public int zoneId() {
+        return 0;
+    }
+
+    @Override
     public QualifiedName name() {
         return tableName;
     }

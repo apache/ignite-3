@@ -716,7 +716,7 @@ public class NodeImpl implements Node, RaftServerService {
         electionRound++;
 
         if (electionRound > 1)
-            LOG.info("Unsuccessful election round number {}", electionRound);
+            LOG.info("Unsuccessful election round number {}, group '{}'", electionRound, groupId);
 
         if (!electionAdjusted) {
             initialElectionTimeout = options.getElectionTimeoutMs();

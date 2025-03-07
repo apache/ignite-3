@@ -29,7 +29,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * The read-only implementation of an internal transaction.
@@ -89,7 +88,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     public void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            ClusterNode primaryNode,
+            String primaryNodeConsistentId,
             long consistencyToken
     ) {
         // No-op.

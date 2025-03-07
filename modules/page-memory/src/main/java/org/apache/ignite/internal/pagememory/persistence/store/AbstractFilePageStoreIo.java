@@ -153,10 +153,9 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      *
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
+    public void write(long pageId, ByteBuffer pageBuf) throws IgniteInternalCheckedException {
         ensure();
 
         boolean interrupted = false;
@@ -174,7 +173,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                     assert PageIo.getType(pageBuf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(pageId);
                     assert PageIo.getVersion(pageBuf) != 0 : "Invalid state. Version is 0! pageId = " + hexLong(pageId);
 
-                    if (calculateCrc && !skipCrc) {
+                    if (!skipCrc) {
                         assert PageIo.getCrc(pageBuf) == 0 : hexLong(pageId);
 
                         PageIo.setCrc(pageBuf, calcCrc32(pageBuf, pageSize()));
@@ -505,6 +504,8 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                 int curCrc32 = FastCrc.calcCrc(pageBuf, pageSize());
 
                 if ((savedCrc32 ^ curCrc32) != 0) {
+                    pageBuf.rewind();
+
                     throw new IgniteInternalDataIntegrityViolationException("Failed to read page (CRC validation failed) "
                             + "[id=" + hexLong(pageId) + ", off=" + pageOff
                             + ", filePath=" + filePath + ", fileSize=" + fileIo.size()

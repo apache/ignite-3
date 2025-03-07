@@ -682,7 +682,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             RaftGroupEventsListener raftGroupEventsListener,
             boolean isVolatileStorage,
-            IgniteSpinBusyLock busyLock
+            IgniteSpinBusyLock busyLock,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -696,11 +697,25 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     raftGroupEventsListener,
                     isVolatileStorage,
-                    raftClient -> new ZonePartitionReplicaImpl(
-                            replicaGrpId,
-                            listenerFactory.apply(raftClient),
-                            raftClient
-                    )
+                    raftClient -> {
+                        var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
+                                replicaGrpId,
+                                clusterNetSvc.topologyService().localMember(),
+                                placementDriver,
+                                clockService,
+                                replicaStateManager::reserveReplica,
+                                executor,
+                                storageIndexTracker,
+                                raftClient
+                        );
+
+                        return new ZonePartitionReplicaImpl(
+                                replicaGrpId,
+                                listenerFactory.apply(raftClient),
+                                raftClient,
+                                placementDriverMessageProcessor
+                        );
+                    }
             );
         } finally {
             busyLock.leaveBusy();
@@ -877,15 +892,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
 
         return isRemovedFuture
-                .thenApplyAsync(v -> {
+                .thenApplyAsync(replicaWasRemoved -> {
+                    if (!replicaWasRemoved) {
+                        return false;
+                    }
+
                     try {
                         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
                         raftManager.stopRaftNodes(replicaGrpId);
                     } catch (NodeStoppingException ignored) {
-                        // No-op.
+                        return false;
                     }
 
-                    return v;
+                    return true;
                 }, replicaStateManager.replicaStartStopPool);
     }
 
@@ -1093,7 +1112,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
             if (ex != null && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
                     && !hasCauseOrSuppressed(ex, CancellationException.class)) {
-                LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId());
+                LOG.error("Could not advance safe time for {}", ex, replica.groupId());
             }
         });
     }

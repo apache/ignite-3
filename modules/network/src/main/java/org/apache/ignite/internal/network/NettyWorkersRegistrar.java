@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -125,6 +126,9 @@ public class NettyWorkersRegistrar implements IgniteComponent {
         for (NettyWorker worker : workers) {
             try {
                 worker.sendHeartbeat();
+            } catch (RejectedExecutionException e) {
+                // We are probably shutting down, ignore the exception.
+                LOG.debug("Cannot send a heartbeat to a Netty thread.", e);
             } catch (Exception | AssertionError e) {
                 LOG.warn("Cannot send a heartbeat to a Netty thread [threadId={}].", e, worker.threadId());
             } catch (Error e) {

@@ -15,33 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.metric;
+package org.apache.ignite.internal.tx;
 
-/**
- * Holder of IO statistics.
- */
-public interface IoStatisticsHolder {
-    /**
-     * Track logical read of given page.
-     *
-     * @param pageAddr Address of page.
-     */
-    void trackLogicalRead(long pageAddr);
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 
-    /**
-     * Track physical and logical read of given page.
-     *
-     * @param pageAddr Start address of page.
-     */
-    void trackPhysicalAndLogicalRead(long pageAddr);
-
-    /**
-     * Returns a number of logical reads.
-     */
-    long logicalReads();
-
-    /**
-     * Returns a number of physical reads.
-     */
-    long physicalReads();
+// TODO: IGNITE-22522 - remove this class and switch TxManagerTest to use ZonePartitionId.
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+class TxManagerColocationTest extends TxManagerTest {
+    @Override
+    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
+        return new ZonePartitionId(tableOrZoneId, partId);
+    }
 }

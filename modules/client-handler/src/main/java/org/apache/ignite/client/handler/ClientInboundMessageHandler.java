@@ -223,6 +223,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final Map<HandshakeExtension, Object> extensions;
 
+    private final Executor commonExecutor;
+
     private final Map<Long, CancelHandle> cancelHandles = new ConcurrentHashMap<>();
 
     /**
@@ -244,6 +246,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
+     * @param commonExecutor Common executor used by SQL script handler.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -262,7 +265,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientPrimaryReplicaTracker primaryReplicaTracker,
             Executor partitionOperationsExecutor,
             BitSet features,
-            Map<HandshakeExtension, Object> extensions
+            Map<HandshakeExtension, Object> extensions,
+            Executor commonExecutor
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -309,6 +313,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         this.features = features;
         this.extensions = extensions;
+
+        this.commonExecutor = commonExecutor;
     }
 
     @Override
@@ -840,7 +846,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
-                return ClientSqlExecuteScriptRequest.process(in, out, queryProcessor, requestId, cancelHandles);
+                return ClientSqlExecuteScriptRequest.process(in, out, queryProcessor, commonExecutor, requestId, cancelHandles);
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);

@@ -31,7 +31,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -109,10 +108,10 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     public void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            ClusterNode primaryNode,
+            String primaryNodeConsistentId,
             long consistencyToken
     ) {
-        transaction.enlist(replicationGroupId, tableId, primaryNode, consistencyToken);
+        transaction.enlist(replicationGroupId, tableId, primaryNodeConsistentId, consistencyToken);
     }
 
     @Override

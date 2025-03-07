@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -71,13 +70,13 @@ public interface InternalTransaction extends Transaction {
      *
      * @param replicationGroupId Replication group id to enlist.
      * @param tableId Table ID for enlistment.
-     * @param primaryNode Primary replica cluster node.
+     * @param primaryNodeConsistentId Consistent node id of primary replica.
      * @param consistencyToken Consistency token to enlist for given replication group.
      */
     void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            ClusterNode primaryNode,
+            String primaryNodeConsistentId,
             long consistencyToken
     );
 

@@ -54,7 +54,7 @@ Sort
                 table: [PUBLIC, SUPPLIER]
                 fields: [S_SUPPKEY, S_NATIONKEY]
                 est. row count: 10000
-          NestedLoopJoin
+          HashJoin
               condition: =(N_REGIONKEY, R_REGIONKEY)
               joinType: inner
               est. row count: 8

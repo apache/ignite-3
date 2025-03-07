@@ -37,7 +37,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     protected static final int IO_BATCH_CNT = Commons.IO_BATCH_COUNT;
 
-    protected final int inBufSize = Commons.IN_BUFFER_SIZE;
+    protected final int inBufSize;
 
     private final ExecutionContext<RowT> ctx;
 
@@ -58,6 +58,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
      */
     protected AbstractNode(ExecutionContext<RowT> ctx) {
         this.ctx = ctx;
+        this.inBufSize = ctx.bufferSize();
     }
 
     /** {@inheritDoc} */

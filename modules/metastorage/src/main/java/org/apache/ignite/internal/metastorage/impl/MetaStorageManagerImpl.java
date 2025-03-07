@@ -53,6 +53,8 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
 import org.apache.ignite.internal.disaster.system.storage.NoOpMetastorageRepairStorage;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -219,6 +221,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      * @param raftGroupOptionsConfigurer Configures MS RAFT options.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      * @param ioExecutor Executor to which I/O operations can be offloaded from network threads.
+     * @param failureManager Failure manager to use when reporting failures.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -233,7 +236,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetastorageRepair metastorageRepair,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            Executor ioExecutor
+            Executor ioExecutor,
+            FailureManager failureManager
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -241,7 +245,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
         this.clock = clock;
-        this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock);
+        this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock, failureManager);
         this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
@@ -318,7 +322,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 (nodes, mgReplicationFactor) -> nullCompletedFuture(),
                 raftGroupOptionsConfigurer,
                 tracker,
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                new FailureManager(new NoOpFailureHandler())
         );
 
         configure(configuration);

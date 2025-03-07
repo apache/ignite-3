@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -1069,9 +1070,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         tx.enlist(
                 tblPartId,
                 tblPartId.tableId(),
-                ignite.clusterNodes().stream().filter(
-                        n -> n.name().equals(primaryReplica.getLeaseholder())
-                ).findFirst().orElseThrow(),
+                requireNonNull(primaryReplica.getLeaseholder(), "primaryReplica#getLeaseholder"),
                 primaryReplica.getStartTime().longValue()
         );
 

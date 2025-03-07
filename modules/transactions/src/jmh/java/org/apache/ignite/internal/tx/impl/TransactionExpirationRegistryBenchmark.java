@@ -31,7 +31,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -143,7 +142,7 @@ public class TransactionExpirationRegistryBenchmark {
         public void enlist(
                 ReplicationGroupId replicationGroupId,
                 int tableId,
-                ClusterNode primaryNode,
+                String primaryNodeConsistentId,
                 long consistencyToken
         ) {
             // No-op.

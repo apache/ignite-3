@@ -78,9 +78,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private static final int MAX_RETRY_COUNT = 10;
 
-    /** Safe time to wait before new Catalog version activation. */
-    static final int DEFAULT_DELAY_DURATION = 0;
-
     /**
      * Initial update token for a catalog descriptor, this token is valid only before the first call of
      * {@link UpdateEntry#applyUpdate(Catalog, long)}.
@@ -131,13 +128,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /**
      * Constructor.
      */
-    public CatalogManagerImpl(UpdateLog updateLog, ClockService clockService) {
-        this(updateLog, clockService, () -> DEFAULT_DELAY_DURATION);
-    }
-
-    /**
-     * Constructor.
-     */
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockService clockService,
@@ -180,7 +170,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
-        versionTracker.close();
+        versionTracker.close(new NodeStoppingException());
         return updateLog.stopAsync(componentContext);
     }
 
