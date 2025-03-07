@@ -55,7 +55,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         );
 
         SnapshotEntry expectedEntry = new SnapshotEntry(catalog1);
-        SnapshotEntry actualEntry = checkEntry(expectedEntry, "SnapshotEntry.bin");
+        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntry.bin");
 
         assertEquals(expectedEntry.typeId(), actualEntry.typeId());
         BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
@@ -73,7 +73,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         );
 
         SnapshotEntry expectedEntry = new SnapshotEntry(catalog1);
-        SnapshotEntry actualEntry = checkEntry(expectedEntry, "SnapshotEntryNoDefaultZone.bin");
+        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntryNoDefaultZone.bin");
 
         assertEquals(expectedEntry.typeId(), actualEntry.typeId());
         BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
@@ -399,7 +399,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T extends UpdateEntry> List<T> checkEntries(List<T> entries, String fileName) {
         VersionedUpdate update = new VersionedUpdate(1, 100L, (List<UpdateEntry>) entries);
-        VersionedUpdate deserializedUpdate = checkEntry(update, fileName);
+        VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, fileName);
 
         assertEquals(update.version(), deserializedUpdate.version());
         assertEquals(update.typeId(), deserializedUpdate.typeId());
@@ -408,11 +408,10 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         return (List) deserializedUpdate.entries();
     }
 
-    private <T extends UpdateLogEvent> T checkEntry(T entry, String fileName) {
+    private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String fileName) {
         String resourceName = "storage/" + fileName;
 
         UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
-        marshaller.marshall(entry);
 
         byte[] srcBytes;
 
@@ -427,6 +426,6 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
             throw new UncheckedIOException("Unable to resource", e);
         }
 
-        return (T) marshaller.unmarshall(srcBytes);
+        return entryClass.cast(marshaller.unmarshall(srcBytes));
     }
 }
