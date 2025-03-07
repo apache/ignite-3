@@ -27,8 +27,10 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -36,7 +38,7 @@ import org.assertj.core.api.BDDAssertions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for catalog storage objects.
+ * Tests for catalog storage objects. Protocol version 1.
  */
 public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
 
@@ -371,6 +373,77 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < entries.size(); i++) {
             DropIndexEntry expectedEntry = (DropIndexEntry) entries.get(i);
             DropIndexEntry actualEntry = (DropIndexEntry) actual.get(i);
+
+            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
+        }
+    }
+
+    // Columns
+
+    @Test
+    public void newColumns() {
+        List<CatalogTableColumnDescriptor> columns1 = TestCatalogObjectDescriptors.columns(state);
+        List<CatalogTableColumnDescriptor> columns2 = TestCatalogObjectDescriptors.columns(state);
+
+        Collections.shuffle(columns1, state.random());
+        Collections.shuffle(columns2, state.random());
+
+        List<UpdateEntry> entries = List.of(
+                new NewColumnsEntry(state.id(), columns1),
+                new NewColumnsEntry(state.id(), columns2)
+        );
+
+        List<UpdateEntry> actual = checkEntries(entries, "NewColumnsEntry.bin");
+        assertEquals(entries.size(), actual.size());
+
+        for (int i = 0; i < entries.size(); i++) {
+            NewColumnsEntry expectedEntry = (NewColumnsEntry) entries.get(i);
+            NewColumnsEntry actualEntry = (NewColumnsEntry) actual.get(i);
+
+            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
+        }
+    }
+
+    @Test
+    public void alterColumn() {
+        List<CatalogTableColumnDescriptor> columns = TestCatalogObjectDescriptors.columns(state);
+        Collections.shuffle(columns, state.random());
+
+        List<UpdateEntry> entries = List.of(
+                new AlterColumnEntry(state.id(), columns.get(0)),
+                new AlterColumnEntry(state.id(), columns.get(1))
+        );
+
+        List<UpdateEntry> actual = checkEntries(entries, "AlterColumnsEntry.bin");
+        assertEquals(entries.size(), actual.size());
+
+        for (int i = 0; i < entries.size(); i++) {
+            AlterColumnEntry expectedEntry = (AlterColumnEntry) entries.get(i);
+            AlterColumnEntry actualEntry = (AlterColumnEntry) actual.get(i);
+
+            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
+        }
+    }
+
+    @Test
+    public void dropColumns() {
+        List<CatalogTableColumnDescriptor> columns1 = TestCatalogObjectDescriptors.columns(state);
+        List<CatalogTableColumnDescriptor> columns2 = TestCatalogObjectDescriptors.columns(state);
+
+        Collections.shuffle(columns1, state.random());
+        Collections.shuffle(columns2, state.random());
+
+        List<UpdateEntry> entries = List.of(
+                new DropColumnsEntry(state.id(), Set.of("C1", "C2")),
+                new DropColumnsEntry(state.id(), Set.of("C3"))
+        );
+
+        List<UpdateEntry> actual = checkEntries(entries, "DropColumnsEntry.bin");
+        assertEquals(entries.size(), actual.size());
+
+        for (int i = 0; i < entries.size(); i++) {
+            DropColumnsEntry expectedEntry = (DropColumnsEntry) entries.get(i);
+            DropColumnsEntry actualEntry = (DropColumnsEntry) actual.get(i);
 
             BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
         }
