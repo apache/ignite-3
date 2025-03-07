@@ -250,6 +250,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             }
         }
 
+        int processed = 0;
         inLoop = true;
         try {
             loop:
@@ -277,6 +278,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                     default:
                         throw unexpected(state);
                 }
+
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job.
+                    execute(this::doPush);
+
+                    return;
+                }
             }
         } finally {
             inLoop = false;
@@ -296,6 +304,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         int idx = 0;
         int noProgress = 0;
 
+        int processed = 0;
         inLoop = true;
         try {
             while (requested > 0 && !remoteSources.isEmpty()) {
@@ -329,6 +338,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
                 if (idx == remoteSources.size()) {
                     idx = 0;
+                }
+
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job.
+                    execute(this::doPush);
+
+                    return;
                 }
             }
         } finally {
