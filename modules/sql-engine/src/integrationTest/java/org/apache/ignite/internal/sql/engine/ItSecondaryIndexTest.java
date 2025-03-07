@@ -1049,32 +1049,32 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("CREATE INDEX t_idx ON t(b)");
             sql("INSERT INTO t VALUES (0, TRUE), (1, TRUE), (2, FALSE), (3, FALSE), (4, null)");
 
-            assertQuery("SELECT i FROM t WHERE b = TRUE")
-                    .matches(containsTableScan("PUBLIC", "T"))
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b = TRUE")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0)
                     .returns(1)
                     .check();
 
-            assertQuery("SELECT i FROM t WHERE b = FALSE")
-                    .matches(containsTableScan("PUBLIC", "T"))
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b = FALSE")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(2)
                     .returns(3)
                     .check();
 
-            assertQuery("SELECT i FROM t WHERE b IS TRUE")
-                    .matches(containsTableScan("PUBLIC", "T"))
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b IS TRUE")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0)
                     .returns(1)
                     .check();
 
-            assertQuery("SELECT i FROM t WHERE b IS FALSE")
-                    .matches(containsTableScan("PUBLIC", "T"))
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b IS FALSE")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(2)
                     .returns(3)
                     .check();
 
-            assertQuery("SELECT i FROM t WHERE b IS NULL")
-                    .matches(containsTableScan("PUBLIC", "T"))
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b IS NULL")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(4)
                     .check();
         } finally {
