@@ -21,6 +21,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseDmlDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.junit.jupiter.api.Test;
 
@@ -69,5 +70,11 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
     @Override
     protected DataTypeTestSpec<VarBinary> getTypeSpec() {
         return DataTypeTestSpecs.VARBINARY_TYPE;
+    }
+
+    @Override
+    public void testUpdateFromLiteral(TestTypeArguments<VarBinary> arguments) {
+        // VARBINARY is only member of family current of moment (BINARY type is disable), and cross-family type coercion is not allowed,
+        // therefore we need to ignore this test case
     }
 }
