@@ -52,6 +52,27 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
     }
 
     /**
+     * Writes entry.
+     */
+    public void writeEntry(MarshallableEntry entry, int version) throws IOException {
+        int typeId = entry.typeId();
+
+        writeEntryHeader(entry, version);
+        serializers.get(version, typeId).writeTo(entry, this);
+    }
+
+    /**
+     * Writes entry.
+     */
+    public <T extends MarshallableEntry> void writeEntry(MarshallableEntryTypeInfo<T> type, T entry) throws IOException {
+        int typeId = entry.typeId();
+        int version = type.version(typeId);
+
+        writeEntryHeader(entry, version);
+        serializers.get(version, typeId).writeTo(entry, this);
+    }
+
+    /**
      * Writes entry list.
      */
     public void writeEntryList(List<? extends MarshallableEntry> entries) throws IOException {
@@ -60,6 +81,22 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
         for (MarshallableEntry entry : entries) {
             int typeId = entry.typeId();
             int entryVersion = serializers.latestSerializerVersion(typeId);
+
+            writeEntryHeader(entry, entryVersion);
+            serializers.get(entryVersion, typeId).writeTo(entry, this);
+        }
+    }
+
+
+    /**
+     * Writes entry list.
+     */
+    public <T extends MarshallableEntry> void writeEntryList(MarshallableEntryTypeInfo<T> listType, List<T> entries) throws IOException {
+        writeVarInt(entries.size());
+
+        for (T entry : entries) {
+            int typeId = entry.typeId();
+            int entryVersion = listType.version(typeId);
 
             writeEntryHeader(entry, entryVersion);
             serializers.get(entryVersion, typeId).writeTo(entry, this);
@@ -75,6 +112,21 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
         for (MarshallableEntry entry : entries) {
             int typeId = entry.typeId();
             int entryVersion = serializers.latestSerializerVersion(typeId);
+
+            writeEntryHeader(entry, entryVersion);
+            serializers.get(entryVersion, typeId).writeTo(entry, this);
+        }
+    }
+
+    /**
+     * Writes entry array.
+     */
+    public <T extends MarshallableEntry> void writeEntryArray(MarshallableEntryTypeInfo<T> listType, T[] entries) throws IOException {
+        writeVarInt(entries.length);
+
+        for (T entry : entries) {
+            int typeId = entry.typeId();
+            int entryVersion = listType.version(typeId);
 
             writeEntryHeader(entry, entryVersion);
             serializers.get(entryVersion, typeId).writeTo(entry, this);

@@ -105,7 +105,7 @@ public class CatalogZoneDescriptorSerializers {
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = (CatalogStorageProfilesDescriptor) input.readEntry();
+            CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = input.readEntry(CatalogStorageProfilesDescriptor.class, 2);
 
             int partitions = input.readVarIntAsInt();
             int replicas = input.readVarIntAsInt();

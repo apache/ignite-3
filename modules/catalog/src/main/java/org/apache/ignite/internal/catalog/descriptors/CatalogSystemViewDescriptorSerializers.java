@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryTypeInfo;
 
 /**
  * Serializers for {@link CatalogSystemViewDescriptor}.
@@ -82,6 +83,10 @@ public class CatalogSystemViewDescriptorSerializers {
      */
     @CatalogSerializer(version = 2, since = "3.0.0")
     static class SystemViewDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogSystemViewDescriptor> {
+
+        private final MarshallableEntryTypeInfo<CatalogTableColumnDescriptor> columnType =
+                MarshallableEntryTypeInfo.typeOf(CatalogTableColumnDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN, 2);
+
         @Override
         public CatalogSystemViewDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
@@ -89,7 +94,7 @@ public class CatalogSystemViewDescriptorSerializers {
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
+            List<CatalogTableColumnDescriptor> columns = input.readEntryList(columnType);
 
             byte sysViewTypeId = input.readByte();
             SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
@@ -103,7 +108,7 @@ public class CatalogSystemViewDescriptorSerializers {
             output.writeVarInt(descriptor.schemaId());
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
-            output.writeEntryList(descriptor.columns());
+            output.writeEntryList(columnType, descriptor.columns());
             output.writeByte(descriptor.systemViewType().id());
         }
     }

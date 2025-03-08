@@ -28,6 +28,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryTypeInfo;
 
 /**
  * Serializers for {@link CatalogStorageProfilesDescriptor}.
@@ -68,16 +69,21 @@ public class CatalogStorageProfilesDescriptorSerializers {
      */
     @CatalogSerializer(version = 2, since = "3.0.0")
     static class StorageProfilesDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogStorageProfilesDescriptor> {
+
+        private final MarshallableEntryTypeInfo<CatalogStorageProfileDescriptor> profileType =
+                MarshallableEntryTypeInfo.typeOf(CatalogStorageProfileDescriptor.class,
+                        MarshallableEntryType.DESCRIPTOR_STORAGE_PROFILE, 2);
+
         @Override
         public CatalogStorageProfilesDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
-            List<CatalogStorageProfileDescriptor> storageProfileDescriptors = input.readEntryList(CatalogStorageProfileDescriptor.class);
+            List<CatalogStorageProfileDescriptor> storageProfileDescriptors = input.readEntryList(profileType);
 
             return new CatalogStorageProfilesDescriptor(storageProfileDescriptors);
         }
 
         @Override
         public void writeTo(CatalogStorageProfilesDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntryList(descriptor.profiles());
+            output.writeEntryList(profileType, descriptor.profiles());
         }
     }
 }

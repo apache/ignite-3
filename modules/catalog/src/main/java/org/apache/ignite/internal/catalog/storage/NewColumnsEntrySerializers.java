@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryTypeInfo;
 
 /**
  * Serializers for {@link NewColumnsEntry}.
@@ -71,9 +72,13 @@ public class NewColumnsEntrySerializers {
      */
     @CatalogSerializer(version = 2, since = "3.0.0")
     static class NewColumnsEntrySerializerV2 implements CatalogObjectSerializer<NewColumnsEntry> {
+
+        private final MarshallableEntryTypeInfo<CatalogTableColumnDescriptor> columnType =
+                MarshallableEntryTypeInfo.typeOf(CatalogTableColumnDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN, 2);
+
         @Override
         public NewColumnsEntry readFrom(CatalogObjectDataInput in) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = in.readEntryList(CatalogTableColumnDescriptor.class);
+            List<CatalogTableColumnDescriptor> columns = in.readEntryList(columnType);
             int tableId = in.readVarIntAsInt();
 
             return new NewColumnsEntry(tableId, columns);
@@ -81,7 +86,7 @@ public class NewColumnsEntrySerializers {
 
         @Override
         public void writeTo(NewColumnsEntry entry, CatalogObjectDataOutput out) throws IOException {
-            out.writeEntryList(entry.descriptors());
+            out.writeEntryList(columnType, entry.descriptors());
             out.writeVarInt(entry.tableId());
         }
     }

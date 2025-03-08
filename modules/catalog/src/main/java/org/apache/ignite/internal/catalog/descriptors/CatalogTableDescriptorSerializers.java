@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryTypeInfo;
 
 /**
  * Serializers for {@link CatalogTableDescriptor}.
@@ -187,14 +188,18 @@ public class CatalogTableDescriptorSerializers {
      */
     @CatalogSerializer(version = 2, since = "3.0.0")
     static class TableDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogTableDescriptor> {
+
+        private final MarshallableEntryTypeInfo<CatalogTableColumnDescriptor> columnType =
+                MarshallableEntryTypeInfo.typeOf(CatalogTableColumnDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN, 2);
+
         @Override
         public CatalogTableDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            CatalogTableSchemaVersions schemaVersions = (CatalogTableSchemaVersions) input.readEntry();
-            List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
+            CatalogTableSchemaVersions schemaVersions =  input.readEntry(CatalogTableSchemaVersions.class, 2);
+            List<CatalogTableColumnDescriptor> columns = input.readEntryList(columnType);
             String storageProfile = input.readUTF();
 
             int schemaId = input.readVarIntAsInt();
@@ -246,8 +251,8 @@ public class CatalogTableDescriptorSerializers {
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
 
-            output.writeEntry(descriptor.schemaVersions());
-            output.writeEntryList(descriptor.columns());
+            output.writeEntry(descriptor.schemaVersions(), 2);
+            output.writeEntryList(columnType, descriptor.columns());
             output.writeUTF(descriptor.storageProfile());
 
             output.writeVarInt(descriptor.schemaId());

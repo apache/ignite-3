@@ -28,6 +28,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSer
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.IndexDescriptorSerializerHelper;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryTypeInfo;
 
 /**
  * Serializers for {@link CatalogSchemaDescriptor}.
@@ -83,15 +84,28 @@ public class CatalogSchemaDescriptorSerializers {
 
     @CatalogSerializer(version = 2, since = "3.0.0")
     static class SchemaDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
+
+        private final MarshallableEntryTypeInfo<CatalogTableDescriptor> tableType =
+                MarshallableEntryTypeInfo.typeOf(CatalogTableDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE, 2);
+
+        private final MarshallableEntryTypeInfo<CatalogSystemViewDescriptor> systemViewType =
+                MarshallableEntryTypeInfo.typeOf(CatalogSystemViewDescriptor.class, MarshallableEntryType.DESCRIPTOR_SYSTEM_VIEW, 2);
+
+        private final MarshallableEntryTypeInfo<CatalogIndexDescriptor> indexType =
+                MarshallableEntryTypeInfo.builder(CatalogIndexDescriptor.class)
+                        .addVariant(MarshallableEntryType.DESCRIPTOR_HASH_INDEX.id(), 2)
+                        .addVariant(MarshallableEntryType.DESCRIPTOR_SORTED_INDEX.id(), 2)
+                        .build();
+
         @Override
         public CatalogSchemaDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            CatalogTableDescriptor[] tables = input.readEntryArray(CatalogTableDescriptor.class);
-            CatalogIndexDescriptor[] indexes = input.readEntryArray(CatalogIndexDescriptor.class);
-            CatalogSystemViewDescriptor[] systemViews = input.readEntryArray(CatalogSystemViewDescriptor.class);
+            CatalogTableDescriptor[] tables = input.readEntryArray(tableType);
+            CatalogIndexDescriptor[] indexes = input.readEntryArray(indexType);
+            CatalogSystemViewDescriptor[] systemViews = input.readEntryArray(systemViewType);
 
             return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateToken);
         }
@@ -102,9 +116,9 @@ public class CatalogSchemaDescriptorSerializers {
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
 
-            output.writeEntryArray(descriptor.tables());
-            output.writeEntryArray(descriptor.indexes());
-            output.writeEntryArray(descriptor.systemViews());
+            output.writeEntryArray(tableType, descriptor.tables());
+            output.writeEntryArray(indexType, descriptor.indexes());
+            output.writeEntryArray(systemViewType, descriptor.systemViews());
         }
     }
 }

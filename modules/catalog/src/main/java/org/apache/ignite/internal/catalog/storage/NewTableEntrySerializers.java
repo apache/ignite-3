@@ -64,14 +64,14 @@ public class NewTableEntrySerializers {
     static class NewTableEntrySerializerV2 implements CatalogObjectSerializer<NewTableEntry> {
         @Override
         public NewTableEntry readFrom(CatalogObjectDataInput input)throws IOException {
-            CatalogTableDescriptor descriptor = (CatalogTableDescriptor) input.readEntry();
+            CatalogTableDescriptor descriptor = input.readEntry(CatalogTableDescriptor.class, 2);
 
             return new NewTableEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewTableEntry entry, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntry(entry.descriptor());
+            output.writeEntry(entry.descriptor(), 2);
         }
     }
 }

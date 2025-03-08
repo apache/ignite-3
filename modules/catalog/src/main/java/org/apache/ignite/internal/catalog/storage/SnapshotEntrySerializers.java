@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSer
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryTypeInfo;
 
 /**
  * Serializers for {@link SnapshotEntry}.
@@ -92,14 +93,21 @@ public class SnapshotEntrySerializers {
      */
     @CatalogSerializer(version = 2, since = "3.0.0")
     static class SnapshotEntrySerializerV2 implements CatalogObjectSerializer<SnapshotEntry> {
+
+        private final MarshallableEntryTypeInfo<CatalogZoneDescriptor> zoneType = MarshallableEntryTypeInfo.typeOf(
+                CatalogZoneDescriptor.class, MarshallableEntryType.DESCRIPTOR_ZONE, 2);
+
+        private final MarshallableEntryTypeInfo<CatalogSchemaDescriptor> schemaType = MarshallableEntryTypeInfo.typeOf(
+                CatalogSchemaDescriptor.class, MarshallableEntryType.DESCRIPTOR_SCHEMA, 2);
+
         @Override
         public SnapshotEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int catalogVersion = input.readVarIntAsInt();
             long activationTime = input.readLong();
             int objectIdGenState = input.readVarIntAsInt();
 
-            CatalogZoneDescriptor[] zones = input.readEntryArray(CatalogZoneDescriptor.class);
-            CatalogSchemaDescriptor[] schemas = input.readEntryArray(CatalogSchemaDescriptor.class);
+            CatalogZoneDescriptor[] zones = input.readEntryArray(zoneType);
+            CatalogSchemaDescriptor[] schemas = input.readEntryArray(schemaType);
 
             Integer defaultZoneId = null;
             if (input.readBoolean()) {
@@ -115,8 +123,8 @@ public class SnapshotEntrySerializers {
             output.writeLong(entry.activationTime());
             output.writeVarInt(entry.objectIdGenState());
 
-            output.writeEntryArray(entry.zones());
-            output.writeEntryArray(entry.schemas());
+            output.writeEntryArray(zoneType, entry.zones());
+            output.writeEntryArray(schemaType, entry.schemas());
 
             Integer defaultZoneId = entry.defaultZoneId();
             output.writeBoolean(defaultZoneId != null);

@@ -63,13 +63,13 @@ public class NewSchemaEntrySerializers {
     static class SerializerV2 implements CatalogObjectSerializer<NewSchemaEntry> {
         @Override
         public NewSchemaEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogSchemaDescriptor schemaDescriptor = (CatalogSchemaDescriptor) input.readEntry();
+            CatalogSchemaDescriptor schemaDescriptor = input.readEntry(CatalogSchemaDescriptor.class, 2);
             return new NewSchemaEntry(schemaDescriptor);
         }
 
         @Override
         public void writeTo(NewSchemaEntry value, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntry(value.descriptor());
+            output.writeEntry(value.descriptor(), 2);
         }
     }
 }
