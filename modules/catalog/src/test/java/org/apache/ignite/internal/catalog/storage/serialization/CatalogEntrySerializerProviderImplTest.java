@@ -25,8 +25,6 @@ import static org.junit.jupiter.api.Named.named;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -308,12 +306,12 @@ public class CatalogEntrySerializerProviderImplTest {
 
     static class DummySerializer implements CatalogObjectSerializer<MarshallableEntry> {
         @Override
-        public MarshallableEntry readFrom(IgniteDataInput input) {
+        public MarshallableEntry readFrom(CatalogObjectDataInput input) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void writeTo(MarshallableEntry value, IgniteDataOutput output) {
+        public void writeTo(MarshallableEntry value, CatalogObjectDataOutput output) {
             throw new UnsupportedOperationException();
         }
     }

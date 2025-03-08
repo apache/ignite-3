@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 import java.io.IOException;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Decorator for {@link CatalogObjectSerializer} that adds a method to get the serializer version.
@@ -37,12 +35,12 @@ public class CatalogVersionAwareSerializer<T extends MarshallableEntry> implemen
     }
 
     @Override
-    public T readFrom(IgniteDataInput input) throws IOException {
+    public T readFrom(CatalogObjectDataInput input)throws IOException {
         return delegate.readFrom(input);
     }
 
     @Override
-    public void writeTo(T value, IgniteDataOutput output) throws IOException {
+    public void writeTo(T value, CatalogObjectDataOutput output) throws IOException {
         delegate.writeTo(value, output);
     }
 

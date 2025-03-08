@@ -23,11 +23,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link DropColumnsEntry}.
@@ -39,7 +39,7 @@ public class DropColumnsEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class DropColumnEntrySerializerV1 implements CatalogObjectSerializer<DropColumnsEntry> {
         @Override
-        public DropColumnsEntry readFrom(IgniteDataInput input) throws IOException {
+        public DropColumnsEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int tableId = input.readVarIntAsInt();
             Set<String> columns = CatalogSerializationUtils.readStringCollection(input, size -> new HashSet<>(capacity(size)));
 
@@ -47,7 +47,27 @@ public class DropColumnsEntrySerializers {
         }
 
         @Override
-        public void writeTo(DropColumnsEntry object, IgniteDataOutput output) throws IOException {
+        public void writeTo(DropColumnsEntry object, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(object.tableId());
+            writeStringCollection(object.columns(), output);
+        }
+    }
+
+    /**
+     * Serializer for {@link DropColumnsEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class DropColumnEntrySerializerV2 implements CatalogObjectSerializer<DropColumnsEntry> {
+        @Override
+        public DropColumnsEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int tableId = input.readVarIntAsInt();
+            Set<String> columns = CatalogSerializationUtils.readStringCollection(input, size -> new HashSet<>(capacity(size)));
+
+            return new DropColumnsEntry(tableId, columns);
+        }
+
+        @Override
+        public void writeTo(DropColumnsEntry object, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(object.tableId());
             writeStringCollection(object.columns(), output);
         }
