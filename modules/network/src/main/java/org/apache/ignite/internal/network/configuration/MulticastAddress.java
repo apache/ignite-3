@@ -22,10 +22,10 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Signifies that a {@link ConfigValue} must be a correct multicast address.
+ * Signifies that a {@link Value} must be a correct multicast address string.
  */
 @Target(FIELD)
 @Retention(RUNTIME)

@@ -39,6 +39,7 @@ import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +51,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ExtendWith(ExecutorServiceExtension.class)
 class ItMulticastNodeFinderTest extends IgniteAbstractTest {
     private static final int INIT_PORT = 3344;
-    private static final int MULTICAST_PORT = 3343;
+    private static final int MULTICAST_PORT = 20000;
     private static final String MULTICAST_GROUP = "224.0.0.1";
 
     private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
@@ -68,10 +69,10 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         assertThat(stopAsync(new ComponentContext(), services), willCompleteSuccessfully());
         services.clear();
-        finders.forEach(NodeFinder::close);
+        IgniteUtils.closeAllManually(finders);
         finders.clear();
     }
 

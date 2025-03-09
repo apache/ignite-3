@@ -22,7 +22,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.lang.ErrorGroups.Network.NODE_FINDER_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -107,7 +107,7 @@ public class MulticastNodeFinder implements NodeFinder {
         this.resultWaitMillis = resultWaitMillis;
         this.ttl = ttl;
         this.localAddressToAdvertise = localAddressToAdvertise;
-        this.threadPool = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG));
+        this.threadPool = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "multicast-node-finder", LOG));
     }
 
     @Override
@@ -123,7 +123,7 @@ public class MulticastNodeFinder implements NodeFinder {
             try {
                 result.addAll(future.get(resultWaitMillis * REQ_ATTEMPTS * 2L, TimeUnit.MILLISECONDS));
             } catch (Exception e) {
-                throw new IgniteInternalException(NODE_FINDER_ERR, "Error during multicast node finding", e);
+                throw new IgniteInternalException(INTERNAL_ERR, "Error during multicast node finding", e);
             }
         }
 
@@ -152,7 +152,7 @@ public class MulticastNodeFinder implements NodeFinder {
                 waitForResponses(responseBuffer, socket, discovered);
             }
         } catch (Exception e) {
-            throw new IgniteInternalException(NODE_FINDER_ERR, "Error during multicast node finding interface: " + networkInterface, e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Error during multicast node finding interface: " + networkInterface, e);
         }
 
         return discovered;
@@ -238,7 +238,7 @@ public class MulticastNodeFinder implements NodeFinder {
             }
         } catch (Exception e) {
             if (!stopped) {
-                throw new IgniteInternalException(NODE_FINDER_ERR, "Error in multicast listener on interface: " + networkInterface, e);
+                throw new IgniteInternalException(INTERNAL_ERR, "Error in multicast listener on interface: " + networkInterface, e);
             } else {
                 LOG.info("Multicast listener shutting down on interface: " + networkInterface);
             }
@@ -261,7 +261,7 @@ public class MulticastNodeFinder implements NodeFinder {
                 }
             }
         } catch (SocketException e) {
-            throw new IgniteInternalException(NODE_FINDER_ERR, "Error getting network interfaces", e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Error getting network interfaces", e);
         }
 
         return eligible;
