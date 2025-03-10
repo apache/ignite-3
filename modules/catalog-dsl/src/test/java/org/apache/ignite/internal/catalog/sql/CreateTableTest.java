@@ -23,7 +23,10 @@ import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
+import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
 import org.junit.jupiter.api.Test;
 
 class CreateTableTest {
@@ -74,20 +77,20 @@ class CreateTableTest {
     void primaryKey() {
         Query query5 = createTable().name("table1")
                 .addColumn("col", INTEGER)
-                .primaryKey("col");
+                .primaryKey(List.of("col"));
         String sql = query5.toString();
         assertThat(sql, is("CREATE TABLE table1 (col int, PRIMARY KEY (col));"));
 
         Query query4 = createTable().name("table1")
                 .addColumn("col1", INTEGER)
                 .addColumn("col2", INTEGER)
-                .primaryKey("col1, col2");
+                .primaryKey(List.of("col1", "col2"));
         sql = query4.toString();
         assertThat(sql, is("CREATE TABLE table1 (col1 int, col2 int, PRIMARY KEY (col1, col2));"));
 
         Query query3 = createTable().name("table1")
                 .addColumn("col1", INTEGER)
-                .primaryKey(IndexType.SORTED, "col1 ASC    nUlls First  ");
+                .primaryKey(IndexType.SORTED, List.of(ColumnSorted.column("col1", SortOrder.ASC_NULLS_FIRST)));
         sql = query3.toString();
         assertThat(sql, is("CREATE TABLE table1 (col1 int, PRIMARY KEY USING SORTED (col1 asc nulls first));"));
     }
@@ -105,7 +108,7 @@ class CreateTableTest {
         assertThat(sql, is("CREATE TABLE table1 (col1 int) COLOCATE BY (col1, col2);"));
 
         Query query3 = createTable().name("table1").addColumn("col1", INTEGER)
-                .colocateBy("col1, col2");
+                .colocateBy("col1", "col2");
         sql = query3.toString();
         assertThat(sql, is("CREATE TABLE table1 (col1 int) COLOCATE BY (col1, col2);"));
     }
@@ -121,12 +124,17 @@ class CreateTableTest {
     @Test
     void index() {
         Query query3 = createTable().name("table1").addColumn("col1", INTEGER)
-                .addIndex("ix_test1", "col1, COL2_UPPER desc nulls last");
+                .addIndex("ix_test1", IndexType.SORTED,
+                        List.of(
+                                ColumnSorted.column("col1"),
+                                ColumnSorted.column("COL2_UPPER", SortOrder.DESC_NULLS_LAST)
+                        )
+                );
         String sql = query3.toString();
-        assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS ix_test1 ON table1 (col1, COL2_UPPER desc nulls last);"));
+        assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS ix_test1 ON table1 USING SORTED (col1, COL2_UPPER desc nulls last);"));
 
         Query query2 = createTable().name("table1").addColumn("col1", INTEGER)
-                .addIndex("ix_test1", IndexType.HASH, "col1");
+                .addIndex("ix_test1", IndexType.HASH, List.of(ColumnSorted.column("col1")));
         sql = query2.toString();
         assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS ix_test1 ON table1 USING HASH (col1);"));
     }

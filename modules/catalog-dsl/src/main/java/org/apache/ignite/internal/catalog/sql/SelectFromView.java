@@ -53,16 +53,23 @@ class SelectFromView<T> extends AbstractCatalogQuery<List<T>> {
     public CompletableFuture<List<T>> executeAsync() {
         return sql.executeAsync(null, toString()).thenCompose(resultSet -> {
             List<T> result = new ArrayList<>();
-            return iterate(resultSet, result).thenApply(unused -> result);
+            return iterate(resultSet, mapper, result).thenApply(unused -> result);
         });
     }
 
-    private CompletableFuture<Void> iterate(AsyncResultSet<SqlRow> resultSet, List<T> result) {
+    static <T> CompletableFuture<List<T>> collectResults(IgniteSql sql, String query, Function<SqlRow, T> mapper) {
+        return sql.executeAsync(null, query).thenCompose(resultSet -> {
+            List<T> result = new ArrayList<>();
+            return iterate(resultSet, mapper, result).thenApply(unused -> result);
+        });
+    }
+
+    private static <T> CompletableFuture<Void> iterate(AsyncResultSet<SqlRow> resultSet, Function<SqlRow, T> mapper, List<T> result) {
         for (SqlRow row : resultSet.currentPage()) {
             result.add(mapper.apply(row));
         }
         if (resultSet.hasMorePages()) {
-            return resultSet.fetchNextPage().thenCompose(nextPage -> iterate(nextPage, result));
+            return resultSet.fetchNextPage().thenCompose(nextPage -> iterate(nextPage, mapper, result));
         } else {
             return nullCompletedFuture();
         }

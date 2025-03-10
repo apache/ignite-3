@@ -19,9 +19,7 @@ package org.apache.ignite.internal.catalog.sql;
 
 import static org.apache.ignite.catalog.ColumnSorted.column;
 
-import java.util.List;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.SortOrder;
 
@@ -38,13 +36,8 @@ class IndexColumnImpl extends QueryPart {
         this.wrapped = wrapped;
     }
 
-    public static List<ColumnSorted> parseIndexColumnList(String columnList) {
-        return QueryUtils.splitByComma(columnList).stream()
-                .map(IndexColumnImpl::parseCol)
-                .collect(Collectors.toList());
-    }
-
-    private static ColumnSorted parseCol(String columnRaw) {
+    public static ColumnSorted parseColumn(String columnRaw) {
+        columnRaw = columnRaw.trim();
         String[] split = SPACES.split(columnRaw, 2);
         String columnName = split[0].trim();
         if (split.length < 2) {

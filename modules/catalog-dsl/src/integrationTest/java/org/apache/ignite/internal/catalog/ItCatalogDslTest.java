@@ -28,16 +28,23 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
+import org.apache.ignite.catalog.definitions.IndexDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -395,6 +402,48 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                             .withIndexes(definition.indexes())
                             .withColocationColumns(definition.colocationColumns())
             );
+        }
+    }
+
+    @Test
+    public void tableDefinitionWithIndexes() {
+        sql("CREATE TABLE t (id int primary key, col1 varchar, col2 int)");
+        sql("CREATE INDEX t_sorted ON t USING SORTED (col2 DESC, col1)");
+        sql("CREATE INDEX t_hash ON t USING HASH (col1, col2)");
+
+        TableDefinition table = catalog().tableDefinition(QualifiedName.of("PUBLIC", "t"));
+
+        List<IndexDefinition> indexes = table.indexes();
+        assertNotNull(indexes);
+
+        Map<String, IndexDefinition> indexMap = indexes.stream()
+                .collect(Collectors.toMap(IndexDefinition::name, Function.identity()));
+
+        assertEquals(Set.of("T_SORTED", "T_HASH"), indexMap.keySet());
+
+        // primary index
+        {
+            assertEquals(IndexType.HASH, table.primaryKeyType());
+            assertEquals(List.of(ColumnSorted.column("ID")), table.primaryKeyColumns());
+        }
+        // sorted index
+        {
+            IndexDefinition index = indexMap.get("T_SORTED");
+            assertEquals("T_SORTED", index.name());
+            assertEquals(IndexType.SORTED, index.type());
+            assertEquals(List.of(
+                            ColumnSorted.column("COL2", SortOrder.DESC_NULLS_FIRST),
+                            ColumnSorted.column("COL1", SortOrder.ASC_NULLS_LAST)
+                    ),
+                    index.columns()
+            );
+        }
+        // hash index
+        {
+            IndexDefinition index = indexMap.get("T_HASH");
+            assertEquals("T_HASH", index.name());
+            assertEquals(IndexType.HASH, index.type());
+            assertEquals(List.of(ColumnSorted.column("COL1"), ColumnSorted.column("COL2")), index.columns());
         }
     }
 
