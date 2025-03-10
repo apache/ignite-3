@@ -56,7 +56,6 @@ class ItColocationTxCleanupRecoveryTest extends ItAbstractColocationTest {
         int zoneId = createZone(node0, TEST_ZONE_NAME, 1, cluster.size());
 
         createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
