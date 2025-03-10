@@ -395,7 +395,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = actualTx.getTimeoutOrDefault(getDefaultTimeout(actualTx));
+                    long timeout = getTimeoutOrDefault(actualTx);
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -515,7 +515,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = actualTx.getTimeoutOrDefault(getDefaultTimeout(actualTx));
+                    long timeout = getTimeoutOrDefault(actualTx);
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -530,7 +530,6 @@ public class InternalTableImpl implements InternalTable {
             return completedFuture(r);
         }).thenCompose(identity());
     }
-
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
         return tx == null ? txManager.beginImplicitRw(observableTimestampTracker) : tx;
@@ -1228,8 +1227,7 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
-                long timeout = tx.getTimeoutOrDefault(getDefaultTimeout(tx));
-
+                long timeout = getTimeoutOrDefault(tx);
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1242,6 +1240,10 @@ public class InternalTableImpl implements InternalTable {
 
             return completedFuture(r);
         }).thenCompose(identity());
+    }
+
+    private long getTimeoutOrDefault(InternalTransaction tx) {
+        return tx.getTimeoutOrDefault(getDefaultTimeout(tx));
     }
 
     private long getDefaultTimeout(InternalTransaction tx) {
