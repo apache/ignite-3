@@ -459,6 +459,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private static long getTimeoutOrDefault(InternalTxOptions options, long defaultValue) {
+        // 0 timeout means we have to use the default value.
         return options.timeoutMillis() == 0 ? defaultValue : options.timeoutMillis();
     }
 

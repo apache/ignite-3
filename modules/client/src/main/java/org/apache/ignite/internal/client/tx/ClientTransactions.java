@@ -33,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
  * Client transactions implementation.
  */
 public class ClientTransactions implements IgniteTransactions {
+    /** 0 timeout is used as a flag to use the configured timeout. */
     private static final int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
 
     /** Channel. */
