@@ -52,6 +52,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.RefuseJoinMessage;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftGroupListener;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
@@ -215,6 +217,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             @Override
             public void onCancelInitMessageReceived(CancelInitMessage message, ClusterNode sender, @Nullable Long correlationId) {
                 handleCancelInit(message);
+            }
+
+            @Override
+            public void onRefuseJoinMessageReceived(RefuseJoinMessage message, ClusterNode sender, @Nullable Long correlationId) {
+                handleRefuseJoin(message);
             }
 
             @Override
@@ -631,6 +638,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.scheduledExecutor.execute(this::destroyCmgWithEvents);
     }
 
+    private void handleRefuseJoin(RefuseJoinMessage msg) {
+        LOG.info("Join refused [reason={}]", msg.reason());
+        joinFuture.completeExceptionally(new InitException(msg.reason()));
+    }
+
     /** Delegates call to {@link #destroyCmg()} but fires the associated events. */
     private CompletableFuture<Void> destroyCmgWithEvents() {
         LOG.info("CMG destruction procedure started");
@@ -863,12 +875,23 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         raftService.logicalTopology()
                 .thenCompose(topology -> {
                     // Only send the ClusterStateMessage to nodes not already present in the Logical Topology.
-                    Collection<ClusterNode> recipients = nodes.stream()
+                    Set<ClusterNode> recipients = nodes.stream()
                             .filter(node -> !topology.nodes().contains(node))
-                            .collect(toList());
+                            .collect(toSet());
 
                     if (recipients.isEmpty()) {
                         return nullCompletedFuture();
+                    }
+
+                    Set<ClusterNode> duplicates = findDuplicateConsistentIdsOfExistingNodes(topology, recipients);
+                    if (!duplicates.isEmpty()) {
+                        for (ClusterNode duplicate : duplicates) {
+                            RefuseJoinMessage msg = msgFactory.refuseJoinMessage()
+                                    .reason("Duplicate node name \"" + duplicate.name() + "\"")
+                                    .build();
+                            sendWithRetry(duplicate, msg);
+                            recipients.remove(duplicate);
+                        }
                     }
 
                     return raftService.readClusterState()
@@ -879,7 +902,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                     throw new IllegalStateException("Cluster state is empty");
                                 }
 
-                                NetworkMessage msg = msgFactory.clusterStateMessage()
+                                ClusterStateMessage msg = msgFactory.clusterStateMessage()
                                         .clusterState(state)
                                         .build();
 
@@ -893,6 +916,14 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         LOG.error("Unable to send cluster state", e);
                     }
                 });
+    }
+
+    private static Set<ClusterNode> findDuplicateConsistentIdsOfExistingNodes(
+            LogicalTopologySnapshot existingTopology,
+            Collection<ClusterNode> candidatesForAddition
+    ) {
+        Set<String> existingConsistentIds = existingTopology.nodes().stream().map(LogicalNode::name).collect(toSet());
+        return candidatesForAddition.stream().filter(node -> existingConsistentIds.contains(node.name())).collect(toSet());
     }
 
     private CompletableFuture<Void> sendWithRetry(ClusterNode node, NetworkMessage msg) {

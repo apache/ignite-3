@@ -19,9 +19,12 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -124,6 +127,8 @@ public class ClusterInitializer {
         }
 
         try {
+            Map<String, ClusterNode> nodesByConsistentId = getValidTopologySnapshot();
+
             Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
             Set<String> cmgNodeNameSet = cmgNodeNames.isEmpty()
@@ -131,11 +136,11 @@ public class ClusterInitializer {
                     : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
             // check that provided Meta Storage nodes are present in the topology
-            List<ClusterNode> msNodes = resolveNodes(clusterService, msNodeNameSet);
+            List<ClusterNode> msNodes = resolveNodes(nodesByConsistentId, msNodeNameSet);
 
             LOG.info("Resolved MetaStorage nodes[nodes={}]", msNodes);
 
-            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNameSet);
+            List<ClusterNode> cmgNodes = resolveNodes(nodesByConsistentId, cmgNodeNameSet);
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
@@ -182,6 +187,23 @@ public class ClusterInitializer {
         } catch (Exception e) {
             return failedFuture(e);
         }
+    }
+
+    /**
+     * Validates physical topology before initialization for duplicate consistent ids. Throws {@link InternalInitException} if such
+     * duplicate is found.
+     *
+     * @return A map from consistent id to node.
+     */
+    private Map<String, ClusterNode> getValidTopologySnapshot() {
+        Map<String, ClusterNode> result = new HashMap<>();
+        clusterService.topologyService().allMembers().forEach(node -> {
+            if (result.put(node.name(), node) != null) {
+                LOG.error("Initialization failed, node \"{}\" has duplicate in the physical topology", node.name());
+                throw new InternalInitException(format("Duplicate node name \"{}\"", node.name()), true);
+            }
+        });
+        return result;
     }
 
     private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
@@ -242,10 +264,10 @@ public class ClusterInitializer {
         return CompletableFuture.allOf(futures);
     }
 
-    private static List<ClusterNode> resolveNodes(ClusterService clusterService, Collection<String> consistentIds) {
+    private static List<ClusterNode> resolveNodes(Map<String, ClusterNode> nodesByConsistentId, Collection<String> consistentIds) {
         return consistentIds.stream()
                 .map(consistentId -> {
-                    ClusterNode node = clusterService.topologyService().getByConsistentId(consistentId);
+                    ClusterNode node = nodesByConsistentId.get(consistentId);
 
                     if (node == null) {
                         throw new IllegalArgumentException(String.format(
