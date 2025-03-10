@@ -34,7 +34,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -206,7 +205,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public void enlist(ReplicationGroupId replicationGroupId, int tableId, ClusterNode primaryNode, long consistencyToken) {
+        public void enlist(ReplicationGroupId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
 
         }
 
