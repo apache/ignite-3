@@ -963,10 +963,6 @@ public class Node {
         return txManager;
     }
 
-    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
-        ((DefaultMessagingService) clusterService.messagingService()).dropMessages(predicate);
-    }
-
     /**
      * Returns the primary replica for given zone's partition 0. If there is no primary yet, waits for it.
      *

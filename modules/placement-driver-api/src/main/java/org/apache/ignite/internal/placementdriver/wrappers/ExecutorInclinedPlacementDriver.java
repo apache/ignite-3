@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.wrappers;
+package org.apache.ignite.internal.placementdriver.wrappers;
 
 import static java.util.function.Function.identity;
 
