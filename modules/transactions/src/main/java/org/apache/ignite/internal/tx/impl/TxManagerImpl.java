@@ -365,6 +365,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return inBusyLock(busyLock, () -> {
             assertReplicationGroupType(eventParameters.groupId());
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove check for TablePartitionId.
             if (!(eventParameters.groupId() instanceof TablePartitionId) && !(eventParameters.groupId() instanceof ZonePartitionId)) {
                 return falseCompletedFuture();
             }
