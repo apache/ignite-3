@@ -47,6 +47,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
@@ -68,7 +69,7 @@ public class MulticastNodeFinder implements NodeFinder {
     public static final int MAX_TTL = 255;
 
     private static final int REQ_ATTEMPTS = 2;
-    private static final int POLLING_TIMEOUT_MILLIS = 10;
+    private static final int POLLING_TIMEOUT_MILLIS = 100;
 
     private final InetSocketAddress multicastSocketAddress;
     private final int multicastPort;
@@ -291,7 +292,11 @@ public class MulticastNodeFinder implements NodeFinder {
                     throw new IgniteInternalException(INTERNAL_ERR, "Error in multicast listener", e);
                 }
             } finally {
-                sockets.forEach(MulticastSocket::close);
+                try {
+                    IgniteUtils.closeAll(sockets);
+                } catch (Exception e) {
+                    throw new IgniteInternalException(INTERNAL_ERR, "Could not close multicast sockets", e);
+                }
             }
         });
     }
