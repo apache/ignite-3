@@ -818,22 +818,17 @@ public class TestBuilders {
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
             ConcurrentMap<String, UpdatableTable> updatableTablesByName = new ConcurrentHashMap<>();
 
+            AssignmentsProvider assignmentsProvider = (partCount, ignored) -> IntStream.range(0, partCount)
+                    .mapToObj(partNo -> nodeNames)
+                    .collect(Collectors.toList());
+
             ConcurrentMap<Integer, AssignmentsProvider> zoneAssignmentsProviderByZoneId = new ConcurrentHashMap<>();
-            zoneAssignmentsProviderByZoneId.put(
-                    Blackhole.ZONE_ID,
-                    (partCount, ignored) -> IntStream.range(0, partCount)
-                            .mapToObj(partNo -> nodeNames)
-                            .collect(Collectors.toList())
-            );
+            zoneAssignmentsProviderByZoneId.put(0, assignmentsProvider);
+            zoneAssignmentsProviderByZoneId.put(Blackhole.ZONE_ID, assignmentsProvider);
 
             ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
 
-            assignmentsProviderByTableName.put(
-                    Blackhole.TABLE_NAME,
-                    (partCount, ignored) -> IntStream.range(0, partCount)
-                            .mapToObj(partNo -> nodeNames)
-                            .collect(Collectors.toList())
-            );
+            assignmentsProviderByTableName.put(Blackhole.TABLE_NAME, assignmentsProvider);
 
             DefaultDataProvider defaultDataProvider = this.defaultDataProvider;
             Map<String, TestNode> nodes = nodeNames.stream()
@@ -898,6 +893,7 @@ public class TestBuilders {
                     dataProvidersByTableName,
                     updatableTablesByName,
                     assignmentsProviderByTableName,
+                    zoneAssignmentsProviderByZoneId,
                     nodes,
                     catalogManager,
                     prepareService,

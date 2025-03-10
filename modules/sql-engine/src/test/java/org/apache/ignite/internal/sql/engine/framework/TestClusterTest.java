@@ -146,6 +146,10 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
                     .mapToObj(part -> List.of(part % 2 == 0 ? "N1" : "N2"))
                     .collect(Collectors.toList())
             )
+            .defaultZoneAssignmentsProvider(zoneId -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
+                    .mapToObj(part -> List.of(part % 2 == 0 ? "N1" : "N2"))
+                    .collect(Collectors.toList())
+            )
             .defaultDataProvider(tableName -> table)
             // Register system views
             .addSystemView(SystemViews.<Object[]>clusterViewBuilder()

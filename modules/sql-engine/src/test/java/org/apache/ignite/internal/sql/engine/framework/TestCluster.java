@@ -55,6 +55,7 @@ public class TestCluster implements LifecycleAware {
     private final ConcurrentMap<String, ScannableTable> dataProvidersByTableName;
     private final ConcurrentMap<String, UpdatableTable> updatableTablesByName;
     private final ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName;
+    private final ConcurrentMap<Integer, AssignmentsProvider> assignmentsProvidersByZoneId;
     private final ConcurrentMap<String, Long> tablesSize;
 
     TestCluster(
@@ -62,6 +63,7 @@ public class TestCluster implements LifecycleAware {
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName,
             ConcurrentMap<String, UpdatableTable> updatableTablesByName,
             ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName,
+            ConcurrentMap<Integer, AssignmentsProvider> assignmentsProvidersByZoneId,
             Map<String, TestNode> nodeByName,
             CatalogManager catalogManager,
             PrepareService prepareService,
@@ -73,6 +75,7 @@ public class TestCluster implements LifecycleAware {
         this.dataProvidersByTableName = dataProvidersByTableName;
         this.updatableTablesByName = updatableTablesByName;
         this.assignmentsProvidersByTableName = assignmentsProvidersByTableName;
+        this.assignmentsProvidersByZoneId = assignmentsProvidersByZoneId;
         this.nodeByName = nodeByName;
         this.components = List.of(
                 new ComponentToLifecycleAwareAdaptor(catalogManager),
@@ -132,6 +135,10 @@ public class TestCluster implements LifecycleAware {
 
     public void setAssignmentsProvider(String tableName, AssignmentsProvider assignmentsProvider) {
         assignmentsProvidersByTableName.put(tableName, assignmentsProvider);
+    }
+
+    public void setZoneAssignmentsProvider(int zoneId, AssignmentsProvider assignmentsProvider) {
+        assignmentsProvidersByZoneId.put(zoneId, assignmentsProvider);
     }
 
     public void setDataProvider(String tableName, ScannableTable dataProvider) {

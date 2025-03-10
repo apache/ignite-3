@@ -231,6 +231,10 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
                         .mapToObj(part -> List.of("N1"))
                         .collect(Collectors.toList())
                 )
+                .defaultZoneAssignmentsProvider(zoneId -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
+                        .mapToObj(part -> List.of("N1"))
+                        .collect(Collectors.toList())
+                )
                 .defaultDataProvider(tableName -> TestBuilders.tableScan(dataProvider))
                 .build();
 
