@@ -129,12 +129,18 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         return new Context(primaryNode, coordinatorNode, publicTable, rwTx, keyTpl);
     }
 
-    private ZonePartitionId defaultZonePartitionId(Ignite node) {
-        IgniteImpl ignite = unwrapIgniteImpl(node);
-        var zoneDescriptor = ignite.catalogManager().activeCatalog(ignite.clockService().nowLong()).zone(ZONE_NAME);
-        assertNotNull(zoneDescriptor);
+    private ReplicationGroupId defaultZonePartitionId(Ignite node) {
+        if (enabledColocation()) {
+            IgniteImpl ignite = unwrapIgniteImpl(node);
+            var zoneDescriptor = ignite.catalogManager().activeCatalog(ignite.clockService().nowLong()).zone(ZONE_NAME);
+            assertNotNull(zoneDescriptor);
 
-        return new ZonePartitionId(zoneDescriptor.id(), 0);
+            return new ZonePartitionId(zoneDescriptor.id(), 0);
+        } else {
+            TableViewInternal table = unwrapTableViewInternal(node.tables().table(TABLE_NAME));
+
+            return new TablePartitionId(table.tableId(), 0);
+        }
     }
 
     private void commitAndValidate(InternalTransaction rwTx, Table publicTable, Tuple keyTpl) {
