@@ -56,7 +56,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -237,9 +236,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     }
 
     /** Check that insertion value is trimmed if leading is zeroes. */
-    @ParameterizedTest
-    @CsvSource({"BINARY", "VARBINARY"})
-    public void testInsertZeroContainedBinary(String type) {
+    @Test
+    public void testInsertZeroContainedBinary() {
+        String type = "VARBINARY";
         sql(format("CREATE TABLE t(id INT PRIMARY KEY, val {}(5000))", type));
 
         Object trimmed = new byte[5000];

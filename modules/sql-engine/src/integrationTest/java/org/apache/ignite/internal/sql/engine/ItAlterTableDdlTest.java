@@ -360,12 +360,6 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 STMT_PARSE_ERR,
                 "Literal '2147483648' can not be parsed to type",
-                () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(2147483648)")
-        );
-
-        assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Literal '2147483648' can not be parsed to type",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 VARBINARY(2147483648)")
         );
 
@@ -414,11 +408,6 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         // Binary
 
         String longByteString = "01".repeat(101);
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid default value for column 'VAL2'",
-                () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(100) DEFAULT x'" + longByteString + "'")
-        );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,

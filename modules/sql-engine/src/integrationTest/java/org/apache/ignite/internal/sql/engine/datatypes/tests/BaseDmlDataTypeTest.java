@@ -54,22 +54,6 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         checkQuery("SELECT id FROM t").returns(2).returns(3).check();
     }
 
-    /** {@code UPDATE} from a literal of a compatible type. */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testUpdateFromLiteral(TestTypeArguments<T> arguments) {
-        String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
-        runSql(insert);
-
-        checkQuery(format("UPDATE t SET test_key = {} WHERE id=1", arguments.valueExpr(0)))
-                .returns(1L)
-                .check();
-
-        checkQuery("SELECT test_key FROM t WHERE id=1")
-                .returns(arguments.value(0))
-                .check();
-    }
-
     /** {@code UPDATE} from a dynamic parameter. */
     @Test
     public void testUpdateFromDynamicParam() {

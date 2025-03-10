@@ -24,7 +24,7 @@ boolean IfNotExistsOpt() :
     { return false; }
 }
 
-SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType) :
+SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType, boolean allowBinaryType) :
 {
     final SqlDataTypeSpec dt;
 }
@@ -35,13 +35,15 @@ SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType) :
         dt = IntervalType()
     )
     {
-        if (!allowCharType
-                && dt.getTypeName().isSimple()
-                && ("CHAR".equals(dt.getTypeName().getSimple()) || "CHARACTER".equals(dt.getTypeName().getSimple()))) {
-
-            throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.charDataTypeIsNotSupportedInTable());
+        if(dt.getTypeName().isSimple()) {
+            String typeName = dt.getTypeName().getSimple();
+            if (!allowCharType && ("CHAR".equals(typeName) || "CHARACTER".equals(typeName))) {
+               throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.charDataTypeIsNotSupportedInTable());
+            }
+            if (!allowBinaryType && "BINARY".equals(typeName)) {
+                throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.binaryDataTypeIsNotSupportedInTable());
+            }
         }
-
         return dt;
     }
 }
@@ -81,7 +83,7 @@ void TableElement(List<SqlNode> list) :
     IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH;
 }
 {
-    id = SimpleIdentifier() type = DataTypeEx(s, false) nullable = NullableOptDefaultNull()
+    id = SimpleIdentifier() type = DataTypeEx(s, false, false) nullable = NullableOptDefaultNull()
     (
         <DEFAULT_> { s.add(this); }
         (
@@ -365,7 +367,7 @@ void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
     <INFIX_CAST> {
         checkNonQueryExpression(exprContext);
     }
-    dt = DataTypeEx(s, true) {
+    dt = DataTypeEx(s, true, true) {
         list.add(
             new SqlParserUtil.ToTreeListItem(SqlLibraryOperators.INFIX_CAST,
                 s.pos()));
@@ -401,7 +403,7 @@ SqlNode ColumnWithType() :
 }
 {
     id = SimpleIdentifier() { s.add(this); }
-    type = DataTypeEx(s, false)
+    type = DataTypeEx(s, false, false)
     [
         <NOT> <NULL> {
             nullable = false;
@@ -476,7 +478,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
     id = SimpleIdentifier()
     (
         LOOKAHEAD(2)
-        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx(s, false) nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
+        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx(s, false, false) nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, false, dflt, nullable == null ? null : !nullable);
         }
     |

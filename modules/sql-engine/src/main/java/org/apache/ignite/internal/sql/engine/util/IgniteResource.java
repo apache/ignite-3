@@ -83,6 +83,9 @@ public interface IgniteResource {
     @BaseMessage("CHAR datatype is not supported in table")
     ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
 
+    @BaseMessage("BINARY datatype is not supported in table")
+    ExInst<SqlValidatorException> binaryDataTypeIsNotSupportedInTable();
+
     @BaseMessage("{0} datatype is not supported'")
     ExInst<SqlValidatorException> dataTypeIsNotSupported(String a0);
 

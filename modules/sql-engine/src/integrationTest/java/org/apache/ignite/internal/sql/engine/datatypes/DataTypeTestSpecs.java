@@ -133,7 +133,7 @@ public final class DataTypeTestSpecs {
 
             TestDataSamples.Builder<VarBinary> samples = TestDataSamples.builder();
 
-            samples.add(values, SqlTypeName.BINARY, b -> b.asString(StandardCharsets.UTF_8).getBytes(StandardCharsets.UTF_8));
+            samples.add(values, SqlTypeName.VARBINARY, b -> b.asString(StandardCharsets.UTF_8).getBytes(StandardCharsets.UTF_8));
 
             return samples.build();
         }
