@@ -59,6 +59,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-configuration-system')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-cluster-management')))
     testImplementation(testFixtures(project(':ignite-vault')))
@@ -66,6 +67,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-network')))
     testImplementation(testFixtures(project(':ignite-network')))
 
     testFixturesImplementation libs.jetbrains.annotations
@@ -133,6 +135,8 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-transactions'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration-system'))
+
 }
 
 description = 'ignite-distribution-zones'
