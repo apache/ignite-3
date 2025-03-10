@@ -44,6 +44,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.framework;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -770,6 +771,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         }).when(localRwTxCounter).inUpdateRwTxCountLock(any());
 
         txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
+
+        doReturn(null).when(localRwTxCounter).inUpdateRwTxCountLock(any());
     }
 
     private InternalTransaction prepareTransaction() {

@@ -39,6 +39,8 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
     /** Cleanup completion timestamp. */
     @Nullable Long cleanupCompletionTimestamp();
 
+    @Nullable Boolean isFinishedDueToTimeout();
+
     /** Converts to {@link TxStateMeta}. */
     default TxStateMeta asTxStateMeta() {
         ReplicationGroupIdMessage commitPartitionId = commitPartitionId();
@@ -50,7 +52,8 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
                 commitTimestamp(),
                 null,
                 initialVacuumObservationTimestamp(),
-                cleanupCompletionTimestamp()
+                cleanupCompletionTimestamp(),
+                isFinishedDueToTimeout()
         );
     }
 

@@ -289,7 +289,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionInflights,
                 0,
                 null,
-                mock(StreamerReceiverRunner.class)
+                mock(StreamerReceiverRunner.class),
+                () -> 10_000L,
+                () -> 10_000L
         );
 
         RaftGroupService svc = mock(RaftGroupService.class);

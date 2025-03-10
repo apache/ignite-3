@@ -145,8 +145,11 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @param ts The timestamp which is associated to txn completion.
      * @param commit {@code True} if a commit requested.
+     * @param timeoutExceeded {@code True} if a timeout exceeded. 'commit' and timeout must not be {@code} True at the same time.
      */
-    void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit);
+    void finishFull(
+            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    );
 
     /**
      * Finishes a dependant transactions.
@@ -155,6 +158,7 @@ public interface TxManager extends IgniteComponent {
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
      * @param commit {@code true} if a commit requested.
+     * @param timeoutExceeded {@code true} if a timeout exceeded.
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
@@ -162,6 +166,7 @@ public interface TxManager extends IgniteComponent {
             HybridTimestampTracker timestampTracker,
             @Nullable ReplicationGroupId commitPartition,
             boolean commit,
+            boolean timeoutExceeded,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
