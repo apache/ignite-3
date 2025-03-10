@@ -45,7 +45,7 @@ Next, the nodes specified in the `--metastorage-group` argument form a RAFT grou
 If only one of `--cluster-management-group` or `--metastorage-group` is specified, the specified value is used for both. If neither is specified, a set of nodes is automatically selected for both CMG and the metastorage group in alphabetical order. The number of selected nodes is determined as follows:
 
 - If the cluster size is 3 or fewer, all nodes are used for the metastorage group (CMG and metastorage).
-- If the cluster size is 4, three nodes are used to ensure an odd number, improving split-brain protection.
+- If the cluster size is 4, three nodes are used to maintain an odd number, improving consensus efficiency.
 - If the cluster size is 5 or more, five nodes are used to balance fault tolerance and overhead.
 
 Once the 2 raft groups are started and elect their leaders, all other nodes in the topology are notified that the cluster is started, and they can join it. At this point, the cluster is considered *initialized* and can start receiving requests.
