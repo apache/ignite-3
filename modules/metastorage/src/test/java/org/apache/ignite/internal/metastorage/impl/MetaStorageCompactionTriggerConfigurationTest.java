@@ -79,7 +79,7 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
     void testCompatibilityDataAvailabilityTimesSystemPropertyNameWasNotChanged() {
         SystemConfigurationPropertyCompatibilityChecker.checkSystemConfigurationPropertyNameWasNotChanged(
                 "DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME",
-                "metastorageCompactionInterval",
+                "metastorageCompactionDataAvailabilityTime",
                 DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME
         );
     }
