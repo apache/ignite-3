@@ -150,7 +150,8 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
                 // Insert data into a STOPPING index. We expect it to be inserted.
                 insertPeople(tx, TABLE_NAME, new Person(239, "foo", 0));
 
-                assertQuery((InternalTransaction) tx, String.format("SELECT id FROM %s WHERE NAME > 'a'", TABLE_NAME))
+                assertQuery((InternalTransaction) tx, String.format(""
+                        + "SELECT /*+ FORCE_INDEX(%s) */ id FROM %s WHERE NAME > 'a'", INDEX_NAME, TABLE_NAME))
                         .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                         .returns(239)
                         .check();
@@ -230,7 +231,8 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
                 throw new CompletionException(e);
             }
 
-            assertQuery((InternalTransaction) tx, String.format("SELECT id FROM %s WHERE NAME > 'a'", TABLE_NAME))
+            assertQuery((InternalTransaction) tx, String.format(""
+                    + "SELECT /*+ FORCE_INDEX(%s) */ id FROM %s WHERE NAME > 'a'", INDEX_NAME, TABLE_NAME))
                     .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                     .returns(239)
                     .check();

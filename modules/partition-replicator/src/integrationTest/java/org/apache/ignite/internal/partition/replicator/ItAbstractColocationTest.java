@@ -173,8 +173,9 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
         cluster.parallelStream().forEach(Node::start);
 
         Node node0 = cluster.get(0);
+        List<String> allNodeNames = cluster.stream().map(n -> n.name).collect(toList());
 
-        node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
+        node0.cmgManager.initCluster(allNodeNames, allNodeNames, "cluster");
 
         cluster.forEach(Node::waitWatches);
 

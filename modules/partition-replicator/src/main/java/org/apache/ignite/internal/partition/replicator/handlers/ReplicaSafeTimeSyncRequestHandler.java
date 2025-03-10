@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
@@ -54,9 +56,14 @@ public class ReplicaSafeTimeSyncRequestHandler {
      * Handles {@link ReplicaSafeTimeSyncRequest}.
      *
      * @param request Request to handle.
+     * @param isPrimary Whether current node is a primary replica.
      * @return Future that will be completed when the request is handled.
      */
-    public CompletableFuture<?> handle(ReplicaSafeTimeSyncRequest request) {
+    public CompletableFuture<?> handle(ReplicaSafeTimeSyncRequest request, boolean isPrimary) {
+        if (!isPrimary) {
+            return nullCompletedFuture();
+        }
+
         return commandApplicator.applyCommandWithExceptionHandling(
                 REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().initiatorTime(clockService.now()).build()
         );

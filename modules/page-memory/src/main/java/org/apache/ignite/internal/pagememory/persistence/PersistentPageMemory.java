@@ -1316,6 +1316,23 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
+     * Returns max dirty pages ratio among all segments.
+     */
+    public double dirtyPagesRatio() {
+        if (segments == null) {
+            return 0;
+        }
+
+        double res = 0;
+
+        for (Segment segment : segments) {
+            res = Math.max(res, segment.dirtyPagesRatio());
+        }
+
+        return res;
+    }
+
+    /**
      * Page segment.
      */
     public class Segment extends ReentrantReadWriteLock {
@@ -1423,6 +1440,10 @@ public class PersistentPageMemory implements PageMemory {
             } finally {
                 writeLock().unlock();
             }
+        }
+
+        private double dirtyPagesRatio() {
+            return dirtyPagesCntr.doubleValue() / pages();
         }
 
         /**
