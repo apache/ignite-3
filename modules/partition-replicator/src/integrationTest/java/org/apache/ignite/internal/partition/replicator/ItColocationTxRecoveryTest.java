@@ -19,18 +19,15 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
+// TODO: remove after switching to per-zone partitions https://issues.apache.org/jira/browse/IGNITE-22522
 class ItColocationTxRecoveryTest extends ItAbstractColocationTest {
     private static final long KEY = 1;
 
@@ -63,7 +60,7 @@ class ItColocationTxRecoveryTest extends ItAbstractColocationTest {
 
         putInitialValue(node0);
 
-        ReplicaMeta primaryReplica = getPrimaryReplica(zoneId);
+        ReplicaMeta primaryReplica = node0.getPrimaryReplica(zoneId);
 
         Node coordinatorNodeToBeStopped = findAnyOtherNode(primaryReplica);
         Transaction txToBeAbandoned = coordinatorNodeToBeStopped.transactions().begin();
@@ -88,22 +85,6 @@ class ItColocationTxRecoveryTest extends ItAbstractColocationTest {
                 .table(TEST_TABLE_NAME1)
                 .keyValueView(Long.class, Integer.class)
                 .put(null, KEY, 42);
-    }
-
-    private ReplicaMeta getPrimaryReplica(int zoneId) {
-        Node node = cluster.get(0);
-
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = node.placementDriverManager.placementDriver().getPrimaryReplica(
-                new ZonePartitionId(zoneId, 0),
-                node.hybridClock.now()
-        );
-
-        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
-
-        ReplicaMeta replicaMeta = primaryReplicaFuture.join();
-        assertThat(replicaMeta, is(notNullValue()));
-
-        return replicaMeta;
     }
 
     private Node findAnyOtherNode(ReplicaMeta primaryReplica) {
