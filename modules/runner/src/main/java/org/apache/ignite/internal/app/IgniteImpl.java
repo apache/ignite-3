@@ -2055,6 +2055,11 @@ public class IgniteImpl implements Ignite {
         return systemDisasterRecoveryManager;
     }
 
+    @TestOnly
+    public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager() {
+        return partitionReplicaLifecycleManager;
+    }
+
     /**
      * Converts the entire configuration from the registry to a HOCON string without spaces, comments and quotes. For example,
      * "ignite{clientConnector{connectTimeout=5000,idleTimeout=0}}".

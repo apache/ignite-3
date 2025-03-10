@@ -124,6 +124,7 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -322,7 +323,7 @@ public class PartitionReplicaLifecycleManager extends
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clockService = clockService;
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
-        this.placementDriver = placementDriver;
+        this.placementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
         this.txManager = txManager;
         this.schemaManager = schemaManager;
         this.zoneResourcesManager = zoneResourcesManager;

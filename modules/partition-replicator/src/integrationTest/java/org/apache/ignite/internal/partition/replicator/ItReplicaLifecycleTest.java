@@ -81,7 +81,6 @@ import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry.RemotelyTriggeredResource;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -100,7 +99,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     @InjectConfiguration("mock.nodeAttributes: {region = UK, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes3;
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24374")
     @Test
     public void testZoneReplicaListener() throws Exception {
         startCluster(3);
