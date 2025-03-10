@@ -22,25 +22,29 @@ import static org.apache.ignite.internal.catalog.sql.Option.tableName;
 import static org.apache.ignite.internal.catalog.sql.QueryUtils.splitByComma;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition.Builder;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.SqlRow;
 
 /**
  * Table definition information collector from system views.
  */
 public class TableDefinitionCollector {
     private static final List<String> TABLE_VIEW_COLUMNS = List.of("SCHEMA", "PK_INDEX_ID", "ZONE", "COLOCATION_KEY_INDEX");
-
-    private static final List<String> INDEX_VIEW_COLUMNS = List.of("INDEX_ID", "INDEX_NAME", "COLUMNS", "TYPE");
 
     private static final List<String> TABLE_COLUMNS_VIEW_COLUMNS = List.of("COLUMN_NAME", "TYPE", "LENGTH", "PREC", "SCALE",
             "NULLABLE");
@@ -91,27 +95,49 @@ public class TableDefinitionCollector {
         });
     }
 
-    private CompletableFuture<Builder> collectIndexes(TableDefinitionBuilderWithIndexId tableDefinitionWithPkIndexId) {
-        return new SelectFromView<>(sql, INDEX_VIEW_COLUMNS, "INDEXES", tableName(tableName), row -> {
-            int pkIndexId = tableDefinitionWithPkIndexId.indexId;
+    private CompletableFuture<Builder> collectIndexes(TableDefinitionBuilderWithIndexId definition) {
+        String query = "SELECT i.index_id, i.index_type, i.index_name, column_name, column_ordinal, column_collation "
+                + "FROM system.indexes i "
+                + "JOIN system.index_columns ic USING (index_id) "
+                + "ORDER BY index_id, column_ordinal";
 
-            int indexId = row.intValue("INDEX_ID");
-            String indexName = row.stringValue("INDEX_NAME");
-            String columns = row.stringValue("COLUMNS");
-            String type = row.stringValue("TYPE");
+        return SelectFromView.collectResults(sql, query, Function.identity())
+                .thenApply(list -> {
+                    LinkedHashMap<Integer, List<ColumnSorted>> indexIdColumns = new LinkedHashMap<>();
+                    Map<Integer, String> indexNames = new HashMap<>();
+                    Map<Integer, IndexType> indexTypes = new HashMap<>();
 
-            return Index.create(indexName, type, columns, indexId == pkIndexId);
-        }).executeAsync().thenApply(indexes -> {
-            Builder builder = tableDefinitionWithPkIndexId.builder;
-            for (Index index : indexes) {
-                if (index.isPkIndex) {
-                    builder.primaryKey(index.type, index.columns);
-                } else {
-                    builder.index(index.name, index.type, index.columns);
-                }
-            }
-            return builder;
-        });
+                    for (SqlRow row : list) {
+                        int indexId = row.intValue("INDEX_ID");
+                        String indexName = row.stringValue("INDEX_NAME");
+                        String indexType = row.stringValue("INDEX_TYPE");
+                        String columnName = row.stringValue("COLUMN_NAME");
+                        String columnCollation = row.stringValue("COLUMN_COLLATION");
+
+                        List<ColumnSorted> columns = indexIdColumns.computeIfAbsent(indexId, key -> new ArrayList<>());
+                        indexNames.put(indexId, indexName);
+                        indexTypes.put(indexId, IndexType.valueOf(indexType));
+
+                        if (columnCollation == null) {
+                            columns.add(ColumnSorted.column(columnName));
+                        } else {
+                            columns.add(ColumnSorted.column(columnName, SortOrder.valueOf(columnCollation)));
+                        }
+                    }
+
+                    for (Map.Entry<Integer, List<ColumnSorted>> entry : indexIdColumns.entrySet()) {
+                        String name = indexNames.get(entry.getKey());
+                        IndexType indexType = indexTypes.get(entry.getKey());
+
+                        if (Objects.equals(entry.getKey(), definition.indexId)) {
+                            definition.builder.primaryKey(indexType, entry.getValue());
+                        } else {
+                            definition.builder.index(name, indexType, entry.getValue());
+                        }
+                    }
+
+                    return definition.builder;
+                });
     }
 
     private CompletableFuture<TableDefinition.Builder> collectColumns(TableDefinition.Builder builder) {
@@ -127,35 +153,6 @@ public class TableDefinitionCollector {
                     Class<?> typeClass = org.apache.ignite.sql.ColumnType.valueOf(type).javaClass();
                     return ColumnDefinition.column(columnName, ColumnType.of(typeClass, length, precision, scale, nullable));
                 }).executeAsync().thenApply(builder::columns);
-    }
-
-    private static class Index {
-        private final String name;
-
-        private final IndexType type;
-
-        private final List<ColumnSorted> columns;
-
-        private final boolean isPkIndex;
-
-        private Index(String name, IndexType type, List<ColumnSorted> columns, boolean isPkIndex) {
-            this.name = name;
-            this.type = type;
-            this.columns = columns;
-            this.isPkIndex = isPkIndex;
-        }
-
-        private static Index create(String name, String type, String columns, boolean isPkIndex) {
-            return new Index(name, IndexType.valueOf(type), fromRaw(columns), isPkIndex);
-        }
-    }
-
-    private static List<ColumnSorted> fromRaw(String columns) {
-        return Arrays.stream(columns.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(ColumnSorted::column)
-                .collect(Collectors.toList());
     }
 
     private static class TableDefinitionBuilderWithIndexId {
