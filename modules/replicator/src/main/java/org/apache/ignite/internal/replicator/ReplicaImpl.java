@@ -26,12 +26,13 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -73,6 +74,10 @@ public class ReplicaImpl implements Replica {
 
     private final PlacementDriverMessageProcessor placementDriverMessageProcessor;
 
+    private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaElected = this::registerFailoverCallback;
+
+    private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpired = this::unregisterFailoverCallback;
+
     /**
      * The constructor of a replica server.
      *
@@ -102,8 +107,8 @@ public class ReplicaImpl implements Replica {
         this.failureManager = failureManager;
         this.placementDriverMessageProcessor = placementDriverMessageProcessor;
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::registerFailoverCallback);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::unregisterFailoverCallback);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onPrimaryReplicaElected);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpired);
     }
 
     @Override
@@ -138,8 +143,8 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::registerFailoverCallback);
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::unregisterFailoverCallback);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onPrimaryReplicaElected);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpired);
 
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
@@ -202,7 +207,7 @@ public class ReplicaImpl implements Replica {
                 return nullCompletedFuture();
             }
 
-            PeersAndLearners newConfiguration = fromAssignments(Assignments.fromBytes(pendingsBytes).nodes());
+            PeersAndLearners newConfiguration = fromAssignments(AssignmentsQueue.fromBytes(pendingsBytes).poll().nodes());
 
             LOG.info(
                     "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",

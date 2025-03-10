@@ -124,11 +124,19 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     private void filter() throws Exception {
         inLoop = true;
         try {
+            int processed = 0;
             while (requested > 0 && !inBuf.isEmpty()) {
                 checkState();
 
                 requested--;
                 downstream().push(inBuf.remove());
+
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job.
+                    execute(this::doFilter);
+
+                    break;
+                }
             }
         } finally {
             inLoop = false;

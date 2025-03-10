@@ -236,4 +236,19 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 () -> assertOutputDoesNotContain("clientConnector {")
         );
     }
+
+    @Test
+    public void getList() {
+        execute("node", "config", "show", "--url", NODE_URL, "ignite.network.nodeFinder.netClusterNodes");
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("[\n"
+                        + "    \"localhost:3344\",\n"
+                        + "    \"localhost:3345\",\n"
+                        + "    \"localhost:3346\"\n"
+                        + "]" + System.lineSeparator()
+                )
+        );
+    }
 }

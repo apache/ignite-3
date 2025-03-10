@@ -22,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
@@ -48,7 +49,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         }
 
         PendingTxPartitionEnlistment enlistment =
-                tx.enlistedPartition(new ZonePartitionId(zoneId, part));
+                tx.enlistedPartition(targetReplicationGroupId(zoneId, part));
 
         PrimaryReplica recipient = new PrimaryReplica(
                 clusterNodeResolver.getByConsistentId(enlistment.primaryNodeConsistentId()),
@@ -79,7 +80,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         InternalTransaction tx = internalTbl.txManager().beginExplicitRw(HYBRID_TIMESTAMP_TRACKER, InternalTxOptions.defaults());
 
         int partId = ((PartitionGroupId) internalTbl.groupId()).partitionId();
-        ZonePartitionId tblPartId = new ZonePartitionId(zoneId, partId);
+        ReplicationGroupId tblPartId = targetReplicationGroupId(zoneId, partId);
 
         long term = 1L;
 
@@ -87,8 +88,13 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
         ClusterNode primaryReplicaNode = getPrimaryReplica(tblPartId);
 
-        tx.enlist(tblPartId, internalTbl.tableId(), primaryReplicaNode, term);
+        tx.enlist(tblPartId, internalTbl.tableId(), primaryReplicaNode.name(), term);
 
         return tx;
+    }
+
+    // TODO: IGNITE-22522 - inline this after switching to ZonePartitionId.
+    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
+        return new TablePartitionId(tableOrZoneId, partId);
     }
 }

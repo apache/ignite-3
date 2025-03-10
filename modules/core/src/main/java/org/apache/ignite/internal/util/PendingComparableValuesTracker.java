@@ -155,13 +155,21 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
     @Override
     public void close() {
+        close(new TrackerClosedException());
+    }
+
+    /**
+     * Closes the tracker with a specific exception.
+     * All uncompleted waiters are closed exceptionally from the method parameters.
+     *
+     * @param trackerClosedException Exception to close the tracker.
+     */
+    public void close(Exception trackerClosedException) {
         if (!CLOSE_GUARD.compareAndSet(this, false, true)) {
             return;
         }
 
         blockBusy();
-
-        TrackerClosedException trackerClosedException = new TrackerClosedException();
 
         cleanupWaitersOnClose(trackerClosedException);
     }
@@ -188,8 +196,8 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
         return future;
     }
 
-    protected void cleanupWaitersOnClose(TrackerClosedException trackerClosedException) {
-        valueFutures.values().forEach(future -> future.completeExceptionally(trackerClosedException));
+    protected void cleanupWaitersOnClose(Exception waiterCompletionException) {
+        valueFutures.values().forEach(future -> future.completeExceptionally(waiterCompletionException));
 
         valueFutures.clear();
     }

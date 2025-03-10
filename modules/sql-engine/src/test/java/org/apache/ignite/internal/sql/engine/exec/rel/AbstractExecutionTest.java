@@ -92,10 +92,18 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     protected abstract RowHandler<T> rowHandler();
 
     protected ExecutionContext<T> executionContext() {
-        return executionContext(false);
+        return executionContext(-1, false);
+    }
+
+    protected ExecutionContext<T> executionContext(int bufferSize) {
+        return executionContext(bufferSize, false);
     }
 
     protected ExecutionContext<T> executionContext(boolean withDelays) {
+        return executionContext(-1, withDelays);
+    }
+
+    protected ExecutionContext<T> executionContext(int bufferSize, boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
                     NamedThreadFactory.create("fake-test-node", "sqlTestExec", log),
@@ -130,7 +138,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 rowHandler(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
-                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
+                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                bufferSize
         );
     }
 

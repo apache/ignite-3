@@ -20,15 +20,20 @@ package org.apache.ignite.internal.partition.replicator.fixtures;
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.internal.util.MockUtil.isMock;
@@ -46,6 +51,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiPredicate;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -79,13 +85,16 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -104,8 +113,11 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
@@ -115,7 +127,8 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -134,6 +147,12 @@ import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationS
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfigurationSchema;
+import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
+import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -142,6 +161,8 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -182,6 +203,11 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class Node {
     private static final IgniteLogger LOG = Loggers.forClass(Node.class);
+
+    private static final int DELAY_DURATION_MS = 100;
+
+    /** The interval between two consecutive MS idle safe time syncs. */
+    public static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = DELAY_DURATION_MS / 2;
 
     public final String name;
 
@@ -262,10 +288,19 @@ public class Node {
 
     private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
+    public final PlacementDriverManager placementDriverManager;
+
     @Nullable
     private volatile InvokeInterceptor invokeInterceptor;
 
     private final CatalogCompactionRunner catalogCompactionRunner;
+
+    private final SystemViewManager systemViewManager;
+
+    private final SqlQueryProcessor sqlQueryProcessor;
+
+    /** Index building manager. */
+    private final IndexBuildingManager indexBuildingManager;
 
     /** Interceptor for {@link MetaStorageManager#invoke} calls. */
     @FunctionalInterface
@@ -280,7 +315,6 @@ public class Node {
             NetworkAddress address,
             NodeFinder nodeFinder,
             Path workDir,
-            PlacementDriver placementDriver,
             SystemLocalConfiguration systemLocalConfiguration,
             RaftConfiguration raftConfiguration,
             NodeAttributesConfiguration nodeAttributesConfiguration,
@@ -290,7 +324,9 @@ public class Node {
             TransactionConfiguration transactionConfiguration,
             ScheduledExecutorService scheduledExecutorService,
             @Nullable InvokeInterceptor invokeInterceptor,
-            GcConfiguration gcConfiguration
+            GcConfiguration gcConfiguration,
+            SqlLocalConfiguration sqlLocalConfiguration,
+            SqlDistributedConfiguration sqlDistributedConfiguration
     ) {
         this.invokeInterceptor = invokeInterceptor;
 
@@ -469,7 +505,20 @@ public class Node {
                 () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
         );
 
-        var transactionInflights = new TransactionInflights(placementDriver, clockService);
+        placementDriverManager = new PlacementDriverManager(
+                name,
+                metaStorageManager,
+                MetastorageGroupId.INSTANCE,
+                clusterService,
+                cmgManager::metaStorageNodes,
+                logicalTopologyService,
+                raftManager,
+                topologyAwareRaftGroupServiceFactory,
+                clockService,
+                replicationConfiguration
+        );
+
+        var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
 
         var cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
@@ -531,7 +580,7 @@ public class Node {
                 lockManager,
                 clockService,
                 new TransactionIdGenerator(address.port()),
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
@@ -546,7 +595,7 @@ public class Node {
                 cmgManager,
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new NoOpFailureManager(),
@@ -556,11 +605,11 @@ public class Node {
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
-                replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((ZonePartitionId) replicaGrpId))
+                replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
         );
 
-        LongSupplier delayDurationMsSupplier = () -> 10L;
+        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
 
         catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageManager),
@@ -584,7 +633,7 @@ public class Node {
                 (CatalogManagerImpl) catalogManager,
                 clusterService.messagingService(),
                 logicalTopologyService,
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 replicaSvc,
                 clockService,
                 schemaSyncService,
@@ -637,7 +686,7 @@ public class Node {
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
                 clockService,
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 schemaSyncService,
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
@@ -686,7 +735,7 @@ public class Node {
                 schemaSyncService,
                 catalogManager,
                 observableTimestampTracker,
-                placementDriver,
+                placementDriverManager.placementDriver(),
                 () -> mock(IgniteSql.class),
                 resourcesRegistry,
                 lowWatermark,
@@ -726,11 +775,55 @@ public class Node {
                 registry,
                 lowWatermark
         );
+
+        indexBuildingManager = new IndexBuildingManager(
+                name,
+                replicaSvc,
+                catalogManager,
+                metaStorageManager,
+                indexManager,
+                indexMetaStorage,
+                placementDriverManager.placementDriver(),
+                clusterService,
+                logicalTopologyService,
+                clockService
+        );
+
+        systemViewManager = new SystemViewManagerImpl(name, catalogManager);
+
+        sqlQueryProcessor = new SqlQueryProcessor(
+                clusterService,
+                logicalTopologyService,
+                tableManager,
+                schemaManager,
+                dataStorageMgr,
+                replicaSvc,
+                clockService,
+                schemaSyncService,
+                catalogManager,
+                new NoOpMetricManager(),
+                systemViewManager,
+                failureManager,
+                placementDriverManager.placementDriver(),
+                sqlDistributedConfiguration,
+                sqlLocalConfiguration,
+                transactionInflights,
+                txManager,
+                lowWatermark,
+                threadPoolsManager.commonScheduler(),
+                new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),
+                mock(EventLog.class)
+        );
     }
 
     public IgniteTransactions transactions() {
         IgniteTransactionsImpl transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
         return new PublicApiThreadingIgniteTransactions(transactions, ForkJoinPool.commonPool());
+    }
+
+    public IgniteSql sql() {
+        IgniteSqlImpl igniteSql = new IgniteSqlImpl(sqlQueryProcessor, observableTimestampTracker, threadPoolsManager.commonScheduler());
+        return new PublicApiThreadingIgniteSql(igniteSql, ForkJoinPool.commonPool());
     }
 
     public void waitForMetadataCompletenessAtNow() {
@@ -762,6 +855,7 @@ public class Node {
                 componentContext,
                 metaStorageManager,
                 clusterCfgMgr,
+                placementDriverManager,
                 clockWaiter,
                 catalogManager,
                 catalogCompactionRunner,
@@ -776,7 +870,10 @@ public class Node {
                 partitionReplicaLifecycleManager,
                 tableManager,
                 indexManager,
-                resourceVacuumManager
+                indexBuildingManager,
+                resourceVacuumManager,
+                systemViewManager,
+                sqlQueryProcessor
         )).thenComposeAsync(componentFuts -> {
             CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                     .thenCompose(rev -> allOf(
@@ -854,11 +951,42 @@ public class Node {
         return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
     }
 
+    public HybridTimestamp currentSafeTimeForZonePartition(int zoneId, int partId) {
+        return partitionReplicaLifecycleManager.currentSafeTimeForZonePartition(zoneId, partId);
+    }
+
     public DataStorageManager dataStorageManager() {
         return dataStorageMgr;
     }
 
     public TxManager txManager() {
         return txManager;
+    }
+
+    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
+        ((DefaultMessagingService) clusterService.messagingService()).dropMessages(predicate);
+    }
+
+    /**
+     * Returns the primary replica for given zone's partition 0. If there is no primary yet, waits for it.
+     *
+     * @param zoneId ID of the zone.
+     */
+    public ReplicaMeta getPrimaryReplica(int zoneId) throws InterruptedException {
+        assertTrue(waitForCondition(() -> getNullablePrimaryReplica(zoneId) != null, SECONDS.toMillis(10)));
+
+        ReplicaMeta primaryReplica = getNullablePrimaryReplica(zoneId);
+        assertThat(primaryReplica, is(notNullValue()));
+        return primaryReplica;
+    }
+
+    private @Nullable ReplicaMeta getNullablePrimaryReplica(int zoneId) {
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriverManager.placementDriver().getPrimaryReplica(
+                new ZonePartitionId(zoneId, 0),
+                hybridClock.now()
+        );
+
+        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
+        return primaryReplicaFuture.join();
     }
 }

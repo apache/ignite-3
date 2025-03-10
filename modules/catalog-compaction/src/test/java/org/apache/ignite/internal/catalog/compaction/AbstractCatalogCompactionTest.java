@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.compaction;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -65,7 +66,7 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
     /** Creates catalog manager. */
     private CatalogManagerImpl createCatalogManager(String nodeName) {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
-        CatalogManagerImpl manager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService);
+        CatalogManagerImpl manager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService, () -> TEST_DELAY_DURATION);
 
         assertThat(startAsync(new ComponentContext(), metastore), willCompleteSuccessfully());
         assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());

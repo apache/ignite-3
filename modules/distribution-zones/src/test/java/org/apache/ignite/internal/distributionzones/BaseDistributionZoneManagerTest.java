@@ -71,6 +71,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /** Base class for {@link DistributionZoneManager} unit tests. */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
+    private static final int DELAY_DURATION_MS = 100;
+
     protected static final String ZONE_NAME = "zone1";
 
     protected static final long ZONE_MODIFICATION_AWAIT_TIMEOUT = 10_000L;
@@ -120,7 +122,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
-        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager, () -> DELAY_DURATION_MS);
         components.add(catalogManager);
 
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(

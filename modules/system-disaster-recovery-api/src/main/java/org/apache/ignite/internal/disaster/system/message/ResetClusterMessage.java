@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,6 +55,7 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
      * Initial cluster configuration ({@code null} if no initial configuration was passed on init).
      */
     @Nullable
+    @IgniteToStringExclude
     String initialClusterConfiguration();
 
     /**

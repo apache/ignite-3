@@ -17,26 +17,24 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * New schema entry.
  */
 public class NewSchemaEntry implements UpdateEntry {
-    public static final CatalogObjectSerializer<NewSchemaEntry> SERIALIZER = new Serializer();
-
     private final CatalogSchemaDescriptor descriptor;
 
     public NewSchemaEntry(CatalogSchemaDescriptor descriptor) {
         this.descriptor = descriptor;
+    }
+
+    public CatalogSchemaDescriptor descriptor() {
+        return descriptor;
     }
 
     /** {@inheritDoc} */
@@ -58,18 +56,5 @@ public class NewSchemaEntry implements UpdateEntry {
     @Override
     public int typeId() {
         return MarshallableEntryType.NEW_SCHEMA.id();
-    }
-
-    private static class Serializer implements CatalogObjectSerializer<NewSchemaEntry> {
-        @Override
-        public NewSchemaEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogSchemaDescriptor schemaDescriptor = CatalogSchemaDescriptor.SERIALIZER.readFrom(input);
-            return new NewSchemaEntry(schemaDescriptor);
-        }
-
-        @Override
-        public void writeTo(NewSchemaEntry value, IgniteDataOutput output) throws IOException {
-            CatalogSchemaDescriptor.SERIALIZER.writeTo(value.descriptor, output);
-        }
     }
 }

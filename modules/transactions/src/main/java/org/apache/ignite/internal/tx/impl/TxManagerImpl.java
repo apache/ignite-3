@@ -66,6 +66,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -81,6 +82,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -211,6 +213,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final TransactionExpirationRegistry transactionExpirationRegistry = new TransactionExpirationRegistry();
 
     private volatile @Nullable ScheduledFuture<?> transactionExpirationJobFuture;
+
+    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     /**
      * Test-only constructor.
@@ -356,16 +360,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
-            Consumer<TablePartitionId> action
+            Consumer<ReplicationGroupId> action
     ) {
         return inBusyLock(busyLock, () -> {
-            if (!(eventParameters.groupId() instanceof TablePartitionId)) {
+            assertReplicationGroupType(eventParameters.groupId());
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove check for TablePartitionId.
+            if (!(eventParameters.groupId() instanceof TablePartitionId) && !(eventParameters.groupId() instanceof ZonePartitionId)) {
                 return falseCompletedFuture();
             }
 
-            TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
-
-            action.accept(groupId);
+            action.accept(eventParameters.groupId());
 
             return falseCompletedFuture();
         });
@@ -578,12 +583,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
-            ReplicationGroupId commitPartition,
+            @Nullable ReplicationGroupId commitPartition,
             boolean commitIntent,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}].", commitIntent, txId, enlistedGroups);
+
+        if (commitPartition != null) {
+            assertReplicationGroupType(commitPartition);
+        }
+        for (ReplicationGroupId replicationGroupId : enlistedGroups.keySet()) {
+            assertReplicationGroupType(replicationGroupId);
+        }
 
         finishedTxs.add(1);
 
@@ -650,6 +662,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 decrementRwTxCount(txId);
             }
         }).whenComplete((unused, throwable) -> transactionInflights.removeTxContext(txId));
+    }
+
+    private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
+        assert (enabledColocation ? replicationGroupId instanceof ZonePartitionId : replicationGroupId instanceof TablePartitionId)
+                : "Invalid replication group type: " + replicationGroupId.getClass();
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
@@ -944,12 +961,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
+        assertReplicationGroupType(commitPartitionId);
+        for (ReplicationGroupId replicationGroupId : enlistedPartitions.keySet()) {
+            assertReplicationGroupType(replicationGroupId);
+        }
+
         return txCleanupRequestSender.cleanup(commitPartitionId, enlistedPartitions, commit, commitTimestamp, txId);
     }
 
     @Override
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -960,6 +982,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
+        assertReplicationGroupType(commitPartitionId);
+
         return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
     }
 

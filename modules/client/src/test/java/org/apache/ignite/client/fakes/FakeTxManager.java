@@ -39,7 +39,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -110,7 +109,7 @@ public class FakeTxManager implements TxManager {
             public void enlist(
                     ReplicationGroupId replicationGroupId,
                     int tableId,
-                    ClusterNode primaryNode,
+                    String primaryNodeConsistentId,
                     long consistencyToken
             ) {
                 // No-op.
@@ -227,7 +226,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,

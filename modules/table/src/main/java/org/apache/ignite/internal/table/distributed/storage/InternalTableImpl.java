@@ -283,6 +283,11 @@ public class InternalTableImpl implements InternalTable {
         return tableId;
     }
 
+    @Override
+    public int zoneId() {
+        return zoneId;
+    }
+
     /** {@inheritDoc} */
     @Override
     public QualifiedName name() {
@@ -1992,7 +1997,11 @@ public class InternalTableImpl implements InternalTable {
         Function<ReplicaMeta, PendingTxPartitionEnlistment> enlistClo = replicaMeta -> {
             ReplicationGroupId partGroupId = targetReplicationGroupId(partId);
 
-            tx.enlist(partGroupId, tableId, getClusterNode(replicaMeta), enlistmentConsistencyToken(replicaMeta));
+            String leaseHolderNodeId = replicaMeta.getLeaseholder();
+
+            assert leaseHolderNodeId != null;
+
+            tx.enlist(partGroupId, tableId, leaseHolderNodeId, enlistmentConsistencyToken(replicaMeta));
 
             return tx.enlistedPartition(partGroupId);
         };

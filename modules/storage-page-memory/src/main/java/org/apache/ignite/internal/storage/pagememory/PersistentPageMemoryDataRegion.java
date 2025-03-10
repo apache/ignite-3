@@ -20,10 +20,12 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -103,19 +105,16 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     public void start() {
         PersistentPageMemoryProfileView dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
 
-        Supplier<CheckpointProgress> currentCheckpointProgress = checkpointManager::currentCheckpointProgress;
-
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 cfg,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView.size(), Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView.size()),
                 filePageStoreManager,
-                (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
+                this::flushDirtyPageOnReplacement,
                 checkpointManager.checkpointTimeoutLock(),
-                currentCheckpointProgress,
                 pageSize,
-                new OffheapReadWriteLock(128)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
         pageMemory.start();
@@ -131,6 +130,18 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     public void stop() throws Exception {
         if (pageMemory != null) {
             pageMemory.stop(true);
+        }
+    }
+
+    private void flushDirtyPageOnReplacement(
+            PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuffer
+    ) throws IgniteInternalCheckedException {
+        checkpointManager.writePageToDeltaFilePageStore(pageMemory, fullPageId, byteBuffer);
+
+        CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
+
+        if (checkpointProgress != null) {
+            checkpointProgress.evictedPagesCounter().incrementAndGet();
         }
     }
 

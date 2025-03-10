@@ -21,7 +21,7 @@ import static java.lang.Math.min;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor.updateRequiresAssignmentsRecalculation;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 
@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Function;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -72,7 +74,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         long minTimestamp = metaStorageSafeTime;
 
         Map<Integer, Map<Integer, Assignments>> stableAssignments = readAssignments(STABLE_ASSIGNMENTS_PREFIX_BYTES, appliedRevision);
-        Map<Integer, Map<Integer, Assignments>> pendingAssignments = readAssignments(PENDING_ASSIGNMENTS_PREFIX_BYTES, appliedRevision);
+        Map<Integer, Map<Integer, Assignments>> pendingAssignments = readPendingAssignments(appliedRevision);
 
         Map<Integer, Long> pendingChangeTriggerRevisions = readPendingChangeTriggerRevisions(
                 PENDING_CHANGE_TRIGGER_PREFIX_BYTES,
@@ -250,10 +252,22 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return tableIdToZoneIdMap;
     }
 
+    private Map<Integer, Map<Integer, Assignments>> readPendingAssignments(long appliedRevision) {
+        return readAssignments(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES, appliedRevision, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
+    }
+
+    private Map<Integer, Map<Integer, Assignments>> readAssignments(byte[] prefix, long appliedRevision) {
+        return readAssignments(prefix, appliedRevision, Assignments::fromBytes);
+    }
+
     /**
      * Reads assignments from the metastorage locally. The resulting map is a {@code tableId -> {partitionId -> assignments}} mapping.
      */
-    Map<Integer, Map<Integer, Assignments>> readAssignments(byte[] prefix, long appliedRevision) {
+    Map<Integer, Map<Integer, Assignments>> readAssignments(
+            byte[] prefix,
+            long appliedRevision,
+            Function<byte[], Assignments> deserializer
+    ) {
         Map<Integer, Map<Integer, Assignments>> assignments = new HashMap<>();
 
         try (Cursor<Entry> entries = readLocallyByPrefix(prefix, appliedRevision)) {
@@ -267,7 +281,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 int partitionId = tablePartitionId.partitionId();
 
                 assignments.computeIfAbsent(tableId, id -> new HashMap<>())
-                        .put(partitionId, Assignments.fromBytes(entry.value()));
+                        .put(partitionId, deserializer.apply(entry.value()));
             }
         }
 

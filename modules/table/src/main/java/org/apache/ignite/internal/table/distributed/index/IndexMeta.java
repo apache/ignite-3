@@ -105,7 +105,7 @@ public class IndexMeta {
     }
 
     /** Returns catalog version in which the current meta was created. */
-    int catalogVersion() {
+    public int catalogVersion() {
         return catalogVersion;
     }
 

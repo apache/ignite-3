@@ -45,6 +45,12 @@ public class NestedLoopJoinConverterRule extends AbstractIgniteConverterRule<Log
     /** {@inheritDoc} */
     @Override
     protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalJoin rel) {
+        boolean hasHashJoinRule = planner.getRules().contains(HashJoinConverterRule.INSTANCE);
+
+        if (hasHashJoinRule && HashJoinConverterRule.matches(rel)) {
+            return null;
+        }
+
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
                 .replace(IgniteDistributions.single());

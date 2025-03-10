@@ -59,6 +59,8 @@ SELECT a, b, c FROM t3 NATURAL JOIN t2
 ----
 1	2	3
 
+skipif ignite3
+# Ignore https://issues.apache.org/jira/browse/IGNITE-24716
 # natural join chain
 query III
 SELECT * FROM t1 NATURAL JOIN t2 NATURAL JOIN t3
@@ -74,6 +76,8 @@ select * from (values (1)) tbl(a) natural join (values (1), (2)) tbl2(b) order b
 1  1
 1  2
 
+skipif ignite3
+# Ignore https://issues.apache.org/jira/browse/IGNITE-24716
 # long join chain
 query I
 select * from (values (1)) tbl(a) natural join (values (1)) tbl2(a) natural join (values (1)) tbl3(a)

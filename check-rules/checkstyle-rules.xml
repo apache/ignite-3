@@ -62,6 +62,9 @@
     <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
   </module>
 
+  <!-- https://checkstyle.org/checks/misc/newlineatendoffile.html -->
+  <module name="NewlineAtEndOfFile"/>
+
   <module name="TreeWalker">
     <!-- Import Checks. See: https://checkstyle.org/checks/imports/unusedimports.html -->
     <module name="UnusedImports"/>

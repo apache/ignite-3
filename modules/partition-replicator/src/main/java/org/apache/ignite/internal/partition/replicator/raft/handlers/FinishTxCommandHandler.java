@@ -21,16 +21,15 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -67,7 +66,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
     }
 
     @Override
-    protected IgniteBiTuple<Serializable, Boolean> handleInternally(
+    protected CommandResult handleInternally(
             FinishTxCommand command,
             long commandIndex,
             long commandTerm,
@@ -75,7 +74,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
     ) throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {
-            return new IgniteBiTuple<>(null, false);
+            return CommandResult.EMPTY_NOT_APPLIED_RESULT;
         }
 
         UUID txId = command.txId();
@@ -109,7 +108,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
             onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
         }
 
-        return new IgniteBiTuple<>(new TransactionResult(stateToSet, command.commitTimestamp()), true);
+        return new CommandResult(new TransactionResult(stateToSet, command.commitTimestamp()), true);
     }
 
     private static List<EnlistedPartitionGroup> fromPartitionMessages(List<EnlistedPartitionGroupMessage> messages) {

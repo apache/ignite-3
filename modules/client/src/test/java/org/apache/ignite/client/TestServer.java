@@ -35,6 +35,7 @@ import java.net.SocketAddress;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
@@ -274,7 +275,8 @@ public class TestServer implements AutoCloseable {
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark(),
-                        Runnable::run
+                        Runnable::run,
+                        ForkJoinPool.commonPool()
                 );
 
         module.startAsync(componentContext).join();

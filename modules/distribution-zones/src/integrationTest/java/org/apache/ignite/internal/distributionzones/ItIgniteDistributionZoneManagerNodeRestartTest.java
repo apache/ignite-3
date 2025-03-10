@@ -22,6 +22,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
@@ -293,7 +294,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         ClockService clockService = new TestClockService(clock, clockWaiter);
 
-        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService);
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService, () -> TEST_DELAY_DURATION);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,

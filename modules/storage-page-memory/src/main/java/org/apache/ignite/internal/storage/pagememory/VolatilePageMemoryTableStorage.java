@@ -25,7 +25,6 @@ import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -107,7 +106,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     Integer.toString(getTableId()),
                     partitionId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
@@ -127,7 +125,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     Integer.toString(getTableId()),
                     partitionId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
@@ -163,7 +160,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     Integer.toString(getTableId()),
                     partId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),

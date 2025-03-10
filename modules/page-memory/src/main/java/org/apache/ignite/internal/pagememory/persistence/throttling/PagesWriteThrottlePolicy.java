@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Throttling policy, encapsulates logic of delaying write operations.
  *
@@ -60,7 +62,7 @@ package org.apache.ignite.internal.pagememory.persistence.throttling;
 public interface PagesWriteThrottlePolicy {
     // TODO Maybe make it configurable in IGNITE-24548
     /** Min park time which triggers logging. */
-    long LOGGING_THRESHOLD = 10;
+    long LOGGING_THRESHOLD = TimeUnit.SECONDS.toNanos(1);
 
     /** Checkpoint buffer fullfill upper bound. */
     float CP_BUF_FILL_THRESHOLD = 2f / 3;

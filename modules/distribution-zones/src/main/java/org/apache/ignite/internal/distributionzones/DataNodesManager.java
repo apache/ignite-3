@@ -570,15 +570,11 @@ public class DataNodesManager {
      *
      * @param zoneDescriptor Zone descriptor.
      * @param timestamp Current timestamp.
-     * @param oldAutoAdjustScaleUp Old scale up auto adjust value.
-     * @param oldAutoAdjustScaleDown Old scale down auto adjust value.
      * @return CompletableFuture that is completed when the operation is done.
      */
     CompletableFuture<Void> onAutoAdjustAlteration(
             CatalogZoneDescriptor zoneDescriptor,
-            HybridTimestamp timestamp,
-            int oldAutoAdjustScaleUp,
-            int oldAutoAdjustScaleDown
+            HybridTimestamp timestamp
     ) {
         int zoneId = zoneDescriptor.id();
 
@@ -588,8 +584,6 @@ public class DataNodesManager {
                 dataNodesHistoryContext -> completedFuture(onAutoAdjustAlterationInternal(
                         zoneDescriptor,
                         timestamp,
-                        oldAutoAdjustScaleUp,
-                        oldAutoAdjustScaleDown,
                         dataNodesHistoryContext
                 ))
         );
@@ -599,8 +593,6 @@ public class DataNodesManager {
     private DataNodesHistoryMetaStorageOperation onAutoAdjustAlterationInternal(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
-            int oldAutoAdjustScaleUp,
-            int oldAutoAdjustScaleDown,
             DataNodesHistoryContext dataNodesHistoryContext
     ) {
         assert dataNodesHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
@@ -613,9 +605,8 @@ public class DataNodesManager {
 
         int zoneId = zoneDescriptor.id();
 
-        LOG.debug("Distribution zone auto adjust changed [zoneId={}, timestamp={}, oldAutoAdjustScaleUp={}, "
-                        + ", oldAutoAdjustScaleDown={}, descriptor={}].",
-                zoneId, timestamp, oldAutoAdjustScaleUp, oldAutoAdjustScaleDown, zoneDescriptor);
+        LOG.debug("Distribution zone auto adjust changed [zoneId={}, timestamp={}, descriptor={}].",
+                zoneId, timestamp, zoneDescriptor);
 
         DistributionZoneTimer scaleUpTimer = dataNodesHistoryContext.scaleUpTimer();
         DistributionZoneTimer scaleDownTimer = dataNodesHistoryContext.scaleDownTimer();

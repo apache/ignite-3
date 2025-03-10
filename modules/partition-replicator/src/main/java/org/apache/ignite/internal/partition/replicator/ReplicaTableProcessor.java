@@ -15,41 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.metric;
+package org.apache.ignite.internal.partition.replicator;
+
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.replicator.ReplicaResult;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
- * No Operation IO statistics holder. Use in case statistics shouldn't be gathered.
+ * Processor of replica requests targeted at a particular table.
  */
-public class IoStatisticsHolderNoOp implements IoStatisticsHolder {
-    /** No-op statistics. */
-    public static final IoStatisticsHolderNoOp INSTANCE = new IoStatisticsHolderNoOp();
-
+public interface ReplicaTableProcessor {
     /**
-     * Private constructor.
+     * Processes replica request.
+     *
+     * @param request Replica request.
+     * @param replicaPrimacy Replica primacy info.
+     * @param senderId ID of the node that sent the request.
+     * @return Future completed with the result of processing.
      */
-    private IoStatisticsHolderNoOp() {
-        // No-op.
-    }
+    CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId);
 
-    /** {@inheritDoc} */
-    @Override
-    public void trackLogicalRead(long pageAddr) {
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void trackPhysicalAndLogicalRead(long pageAddr) {
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long logicalReads() {
-        return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long physicalReads() {
-        return 0;
-    }
+    /** Callback on replica shutdown. */
+    void onShutdown();
 }
