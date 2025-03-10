@@ -57,7 +57,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
         );
 
         SnapshotEntry expectedEntry = new SnapshotEntry(catalog1);
-        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntry.bin");
+        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntry_1.bin");
 
         assertEquals(expectedEntry.typeId(), actualEntry.typeId());
         BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
@@ -75,7 +75,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
         );
 
         SnapshotEntry expectedEntry = new SnapshotEntry(catalog1);
-        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntryNoDefaultZone.bin");
+        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntryNoDefaultZone_1.bin");
 
         assertEquals(expectedEntry.typeId(), actualEntry.typeId());
         BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
@@ -84,7 +84,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
     @Test
     public void objectIdUpdate() {
         List<UpdateEntry> entries = List.of(new ObjectIdGenUpdateEntry(23431), new ObjectIdGenUpdateEntry(1204));
-        List<UpdateEntry> actual = checkEntries(entries, "ObjectIdGenUpdateEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "ObjectIdGenUpdateEntry_1.bin");
 
         assertEquals(entries.size(), actual.size());
         for (int i = 0; i < entries.size(); i++) {
@@ -101,7 +101,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
     public void newZone() {
         List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
         List<UpdateEntry> entries = zones.stream().map(NewZoneEntry::new).collect(Collectors.toList());
-        List<UpdateEntry> actual = checkEntries(entries, "NewZoneEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "NewZoneEntry_1.bin");
 
         assertEquals(entries.size(), actual.size());
         for (int i = 0; i < entries.size(); i++) {
@@ -120,7 +120,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new AlterZoneEntry(zones.get(2))
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "AlterZoneEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "AlterZoneEntry_1.bin");
         assertEquals(entries.size(), actual.size());
         for (int i = 0; i < entries.size(); i++) {
             AlterZoneEntry expectedEntry = (AlterZoneEntry) entries.get(i);
@@ -136,7 +136,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new SetDefaultZoneEntry(state.id()),
                 new SetDefaultZoneEntry(state.id())
         );
-        List<UpdateEntry> actual = checkEntries(entries, "SetDefaultZoneEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "SetDefaultZoneEntry_1.bin");
 
         assertEquals(entries.size(), actual.size());
         for (int i = 0; i < entries.size(); i++) {
@@ -154,7 +154,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropZoneEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropZoneEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "DropZoneEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -174,7 +174,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewSchemaEntry::new)
                 .collect(Collectors.toList());
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewSchemaEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "NewSchemaEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -192,7 +192,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropSchemaEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropSchemaEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "DropSchemaEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -212,7 +212,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewTableEntry::new)
                 .collect(Collectors.toList());
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewTableEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "NewTableEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -230,7 +230,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new RenameTableEntry(state.id(), "NEW_NAME2")
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "RenameTableEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "RenameTableEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -248,7 +248,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropTableEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropTableEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "DropTableEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -280,7 +280,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
         Collections.shuffle(entries, state.random());
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewIndexEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "NewIndexEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -295,7 +295,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
     public void renameIndex() {
         List<UpdateEntry> entries = List.of(new RenameIndexEntry(state.id(), "NEW_NAME"));
 
-        List<UpdateEntry> actual = checkEntries(entries, "RenameIndexEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "RenameIndexEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -313,7 +313,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new RemoveIndexEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "RemoveIndexEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "RemoveIndexEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -331,7 +331,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new MakeIndexAvailableEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "MakeIndexAvailableEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "MakeIndexAvailableEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -349,7 +349,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new StartBuildingIndexEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "StartBuildingIndexEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "StartBuildingIndexEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -367,7 +367,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropIndexEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropIndexEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "DropIndexEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -393,7 +393,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new NewColumnsEntry(state.id(), columns2)
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewColumnsEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "NewColumnsEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -414,7 +414,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new AlterColumnEntry(state.id(), columns.get(1))
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "AlterColumnsEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "AlterColumnsEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -438,7 +438,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropColumnsEntry(state.id(), Set.of("C3"))
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropColumnsEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "DropColumnsEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -458,7 +458,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewSystemViewEntry::new)
                 .collect(Collectors.toList());
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewSystemViewEntry.bin");
+        List<UpdateEntry> actual = checkEntries(entries, "NewSystemViewEntry_1.bin");
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
