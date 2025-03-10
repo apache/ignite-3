@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.impl.HeapLockManager.DEFAULT_SLOTS;
+import static org.apache.ignite.internal.tx.impl.HeapLockManager.LOCK_MAP_SIZE_PROPERTY_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.is;
@@ -29,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.utils.SystemConfigurationPropertyCompatibilityChecker;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -132,5 +134,14 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
 
         assertThat(lockManager.available(), is(42));
         assertThat(lockManager.getSlots(), is(arrayWithSize(0)));
+    }
+
+    @Test
+    public void test() {
+        SystemConfigurationPropertyCompatibilityChecker.checkSystemConfigurationPropertyNameWasNotChanged(
+                "LOCK_MAP_SIZE_PROPERTY_NAME",
+                "lockMapSize",
+                LOCK_MAP_SIZE_PROPERTY_NAME
+        );
     }
 }

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.logicalNodeFromNode;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -32,8 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.configuration.utils.SystemConfigurationPropertyCompatibilityChecker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -98,6 +101,15 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
         assertZonesKeysInMetaStorage(zoneId, nodes);
         assertZonesKeysInMetaStorage(zoneId2, nodes);
+    }
+
+    @Test
+    void testCompatibilityPropertyNamePartitionDistributionResetTimeoutWasNotChanged() {
+        SystemConfigurationPropertyCompatibilityChecker.checkSystemConfigurationPropertyNameWasNotChanged(
+                "PARTITION_DISTRIBUTION_RESET_TIMEOUT",
+                "partitionDistributionResetTimeout",
+                PARTITION_DISTRIBUTION_RESET_TIMEOUT
+        );
     }
 
     private void assertZonesKeysInMetaStorage(int zoneId, @Nullable Set<LogicalNode> clusterNodes) throws InterruptedException {

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.utils.SystemConfigurationPropertyCompatibilityChecker;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,10 +36,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /** For {@link MetaStorageCompactionTriggerConfiguration} testing. */
 @ExtendWith(ConfigurationExtension.class)
 public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbstractTest {
-    private static final String INTERVAL_SYSTEM_PROPERTY_NAME = "metastorageCompactionInterval";
-
-    private static final String DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME = "metastorageCompactionDataAvailabilityTime";
-
     private static final long INTERVAL_DEFAULT_VALUE = TimeUnit.MINUTES.toMillis(1);
 
     private static final long DATA_AVAILABILITY_TIME_DEFAULT_VALUE = TimeUnit.HOURS.toMillis(1);
@@ -74,6 +73,24 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
 
         assertEquals(100, config.interval());
         assertEquals(500, config.dataAvailabilityTime());
+    }
+
+    @Test
+    void testCompatibilityDataAvailabilityTimesSystemPropertyNameWasNotChanged() {
+        SystemConfigurationPropertyCompatibilityChecker.checkSystemConfigurationPropertyNameWasNotChanged(
+                "DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME",
+                "metastorageCompactionInterval",
+                DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME
+        );
+    }
+
+    @Test
+    void testCompatibilityIntervalSystemPropertyNameWasNotChanged() {
+        SystemConfigurationPropertyCompatibilityChecker.checkSystemConfigurationPropertyNameWasNotChanged(
+                "INTERVAL_SYSTEM_PROPERTY_NAME",
+                "metastorageCompactionInterval",
+                INTERVAL_SYSTEM_PROPERTY_NAME
+        );
     }
 
     private static void changeSystemConfig(
