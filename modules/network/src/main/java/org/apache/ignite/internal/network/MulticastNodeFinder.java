@@ -295,7 +295,7 @@ public class MulticastNodeFinder implements NodeFinder {
                 try {
                     IgniteUtils.closeAll(sockets);
                 } catch (Exception e) {
-                    throw new IgniteInternalException(INTERNAL_ERR, "Could not close multicast sockets", e);
+                    LOG.error("Could not close multicast sockets", e);
                 }
             }
         });
