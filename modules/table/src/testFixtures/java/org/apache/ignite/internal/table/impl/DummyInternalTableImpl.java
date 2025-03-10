@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -66,7 +67,12 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
+import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -76,6 +82,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -164,7 +171,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    private PartitionListener partitionListener;
+    private RaftGroupListener partitionListener;
 
     private ReplicaListener replicaListener;
 
@@ -180,6 +187,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private static final ScheduledExecutorService COMMON_SCHEDULER = Executors.newSingleThreadScheduledExecutor(
             new NamedThreadFactory("DummyInternalTable-common-scheduler-", true, LOG)
     );
+
+    private final boolean enabledColocation = enabledColocation();
 
     /**
      * Creates a new local table.
@@ -379,7 +388,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());
                         } catch (Throwable e) {
-                            res.completeExceptionally(new TransactionException(0, e));
+                            res.completeExceptionally(new TransactionException(INTERNAL_ERR, e));
                         }
 
                         return res;
@@ -436,13 +445,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         lenient().when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
-        replicaListener = new PartitionReplicaListener(
+        ZonePartitionId zonePartitionId = new ZonePartitionId(ZONE_ID, PART_ID);
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, PART_ID);
+
+        var tableReplicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 svc,
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
-                enabledColocation() ? new ZonePartitionId(ZONE_ID, PART_ID) : new TablePartitionId(tableId, PART_ID),
+                tablePartitionId,
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
@@ -464,19 +476,59 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLowWatermark()
         );
 
-        partitionListener = new PartitionListener(
+        if (enabledColocation) {
+            ZonePartitionReplicaListener zoneReplicaListener = new ZonePartitionReplicaListener(
+                    txStateStorage().getOrCreatePartitionStorage(PART_ID),
+                    CLOCK_SERVICE,
+                    this.txManager,
+                    new DummyValidationSchemasSource(schemaManager),
+                    new AlwaysSyncedSchemaSyncService(),
+                    catalogService,
+                    placementDriver,
+                    mock(ClusterNodeResolver.class),
+                    svc,
+                    LOCAL_NODE,
+                    zonePartitionId
+            );
+
+            zoneReplicaListener.addTableReplicaProcessor(tableId, raftClient -> tableReplicaListener);
+
+            replicaListener = zoneReplicaListener;
+        } else {
+            replicaListener = tableReplicaListener;
+        }
+
+        PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+        var tablePartitionListener = new PartitionListener(
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 safeTime,
-                new PendingComparableValuesTracker<>(0L),
+                storageIndexTracker,
                 catalogService,
                 schemaManager,
                 mock(IndexMetaStorage.class),
                 LOCAL_NODE.id(),
                 mock(MinimumRequiredTimeCollectorService.class)
         );
+
+        if (enabledColocation) {
+            ZonePartitionRaftListener zoneRaftListener = new ZonePartitionRaftListener(
+                    zonePartitionId,
+                    txStateStorage().getOrCreatePartitionStorage(PART_ID),
+                    this.txManager,
+                    safeTime,
+                    storageIndexTracker,
+                    new NoOpPartitionsSnapshots()
+            );
+
+            zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);
+
+            partitionListener = zoneRaftListener;
+        } else {
+            partitionListener = tablePartitionListener;
+        }
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
@@ -690,6 +742,23 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, localNode, correlationIdGenerator.getAndIncrement()));
 
             return nullCompletedFuture();
+        }
+    }
+
+    private static class NoOpPartitionsSnapshots implements PartitionsSnapshots {
+        @Override
+        public PartitionSnapshots partitionSnapshots(PartitionKey partitionKey) {
+            return mock(PartitionSnapshots.class);
+        }
+
+        @Override
+        public void cleanupOutgoingSnapshots(PartitionKey partitionKey) {
+
+        }
+
+        @Override
+        public void finishOutgoingSnapshot(UUID snapshotId) {
+
         }
     }
 }

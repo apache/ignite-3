@@ -15,12 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.tx;
 
-/** Tests of the {@link BitSetPartitionSet} implementation of {@link PartitionSet}. */
-class BitSetPartitionSetTest extends AbstractPartitionSetTest {
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
+
+// TODO: IGNITE-22522 - remove this class and switch TxManagerTest to use ZonePartitionId.
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+class TxManagerColocationTest extends TxManagerTest {
     @Override
-    PartitionSet createSet() {
-        return new BitSetPartitionSet();
+    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
+        return new ZonePartitionId(tableOrZoneId, partId);
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -142,7 +143,8 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
     void sqlReadFromDestroyedIndexStorageFailsWithStalePlanError() {
         SqlException ex = assertThrows(
                 SqlException.class,
-                () -> cluster.query(0, "SELECT * FROM " + TABLE_NAME + " WHERE name = 'John'", rs -> null)
+                () -> cluster.query(0, format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE name = 'John'",
+                        INDEX_NAME, TABLE_NAME), rs -> null)
         );
 
         assertThat(ex.code(), is(Common.INTERNAL_ERR));

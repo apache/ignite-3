@@ -91,7 +91,7 @@ public class SqlIndexScanBenchmark extends AbstractMultiNodeBenchmark {
 
             if (!Files.exists(workDir().resolve(DATASET_READY_MARK_FILE_NAME))) {
                 sql.executeScript(
-                        "CREATE ZONE single_partition_zone WITH replicas = 1, partitions = 1;"
+                        "CREATE ZONE single_partition_zone WITH STORAGE_PROFILES='default', replicas = 1, partitions = 1;"
                                 + "CREATE TABLE test (id INT PRIMARY KEY, val DATE) ZONE single_partition_zone;"
                                 + "CREATE INDEX test_val_idx ON test(val);"
                 );
