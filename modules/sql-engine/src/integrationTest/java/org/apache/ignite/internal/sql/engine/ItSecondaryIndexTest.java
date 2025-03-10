@@ -421,6 +421,28 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    // Check plan immediately after table creation.
+    @Test
+    public void testComplexIndexConditionInitialTableCreate() {
+        try {
+            CLUSTER.aliveNode().sql().executeScript(""
+                    + "CREATE TABLE TBL1 (id INT, name VARCHAR, depid INT, city VARCHAR, age INT, PRIMARY KEY USING SORTED (id));"
+                    + "CREATE INDEX NAME_IDX1 ON TBL1 (name DESC);"
+                    + "CREATE INDEX NAME_CITY_IDX1 ON TBL1 (name DESC, city DESC);"
+                    + "CREATE INDEX NAME_DEP_CITY_IDX1 ON TBL1 (name DESC, depid DESC, city DESC);");
+
+            insertData("TBL1", List.of("ID", "NAME", "DEPID", "CITY", "AGE"), new Object[][]{
+                            {1, "Mozart", 3, "Vienna", 33}
+                    });
+
+            assertQuery("SELECT * FROM TBL1 WHERE name='Mozart' AND depId=3 AND city='Vienna'")
+                    .matches(containsTableScan("PUBLIC", "TBL1"))
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS TBL1");
+        }
+    }
+
     @Test
     public void testComplexIndexCondition4() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId=3 AND city='Leipzig'")
@@ -963,25 +985,31 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("CREATE INDEX t_idx ON t(i1, i2)");
             sql("INSERT INTO t VALUES (1, null, 0), (2, 1, null), (3, 2, 2), (4, 3, null)");
 
-            assertQuery("SELECT * FROM t WHERE i1 = ?")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ * FROM t WHERE i1 = ?")
                     .withParams(null)
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .check();
 
-            assertQuery("SELECT * FROM t WHERE i1 = 1 AND i2 = ?")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ * FROM t WHERE i1 = 1 AND i2 = ?")
                     .withParams(new Object[] { null })
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .check();
 
             // Multi ranges.
-            assertQuery("SELECT * FROM t WHERE i1 IN (1, 2, 3) AND i2 = ?")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ * FROM t WHERE i1 IN (1, 2, 3) AND i2 = ?")
                     .withParams(new Object[] { null })
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .check();
 
-            assertQuery("SELECT i1, i2 FROM t WHERE i1 IN (1, 2) AND i2 IS NULL")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i1, i2 FROM t WHERE i1 IN (1, 2) AND i2 IS NULL")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(1, null)
+                    .check();
+
+            assertQuery("SELECT i1, i2 FROM t WHERE i2 IS NULL ORDER BY i1")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(1, null)
+                    .returns(3, null)
                     .check();
         } finally {
             sql("DROP TABLE IF EXISTS t");
@@ -1021,31 +1049,31 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("CREATE INDEX t_idx ON t(b)");
             sql("INSERT INTO t VALUES (0, TRUE), (1, TRUE), (2, FALSE), (3, FALSE), (4, null)");
 
-            assertQuery("SELECT i FROM t WHERE b = TRUE")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b = TRUE")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0)
                     .returns(1)
                     .check();
 
-            assertQuery("SELECT i FROM t WHERE b = FALSE")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b = FALSE")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(2)
                     .returns(3)
                     .check();
 
-            assertQuery("SELECT i FROM t WHERE b IS TRUE")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b IS TRUE")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0)
                     .returns(1)
                     .check();
 
-            assertQuery("SELECT i FROM t WHERE b IS FALSE")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b IS FALSE")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(2)
                     .returns(3)
                     .check();
 
-            assertQuery("SELECT i FROM t WHERE b IS NULL")
+            assertQuery("SELECT /*+ FORCE_INDEX(t_idx) */ i FROM t WHERE b IS NULL")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(4)
                     .check();
