@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for catalog storage objects. Protocol version 1.
  */
-public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
+public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTest {
 
     private final TestDescriptorState state = new TestDescriptorState(42);
 
@@ -482,7 +482,7 @@ public class CatalogStorageSerializationTest extends BaseIgniteAbstractTest {
     }
 
     private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String fileName) {
-        String resourceName = "storage/" + fileName;
+        String resourceName = "serialization_v1/" + fileName;
 
         UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
 
