@@ -21,12 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
  */
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
     /** Timestamp tracker. */
     private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = HybridTimestampTracker.atomicTracker(null);

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.AssignmentsProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
@@ -81,9 +83,14 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 + "CREATE ZONE test_zone WITH partitions=1, storage_profiles='Default';"
                 + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT) ZONE test_zone");
 
-        CLUSTER.setAssignmentsProvider("T1", (partitionCount, b) -> IntStream.range(0, partitionCount)
+        AssignmentsProvider assignmentsProvider = (partitionCount, b) -> IntStream.range(0, partitionCount)
                 .mapToObj(i -> List.of("N1"))
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
+        CLUSTER.setAssignmentsProvider("T1", assignmentsProvider);
+        CLUSTER.setZoneAssignmentsProvider(
+                CLUSTER.catalogManager().activeCatalog(HybridTimestamp.MAX_VALUE.longValue()).zone("TEST_ZONE").id(),
+                assignmentsProvider
+        );
         CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(
                 List.of(new Object[]{1, 1, 1}, new Object[]{2, 2, 1})
         )));
