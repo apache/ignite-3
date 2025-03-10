@@ -71,10 +71,4 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
     protected DataTypeTestSpec<VarBinary> getTypeSpec() {
         return DataTypeTestSpecs.VARBINARY_TYPE;
     }
-
-    @Override
-    public void testUpdateFromLiteral(TestTypeArguments<VarBinary> arguments) {
-        // VARBINARY is only member of family current of moment (BINARY type is disable), and cross-family type coercion is not allowed,
-        // therefore we need to ignore this test case
-    }
 }

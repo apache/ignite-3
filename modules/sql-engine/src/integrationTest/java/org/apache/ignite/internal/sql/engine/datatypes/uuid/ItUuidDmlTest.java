@@ -33,10 +33,4 @@ public class ItUuidDmlTest extends BaseDmlDataTypeTest<UUID> {
     protected DataTypeTestSpec<UUID> getTypeSpec() {
         return DataTypeTestSpecs.UUID_TYPE;
     }
-
-    @Override
-    public void testUpdateFromLiteral(TestTypeArguments<UUID> arguments) {
-        // UUID is only member of family, and cross-family type coercion is not allowed,
-        // therefore we need to ignore this test case
-    }
 }

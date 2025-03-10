@@ -74,7 +74,6 @@ public abstract class BaseJoinDataTypeTest<T extends Comparable<T>> extends Base
         runSql(insert1);
 
         String insert2 = format("INSERT INTO t_join_{} (id, test_key) VALUES(2, {})", arguments.typeName(1), arguments.valueExpr(1));
-        System.out.println("!!!!3 " + insert2);
         runSql(insert2);
 
         String insert3 = format("INSERT INTO t_join_{} (id, test_key) VALUES(3, {})", arguments.typeName(2), arguments.valueExpr(2));
