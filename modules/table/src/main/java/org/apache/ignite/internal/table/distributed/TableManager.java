@@ -960,26 +960,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
-        return recoverStableAssignments(recoveryRevision)
-                .thenCompose(v -> recoverPendingAssignments(recoveryRevision));
-    }
+        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
+        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
 
-    private CompletableFuture<Void> recoverStableAssignments(long recoveryRevision) {
-        return handleAssignmentsOnRecovery(
-                new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES),
+        CompletableFuture<Void> stableAssignmentsRecoveryFuture = handleAssignmentsOnRecovery(
+                stableAssignmentsPrefix,
                 recoveryRevision,
                 (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
         );
-    }
 
-    private CompletableFuture<Void> recoverPendingAssignments(long recoveryRevision) {
-        return handleAssignmentsOnRecovery(
-                new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
+        CompletableFuture<Void> pendingAssignmentsRecoveryFuture = handleAssignmentsOnRecovery(
+                pendingAssignmentsPrefix,
                 recoveryRevision,
                 (entry, rev) -> handleChangePendingAssignmentEvent(entry, rev, true),
                 "pending"
         );
+
+        return allOf(stableAssignmentsRecoveryFuture, pendingAssignmentsRecoveryFuture);
     }
 
     private CompletableFuture<Void> handleAssignmentsOnRecovery(
