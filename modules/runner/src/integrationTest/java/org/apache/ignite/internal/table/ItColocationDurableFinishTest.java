@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 
 /**
@@ -27,4 +28,23 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 // TODO Remove https://issues.apache.org/jira/browse/IGNITE-22522
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItColocationDurableFinishTest extends ItDurableFinishTest {
+    @Override
+    void testChangedPrimaryOnFinish() throws Exception {
+        // No-op. It's required to test only primary change on cleanup within colocation minimalistic tests set.
+    }
+
+    @Override
+    void testCommitOverCommit() throws ExecutionException, InterruptedException {
+        // No-op. It's required to test only primary change on cleanup within colocation minimalistic tests set.
+    }
+
+    @Override
+    void testCommitAlreadyAbortedTx() throws ExecutionException, InterruptedException {
+        // No-op. It's required to test only primary change on cleanup within colocation minimalistic tests set.
+    }
+
+    @Override
+    void testCleanupReplicatedMessage() throws ExecutionException, InterruptedException {
+        // No-op. It's required to test only primary change on cleanup within colocation minimalistic tests set.
+    }
 }
