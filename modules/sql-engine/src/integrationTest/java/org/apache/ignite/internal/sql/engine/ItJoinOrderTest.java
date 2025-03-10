@@ -17,16 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matches;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test to make sure JOIN ORDER optimization returns equivalent plan, i.e. plan returning equal result set.
@@ -45,108 +53,101 @@ public class ItJoinOrderTest extends BaseSqlIntegrationTest {
         int warehouses = 50;
         int shippings = 15000;
 
-        sql("CREATE TABLE Users (\n"
+        //noinspection ConcatenationWithEmptyString
+        sqlScript("" 
+                + "CREATE TABLE Users (\n"
                 + "    UserID INT PRIMARY KEY,\n"
                 + "    UserName VARCHAR(100),\n"
                 + "    UserEmail VARCHAR(100)\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE Orders (\n"
+                + "    OrderID INT PRIMARY KEY,\n"
+                + "    UserID INT,\n"
+                + "    OrderDate DATE,\n"
+                + "    TotalAmount DECIMAL(10, 2)\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE Products (\n"
+                + "    ProductID INT PRIMARY KEY,\n"
+                + "    ProductName VARCHAR(100),\n"
+                + "    Price DECIMAL(10, 2)\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE OrderDetails (\n"
+                + "    OrderDetailID INT PRIMARY KEY,\n"
+                + "    OrderID INT,\n"
+                + "    ProductID INT,\n"
+                + "    Quantity INT\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE Categories (\n"
+                + "    CategoryID INT PRIMARY KEY,\n"
+                + "    CategoryName VARCHAR(100)\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE ProductCategories (\n"
+                + "    ProductCategoryID INT PRIMARY KEY,\n"
+                + "    ProductID INT,\n"
+                + "    CategoryID INT\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE Shipping (\n"
+                + "    ShippingID INT PRIMARY KEY,\n"
+                + "    OrderID INT,\n"
+                + "    ShippingDate DATE,\n"
+                + "    ShippingAddress VARCHAR(255)\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE Reviews (\n"
+                + "    ReviewID INT PRIMARY KEY,\n"
+                + "    ProductID INT,\n"
+                + "    UserID INT,\n"
+                + "    ReviewText VARCHAR,\n"
+                + "    Rating INT\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE Discounts (\n"
+                + "    DiscountID INT PRIMARY KEY,\n"
+                + "    ProductID INT,\n"
+                + "    DiscountPercentage DECIMAL(5, 2),\n"
+                + "    ValidUntil DATE\n"
+                + ");" 
+                + "" 
+                + "CREATE TABLE Warehouses (\n"
+                + "    WarehouseID INT PRIMARY KEY,\n"
+                + "    WarehouseName VARCHAR(100),\n"
+                + "    Location VARCHAR(100)\n"
                 + ");"
         );
 
         sql("INSERT INTO Users SELECT x, 'User_' || x::VARCHAR, 'user' || x::VARCHAR || '@example.com' "
                 + "FROM system_range(1, ?)", users);
 
-        sql("CREATE TABLE Orders (\n"
-                + "    OrderID INT PRIMARY KEY,\n"
-                + "    UserID INT,\n"
-                + "    OrderDate DATE,\n"
-                + "    TotalAmount DECIMAL(10, 2)\n"
-                + ");"
-        );
-
         sql("INSERT INTO Orders SELECT x, 1 + RAND_INTEGER(?), date '2020-01-01' + RAND_INTEGER(365)::INTERVAL DAYS, "
                 + "ROUND(50.0 + 1950.0 * RAND(), 2) FROM system_range(1, ?)", users - 1, orders);
-
-        sql("CREATE TABLE Products (\n"
-                + "    ProductID INT PRIMARY KEY,\n"
-                + "    ProductName VARCHAR(100),\n"
-                + "    Price DECIMAL(10, 2)\n"
-                + ");"
-        );
 
         sql("INSERT INTO Products SELECT x, 'Product_' || x::VARCHAR, "
                 + "ROUND(5.0 + 495.0 * RAND(), 2) FROM system_range(1, ?)", PRODUCTS);
 
-        sql("CREATE TABLE OrderDetails (\n"
-                + "    OrderDetailID INT PRIMARY KEY,\n"
-                + "    OrderID INT,\n"
-                + "    ProductID INT,\n"
-                + "    Quantity INT\n"
-                + ");"
-        );
-
         sql("INSERT INTO OrderDetails SELECT x, 1 + RAND_INTEGER(?), 1 + RAND_INTEGER(?), "
                 + "1 + RAND_INTEGER(9) FROM system_range(1, ?)", orders - 1, PRODUCTS - 1, orderDetails);
 
-        sql("CREATE TABLE Categories (\n"
-                + "    CategoryID INT PRIMARY KEY,\n"
-                + "    CategoryName VARCHAR(100)\n"
-                + ");"
-        );
-
         sql("INSERT INTO Categories SELECT x, 'Category_' || x::VARCHAR FROM system_range(1, ?)", categories);
-
-        sql("CREATE TABLE ProductCategories (\n"
-                + "    ProductCategoryID INT PRIMARY KEY,\n"
-                + "    ProductID INT,\n"
-                + "    CategoryID INT\n"
-                + ");"
-        );
 
         sql("INSERT INTO ProductCategories SELECT x, 1 + RAND_INTEGER(?),"
                 + " 1 + RAND_INTEGER(?) FROM system_range(1, ?)", PRODUCTS - 1, categories - 1, PRODUCTS);
 
-        sql("CREATE TABLE Shipping (\n"
-                + "    ShippingID INT PRIMARY KEY,\n"
-                + "    OrderID INT,\n"
-                + "    ShippingDate DATE,\n"
-                + "    ShippingAddress VARCHAR(255)\n"
-                + ");"
-        );
-
         sql("INSERT INTO Shipping SELECT x, 1 + RAND_INTEGER(?), date '2020-01-01' + RAND_INTEGER(365)::INTERVAL DAYS, "
                 + " 'Address_' || x::VARCHAR FROM system_range(1, ?)", orders - 1, shippings);
-
-        sql("CREATE TABLE Reviews (\n"
-                + "    ReviewID INT PRIMARY KEY,\n"
-                + "    ProductID INT,\n"
-                + "    UserID INT,\n"
-                + "    ReviewText VARCHAR,\n"
-                + "    Rating INT\n"
-                + ");"
-        );
 
         sql("INSERT INTO Reviews SELECT x, 1 + RAND_INTEGER(?), 1 + RAND_INTEGER(?)"
                         + ", 'This is a review for product ' || x::VARCHAR, 1 + RAND_INTEGER(4) FROM system_range(1, ?)",
                 PRODUCTS - 1, users - 1, reviews);
 
-        sql("CREATE TABLE Discounts (\n"
-                + "    DiscountID INT PRIMARY KEY,\n"
-                + "    ProductID INT,\n"
-                + "    DiscountPercentage DECIMAL(5, 2),\n"
-                + "    ValidUntil DATE\n"
-                + ");"
-        );
-
         sql("INSERT INTO Discounts SELECT x, 1 + RAND_INTEGER(?), ROUND(5.0 + 45.0 * RAND(), 2) "
                         + ", date '2020-01-01' + RAND_INTEGER(365)::INTERVAL DAYS FROM system_range(1, ?)",
                 PRODUCTS - 1, discounts);
-
-        sql("CREATE TABLE Warehouses (\n"
-                + "    WarehouseID INT PRIMARY KEY,\n"
-                + "    WarehouseName VARCHAR(100),\n"
-                + "    Location VARCHAR(100)\n"
-                + ");"
-        );
 
         sql("INSERT INTO Warehouses SELECT x, 'Warehouse_' || x::VARCHAR, "
                 + "'Location_' || x::VARCHAR FROM system_range(1, ?)", warehouses);
@@ -156,7 +157,7 @@ public class ItJoinOrderTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(Query.class)
-    void test(Query query) {
+    void joinOrderOptimizationProvidesEquivalentPlan(Query query) {
         String originalText = query.text();
         String textWithEnforcedJoinOrder = originalText
                 .replace("SELECT", "SELECT /*+ enforce_join_order */ ");
@@ -173,6 +174,50 @@ public class ItJoinOrderTest extends BaseSqlIntegrationTest {
         expectedResult.forEach(row -> checker.returns(row.toArray()));
 
         checker.check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("joinTypesWithRulesToDisable")
+    void joinWithProjectionOnTopReturnsValidaResults(JoinType joinType, List<String> rulesToDisable) {
+        String queryToAcquireExpectedResults = format(
+                "SELECT p.*, d.* FROM Products p {} JOIN Discounts d ON p.ProductID = d.ProductID", joinType
+        );
+
+        String queryToValidate = format(
+                "SELECT /*+ enforce_join_order, disable_rule({}) */ p.*, d.* " 
+                        + "FROM Discounts d {} JOIN Products p ON p.ProductID = d.ProductID",
+                '\'' + String.join("', '", rulesToDisable) + '\'',
+                joinType.swap()
+        );
+
+        List<List<Object>> expectedResult = sql(queryToAcquireExpectedResults);
+
+        Assumptions.assumeFalse(expectedResult.isEmpty());
+
+        QueryChecker checker = assertQuery(queryToValidate)
+                .matches(matches(".*Project.*Join.*"));
+
+        expectedResult.forEach(row -> checker.returns(row.toArray()));
+
+        checker.check();
+    }
+
+    private static Stream<Arguments> joinTypesWithRulesToDisable() {
+        List<String> joinConverterRules = List.of("HashJoinConverter", "MergeJoinConverter", "NestedLoopJoinConverter");
+
+        List<Arguments> combinations = new ArrayList<>();
+
+        for (JoinType joinType : JoinType.values()) {
+            for (String joinAlgo : joinConverterRules) {
+                List<String> rulesToDisable = joinConverterRules.stream()
+                        .filter(ruleName -> !joinAlgo.equals(ruleName))
+                        .collect(Collectors.toList());
+
+                combinations.add(Arguments.of(joinType, rulesToDisable));
+            }
+        }
+
+        return combinations.stream();
     }
 
     enum Query {
@@ -310,6 +355,27 @@ public class ItJoinOrderTest extends BaseSqlIntegrationTest {
 
         Object[] params() {
             return paramsSupplier.get();
+        }
+    }
+
+    private enum JoinType {
+        INNER, OUTER, LEFT, RIGHT;
+
+        JoinType swap() {
+            switch (this) {
+                case LEFT: return RIGHT;
+                case RIGHT: return LEFT;
+                default: return this;
+            }
+        }
+
+        @Override
+        public String toString() {
+            if (this == OUTER) {
+                return "FULL OUTER";
+            }
+
+            return name();
         }
     }
 }

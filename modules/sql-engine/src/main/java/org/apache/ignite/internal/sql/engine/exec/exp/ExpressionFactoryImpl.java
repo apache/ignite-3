@@ -54,6 +54,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private final ComparatorImplementor comparatorImplementor;
     private final JoinPredicateImplementor joinPredicateImplementor;
     private final PredicateImplementor predicateImplementor;
+    private final JoinProjectionImplementor joinProjectionImplementor;
     private final ProjectionImplementor projectionImplementor;
     private final RowProviderImplementor rowProviderImplementor;
     private final ScalarImplementor scalarImplementor;
@@ -82,6 +83,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 cache, REX_BUILDER, TYPE_FACTORY, SQL_CONFORMANCE
         );
         predicateImplementor = new PredicateImplementor(
+                cache, REX_BUILDER, TYPE_FACTORY, SQL_CONFORMANCE
+        );
+        joinProjectionImplementor = new JoinProjectionImplementor(
                 cache, REX_BUILDER, TYPE_FACTORY, SQL_CONFORMANCE
         );
         projectionImplementor = new ProjectionImplementor(
@@ -137,6 +141,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     @Override
     public SqlProjection<RowT> project(List<RexNode> projects, RelDataType rowType) {
         return projectionImplementor.implement(projects, rowType);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SqlJoinProjection<RowT> joinProject(List<RexNode> projects, RelDataType rowType) {
+        return joinProjectionImplementor.implement(projects, rowType);
     }
 
     /** {@inheritDoc} */

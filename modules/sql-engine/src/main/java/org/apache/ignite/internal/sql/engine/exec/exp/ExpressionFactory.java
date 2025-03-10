@@ -63,7 +63,7 @@ public interface ExpressionFactory<RowT> {
     /**
      * Creates a Filter predicate.
      *
-     * @param filter  Filter expression.
+     * @param filter Filter expression.
      * @param rowType Input row type.
      * @return Filter predicate.
      */
@@ -86,6 +86,15 @@ public interface ExpressionFactory<RowT> {
      * @return Project function.
      */
     SqlProjection<RowT> project(List<RexNode> projects, RelDataType rowType);
+
+    /**
+     * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
+     *
+     * @param projects Projection expressions.
+     * @param rowType Input row type.
+     * @return Project function.
+     */
+    SqlJoinProjection<RowT> joinProject(List<RexNode> projects, RelDataType rowType);
 
     /**
      * Creates a Values relational node rows source.

@@ -597,6 +597,26 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void testJoinProject() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
+        RelDataType rowType = new Builder(tf)
+                .add("c1", intType)
+                .add("c2", intType)
+                .build();
+
+        RexInputRef ref1 = rexBuilder.makeInputRef(rowType, 0);
+        RexInputRef ref2 = rexBuilder.makeInputRef(rowType, 1);
+        List<RexNode> projections = List.of(ref2, ref1);
+
+        SqlJoinProjection<Object[]> predicate = expFactory.joinProject(projections, rowType);
+        assertArrayEquals(new Object[] {1, 0},  predicate.project(ctx, new Object[]{0}, new Object[]{1}));
+        assertArrayEquals(new Object[] {10, 5},  predicate.project(ctx, new Object[]{5}, new Object[]{10}));
+    }
+
+    @Test
     public void testPredicate() {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory tf = Commons.typeFactory();

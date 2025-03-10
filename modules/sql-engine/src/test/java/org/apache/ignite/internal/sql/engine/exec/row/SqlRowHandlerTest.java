@@ -98,49 +98,6 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         }
     }
 
-    @ParameterizedTest(name = "{0} - {1}")
-    @MethodSource("concatTestArguments")
-    public void testConcat(boolean leftTupleRequired, boolean rightTupleRequired) {
-        ConcatTestParameters params = new ConcatTestParameters(leftTupleRequired, rightTupleRequired);
-
-
-        int leftLen = params.leftData.length;
-        int rightLen = params.rightData.length;
-        int totalElementsCount = leftLen + rightLen;
-
-        // Build combined schema.
-        Builder builder = RowSchema.builder();
-        params.leftSchema.fields().forEach(builder::addField);
-        params.rightSchema.fields().forEach(builder::addField);
-
-        RowSchema concatenatedSchema = builder.build();
-
-        RowFactory<RowWrapper> rowFactory = handler.factory(concatenatedSchema);
-        RowHandler<RowWrapper> handler = rowFactory.handler();
-
-        RowWrapper concatenated = rowFactory.concat(params.left, params.right);
-        assertThat(handler.columnCount(concatenated), equalTo(totalElementsCount));
-
-        // Serialize.
-        BinaryTuple tuple = handler.toBinaryTuple(concatenated);
-
-        // Wrap into row.
-        RowWrapper result = rowFactory.create(tuple);
-
-        for (int i = 0; i < leftLen; i++) {
-            TypeSpec typeSpec = params.leftSchema.fields().get(i);
-
-            assertThat(handler.get(i, result), equalTo(convertToInternal(typeSpec, params.leftData[i])));
-        }
-
-        for (int i = 0; i < rightLen; i++) {
-            TypeSpec typeSpec = params.rightSchema.fields().get(i);
-
-            assertThat(handler.get(leftLen + i, result), equalTo(convertToInternal(typeSpec, params.rightData[i])));
-        }
-    }
-
-
     @Test
     public void testMap() {
         List<ColumnType> columnTypes = List.of(

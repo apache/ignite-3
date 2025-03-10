@@ -158,27 +158,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
                 return new ObjectsArrayRowWrapper(rowSchema, fields);
             }
-
-            /** {@inheritDoc} */
-            @Override
-            public RowWrapper concat(RowWrapper left, RowWrapper right) {
-                int leftLen = left.columnsCount();
-                int rightLen = right.columnsCount();
-
-                assert leftLen + rightLen == schemaLen;
-
-                Object[] values = new Object[schemaLen];
-
-                for (int i = 0; i < leftLen; i++) {
-                    values[i] = left.get(i);
-                }
-
-                for (int i = 0; i < rightLen; i++) {
-                    values[leftLen + i] = right.get(i);
-                }
-
-                return new ObjectsArrayRowWrapper(rowSchema, values);
-            }
         };
     }
 
@@ -187,8 +166,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
      */
     public abstract static class RowWrapper {
         abstract int columnsCount();
-
-        abstract RowSchema rowSchema();
 
         abstract @Nullable Object get(int field);
 
@@ -274,11 +251,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             }
 
             return new BinaryTuple(row.length, tupleBuilder.build());
-        }
-
-        @Override
-        RowSchema rowSchema() {
-            return rowSchema;
         }
 
         private static void appendValue(BinaryTupleBuilder builder, TypeSpec schemaType, @Nullable Object value) {
@@ -408,11 +380,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             }
 
             return new BinaryTuple(tuple.elementCount(), tuple.byteBuffer());
-        }
-
-        @Override
-        RowSchema rowSchema() {
-            return rowSchema;
         }
     }
 

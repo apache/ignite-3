@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinPredicate;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
@@ -139,6 +141,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implements a query plan.
@@ -161,6 +164,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     private final ResolvedDependencies resolvedDependencies;
 
     private final TableFunctionRegistry tableFunctionRegistry;
+
+    private @Nullable List<RexNode> projectionToFuse;
 
     /**
      * Constructor.
@@ -251,6 +256,12 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteProject rel) {
+        if (projectionToFuse == null && canFuseProjectionInto(rel.getInput())) {
+            projectionToFuse = rel.getProjects();
+
+            return visit(rel.getInput());
+        }
+
         SqlProjection<RowT> sqlProjection = expressionFactory.project(rel.getProjects(), rel.getInput().getRowType());
         Function<RowT, RowT> prj = row -> sqlProjection.project(ctx, row);
 
@@ -271,11 +282,13 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rightType = rel.getRight().getRowType();
         JoinRelType joinType = rel.getJoinType();
 
+        SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, outType);
+
         RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
         SqlJoinPredicate<RowT> joinPredicate = expressionFactory.joinPredicate(rel.getCondition(), rowType);
         BiPredicate<RowT, RowT> cond = (left, right) -> joinPredicate.test(ctx, left, right);
 
-        Node<RowT> node = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, joinType, cond);
+        Node<RowT> node = NestedLoopJoinNode.create(ctx, joinProjection, leftType, rightType, joinType, cond);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());
@@ -289,6 +302,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     @Override
     public Node<RowT> visit(IgniteHashJoin rel) {
         RelDataType outType = rel.getRowType();
+        SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, outType);
+
         RelDataType leftType = rel.getLeft().getRowType();
         RelDataType rightType = rel.getRight().getRowType();
         JoinRelType joinType = rel.getJoinType();
@@ -305,7 +320,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             nonEquiCondition = (left, right) -> nonEquiPredicate.test(ctx, left, right);
         }
 
-        Node<RowT> node = HashJoinNode.create(ctx, outType, leftType, rightType, joinType, rel.analyzeCondition(), nonEquiCondition);
+        Node<RowT> node = HashJoinNode.create(ctx, joinProjection, leftType, rightType, joinType, rel.analyzeCondition(), nonEquiCondition);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());
@@ -318,22 +333,24 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteCorrelatedNestedLoopJoin rel) {
-        RelDataType leftType = rel.getLeft().getRowType();
+        RelDataType outType = rel.getRowType();
         RelDataType rightType = rel.getRight().getRowType();
         RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightType));
-
-        RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
-        SqlJoinPredicate<RowT> joinPredicate = expressionFactory.joinPredicate(rel.getCondition(), rowType);
-        BiPredicate<RowT, RowT> cond = (left, right) -> joinPredicate.test(ctx, left, right);
 
         assert rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.LEFT
                 : CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG;
 
+        SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, outType);
+
+        assert joinProjection != null;
+
+        SqlJoinPredicate<RowT> joinPredicate = expressionFactory.joinPredicate(rel.getCondition(), outType);
+        BiPredicate<RowT, RowT> cond = (left, right) -> joinPredicate.test(ctx, left, right);
+
         RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
-        RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType)));
 
         Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, cond, rel.getVariablesSet(),
-                rel.getJoinType(), rightRowFactory, outputRowFactory);
+                rel.getJoinType(), rightRowFactory, joinProjection);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());
@@ -349,6 +366,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType leftType = rel.getLeft().getRowType();
         RelDataType rightType = rel.getRight().getRowType();
         JoinRelType joinType = rel.getJoinType();
+
+        SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, rel.getRowType());
 
         int pairsCnt = rel.analyzeCondition().pairs().size();
 
@@ -385,7 +404,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         );
         Comparator<RowT> comp = (r1, r2) -> sqlComparator.compare(ctx, r1, r2);
 
-        Node<RowT> node = MergeJoinNode.create(ctx, leftType, rightType, joinType, comp);
+        Node<RowT> node = MergeJoinNode.create(ctx, leftType, rightType, joinType, comp, joinProjection);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());
@@ -1103,5 +1122,39 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         return BinaryTupleSchema.create(elements);
+    }
+
+    private static boolean canFuseProjectionInto(RelNode rel) {
+        if (rel instanceof Join) {
+            Join join = (Join) rel;
+
+            return joinNeedsProjection(join);
+        }
+
+        return false;
+    }
+
+    private static boolean joinNeedsProjection(Join join) {
+        return join.getJoinType() == JoinRelType.INNER
+                || join.getJoinType() == JoinRelType.LEFT
+                || join.getJoinType() == JoinRelType.FULL
+                || join.getJoinType() == JoinRelType.RIGHT;
+    }
+
+    private @Nullable SqlJoinProjection<RowT> createJoinProjection(Join rel, RelDataType outType) {
+        SqlJoinProjection<RowT> joinProjection = null;
+        if (projectionToFuse != null) {
+            assert joinNeedsProjection(rel);
+
+            joinProjection = expressionFactory.joinProject(projectionToFuse, outType);
+
+            projectionToFuse = null;
+        } else if (joinNeedsProjection(rel)) {
+            List<RexNode> identityProjection = rel.getCluster().getRexBuilder().identityProjects(outType);
+
+            joinProjection = expressionFactory.joinProject(identityProjection, outType);
+        }
+
+        return joinProjection;
     }
 }
