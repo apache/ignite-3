@@ -99,7 +99,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         assertEquals(11, lastObservableTimestamp(ch));
     }
 
-    private static @Nullable Long lastObservableTimestamp(ReliableChannel ch) {
-        return ch.observableTimestamp() >> LOGICAL_TIME_BITS_SIZE;
+    private static Long lastObservableTimestamp(ReliableChannel ch) {
+        return ch.observableTimestamp().get().longValue() >> LOGICAL_TIME_BITS_SIZE;
     }
 }

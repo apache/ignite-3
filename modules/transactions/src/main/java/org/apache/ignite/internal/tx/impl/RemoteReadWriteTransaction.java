@@ -9,6 +9,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -28,22 +29,22 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
 
     @Override
     public void commit() throws TransactionException {
-        throw new AssertionError("Remote transaction can't be finished directly");
+        // No-op.
     }
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        throw new AssertionError("Remote transaction can't be finished directly");
+        return CompletableFutures.nullCompletedFuture();
     }
 
     @Override
     public void rollback() throws TransactionException {
-        throw new AssertionError("Remote transaction can't be finished directly");
+        // No-op.
     }
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        throw new AssertionError("Remote transaction can't be finished directly");
+        return CompletableFutures.nullCompletedFuture();
     }
 
     @Override
@@ -102,6 +103,11 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     @Override
     public boolean implicit() {
         return false;
+    }
+
+    @Override
+    public boolean remote() {
+        return true;
     }
 
     @Override

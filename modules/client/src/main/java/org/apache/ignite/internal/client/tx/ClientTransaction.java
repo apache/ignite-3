@@ -91,6 +91,10 @@ public class ClientTransaction implements Transaction {
 
     private final HybridTimestampTracker tracker;
 
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly) {
+        this(ch, id, isReadOnly, null, null, null, HybridTimestampTracker.EMPTY_TS_PROVIDER);
+    }
+
     /**
      * Constructor.
      *
@@ -271,7 +275,7 @@ public class ClientTransaction implements Transaction {
     }
 
     public CompletableFuture<Void> enlistFuture(ClientChannel opChannel, WriteContext ctx) {
-        // Check if direct mapping is active.
+        // Check if direct mapping is applicable.
         if (ctx.pm != null && ctx.pm.node().equals(opChannel.protocolContext().clusterNode().name()) && hasCommitPartition()) {
             boolean[] first = {false};
 
@@ -304,7 +308,7 @@ public class ClientTransaction implements Transaction {
             return;
         }
 
-        // TODO
+        // TODO avoid new object.
         TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
 
         CompletableFuture<IgniteBiTuple<UUID, Long>> fut = enlisted.get(tablePartitionId);

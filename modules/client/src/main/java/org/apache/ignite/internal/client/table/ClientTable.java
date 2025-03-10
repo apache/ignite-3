@@ -565,17 +565,21 @@ public class ClientTable implements Table {
             WriteContext ctx,
             @Nullable ClientTransaction tx
     ) {
-        int schemaVer = in.in().unpackInt();
-        UUID nodeId = in.in().unpackUuid();
-        long token = in.in().unpackLong();
-
-        // Finish enlist on first request only.
-        if (ctx.enlistmentToken != null && ctx.enlistmentToken == 0) {
+        // Use enlistment meta onl for remote transactions.
+        if (ctx.enlistmentToken != null) {
             assert tx != null;
             assert ctx.pm != null;
 
-            tx.tryFinishEnlist(ctx.pm, nodeId, token);
+            UUID nodeId = in.in().unpackUuid();
+            long token = in.in().unpackLong();
+
+            // Finish enlist on first request only.
+            if (ctx.enlistmentToken == 0) {
+                tx.tryFinishEnlist(ctx.pm, nodeId, token);
+            }
         }
+
+        int schemaVer = in.in().unpackInt();
 
         if (!responseSchemaRequired) {
             ensureSchemaLoadedAsync(schemaVer);

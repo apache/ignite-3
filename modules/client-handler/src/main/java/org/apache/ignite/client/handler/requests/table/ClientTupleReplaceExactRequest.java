@@ -21,11 +21,13 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readSchema;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -48,16 +50,18 @@ public class ClientTupleReplaceExactRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            TxManager txManager
+            TxManager txManager,
+            ClockService clockService
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
 
             return readSchema(in, table).thenCompose(schema -> {
                 var oldTuple = readTuple(in, false, schema);
                 var newTuple = readTuple(in, false, schema);
 
                 return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
+                    writeTxMeta(out, clockService, tx);
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                     out.packBoolean(res);
                 });

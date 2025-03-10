@@ -128,7 +128,6 @@ import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublish
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -671,9 +670,8 @@ public class InternalTableImpl implements InternalTable {
             });
         } else {
             if (write) { // Track only write requests from explicit transactions.
-                boolean track = !(tx instanceof RemoteReadWriteTransaction); // TODO FIXME !!
-
-                if (track && !transactionInflights.addInflight(tx.id(), false)) {
+                // TODO FIXME tracking is based on enabled on message level delayed ack optimization.
+                if (!tx.remote() && !transactionInflights.addInflight(tx.id(), false)) {
                     return failedFuture(
                             new TransactionException(TX_ALREADY_FINISHED_ERR, format(
                                     "Transaction is already finished [tableName={}, partId={}, txState={}].",
@@ -687,7 +685,7 @@ public class InternalTableImpl implements InternalTable {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                    if (track && noWriteChecker.test(res, request)) {
+                    if (!tx.remote() && noWriteChecker.test(res, request)) {
                         transactionInflights.removeInflight(tx.id());
                     }
 
@@ -695,7 +693,7 @@ public class InternalTableImpl implements InternalTable {
                 }).handle((r, e) -> {
                     if (e != null) {
                         if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
-                            if (track) {
+                            if (!tx.remote()) {
                                 transactionInflights.removeInflight(tx.id()); // Will be retried.
                             }
 
@@ -753,7 +751,7 @@ public class InternalTableImpl implements InternalTable {
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
-            if (full) {
+            if (full || tx0.remote()) {
                 return e != null ? failedFuture(e) : completedFuture(r);
             }
 
@@ -1149,7 +1147,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo instanceof RemoteReadWriteTransaction)
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> false
         );

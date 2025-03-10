@@ -20,11 +20,13 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -47,15 +49,17 @@ public class ClientTupleContainsAllKeysRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            TxManager txManager
+            TxManager txManager,
+            ClockService clockService
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, table, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
             return readTuples(in, table, true).thenCompose(keyTuples -> table
                     .recordView()
                     .containsAllAsync(tx, keyTuples)
                     .thenAccept(containsAll -> {
+                        writeTxMeta(out, clockService, tx);
                         out.packInt(table.schemaView().lastKnownSchemaVersion());
                         out.packBoolean(containsAll);
                     })

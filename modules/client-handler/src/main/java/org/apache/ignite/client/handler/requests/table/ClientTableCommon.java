@@ -34,8 +34,10 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -46,7 +48,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
-import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -379,6 +380,16 @@ public class ClientTableCommon {
         }
     }
 
+    public static void writeTxMeta(ClientMessagePacker out, @Nullable ClockService clockService, InternalTransaction tx) {
+        if (tx.remote()) {
+            // Remote tx carries operation enlistment info.
+            IgniteBiTuple<ClusterNode, Long> token = tx.enlistedNodeAndConsistencyToken(null);
+            out.packUuid(token.get1().id());
+            out.packLong(token.get2());
+            out.meta(clockService.current());
+        }
+    }
+
     /**
      * Returns a new table id not found exception.
      *
@@ -443,16 +454,14 @@ public class ClientTableCommon {
      * @param out Packer.
      * @param resources Resource registry.
      * @param txManager Ignite transactions.
-     * @param table
      * @param readOnly Read only flag.
      * @return Transaction.
      */
-    public static @Nullable InternalTransaction readOrStartImplicitTx(
+    public static InternalTransaction readOrStartImplicitTx(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             TxManager txManager,
-            @Nullable TableViewInternal table,
             boolean readOnly
     ) {
         InternalTransaction tx = readTx(in, out, resources, txManager.localNode());

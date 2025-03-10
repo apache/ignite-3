@@ -111,6 +111,10 @@ public interface InternalTransaction extends Transaction {
      */
     boolean implicit();
 
+   default boolean remote() {
+       return false;
+   }
+
     /**
      * Finishes a read-only transaction with a specific execution timestamp.
      *

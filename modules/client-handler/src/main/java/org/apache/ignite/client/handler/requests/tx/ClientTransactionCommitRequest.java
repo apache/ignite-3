@@ -67,7 +67,7 @@ public class ClientTransactionCommitRequest {
 
         // Attempt to merge server and client transactions.
         if (!tx.isReadOnly()) {
-            int cnt = in.unpackInt();
+            int cnt = in.unpackInt(); // Number of direct enlistments.
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
                 int partId = in.unpackInt();
