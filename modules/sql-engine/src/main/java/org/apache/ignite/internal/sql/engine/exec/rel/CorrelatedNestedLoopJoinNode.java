@@ -214,7 +214,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        waitingLeft = -1;
+        waitingLeft = NOT_WAITING;
 
         if (leftInBuf == null) {
             leftInBuf = Collections.emptyList();
@@ -227,7 +227,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waitingRight > 0;
 
-        waitingRight = -1;
+        waitingRight = NOT_WAITING;
 
         if (rightInBuf == null) {
             rightInBuf = Collections.emptyList();
@@ -257,8 +257,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             case IDLE:
                 assert rightInBuf != null;
                 assert leftInBuf != null;
-                assert waitingRight == -1 || waitingRight == 0 && rightInBuf.size() == rightInBufferSize;
-                assert waitingLeft == -1 || waitingLeft == 0 && leftInBuf.size() == leftInBufferSize;
+                assert waitingRight == NOT_WAITING || waitingRight == 0 && rightInBuf.size() == rightInBufferSize;
+                assert waitingLeft == NOT_WAITING || waitingLeft == 0 && leftInBuf.size() == leftInBufferSize;
 
                 this.execute(this::join);
 
@@ -275,7 +275,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     private void onPushLeft() throws Exception {
         assert state == State.FILLING_LEFT : "Unexpected state:" + state;
-        assert waitingRight == 0 || waitingRight == -1;
+        assert waitingRight == 0 || waitingRight == NOT_WAITING;
         assert nullOrEmpty(rightInBuf);
 
         if (leftInBuf.size() == leftInBufferSize) {
@@ -292,7 +292,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     private void onPushRight() throws Exception {
         assert state == State.FILLING_RIGHT : "Unexpected state:" + state;
         assert !nullOrEmpty(leftInBuf);
-        assert waitingLeft == -1 || waitingLeft == 0 && leftInBuf.size() == leftInBufferSize;
+        assert waitingLeft == NOT_WAITING || waitingLeft == 0 && leftInBuf.size() == leftInBufferSize;
 
         if (rightInBuf.size() == rightInBufferSize) {
             assert waitingRight == 0;
@@ -305,12 +305,12 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     private void onEndLeft() throws Exception {
         assert state == State.FILLING_LEFT : "Unexpected state:" + state;
-        assert waitingLeft == -1;
-        assert waitingRight == 0 || waitingRight == -1;
+        assert waitingLeft == NOT_WAITING;
+        assert waitingRight == 0 || waitingRight == NOT_WAITING;
         assert nullOrEmpty(rightInBuf);
 
         if (nullOrEmpty(leftInBuf)) {
-            waitingRight = -1;
+            waitingRight = NOT_WAITING;
 
             state = State.END;
 
@@ -320,7 +320,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         } else {
             prepareCorrelations();
 
-            if (waitingRight == -1) {
+            if (waitingRight == NOT_WAITING) {
                 rightSource().rewind();
             }
 
@@ -332,9 +332,9 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     private void onEndRight() throws Exception {
         assert state == State.FILLING_RIGHT : "Unexpected state:" + state;
-        assert waitingRight == -1;
+        assert waitingRight == NOT_WAITING;
         assert !nullOrEmpty(leftInBuf);
-        assert waitingLeft == -1 || waitingLeft == 0 && leftInBuf.size() == leftInBufferSize;
+        assert waitingLeft == NOT_WAITING || waitingLeft == 0 && leftInBuf.size() == leftInBufferSize;
 
         state = State.IDLE;
 
@@ -441,7 +441,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 return;
             }
 
-            assert waitingLeft == -1 && waitingRight == -1;
+            assert waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING;
 
             if (requested > 0) {
                 leftInBuf = null;

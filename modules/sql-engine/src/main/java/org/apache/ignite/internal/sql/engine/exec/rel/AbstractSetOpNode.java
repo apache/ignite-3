@@ -108,7 +108,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         }
 
         if (curSrcIdx >= sources().size()) {
-            waiting = -1;
+            waiting = NOT_WAITING;
 
             flush();
         } else {
@@ -147,7 +147,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     }
 
     private void flush() throws Exception {
-        assert waiting == -1;
+        assert waiting == NOT_WAITING;
 
         int processed = 0;
 

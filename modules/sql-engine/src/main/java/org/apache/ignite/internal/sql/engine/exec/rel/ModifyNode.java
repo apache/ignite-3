@@ -187,7 +187,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         if (needToFlush()) {
             flushTuples();
@@ -224,7 +224,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     private void tryEnd() throws Exception {
         assert downstream() != null;
 
-        if (waiting == -1 && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
+        if (waiting == NOT_WAITING && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
             downstream().push(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows));
 
             requested = 0;
@@ -307,7 +307,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private boolean needToFlush() {
         return !inFlightUpdate
-                && (rows.size() >= MODIFY_BATCH_SIZE || (!rows.isEmpty() && waiting == -1));
+                && (rows.size() >= MODIFY_BATCH_SIZE || (!rows.isEmpty() && waiting == NOT_WAITING));
     }
 
     /** See {@link #mapping(TableDescriptor, List, int)}. */

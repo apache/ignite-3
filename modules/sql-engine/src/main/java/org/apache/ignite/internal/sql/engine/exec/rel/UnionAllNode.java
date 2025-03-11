@@ -78,7 +78,7 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
         if (++curSrc < sources().size()) {
             source().request(waiting);
         } else {
-            waiting = -1;
+            waiting = NOT_WAITING;
             downstream().end();
         }
     }

@@ -86,7 +86,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     public void push(RowT row) throws Exception {
-        if (waiting == -1) {
+        if (waiting == NOT_WAITING) {
             return;
         }
         ++rowsProcessed;
@@ -107,13 +107,13 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {
-        if (waiting == -1) {
+        if (waiting == NOT_WAITING) {
             return;
         }
 
         assert downstream() != null;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         downstream().end();
     }

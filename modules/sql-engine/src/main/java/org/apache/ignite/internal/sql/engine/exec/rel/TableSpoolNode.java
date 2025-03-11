@@ -97,7 +97,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
 
         requested += rowsCnt;
 
-        if ((waiting == -1 || rowIdx < rows.size()) && !inLoop) {
+        if ((waiting == NOT_WAITING || rowIdx < rows.size()) && !inLoop) {
             this.execute(this::doPush);
         } else if (waiting == 0) {
             source().request(waiting = inBufSize);
@@ -105,7 +105,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     }
 
     private void doPush() throws Exception {
-        if (!lazyRead && waiting != -1) {
+        if (!lazyRead && waiting != NOT_WAITING) {
             return;
         }
 
@@ -129,7 +129,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             inLoop = false;
         }
 
-        if (rowIdx >= rows.size() && waiting == -1 && requested > 0) {
+        if (rowIdx >= rows.size() && waiting == NOT_WAITING && requested > 0) {
             requested = 0;
             downstream().end();
         }
@@ -160,7 +160,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         this.execute(this::doPush);
     }

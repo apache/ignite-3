@@ -123,7 +123,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         scan.request(requested);
     }
@@ -147,7 +147,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     }
 
     private boolean indexReady() {
-        return waiting == -1;
+        return waiting == NOT_WAITING;
     }
 
     /**

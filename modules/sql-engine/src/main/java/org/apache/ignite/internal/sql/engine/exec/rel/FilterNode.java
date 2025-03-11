@@ -86,7 +86,7 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         filter();
     }
@@ -132,7 +132,7 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             source().request(waiting = inBufSize);
         }
 
-        if (waiting == -1 && requested > 0) {
+        if (waiting == NOT_WAITING && requested > 0) {
             assert inBuf.isEmpty();
 
             requested = 0;

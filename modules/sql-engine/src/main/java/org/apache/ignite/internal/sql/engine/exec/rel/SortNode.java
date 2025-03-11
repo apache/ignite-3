@@ -143,13 +143,13 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         flush();
     }
 
     private void flush() throws Exception {
-        assert waiting == -1;
+        assert waiting == NOT_WAITING;
 
         int processed = 0;
 

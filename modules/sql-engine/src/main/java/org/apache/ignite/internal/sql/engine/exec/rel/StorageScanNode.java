@@ -33,9 +33,6 @@ import org.jetbrains.annotations.Nullable;
  * cases to realize concrete implementation require to implement {@code scan()} method and override {@code rewindInternal()} one.
  */
 public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    private static final int NOT_WAITING = -1;
-
     private Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
 
     private final @Nullable Predicate<RowT> filters;

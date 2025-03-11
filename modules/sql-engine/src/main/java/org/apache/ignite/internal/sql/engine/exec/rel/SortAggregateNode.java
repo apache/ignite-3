@@ -42,9 +42,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    static final int NOT_WAITING = -1;
-
     private final AggregateType type;
 
     private final RowFactory<RowT> rowFactory;

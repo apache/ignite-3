@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode.NOT_WAITING;
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 
 import java.util.ArrayDeque;
@@ -98,7 +99,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     public void end() throws Exception {
         assert waiting > 0 : waiting;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         completePrefetchFuture(null);
 
@@ -232,7 +233,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         }
 
         HasMore hasMore;
-        if (waiting == -1 && buff.isEmpty()) {
+        if (waiting == NOT_WAITING && buff.isEmpty()) {
             hasMore = HasMore.NO;
         } else if (!buff.isEmpty()) {
             hasMore = HasMore.YES;
@@ -255,7 +256,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             if (waiting == 0) {
                 //noinspection NestedAssignment
                 source.request(waiting = IN_BUFFER_SIZE);
-            } else if (waiting == -1) {
+            } else if (waiting == NOT_WAITING) {
                 assert hasMore == HasMore.NO : hasMore;
 
                 closeAsync();

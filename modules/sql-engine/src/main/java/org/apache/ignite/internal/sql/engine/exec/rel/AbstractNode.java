@@ -30,6 +30,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Abstract node of execution tree.
  */
 public abstract class AbstractNode<RowT> implements Node<RowT> {
+    /** Special value to highlight that all row were received and we do not expect more. */
+    static final int NOT_WAITING = -1;
+
     /** Batch size for DML operations. */
     public static final int MODIFY_BATCH_SIZE = 100;
 

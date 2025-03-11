@@ -26,9 +26,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Right part materialized join node, i.e. all data from right part of join is available locally. */
 public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    static final int NOT_WAITING = -1;
-
     protected boolean inLoop;
     protected int requested;
     int waitingLeft;

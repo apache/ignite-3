@@ -132,7 +132,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         flush();
     }
@@ -160,7 +160,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private void flush() throws Exception {
-        assert waiting == -1;
+        assert waiting == NOT_WAITING;
 
         int processed = 0;
         ArrayDeque<Grouping> groupingsQueue = groupingsQueue();
