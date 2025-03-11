@@ -140,8 +140,6 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         try {
             assert waiting > 0;
 
-            checkState();
-
             waiting--;
 
             inBuff.offer(row);
@@ -161,8 +159,6 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         lock.lock();
         try {
-            checkState();
-
             waiting = -1;
 
             cond.signalAll();

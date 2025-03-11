@@ -64,8 +64,6 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (waiting == 0) {
@@ -82,8 +80,6 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     public void push(RowT row, int idx) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -102,8 +98,6 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waiting > 0;
         assert curSrcIdx == idx;
-
-        checkState();
 
         grouping.endOfSet(idx);
 
@@ -153,12 +147,6 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     }
 
     private void flush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
         assert waiting == -1;
 
         int processed = 0;

@@ -46,12 +46,10 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         assert !nullOrEmpty(sources()) && sources().size() == 2;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            this.execute(this::doJoin);
+            this.execute(this::join);
         }
     }
 
@@ -118,8 +116,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        checkState();
-
         waitingLeft--;
 
         leftInBuf.add(row);
@@ -131,8 +127,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        checkState();
-
         waitingLeft = NOT_WAITING;
 
         join();
@@ -141,8 +135,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
     private void endRight() throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
-
-        checkState();
 
         waitingRight = NOT_WAITING;
 
@@ -155,12 +147,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
 
     Node<RowT> rightSource() {
         return sources().get(1);
-    }
-
-    protected void doJoin() throws Exception {
-        checkState();
-
-        join();
     }
 
     protected abstract void join() throws Exception;

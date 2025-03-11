@@ -77,19 +77,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         assert !nullOrEmpty(sources()) && sources().size() == 2;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            this.execute(this::doJoin);
+            this.execute(this::join);
         }
-    }
-
-    protected void doJoin() throws Exception {
-        checkState();
-
-        join();
     }
 
     /** {@inheritDoc} */
@@ -155,8 +147,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        checkState();
-
         waitingLeft--;
 
         leftInBuf.add(row);
@@ -167,8 +157,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
-
-        checkState();
 
         waitingRight--;
 
@@ -181,8 +169,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        checkState();
-
         waitingLeft = NOT_WAITING;
 
         join();
@@ -191,8 +177,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     private void endRight() throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
-
-        checkState();
 
         waitingRight = NOT_WAITING;
 
@@ -316,11 +300,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null)) {
-                    checkState();
-
                     if (processed++ > inBufSize) {
                         // Allow others to do their job.
-                        execute(this::doJoin);
+                        execute(this::join);
 
                         return;
                     }
@@ -491,11 +473,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null || waitingRight == NOT_WAITING)) {
-                    checkState();
-
                     if (processed++ > inBufSize) {
                         // Allow others to do their job.
-                        execute(this::doJoin);
+                        execute(this::join);
 
                         return;
                     }
@@ -685,11 +665,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
             try {
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && (right != null || !rightInBuf.isEmpty() || rightMaterialization != null)) {
-                    checkState();
-
                     if (processed++ > inBufSize) {
                         // Allow others to do their job.
-                        execute(this::doJoin);
+                        execute(this::join);
 
                         return;
                     }
@@ -900,11 +878,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
             try {
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && !(right == null && rightInBuf.isEmpty() && rightMaterialization == null && waitingRight != NOT_WAITING)) {
-                    checkState();
-
                     if (processed++ > inBufSize) {
                         // Allow others to do their job.
-                        execute(this::doJoin);
+                        execute(this::join);
 
                         return;
                     }
@@ -1112,11 +1088,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty())) {
-                    checkState();
-
                     if (processed++ > inBufSize) {
                         // Allow others to do their job.
-                        execute(this::doJoin);
+                        execute(this::join);
 
                         return;
                     }
@@ -1200,11 +1174,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty())
                         && !(right == null && rightInBuf.isEmpty() && waitingRight != NOT_WAITING)) {
-                    checkState();
-
                     if (processed++ > inBufSize) {
                         // Allow others to do their job.
-                        execute(this::doJoin);
+                        execute(this::join);
 
                         return;
                     }

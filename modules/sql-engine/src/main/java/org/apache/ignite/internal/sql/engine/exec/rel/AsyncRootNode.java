@@ -200,6 +200,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
         if (waiting == 0) {
             try {
+                source.checkState();
+
                 //noinspection NestedAssignment
                 source.request(waiting = IN_BUFFER_SIZE);
             } catch (Exception ex) {

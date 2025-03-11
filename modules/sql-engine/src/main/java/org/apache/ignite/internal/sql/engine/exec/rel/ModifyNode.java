@@ -157,8 +157,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         requestNextBatchIfNeeded();
@@ -169,8 +167,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -190,8 +186,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void end() throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting = -1;
 

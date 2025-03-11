@@ -95,8 +95,6 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
-        checkState();
-
         requested += rowsCnt;
 
         if ((waiting == -1 || rowIdx < rows.size()) && !inLoop) {
@@ -107,10 +105,6 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     }
 
     private void doPush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
         if (!lazyRead && waiting != -1) {
             return;
         }
@@ -118,7 +112,14 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         int processed = 0;
         inLoop = true;
         try {
-            while (requested > 0 && rowIdx < rows.size() && processed++ < inBufSize) {
+            while (requested > 0 && rowIdx < rows.size()) {
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job
+                    this.execute(this::doPush);
+
+                    return;
+                }
+
                 downstream().push(rows.get(rowIdx));
 
                 rowIdx++;
@@ -131,8 +132,6 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         if (rowIdx >= rows.size() && waiting == -1 && requested > 0) {
             requested = 0;
             downstream().end();
-        } else if (requested > 0 && processed >= inBufSize) {
-            this.execute(this::doPush);
         }
     }
 
@@ -141,8 +140,6 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -162,8 +159,6 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     public void end() throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting = -1;
 

@@ -78,8 +78,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0 : "rowsCnt=" + rowsCnt + ", requested=" + requested;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
@@ -125,19 +123,11 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     protected abstract Publisher<RowT> scan();
 
     private void push() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
         if (requested > 0 && !inBuff.isEmpty()) {
             int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && !inBuff.isEmpty()) {
-                    checkState();
-
                     if (processed++ >= inBufSize) {
                         // Allow others to do their job.
                         execute(this::push);
@@ -181,6 +171,9 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
     private void requestNextBatch() {
         if (waiting == NOT_WAITING) {
+            return;
+        }
+        if (isClosed()) {
             return;
         }
 

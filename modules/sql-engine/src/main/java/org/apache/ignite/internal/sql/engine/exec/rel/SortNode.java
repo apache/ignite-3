@@ -112,14 +112,12 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            this.execute(this::doFlush);
+            this.execute(this::flush);
         }
     }
 
@@ -129,8 +127,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert downstream() != null;
         assert waiting > 0;
         assert reversed == null || reversed.isEmpty();
-
-        checkState();
 
         waiting--;
 
@@ -147,24 +143,12 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
         waiting = -1;
 
         flush();
     }
 
-    private void doFlush() throws Exception {
-        checkState();
-
-        flush();
-    }
-
     private void flush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
         assert waiting == -1;
 
         int processed = 0;
@@ -182,7 +166,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
                     if (++processed >= inBufSize) {
                         // Allow the others to do their job.
-                        this.execute(this::doFlush);
+                        this.execute(this::flush);
 
                         return;
                     }
@@ -192,15 +176,13 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             }
 
             while (requested > 0 && !(reversed == null ? rows.isEmpty() : reversed.isEmpty())) {
-                checkState();
-
                 requested--;
 
                 downstream().push(reversed == null ? rows.poll() : reversed.remove(reversed.size() - 1));
 
                 if (++processed >= inBufSize && requested > 0) {
                     // allow others to do their job
-                    this.execute(this::doFlush);
+                    this.execute(this::flush);
 
                     return;
                 }

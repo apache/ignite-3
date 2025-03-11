@@ -105,14 +105,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            execute(this::doPush);
+            execute(this::doFlush);
         }
     }
 
@@ -121,8 +119,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -142,7 +138,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
                 grp = newGroup(row);
 
-                doPush();
+                flush();
             }
         } else {
             grp = newGroup(row);
@@ -163,15 +159,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
         waiting = NOT_WAITING;
 
         if (grp != null) {
             outBuf.add(grp.row());
         }
 
-        doPush();
+        flush();
     }
 
     /** {@inheritDoc} */
@@ -220,9 +214,11 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return grp;
     }
 
-    private void doPush() throws Exception {
-        checkState();
+    private void doFlush() throws Exception {
+        flush();
+    }
 
+    private void flush() throws Exception {
         inLoop = true;
         try {
             while (requested > 0 && !outBuf.isEmpty()) {

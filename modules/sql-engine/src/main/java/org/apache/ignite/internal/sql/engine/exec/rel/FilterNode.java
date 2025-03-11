@@ -58,12 +58,10 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            this.execute(this::doFilter);
+            this.execute(this::filter);
         }
     }
 
@@ -72,8 +70,6 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -89,8 +85,6 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void end() throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting = -1;
 
@@ -115,25 +109,17 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         inBuf.clear();
     }
 
-    private void doFilter() throws Exception {
-        checkState();
-
-        filter();
-    }
-
     private void filter() throws Exception {
         inLoop = true;
         try {
             int processed = 0;
             while (requested > 0 && !inBuf.isEmpty()) {
-                checkState();
-
                 requested--;
                 downstream().push(inBuf.remove());
 
                 if (processed++ >= inBufSize) {
                     // Allow others to do their job.
-                    execute(this::doFilter);
+                    execute(this::filter);
 
                     break;
                 }

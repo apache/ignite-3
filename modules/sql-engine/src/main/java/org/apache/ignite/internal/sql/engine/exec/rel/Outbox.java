@@ -155,8 +155,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     public void push(RowT row) throws Exception {
         assert waiting > 0 : waiting;
 
-        checkState();
-
         waiting--;
 
         if (currentNode == null || dest.targets(row).contains(currentNode)) {
@@ -170,8 +168,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     @Override
     public void end() throws Exception {
         assert waiting > 0 : waiting;
-
-        checkState();
 
         waiting = -1;
 
@@ -296,8 +292,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
     private void flush() throws Exception {
         while (!inBuf.isEmpty()) {
-            checkState();
-
             List<String> targets = dest.targets(inBuf.peek());
             List<RemoteDownstream<RowT>> buffers = new ArrayList<>(targets.size());
 

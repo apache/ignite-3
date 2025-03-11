@@ -99,42 +99,30 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
-        checkState();
-
         if (!indexReady()) {
             requested = rowsCnt;
 
-            requestSource();
+            source().request(waiting = inBufSize);
         } else {
             scan.request(rowsCnt);
         }
     }
 
-    private void requestSource() throws Exception {
-        waiting = inBufSize;
-
-        source().request(inBufSize);
-    }
-
     /** {@inheritDoc} */
     @Override
     public void push(RowT row) throws Exception {
-        checkState();
-
         idx.push(row);
 
         waiting--;
 
         if (waiting == 0) {
-            this.execute(this::requestSource);
+            source().request(waiting = inBufSize);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {
-        checkState();
-
         waiting = -1;
 
         scan.request(requested);
