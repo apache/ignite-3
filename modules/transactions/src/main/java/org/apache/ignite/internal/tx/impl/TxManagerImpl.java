@@ -27,6 +27,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.tx.InternalTransaction.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -125,9 +126,6 @@ import org.jetbrains.annotations.TestOnly;
 public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemViewProvider {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
-
-    /** 0 timeout means we have to use the default value from configuration. */
-    private static final int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
 
     /** Transaction configuration. */
     private final TransactionConfiguration txConfig;

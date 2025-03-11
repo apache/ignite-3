@@ -276,7 +276,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public long getTimeoutOrDefault(long defaultTimeout) {
-        return timeout == 0 ? defaultTimeout : timeout;
+        return timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? defaultTimeout : timeout;
     }
 
     /** {@inheritDoc} */

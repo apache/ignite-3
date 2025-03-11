@@ -28,6 +28,9 @@ import org.jetbrains.annotations.Nullable;
  * An extension of a transaction for internal usage.
  */
 public interface InternalTransaction extends Transaction {
+    /** 0 timeout means we have to use the default value from configuration. */
+    int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
+
     /**
      * Returns an id.
      *
