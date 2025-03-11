@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -31,6 +32,8 @@ import static org.mockito.Mockito.when;
 import java.util.BitSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
@@ -40,6 +43,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -68,12 +72,14 @@ import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
+import org.apache.ignite.internal.sql.engine.framework.DataProvider;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
@@ -123,7 +129,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         RowSchema rowSchema = rowSchemaFromRelTypes(List.of(rowType));
 
-        int inBufSize = Commons.IN_BUFFER_SIZE;
+        int inBufSize = IN_BUFFER_SIZE;
 
         List<PartitionWithConsistencyToken> partsWithConsistencyTokens = IntStream.range(0, TestInternalTableImpl.PART_CNT)
                 .mapToObj(p -> new PartitionWithConsistencyToken(p, -1L))
@@ -231,6 +237,51 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             internalTable.scanComplete.await();
             assertEquals(sizes[i++] * partsWithConsistencyTokens.size(), cnt);
         }
+    }
+
+    @Test
+    public void tableScanNodeWithVariousBufferSize() {
+        // Buffer of size 1.
+        int bufferSize = 1;
+        checkTableScan(bufferSize, 1, 0);
+        checkTableScan(bufferSize, 1, 1);
+        checkTableScan(bufferSize, 5, 1);
+
+        // Partitions of size 1, which amount is close to buffer size.
+        bufferSize = 10;
+        checkTableScan(bufferSize, bufferSize - 1, 1);
+        checkTableScan(bufferSize, bufferSize, 1);
+        checkTableScan(bufferSize, bufferSize + 1, 1);
+
+        // Default buffer size.
+        bufferSize = IN_BUFFER_SIZE;
+        checkTableScan(bufferSize, 1, 0);
+        checkTableScan(bufferSize, 1, 1);
+        checkTableScan(bufferSize, 1, bufferSize - 1);
+        checkTableScan(bufferSize, 1, bufferSize);
+        checkTableScan(bufferSize, 1, bufferSize + 1);
+        checkTableScan(bufferSize, 1, 2 * bufferSize);
+    }
+
+    private void checkTableScan(int bufferSize, int partitionsCount, int partDataSize) {
+        ExecutionContext<Object[]> ctx = executionContext(bufferSize);
+
+        List<PartitionWithConsistencyToken> partitions = IntStream.range(0, partitionsCount)
+                .mapToObj(i -> new PartitionWithConsistencyToken(1, 42L))
+                .collect(Collectors.toList());
+
+        RowSchema schema = RowSchema.builder().addField(NativeTypes.INT32).build();
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(schema);
+
+        ScannableTable scannableTable = TestBuilders.tableScan(DataProvider.fromRow(new Object[]{42}, partDataSize));
+        TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scannableTable, c -> partitions, null, null, null);
+        RootNode<Object[]> rootNode = new RootNode<>(ctx);
+
+        rootNode.register(scanNode);
+
+        long count = StreamSupport.stream(Spliterators.spliteratorUnknownSize(rootNode, Spliterator.ORDERED), false).count();
+
+        assertEquals((long) partDataSize * partitionsCount, count);
     }
 
     @AfterEach

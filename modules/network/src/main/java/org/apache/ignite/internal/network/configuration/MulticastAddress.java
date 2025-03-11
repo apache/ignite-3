@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.network.configuration;
 
-import java.util.Collection;
-import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.network.NetworkAddress;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Interface for services responsible for discovering the initial set of network cluster members.
+ * Signifies that a {@link Value} must be a correct multicast address string.
  */
-public interface NodeFinder extends ManuallyCloseable {
-    /**
-     * Discovers the initial set of cluster members and returns their network addresses.
-     *
-     * @return addresses of initial cluster members.
-     */
-    Collection<NetworkAddress> findNodes();
-
-    @Override
-    default void close() {
-        // No-op.
-    }
-
-    /** Starts the node finder. */
-    void start();
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface MulticastAddress {
 }
