@@ -17,22 +17,33 @@
 
 package org.apache.ignite.internal.network.configuration;
 
+import static org.apache.ignite.internal.network.MulticastNodeFinder.MAX_TTL;
+import static org.apache.ignite.internal.network.MulticastNodeFinder.UNBOUNDED_TTL;
+
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
-/** Node finder configuration. */
+/** Configuration for multicast node finder. */
 @Config
-public class NodeFinderConfigurationSchema {
-    /** Node finder type. */
+public class MulticastConfigurationSchema {
+    /** Address to use for multicast requests. */
     @Value(hasDefault = true)
-    public final String type = NodeFinderType.STATIC.name();
+    @MulticastAddress
+    public final String group = "239.192.0.0";
 
-    /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
+    /** Port to use for multicast requests. */
     @Value(hasDefault = true)
-    public final String[] netClusterNodes = new String[0];
+    @Range(min = 1, max = 65535)
+    public final int port = 47401;
 
-    /** Configuration specific to multicast node finder. */
-    @ConfigValue
-    public MulticastConfigurationSchema multicast;
+    /** Time to wait for multicast responses. */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public final int resultWaitTime = 500;
+
+    /** Time to live for multicast packets. */
+    @Value(hasDefault = true)
+    @Range(min = UNBOUNDED_TTL, max = MAX_TTL)
+    public final int ttl = UNBOUNDED_TTL;
 }
