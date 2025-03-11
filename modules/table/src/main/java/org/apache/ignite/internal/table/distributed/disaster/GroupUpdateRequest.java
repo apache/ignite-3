@@ -304,7 +304,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             long revision,
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments,
-            LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
+            @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
             long assignmentsTimestamp,
             boolean manualUpdate
     ) {
@@ -380,12 +380,19 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     /**
      * Returns an assignment with the most up to date log index, if there are more than one node with the same index, returns the first one
-     * in the lexicographic order.
+     * in the lexicographic order. If there are no alive nodes hosting partition, returns the first one.
      */
     private static Assignment nextAssignment(
-            LocalPartitionStateMessageByNode localPartitionStateByNode,
+            @Nullable LocalPartitionStateMessageByNode localPartitionStateByNode,
             Set<Assignment> assignments
     ) {
+        // There are no alive nodes hosting this partition, we choose the node with the first consistent id in the lexicographic order.
+        if (localPartitionStateByNode == null) {
+            return assignments.stream()
+                    .min(Comparator.comparing(Assignment::consistentId))
+                    .orElseThrow();
+        }
+
         // For nodes that we know log index for (having any data), we choose the node with the highest log index.
         // If there are more than one node with same log index, we choose the one with the first consistent id in the lexicographic order.
         Optional<Assignment> nodeWithMaxLogIndex = assignments.stream()
