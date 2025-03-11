@@ -137,7 +137,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     }
 
     @Test
-    public void test() {
+    public void testCompatibilityLockMapSizePropertyNameWasNotChanged() {
         SystemConfigurationPropertyCompatibilityChecker.checkSystemConfigurationPropertyNameWasNotChanged(
                 "LOCK_MAP_SIZE_PROPERTY_NAME",
                 "lockMapSize",

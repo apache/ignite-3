@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.logicalNodeFromNode;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -109,6 +110,15 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
                 "PARTITION_DISTRIBUTION_RESET_TIMEOUT",
                 "partitionDistributionResetTimeout",
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT
+        );
+    }
+
+    @Test
+    void testCompatibilityPropertyNameRebalanceRetryDelayMsNameWasNotChanged() {
+        SystemConfigurationPropertyCompatibilityChecker.checkSystemConfigurationPropertyNameWasNotChanged(
+                "REBALANCE_RETRY_DELAY_MS",
+                "rebalanceRetryDelay",
+                REBALANCE_RETRY_DELAY_MS
         );
     }
 

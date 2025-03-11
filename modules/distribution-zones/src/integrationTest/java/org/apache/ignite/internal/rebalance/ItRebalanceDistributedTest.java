@@ -130,7 +130,6 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.configuration.utils.SystemConfigurationPropertyCompatibilityChecker;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.NonNegativeIntegerNumberSystemPropertyValueValidator;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -897,15 +896,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         // Try invalid delay value
         assertThat(updateRebalanceRetryDelay(configuration, -1), willThrowWithCauseOrSuppressed(ConfigurationValidationException.class));
-    }
-
-    @Test
-    void testCompatibilityPropertyNameRebalanceRetryDelayMsNameWasNotChanged() {
-        SystemConfigurationPropertyCompatibilityChecker.checkSystemConfigurationPropertyNameWasNotChanged(
-                "REBALANCE_RETRY_DELAY_MS",
-                "rebalanceRetryDelay",
-                REBALANCE_RETRY_DELAY_MS
-        );
     }
 
     private static Set<Peer> assignmentsToPeersSet(Set<Assignment> assignments) {

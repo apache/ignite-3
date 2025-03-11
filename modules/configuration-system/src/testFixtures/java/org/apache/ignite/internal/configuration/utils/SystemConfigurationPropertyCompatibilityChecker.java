@@ -29,7 +29,7 @@ public final class SystemConfigurationPropertyCompatibilityChecker {
      *
      * @param propertyConstantFieldName The property's constant field name to address if check failed.
      * @param propertyExpectedValue The property's expected value.
-     * @param propertyActualValue The actual value via passing the constant field there.
+     * @param propertyActualValue The property's actual value.
      */
     public static void checkSystemConfigurationPropertyNameWasNotChanged(
             String propertyConstantFieldName,
