@@ -63,7 +63,7 @@ public class PersistentPageMemoryMetricSource implements MetricSource {
 
         enabled = true;
 
-        return new MetricSet(name, metrics);
+        return new MetricSet(name, Map.copyOf(metrics));
     }
 
     @Override
