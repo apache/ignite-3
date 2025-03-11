@@ -57,10 +57,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
@@ -78,8 +80,10 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.leases.Leases;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -120,6 +124,22 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
     /** Closure to get a lease that is passed in Meta storage. */
     private volatile Consumer<Lease> renewLeaseConsumer = null;
+
+    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+
+    private PartitionGroupId replicationGroupId(int objectId, int partId) {
+        return enabledColocation ? new ZonePartitionId(objectId, partId) : new TablePartitionId(objectId, partId);
+    }
+
+    private ByteArray stableAssignmentsKey(PartitionGroupId groupId) {
+        return enabledColocation ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) groupId)
+                : stablePartAssignmentsKey((TablePartitionId) groupId);
+    }
+
+    private ByteArray pendingAssignmentsQueueKey(PartitionGroupId groupId) {
+        return enabledColocation ? ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) groupId)
+                : pendingPartAssignmentsQueueKey((TablePartitionId) groupId);
+    }
 
     @BeforeEach
     void setUp(
@@ -324,25 +344,28 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
     private void mockPendingAssignments(Set<Assignment> assignments) {
         Entry pendingEntry = new EntryImpl(
-                pendingPartAssignmentsQueueKey(new TablePartitionId(1, 0)).bytes(),
+                pendingAssignmentsQueueKey(replicationGroupId(1, 0)).bytes(),
                 AssignmentsQueue.toBytes(Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), assignments.toArray(Assignment[]::new))),
                 1,
                 new HybridClockImpl().now()
         );
 
-        when(metaStorageManager.prefixLocally(eq(new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES)), anyLong()))
+        byte[] prefixBytes = enabledColocation ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES
+                : PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(prefixBytes)), anyLong()))
                 .thenReturn(Cursor.fromIterable(List.of(pendingEntry)));
     }
 
     private void mockStableAssignments(Set<Assignment> assignments) {
         Entry stableEntry = new EntryImpl(
-                stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
+                stableAssignmentsKey(replicationGroupId(1, 0)).bytes(),
                 Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), assignments.toArray(Assignment[]::new)).toBytes(),
                 1,
                 new HybridClockImpl().now()
         );
 
-        when(metaStorageManager.prefixLocally(eq(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
+        byte[] prefixBytes = enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES : STABLE_ASSIGNMENTS_PREFIX_BYTES;
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(prefixBytes)), anyLong()))
                 .thenReturn(Cursor.fromIterable(List.of(stableEntry)));
     }
 
