@@ -30,7 +30,7 @@ public class MulticastConfigurationSchema {
     /** Address to use for multicast requests. */
     @Value(hasDefault = true)
     @MulticastAddress
-    public final String group = "239.0.0.0";
+    public final String group = "239.192.0.0";
 
     /** Port to use for multicast requests. */
     @Value(hasDefault = true)
