@@ -54,7 +54,9 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("metastorage", true),
             new MetricSource("client.handler", true),
             new MetricSource("sql.client", true),
-            new MetricSource("sql.plan.cache", true)
+            new MetricSource("sql.plan.cache", true),
+            new MetricSource("storage.aipersist.default", true),
+            new MetricSource("storage.aipersist.default_aipersist", true)
     };
 
     @Inject

@@ -133,6 +133,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         pageMemory.start();
 
         metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
 
         pageListCacheLimit = new AtomicLong((long) (pageMemory.totalPages() * PAGE_LIST_CACHE_LIMIT_THRESHOLD));
 
