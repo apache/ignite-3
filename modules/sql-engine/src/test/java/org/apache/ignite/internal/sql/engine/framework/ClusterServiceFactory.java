@@ -201,6 +201,14 @@ public class ClusterServiceFactory {
         public @Nullable ClusterNode getById(UUID id) {
             return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
         }
+
+        @Override
+        public void onJoined(ClusterNode node) {
+        }
+
+        @Override
+        public void onLeft(ClusterNode node) {
+        }
     }
 
     private class LocalMessagingService extends AbstractMessagingService {

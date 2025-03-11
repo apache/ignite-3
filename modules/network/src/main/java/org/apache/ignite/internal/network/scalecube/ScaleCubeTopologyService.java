@@ -33,6 +33,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.AbstractTopologyService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.DuplicateConsistentIdException;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.network.ClusterNode;
@@ -60,6 +61,9 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     /** Topology members map from the consistent id to the map from the id to the cluster node. */
     private final ConcurrentMap<String, Map<UUID, ClusterNode>> membersByConsistentId = new ConcurrentHashMap<>();
+
+    /** Topology members map from the consistent id to the cluster node. Only contains nodes that are joined logical topology. */
+    private final ConcurrentMap<String, ClusterNode> membersByConsistentIdInLogicalTopology = new ConcurrentHashMap<>();
 
     /** Topology members map from the id to the cluster node. */
     private final ConcurrentMap<UUID, ClusterNode> idToMemberMap = new ConcurrentHashMap<>();
@@ -94,6 +98,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         } else if (event.isUpdated()) {
             members.put(member.address(), member);
             membersByConsistentId.computeIfAbsent(member.name(), k -> new ConcurrentHashMap<>()).put(member.id(), member);
+            membersByConsistentIdInLogicalTopology.compute(member.name(), (consId, node) -> {
+                if (node != null && node.id().equals(member.id())) {
+                    return member;
+                }
+                return node;
+            });
             idToMemberMap.put(member.id(), member);
         } else if (event.isRemoved() || event.isLeaving()) {
             // We treat LEAVING as 'node left' because the node will not be back and we don't want to wait for the suspicion timeout.
@@ -120,6 +130,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                 }
                 return nodes;
             });
+            membersByConsistentIdInLogicalTopology.compute(member.name(), (consId, node) -> {
+                if (node != null && node.id().equals(member.id())) {
+                    return null;
+                }
+                return node;
+            });
 
             idToMemberMap.remove(member.id());
 
@@ -140,6 +156,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         ClusterNode node = fromMember(cluster.member(), metadata);
         members.put(node.address(), node);
         membersByConsistentId.computeIfAbsent(node.name(), k -> new ConcurrentHashMap<>()).put(node.id(), node);
+        membersByConsistentIdInLogicalTopology.compute(node.name(), (consId, clusterNode) -> {
+            if (clusterNode != null && clusterNode.id().equals(node.id())) {
+                return node;
+            }
+            return clusterNode;
+        });
         idToMemberMap.put(node.id(), node);
     }
 
@@ -191,8 +213,21 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** {@inheritDoc} */
     @Override
     public @Nullable ClusterNode getByConsistentId(String consistentId) {
+        ClusterNode nodeInLogicalTopology = membersByConsistentIdInLogicalTopology.get(consistentId);
+        if (nodeInLogicalTopology != null) {
+            return nodeInLogicalTopology;
+        }
+
+        // Node is not in the logical topology, check if it's the only node in the physical topology
         Map<UUID, ClusterNode> nodes = membersByConsistentId.get(consistentId);
-        return nodes != null ? nodes.values().iterator().next() : null;
+        if (nodes == null) {
+            return null;
+        }
+        if (nodes.size() > 1) {
+            LOG.error("Node \"{}\" has duplicate in the physical topology", consistentId);
+            throw new DuplicateConsistentIdException(consistentId);
+        }
+        return nodes.values().iterator().next();
     }
 
     /** {@inheritDoc} */
@@ -231,5 +266,17 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             LOG.warn("Couldn't deserialize metadata: {}", e);
             return null;
         }
+    }
+
+    @Override
+    public void onJoined(ClusterNode node) {
+        LOG.info("Node joined logical topology [node={}]", node);
+        membersByConsistentIdInLogicalTopology.put(node.name(), node);
+    }
+
+    @Override
+    public void onLeft(ClusterNode node) {
+        LOG.info("Node left logical topology [node={}]", node);
+        membersByConsistentIdInLogicalTopology.remove(node.name());
     }
 }

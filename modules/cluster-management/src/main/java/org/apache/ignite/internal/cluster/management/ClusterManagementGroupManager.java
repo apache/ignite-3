@@ -884,14 +884,16 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     }
 
                     Set<ClusterNode> duplicates = findDuplicateConsistentIdsOfExistingNodes(topology, recipients);
-                    if (!duplicates.isEmpty()) {
-                        for (ClusterNode duplicate : duplicates) {
-                            RefuseJoinMessage msg = msgFactory.refuseJoinMessage()
-                                    .reason("Duplicate node name \"" + duplicate.name() + "\"")
-                                    .build();
-                            sendWithRetry(duplicate, msg);
-                            recipients.remove(duplicate);
-                        }
+                    for (ClusterNode duplicate : duplicates) {
+                        RefuseJoinMessage msg = msgFactory.refuseJoinMessage()
+                                .reason("Duplicate node name \"" + duplicate.name() + "\"")
+                                .build();
+                        sendWithRetry(duplicate, msg);
+                        recipients.remove(duplicate);
+                    }
+
+                    if (recipients.isEmpty()) {
+                        return nullCompletedFuture();
                     }
 
                     return raftService.readClusterState()

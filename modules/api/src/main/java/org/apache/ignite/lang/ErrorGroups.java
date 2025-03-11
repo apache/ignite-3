@@ -497,6 +497,9 @@ public class ErrorGroups {
 
         /** Could not resolve address. */
         public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Duplicate consistent ID. */
+        public static final int DUPLICATE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Node configuration error group. */
