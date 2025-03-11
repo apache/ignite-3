@@ -33,6 +33,9 @@ import org.jetbrains.annotations.Nullable;
  * Client transactions implementation.
  */
 public class ClientTransactions implements IgniteTransactions {
+    /** 0 timeout is used as a flag to use the configured timeout. */
+    private static final int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
+
     /** Channel. */
     private final ReliableChannel ch;
 
@@ -62,18 +65,14 @@ public class ClientTransactions implements IgniteTransactions {
             @Nullable String preferredNodeName,
             @Nullable TransactionOptions options,
             long observableTimestamp) {
-        if (options != null && options.timeoutMillis() != 0 && !options.readOnly()) {
-            // TODO: IGNITE-16193
-            throw new UnsupportedOperationException("Timeouts are not supported yet for RW transactions");
-        }
-
         boolean readOnly = options != null && options.readOnly();
+        long timeout = options == null ? USE_CONFIGURED_TIMEOUT_DEFAULT : options.timeoutMillis();
 
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
                 w -> {
                     w.out().packBoolean(readOnly);
-                    w.out().packLong(options == null ? 0 : options.timeoutMillis());
+                    w.out().packLong(timeout);
                     w.out().packLong(observableTimestamp);
                 },
                 r -> readTx(r, readOnly),
