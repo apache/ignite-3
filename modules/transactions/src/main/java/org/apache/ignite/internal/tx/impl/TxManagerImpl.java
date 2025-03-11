@@ -525,12 +525,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private static long sumWithSaturation(long a, long b) {
-        assert a >= USE_CONFIGURED_TIMEOUT_DEFAULT : a;
-        assert b >= USE_CONFIGURED_TIMEOUT_DEFAULT : b;
+        assert a >= 0 : a;
+        assert b >= 0 : b;
 
         long sum = a + b;
 
-        if (sum < USE_CONFIGURED_TIMEOUT_DEFAULT) {
+        if (sum < 0) {
             // Overflow.
             return Long.MAX_VALUE;
         } else {
@@ -1110,7 +1110,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     currentPrimaryReplica
                             );
                         } else {
-                            assert commitTimestamp.compareTo(currentPrimaryReplica.getExpirationTime()) <= USE_CONFIGURED_TIMEOUT_DEFAULT :
+                            assert commitTimestamp.compareTo(currentPrimaryReplica.getExpirationTime()) <= 0 :
                                     format(
                                             "Commit timestamp is greater than primary replica expiration timestamp:"
                                                     + " [groupId = {}, commit timestamp = {}, primary replica expiration timestamp = {}]",

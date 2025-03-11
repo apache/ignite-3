@@ -151,7 +151,7 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
 
     @Override
     public long getTimeoutOrDefault(long defaultTimeout) {
-        return getTimeout() == USE_CONFIGURED_TIMEOUT_DEFAULT ? defaultTimeout : getTimeout();
+        return transaction.getTimeoutOrDefault(defaultTimeout);
     }
 
     @Override
