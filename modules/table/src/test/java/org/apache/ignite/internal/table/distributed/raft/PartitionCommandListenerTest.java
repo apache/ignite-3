@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Collections.singletonMap;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
@@ -124,6 +125,7 @@ import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
@@ -393,6 +395,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage.lastApplied(10L, 1L);
 
@@ -587,6 +590,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void updatesLastAppliedForFinishTxCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 

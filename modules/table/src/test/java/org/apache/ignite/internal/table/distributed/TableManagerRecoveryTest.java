@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -125,6 +126,7 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -152,7 +154,6 @@ import org.mockito.quality.Strictness;
 public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "testNode1";
     private static final String ZONE_NAME = "zone1";
-    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String TABLE_NAME = "testTable";
     private static final String INDEX_NAME = "testIndex1";
     private static final String INDEXED_COLUMN_NAME = "columnName";
@@ -206,6 +207,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testTableIgnoredOnRecovery() throws Exception {
         startComponents();
 
@@ -239,6 +241,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testTableStartedOnRecovery() throws Exception {
         startComponents();
 

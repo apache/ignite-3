@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
@@ -224,6 +225,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TransactionStateR
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
@@ -742,6 +744,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         doAnswer(invocation -> {
             UUID txId = invocation.getArgument(4);
@@ -771,6 +774,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testTxStateReplicaRequestCommitState() throws Exception {
         UUID txId = newTxId();
 
@@ -1546,6 +1550,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testWriteIntentOnPrimaryReplicaSingleUpdate() {
         UUID txId = newTxId();
         AtomicInteger counter = new AtomicInteger();
@@ -1575,6 +1580,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testWriteIntentOnPrimaryReplicaUpdateAll() {
         UUID txId = newTxId();
         AtomicInteger counter = new AtomicInteger();
@@ -1721,6 +1727,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
         int earliestVersion = 999;
 
@@ -1851,6 +1858,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void abortsSuccessfully() {
         AtomicReference<Boolean> committed = interceptFinishTxCommand();
 
@@ -1891,6 +1899,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void commitsOnSameSchemaSuccessfully() {
         when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
@@ -1953,6 +1962,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void commitsOnCompatibleSchemaChangeSuccessfully() {
         when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
@@ -1971,6 +1981,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void abortsCommitOnIncompatibleSchema() {
         simulateForwardIncompatibleSchemaChange(CURRENT_SCHEMA_VERSION, FUTURE_SCHEMA_VERSION);
 
@@ -2680,11 +2691,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void commitRequestFailsIfCommitPartitionTableWasDropped() {
         testCommitRequestIfTableWasDropped(grpId, Map.of(grpId, localNode.name()), grpId.tableId());
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void commitRequestFailsIfNonCommitPartitionTableWasDropped() {
         TablePartitionId anotherPartitionId = new TablePartitionId(ANOTHER_TABLE_ID, 0);
 
@@ -2975,21 +2988,32 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void cleanup(UUID txId, boolean commit) {
+        TxState newTxState = commit ? COMMITTED : ABORTED;
+
         HybridTimestamp commitTs = clock.now();
+        HybridTimestamp commitTsOrNull = commit ? commitTs : null;
 
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID(), commitPartitionId, commitTs, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(newTxState, UUID.randomUUID(), commitPartitionId, commitTsOrNull, null));
 
-        WriteIntentSwitchReplicaRequest message = TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
-                .groupId(tablePartitionIdMessage(grpId))
-                .tableIds(Set.of(grpId.tableId()))
-                .txId(txId)
-                .commit(commit)
-                .commitTimestamp(commitTs)
-                .build();
+        if (enabledColocation()) {
+            lockManager.releaseAll(txId);
+            partitionReplicaListener.cleanupLocally(txId, commit, commitTs);
+        } else {
+            // Our mocks are tricky: when a WriteIntentSwitchCommand is handled by the raft client mock, it additionally releases all locks
+            // of the corresoponding transaction.
 
-        assertThat(partitionReplicaListener.invoke(message, localNode.id()), willCompleteSuccessfully());
+            WriteIntentSwitchReplicaRequest message = TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
+                    .groupId(tablePartitionIdMessage(grpId))
+                    .tableIds(Set.of(grpId.tableId()))
+                    .txId(txId)
+                    .commit(commit)
+                    .commitTimestamp(commitTs)
+                    .build();
 
-        txState = commit ? COMMITTED : ABORTED;
+            assertThat(partitionReplicaListener.invoke(message, localNode.id()), willCompleteSuccessfully());
+        }
+
+        txState = newTxState;
     }
 
     private BinaryTupleMessage toIndexBound(int val) {

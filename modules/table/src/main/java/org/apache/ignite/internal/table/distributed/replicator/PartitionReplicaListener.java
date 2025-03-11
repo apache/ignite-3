@@ -235,6 +235,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener, ReplicaTableProcessor {
@@ -3745,6 +3746,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
+    }
+
+    @TestOnly
+    public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
     }
 
     /**

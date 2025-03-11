@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -137,6 +138,7 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -429,6 +431,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-24397 - remove @WithSystemProperty.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testDropTable() throws Exception {
         mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
@@ -524,6 +528,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void tableManagerStopTest1() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -544,6 +549,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void tableManagerStopTest2() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -564,6 +570,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void tableManagerStopTest3() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -584,6 +591,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void tableManagerStopTest4() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -652,11 +660,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
     }
