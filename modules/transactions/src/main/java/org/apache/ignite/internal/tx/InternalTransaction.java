@@ -28,6 +28,9 @@ import org.jetbrains.annotations.Nullable;
  * An extension of a transaction for internal usage.
  */
 public interface InternalTransaction extends Transaction {
+    /** 0 timeout means we have to use the default value from configuration. */
+    int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
+
     /**
      * Returns an id.
      *
@@ -116,9 +119,10 @@ public interface InternalTransaction extends Transaction {
      * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node. The parameter
      *         is not used for read-write transactions.
      * @param full Full state transaction marker.
+     * @param timeoutExceeded Timeout exceeded flag (commit flag must be {@code false}).
      * @return The future.
      */
-    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full);
+    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded);
 
     /**
      * Checks if the transaction is finishing or finished. If {@code true}, no more operations can be performed on the transaction.
@@ -133,7 +137,14 @@ public interface InternalTransaction extends Transaction {
      *
      * @return The transaction timeout.
      */
-    long timeout();
+    long getTimeout();
+
+    /**
+     * Returns the transaction timeout in millis or the default timeout if the transaction timeout is set to 0.
+     *
+     * @return The transaction timeout.
+     */
+    long getTimeoutOrDefault(long defaultTimeout);
 
     /**
      * Kills this transaction.
@@ -141,4 +152,21 @@ public interface InternalTransaction extends Transaction {
      * @return The future.
      */
     CompletableFuture<Void> kill();
+
+    /**
+     * Rolls back the transaction due to timeout exceeded. After this method is called, {@link #isRolledBackWithTimeoutExceeded()} will
+     * return {@code true}. A rollback of a completed or ending transaction has no effect and always succeeds when the transaction is
+     * completed.
+     *
+     * @return The future.
+     */
+    CompletableFuture<Void> rollbackTimeoutExceededAsync();
+
+    /**
+     * Checks if the transaction was rolled back due to timeout exceeded. The only way to roll back a transaction due to timeout exceeded is
+     * to call {@link #rollbackTimeoutExceededAsync()}.
+     *
+     * @return {@code true} if the transaction was rolled back due to timeout exceeded, {@code false} otherwise.
+     */
+    boolean isRolledBackWithTimeoutExceeded();
 }

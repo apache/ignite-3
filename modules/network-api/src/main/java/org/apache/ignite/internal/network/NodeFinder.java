@@ -17,17 +17,26 @@
 
 package org.apache.ignite.internal.network;
 
-import java.util.List;
+import java.util.Collection;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
  * Interface for services responsible for discovering the initial set of network cluster members.
  */
-public interface NodeFinder {
+public interface NodeFinder extends ManuallyCloseable {
     /**
      * Discovers the initial set of cluster members and returns their network addresses.
      *
      * @return addresses of initial cluster members.
      */
-    List<NetworkAddress> findNodes();
+    Collection<NetworkAddress> findNodes();
+
+    @Override
+    default void close() {
+        // No-op.
+    }
+
+    /** Starts the node finder. */
+    void start();
 }

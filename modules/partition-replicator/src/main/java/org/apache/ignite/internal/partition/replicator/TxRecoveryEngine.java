@@ -68,6 +68,7 @@ public class TxRecoveryEngine {
                         // Tx recovery is executed on the commit partition.
                         replicationGroupId,
                         false,
+                        false,
                         Map.of(
                                 replicationGroupId,
                                 abandonedTxRecoveryEnlistmentFactory.apply(clusterNodeResolver.getById(senderId))

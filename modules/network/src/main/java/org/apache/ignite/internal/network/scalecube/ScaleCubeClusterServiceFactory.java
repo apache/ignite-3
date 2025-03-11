@@ -30,6 +30,7 @@ import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -181,7 +182,9 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 ClusterConfig clusterConfig = clusterConfig(configView.membership());
-                NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
+                NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder(), nodeName(), connectionMgr.localAddress());
+                finder.start();
+
                 ClusterImpl cluster = new ClusterImpl(clusterConfig)
                         .handler(cl -> new ClusterMessageHandler() {
                             @Override
@@ -205,7 +208,8 @@ public class ScaleCubeClusterServiceFactory {
                 );
                 connectionMgr.setLocalNode(localNode);
 
-                this.shutdownFuture = cluster.onShutdown().toFuture();
+                this.shutdownFuture = cluster.onShutdown().toFuture()
+                        .thenAccept(v -> finder.close());
 
                 // resolve cyclic dependencies
                 topologyService.setCluster(cluster);
@@ -359,12 +363,12 @@ public class ScaleCubeClusterServiceFactory {
     }
 
     /**
-     * Converts the given list of {@link NetworkAddress} into a list of ScaleCube's {@link Address}.
+     * Converts the given collection of {@link NetworkAddress} into a list of ScaleCube's {@link Address}.
      *
      * @param addresses Network address.
      * @return List of ScaleCube's {@link Address}.
      */
-    private static List<Address> parseAddresses(List<NetworkAddress> addresses) {
+    private static List<Address> parseAddresses(Collection<NetworkAddress> addresses) {
         return addresses.stream()
                 .map(addr -> Address.create(addr.host(), addr.port()))
                 .collect(Collectors.toList());
