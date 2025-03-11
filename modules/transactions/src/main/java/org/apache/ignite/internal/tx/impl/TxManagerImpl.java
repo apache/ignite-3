@@ -126,6 +126,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
 
+    /** 0 timeout means we have to use the default value from configuration. */
+    private static final int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
+
     /** Transaction configuration. */
     private final TransactionConfiguration txConfig;
 
@@ -459,8 +462,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private static long getTimeoutOrDefault(InternalTxOptions options, long defaultValue) {
-        // 0 timeout means we have to use the default value.
-        return options.timeoutMillis() == 0 ? defaultValue : options.timeoutMillis();
+        return options.timeoutMillis() == USE_CONFIGURED_TIMEOUT_DEFAULT ? defaultValue : options.timeoutMillis();
     }
 
     private ReadOnlyTransactionImpl beginReadOnlyTransaction(
@@ -525,12 +527,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private static long sumWithSaturation(long a, long b) {
-        assert a >= 0 : a;
-        assert b >= 0 : b;
+        assert a >= USE_CONFIGURED_TIMEOUT_DEFAULT : a;
+        assert b >= USE_CONFIGURED_TIMEOUT_DEFAULT : b;
 
         long sum = a + b;
 
-        if (sum < 0) {
+        if (sum < USE_CONFIGURED_TIMEOUT_DEFAULT) {
             // Overflow.
             return Long.MAX_VALUE;
         } else {
@@ -1110,7 +1112,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     currentPrimaryReplica
                             );
                         } else {
-                            assert commitTimestamp.compareTo(currentPrimaryReplica.getExpirationTime()) <= 0 :
+                            assert commitTimestamp.compareTo(currentPrimaryReplica.getExpirationTime()) <= USE_CONFIGURED_TIMEOUT_DEFAULT :
                                     format(
                                             "Commit timestamp is greater than primary replica expiration timestamp:"
                                                     + " [groupId = {}, commit timestamp = {}, primary replica expiration timestamp = {}]",
