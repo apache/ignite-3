@@ -124,6 +124,7 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -210,7 +211,7 @@ public class PartitionReplicaLifecycleManager extends
     private final ClockService clockService;
 
     /** Placement driver for primary replicas checks. */
-    private final PlacementDriver placementDriver;
+    private final PlacementDriver executorInclinedPlacementDriver;
 
     /** Schema sync service for waiting for catalog metadata. */
     private final SchemaSyncService executorInclinedSchemaSyncService;
@@ -322,7 +323,7 @@ public class PartitionReplicaLifecycleManager extends
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clockService = clockService;
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
-        this.placementDriver = placementDriver;
+        this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
         this.txManager = txManager;
         this.schemaManager = schemaManager;
         this.zoneResourcesManager = zoneResourcesManager;
@@ -368,7 +369,7 @@ public class PartitionReplicaLifecycleManager extends
 
         rebalanceRetryDelayConfiguration.init();
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+        executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
 
         return processZonesAndAssignmentsOnStart;
     }
@@ -589,7 +590,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 new CatalogValidationSchemasSource(catalogService, schemaManager),
                                                 executorInclinedSchemaSyncService,
                                                 catalogService,
-                                                placementDriver,
+                                                executorInclinedPlacementDriver,
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 topologyService.localMember(),
@@ -1265,7 +1266,7 @@ public class PartitionReplicaLifecycleManager extends
         try {
             HybridTimestamp previousMetastoreSafeTime = currentSafeTime.subtractPhysicalTime(skewMs);
 
-            return placementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
+            return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
                     .thenApply(replicaMeta -> replicaMeta != null
                             && replicaMeta.getLeaseholderId() != null
                             && replicaMeta.getLeaseholderId().equals(localNode().id()));
