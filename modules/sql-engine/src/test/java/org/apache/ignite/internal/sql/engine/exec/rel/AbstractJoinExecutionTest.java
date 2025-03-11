@@ -507,7 +507,6 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         validateEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize);
         validateEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize + 1);
 
-        buffSize = 2 * DEFAULT_BUFFER_SIZE;
         validateEquiJoin(executionContext(buffSize), joinType, 2 * buffSize, 0);
         validateEquiJoin(executionContext(buffSize), joinType, 0, 2 * buffSize);
         validateEquiJoin(executionContext(buffSize), joinType, 2 * buffSize, 2 * buffSize);
@@ -548,10 +547,9 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         validateNonEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize);
         validateNonEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize + 1);
 
-        buffSize = 2 * DEFAULT_BUFFER_SIZE;
-        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, 0);
-        validateNonEquiJoin(executionContext(buffSize), joinType, 0, buffSize);
-        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 2 * buffSize, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, 2 * buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 2 * buffSize, 2 * buffSize);
     }
 
     private void validateEquiJoin(

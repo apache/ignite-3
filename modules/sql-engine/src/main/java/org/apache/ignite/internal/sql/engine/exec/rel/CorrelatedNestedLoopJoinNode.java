@@ -93,6 +93,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         super(ctx);
 
         assert !nullOrEmpty(correlationIds);
+        assert joinType == JoinRelType.LEFT || joinType == JoinRelType.INNER : joinType;
 
         this.cond = cond;
         this.correlationIds = new ArrayList<>(correlationIds);
