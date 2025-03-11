@@ -82,7 +82,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -342,7 +342,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @Test
     public void testLeaseCreate() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment();
+        PartitionGroupId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, true);
     }
@@ -359,7 +359,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        PartitionGroupId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
         Lease leaseRenew = waitForProlong(grpPart0, lease);
@@ -379,7 +379,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        PartitionGroupId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
@@ -432,7 +432,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             }
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        PartitionGroupId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
@@ -455,7 +455,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart = createTableAssignment();
+        PartitionGroupId grpPart = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart, true);
 
@@ -507,7 +507,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Renewed lease.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease waitNewLeaseholder(TablePartitionId grpPart, Lease lease) throws InterruptedException {
+    private Lease waitNewLeaseholder(PartitionGroupId grpPart, Lease lease) throws InterruptedException {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
@@ -541,7 +541,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Renewed lease.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease waitForProlong(TablePartitionId grpPart, Lease lease) throws InterruptedException {
+    private Lease waitForProlong(PartitionGroupId grpPart, Lease lease) throws InterruptedException {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
@@ -586,7 +586,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return A lease that is read from Meta storage.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease checkLeaseCreated(TablePartitionId grpPartId, boolean waitAccept) throws InterruptedException {
+    private Lease checkLeaseCreated(PartitionGroupId grpPartId, boolean waitAccept) throws InterruptedException {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
@@ -619,7 +619,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      *
      * @return Replication group id.
      */
-    private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames, assignmentsTimestamp);
+    private PartitionGroupId createTableAssignment() {
+        return createAssignments(metaStorageManager, nextTableId.get(), nodeNames, assignmentsTimestamp);
     }
 }
