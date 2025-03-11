@@ -537,7 +537,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             @Override
             public StorageEngine createEngine(
                     String igniteInstanceName,
-                    MetricManager metricManager, ConfigurationRegistry configRegistry,
+                    MetricManager metricManager,
+                    ConfigurationRegistry configRegistry,
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
                     FailureManager failureManager,
