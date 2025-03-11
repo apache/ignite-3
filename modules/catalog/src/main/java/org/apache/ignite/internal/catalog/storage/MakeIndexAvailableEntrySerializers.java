@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link MakeIndexAvailableEntry}.
@@ -33,14 +33,32 @@ public class MakeIndexAvailableEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class MakeIndexAvailableEntrySerializerV1 implements CatalogObjectSerializer<MakeIndexAvailableEntry> {
         @Override
-        public MakeIndexAvailableEntry readFrom(IgniteDataInput input) throws IOException {
+        public MakeIndexAvailableEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int indexId = input.readVarIntAsInt();
 
             return new MakeIndexAvailableEntry(indexId);
         }
 
         @Override
-        public void writeTo(MakeIndexAvailableEntry object, IgniteDataOutput output) throws IOException {
+        public void writeTo(MakeIndexAvailableEntry object, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(object.indexId);
+        }
+    }
+
+    /**
+     * Serializer for {@link MakeIndexAvailableEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class MakeIndexAvailableEntrySerializerV2 implements CatalogObjectSerializer<MakeIndexAvailableEntry> {
+        @Override
+        public MakeIndexAvailableEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int indexId = input.readVarIntAsInt();
+
+            return new MakeIndexAvailableEntry(indexId);
+        }
+
+        @Override
+        public void writeTo(MakeIndexAvailableEntry object, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(object.indexId);
         }
     }

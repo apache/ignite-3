@@ -24,11 +24,12 @@ import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link TableVersion}.
@@ -46,7 +47,7 @@ public class CatalogTableVersionSerializers {
         }
 
         @Override
-        public TableVersion readFrom(IgniteDataInput input) throws IOException {
+        public TableVersion readFrom(CatalogObjectDataInput input) throws IOException {
             CatalogObjectSerializer<CatalogTableColumnDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
 
@@ -56,11 +57,33 @@ public class CatalogTableVersionSerializers {
         }
 
         @Override
-        public void writeTo(TableVersion tableVersion, IgniteDataOutput output) throws IOException {
+        public void writeTo(TableVersion tableVersion, CatalogObjectDataOutput output) throws IOException {
             CatalogObjectSerializer<CatalogTableColumnDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
 
             writeList(tableVersion.columns(), serializer, output);
+        }
+    }
+
+    /**
+     * Serializer for {@link TableVersion}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class TableVersionSerializerV2 implements CatalogObjectSerializer<TableVersion> {
+
+        private final MarshallableType<CatalogTableColumnDescriptor> columnType =
+                MarshallableType.typeOf(CatalogTableColumnDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN, 2);
+
+        @Override
+        public TableVersion readFrom(CatalogObjectDataInput input) throws IOException {
+            List<CatalogTableColumnDescriptor> columns = input.readEntryList(columnType);
+
+            return new TableVersion(columns);
+        }
+
+        @Override
+        public void writeTo(TableVersion tableVersion, CatalogObjectDataOutput output) throws IOException {
+            output.writeEntryList(columnType, tableVersion.columns());
         }
     }
 }

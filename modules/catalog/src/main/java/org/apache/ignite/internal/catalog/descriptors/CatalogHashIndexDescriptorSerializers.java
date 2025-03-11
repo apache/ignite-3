@@ -23,10 +23,10 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link CatalogHashIndexDescriptor}.
@@ -38,7 +38,7 @@ public class CatalogHashIndexDescriptorSerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class HashIndexDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogHashIndexDescriptor> {
         @Override
-        public CatalogHashIndexDescriptor readFrom(IgniteDataInput input) throws IOException {
+        public CatalogHashIndexDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
             long updateToken = input.readVarInt();
@@ -52,7 +52,7 @@ public class CatalogHashIndexDescriptorSerializers {
         }
 
         @Override
-        public void writeTo(CatalogHashIndexDescriptor descriptor, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogHashIndexDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
@@ -61,6 +61,35 @@ public class CatalogHashIndexDescriptorSerializers {
             output.writeByte(descriptor.status().id());
             output.writeBoolean(descriptor.isCreatedWithTable());
             writeStringCollection(descriptor.columns(), output);
+        }
+    }
+
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class HashIndexDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogHashIndexDescriptor> {
+        @Override
+        public CatalogHashIndexDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
+            int id = input.readVarIntAsInt();
+            String name = input.readUTF();
+            long updateToken = input.readVarInt();
+            int tableId = input.readVarIntAsInt();
+            boolean unique = input.readBoolean();
+            CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
+            boolean isCreatedWithTable = input.readBoolean();
+            List<String> columns = readStringCollection(input, ArrayList::new);
+
+            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateToken, isCreatedWithTable);
+        }
+
+        @Override
+        public void writeTo(CatalogHashIndexDescriptor value, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(value.id());
+            output.writeUTF(value.name());
+            output.writeVarInt(value.updateToken());
+            output.writeVarInt(value.tableId());
+            output.writeBoolean(value.unique());
+            output.writeByte(value.status().id());
+            output.writeBoolean(value.isCreatedWithTable());
+            writeStringCollection(value.columns(), output);
         }
     }
 }

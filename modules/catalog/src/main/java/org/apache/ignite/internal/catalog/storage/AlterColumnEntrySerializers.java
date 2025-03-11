@@ -20,11 +20,12 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link AlterColumnEntry}.
@@ -42,7 +43,7 @@ public class AlterColumnEntrySerializers {
         }
 
         @Override
-        public AlterColumnEntry readFrom(IgniteDataInput input) throws IOException {
+        public AlterColumnEntry readFrom(CatalogObjectDataInput input) throws IOException {
             CatalogObjectSerializer<CatalogTableColumnDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
 
@@ -53,9 +54,33 @@ public class AlterColumnEntrySerializers {
         }
 
         @Override
-        public void writeTo(AlterColumnEntry value, IgniteDataOutput output) throws IOException {
+        public void writeTo(AlterColumnEntry value, CatalogObjectDataOutput output) throws IOException {
             serializers.get(1, value.descriptor().typeId()).writeTo(value.descriptor(), output);
 
+            output.writeVarInt(value.tableId());
+        }
+    }
+
+    /**
+     * Serializer for {@link AlterColumnEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class AlterColumnEntrySerializerV2 implements CatalogObjectSerializer<AlterColumnEntry> {
+
+        private final MarshallableType<CatalogTableColumnDescriptor> tableColumnType =
+                MarshallableType.typeOf(CatalogTableColumnDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN, 2);
+
+        @Override
+        public AlterColumnEntry readFrom(CatalogObjectDataInput input) throws IOException {
+            CatalogTableColumnDescriptor descriptor = input.readEntry(tableColumnType);
+            int tableId = input.readVarIntAsInt();
+
+            return new AlterColumnEntry(tableId, descriptor);
+        }
+
+        @Override
+        public void writeTo(AlterColumnEntry value, CatalogObjectDataOutput output) throws IOException {
+            output.writeEntry(tableColumnType, value.descriptor());
             output.writeVarInt(value.tableId());
         }
     }

@@ -20,11 +20,12 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link NewZoneEntry}.
@@ -42,7 +43,7 @@ public class NewZoneEntrySerializers {
         }
 
         @Override
-        public NewZoneEntry readFrom(IgniteDataInput input) throws IOException {
+        public NewZoneEntry readFrom(CatalogObjectDataInput input)throws IOException {
             CatalogObjectSerializer<CatalogZoneDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_ZONE.id());
 
@@ -52,8 +53,30 @@ public class NewZoneEntrySerializers {
         }
 
         @Override
-        public void writeTo(NewZoneEntry object, IgniteDataOutput output) throws IOException {
+        public void writeTo(NewZoneEntry object, CatalogObjectDataOutput output) throws IOException {
             serializers.get(1, object.descriptor().typeId()).writeTo(object.descriptor(), output);
+        }
+    }
+
+    /**
+     * Serializer for {@link NewZoneEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class NewZoneEntrySerializerV2 implements CatalogObjectSerializer<NewZoneEntry> {
+
+        private final MarshallableType<CatalogZoneDescriptor> zoneType =
+                MarshallableType.typeOf(CatalogZoneDescriptor.class, MarshallableEntryType.DESCRIPTOR_ZONE, 2);
+
+        @Override
+        public NewZoneEntry readFrom(CatalogObjectDataInput input) throws IOException {
+            CatalogZoneDescriptor descriptor = input.readEntry(zoneType);
+
+            return new NewZoneEntry(descriptor);
+        }
+
+        @Override
+        public void writeTo(NewZoneEntry object, CatalogObjectDataOutput output) throws IOException {
+            output.writeEntry(zoneType, object.descriptor());
         }
     }
 }

@@ -21,11 +21,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link VersionedUpdate}.
@@ -43,7 +45,7 @@ public class VersionedUpdateSerializers {
         }
 
         @Override
-        public VersionedUpdate readFrom(IgniteDataInput input) throws IOException {
+        public VersionedUpdate readFrom(CatalogObjectDataInput input)throws IOException {
             int ver = input.readVarIntAsInt();
             long delayDurationMs = input.readVarInt();
 
@@ -62,7 +64,7 @@ public class VersionedUpdateSerializers {
         }
 
         @Override
-        public void writeTo(VersionedUpdate update, IgniteDataOutput output) throws IOException {
+        public void writeTo(VersionedUpdate update, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(update.version());
             output.writeVarInt(update.delayDurationMs());
 
@@ -72,6 +74,60 @@ public class VersionedUpdateSerializers {
 
                 serializers.get(1, entry.typeId()).writeTo(entry, output);
             }
+        }
+    }
+
+    /**
+     * Serializer for {@link VersionedUpdate}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    public static class VersionedUpdateSerializerV2 implements CatalogObjectSerializer<VersionedUpdate> {
+
+        private final MarshallableType<UpdateEntry> updateEntryType;
+
+        /**
+         * Constructor.
+         */
+        public VersionedUpdateSerializerV2() {
+            updateEntryType = MarshallableType.builder(UpdateEntry.class)
+                    .addVariant(MarshallableEntryType.ALTER_COLUMN, 2)
+                    .addVariant(MarshallableEntryType.ALTER_ZONE, 2)
+                    .addVariant(MarshallableEntryType.NEW_ZONE, 2)
+                    .addVariant(MarshallableEntryType.DROP_COLUMN, 2)
+                    .addVariant(MarshallableEntryType.DROP_INDEX, 2)
+                    .addVariant(MarshallableEntryType.DROP_TABLE, 2)
+                    .addVariant(MarshallableEntryType.DROP_ZONE, 2)
+                    .addVariant(MarshallableEntryType.MAKE_INDEX_AVAILABLE, 2)
+                    .addVariant(MarshallableEntryType.REMOVE_INDEX, 2)
+                    .addVariant(MarshallableEntryType.START_BUILDING_INDEX, 2)
+                    .addVariant(MarshallableEntryType.NEW_COLUMN, 2)
+                    .addVariant(MarshallableEntryType.NEW_INDEX, 2)
+                    .addVariant(MarshallableEntryType.NEW_SYS_VIEW, 2)
+                    .addVariant(MarshallableEntryType.NEW_TABLE, 2)
+                    .addVariant(MarshallableEntryType.RENAME_TABLE, 2)
+                    .addVariant(MarshallableEntryType.ID_GENERATOR, 2)
+                    .addVariant(MarshallableEntryType.RENAME_INDEX, 2)
+                    .addVariant(MarshallableEntryType.SET_DEFAULT_ZONE, 2)
+                    .addVariant(MarshallableEntryType.NEW_SCHEMA, 2)
+                    .addVariant(MarshallableEntryType.DROP_SCHEMA, 2)
+                    .build();
+        }
+
+        @Override
+        public VersionedUpdate readFrom(CatalogObjectDataInput input) throws IOException {
+            int ver = input.readVarIntAsInt();
+            long delayDurationMs = input.readVarInt();
+
+            List<UpdateEntry> entries = input.readEntryList(updateEntryType);
+
+            return new VersionedUpdate(ver, delayDurationMs, entries);
+        }
+
+        @Override
+        public void writeTo(VersionedUpdate value, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(value.version());
+            output.writeVarInt(value.delayDurationMs());
+            output.writeEntryList(updateEntryType, value.entries());
         }
     }
 }

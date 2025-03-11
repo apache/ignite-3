@@ -20,11 +20,12 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link NewSystemViewEntry}.
@@ -42,7 +43,7 @@ public class NewSystemViewEntrySerializers {
         }
 
         @Override
-        public NewSystemViewEntry readFrom(IgniteDataInput input) throws IOException {
+        public NewSystemViewEntry readFrom(CatalogObjectDataInput input)throws IOException {
             CatalogObjectSerializer<CatalogSystemViewDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_SYSTEM_VIEW.id());
 
@@ -52,8 +53,30 @@ public class NewSystemViewEntrySerializers {
         }
 
         @Override
-        public void writeTo(NewSystemViewEntry entry, IgniteDataOutput output) throws IOException {
+        public void writeTo(NewSystemViewEntry entry, CatalogObjectDataOutput output) throws IOException {
             serializers.get(1, entry.descriptor().typeId()).writeTo(entry.descriptor(), output);
+        }
+    }
+
+    /**
+     * Serializer for {@link NewSystemViewEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class NewSystemViewEntrySerializerV2 implements CatalogObjectSerializer<NewSystemViewEntry> {
+
+        private final MarshallableType<CatalogSystemViewDescriptor> schemaType =
+                MarshallableType.typeOf(CatalogSystemViewDescriptor.class, MarshallableEntryType.DESCRIPTOR_SYSTEM_VIEW, 2);
+
+        @Override
+        public NewSystemViewEntry readFrom(CatalogObjectDataInput input) throws IOException {
+            CatalogSystemViewDescriptor descriptor = input.readEntry(schemaType);
+
+            return new NewSystemViewEntry(descriptor);
+        }
+
+        @Override
+        public void writeTo(NewSystemViewEntry entry, CatalogObjectDataOutput output) throws IOException {
+            output.writeEntry(schemaType, entry.descriptor());
         }
     }
 }

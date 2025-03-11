@@ -21,12 +21,13 @@ import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link SnapshotEntry}.
@@ -44,7 +45,7 @@ public class SnapshotEntrySerializers {
         }
 
         @Override
-        public SnapshotEntry readFrom(IgniteDataInput input) throws IOException {
+        public SnapshotEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int catalogVersion = input.readVarIntAsInt();
             long activationTime = input.readLong();
             int objectIdGenState = input.readVarIntAsInt();
@@ -66,7 +67,7 @@ public class SnapshotEntrySerializers {
         }
 
         @Override
-        public void writeTo(SnapshotEntry entry, IgniteDataOutput output) throws IOException {
+        public void writeTo(SnapshotEntry entry, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(entry.version());
             output.writeLong(entry.activationTime());
             output.writeVarInt(entry.objectIdGenState());
@@ -78,6 +79,52 @@ public class SnapshotEntrySerializers {
 
             CatalogSerializationUtils.writeArray(entry.zones(), zoneDescSerializer, output);
             CatalogSerializationUtils.writeArray(entry.schemas(), schemaDescSerializer, output);
+
+            Integer defaultZoneId = entry.defaultZoneId();
+            output.writeBoolean(defaultZoneId != null);
+            if (defaultZoneId != null) {
+                output.writeVarInt(defaultZoneId);
+            }
+        }
+    }
+
+    /**
+     * Serializer for {@link SnapshotEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class SnapshotEntrySerializerV2 implements CatalogObjectSerializer<SnapshotEntry> {
+
+        private final MarshallableType<CatalogZoneDescriptor> zoneType = MarshallableType.typeOf(
+                CatalogZoneDescriptor.class, MarshallableEntryType.DESCRIPTOR_ZONE, 2);
+
+        private final MarshallableType<CatalogSchemaDescriptor> schemaType = MarshallableType.typeOf(
+                CatalogSchemaDescriptor.class, MarshallableEntryType.DESCRIPTOR_SCHEMA, 2);
+
+        @Override
+        public SnapshotEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int catalogVersion = input.readVarIntAsInt();
+            long activationTime = input.readLong();
+            int objectIdGenState = input.readVarIntAsInt();
+
+            CatalogZoneDescriptor[] zones = input.readEntryArray(zoneType);
+            CatalogSchemaDescriptor[] schemas = input.readEntryArray(schemaType);
+
+            Integer defaultZoneId = null;
+            if (input.readBoolean()) {
+                defaultZoneId = input.readVarIntAsInt();
+            }
+
+            return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas, defaultZoneId);
+        }
+
+        @Override
+        public void writeTo(SnapshotEntry entry, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(entry.version());
+            output.writeLong(entry.activationTime());
+            output.writeVarInt(entry.objectIdGenState());
+
+            output.writeEntryArray(zoneType, entry.zones());
+            output.writeEntryArray(schemaType, entry.schemas());
 
             Integer defaultZoneId = entry.defaultZoneId();
             output.writeBoolean(defaultZoneId != null);

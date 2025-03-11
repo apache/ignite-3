@@ -20,11 +20,12 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link NewSchemaEntry}.
@@ -42,7 +43,7 @@ public class NewSchemaEntrySerializers {
         }
 
         @Override
-        public NewSchemaEntry readFrom(IgniteDataInput input) throws IOException {
+        public NewSchemaEntry readFrom(CatalogObjectDataInput input) throws IOException {
             CatalogObjectSerializer<CatalogSchemaDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_SCHEMA.id());
 
@@ -51,8 +52,29 @@ public class NewSchemaEntrySerializers {
         }
 
         @Override
-        public void writeTo(NewSchemaEntry value, IgniteDataOutput output) throws IOException {
+        public void writeTo(NewSchemaEntry value, CatalogObjectDataOutput output) throws IOException {
             serializers.get(1, MarshallableEntryType.DESCRIPTOR_SCHEMA.id()).writeTo(value.descriptor(), output);
+        }
+    }
+
+    /**
+     * Serializer for {@link NewSchemaEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class SerializerV2 implements CatalogObjectSerializer<NewSchemaEntry> {
+
+        private final MarshallableType<CatalogSchemaDescriptor> schemaType =
+                MarshallableType.typeOf(CatalogSchemaDescriptor.class, MarshallableEntryType.DESCRIPTOR_SCHEMA, 2);
+
+        @Override
+        public NewSchemaEntry readFrom(CatalogObjectDataInput input) throws IOException {
+            CatalogSchemaDescriptor schemaDescriptor = input.readEntry(schemaType);
+            return new NewSchemaEntry(schemaDescriptor);
+        }
+
+        @Override
+        public void writeTo(NewSchemaEntry value, CatalogObjectDataOutput output) throws IOException {
+            output.writeEntry(schemaType, value.descriptor());
         }
     }
 }

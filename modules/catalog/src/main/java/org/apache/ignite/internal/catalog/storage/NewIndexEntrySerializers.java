@@ -20,11 +20,13 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.IndexDescriptorSerializerHelper;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link NewIndexEntry}.
@@ -42,15 +44,40 @@ public class NewIndexEntrySerializers {
         }
 
         @Override
-        public NewIndexEntry readFrom(IgniteDataInput input) throws IOException {
+        public NewIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
             CatalogIndexDescriptor descriptor = serializerHelper.readFrom(input);
 
             return new NewIndexEntry(descriptor);
         }
 
         @Override
-        public void writeTo(NewIndexEntry entry, IgniteDataOutput output) throws IOException {
+        public void writeTo(NewIndexEntry entry, CatalogObjectDataOutput output) throws IOException {
             serializerHelper.writeTo(entry.descriptor(), output);
+        }
+    }
+
+    /**
+     * Serializer for {@link NewIndexEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class NewIndexEntrySerializerV2 implements CatalogObjectSerializer<NewIndexEntry> {
+
+        private final MarshallableType<CatalogIndexDescriptor> indexType =
+                MarshallableType.builder(CatalogIndexDescriptor.class)
+                        .addVariant(MarshallableEntryType.DESCRIPTOR_HASH_INDEX.id(), 2)
+                        .addVariant(MarshallableEntryType.DESCRIPTOR_SORTED_INDEX.id(), 2)
+                        .build();
+
+        @Override
+        public NewIndexEntry readFrom(CatalogObjectDataInput input) throws IOException {
+            CatalogIndexDescriptor descriptor = input.readEntry(indexType);
+
+            return new NewIndexEntry(descriptor);
+        }
+
+        @Override
+        public void writeTo(NewIndexEntry entry, CatalogObjectDataOutput output) throws IOException {
+            output.writeEntry(indexType, entry.descriptor());
         }
     }
 }

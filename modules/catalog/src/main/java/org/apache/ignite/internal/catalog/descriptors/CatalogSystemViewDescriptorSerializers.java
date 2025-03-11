@@ -24,11 +24,12 @@ import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link CatalogSystemViewDescriptor}.
@@ -46,7 +47,7 @@ public class CatalogSystemViewDescriptorSerializers {
         }
 
         @Override
-        public CatalogSystemViewDescriptor readFrom(IgniteDataInput input) throws IOException {
+        public CatalogSystemViewDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             CatalogObjectSerializer<CatalogTableColumnDescriptor> columnSerializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
 
@@ -64,7 +65,7 @@ public class CatalogSystemViewDescriptorSerializers {
         }
 
         @Override
-        public void writeTo(CatalogSystemViewDescriptor descriptor, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogSystemViewDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
             CatalogObjectSerializer<CatalogTableColumnDescriptor> columnSerializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
 
@@ -73,6 +74,41 @@ public class CatalogSystemViewDescriptorSerializers {
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
             writeList(descriptor.columns(), columnSerializer, output);
+            output.writeByte(descriptor.systemViewType().id());
+        }
+    }
+
+    /**
+     * Serializer for {@link CatalogSystemViewDescriptor}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class SystemViewDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogSystemViewDescriptor> {
+
+        private final MarshallableType<CatalogTableColumnDescriptor> columnType =
+                MarshallableType.typeOf(CatalogTableColumnDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN, 2);
+
+        @Override
+        public CatalogSystemViewDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
+            int id = input.readVarIntAsInt();
+            int schemaId = input.readVarIntAsInt();
+            String name = input.readUTF();
+            long updateToken = input.readVarInt();
+
+            List<CatalogTableColumnDescriptor> columns = input.readEntryList(columnType);
+
+            byte sysViewTypeId = input.readByte();
+            SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
+
+            return new CatalogSystemViewDescriptor(id, schemaId, name, columns, sysViewType, updateToken);
+        }
+
+        @Override
+        public void writeTo(CatalogSystemViewDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(descriptor.id());
+            output.writeVarInt(descriptor.schemaId());
+            output.writeUTF(descriptor.name());
+            output.writeVarInt(descriptor.updateToken());
+            output.writeEntryList(columnType, descriptor.columns());
             output.writeByte(descriptor.systemViewType().id());
         }
     }

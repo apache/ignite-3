@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link StartBuildingIndexEntry}.
@@ -33,14 +33,32 @@ public class StartBuildingIndexEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class StartBuildingIndexEntrySerializerV1 implements CatalogObjectSerializer<StartBuildingIndexEntry> {
         @Override
-        public StartBuildingIndexEntry readFrom(IgniteDataInput input) throws IOException {
+        public StartBuildingIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int indexId = input.readVarIntAsInt();
 
             return new StartBuildingIndexEntry(indexId);
         }
 
         @Override
-        public void writeTo(StartBuildingIndexEntry object, IgniteDataOutput output) throws IOException {
+        public void writeTo(StartBuildingIndexEntry object, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(object.indexId);
+        }
+    }
+
+    /**
+     * Serializer for {@link StartBuildingIndexEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class StartBuildingIndexEntrySerializerV2 implements CatalogObjectSerializer<StartBuildingIndexEntry> {
+        @Override
+        public StartBuildingIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int indexId = input.readVarIntAsInt();
+
+            return new StartBuildingIndexEntry(indexId);
+        }
+
+        @Override
+        public void writeTo(StartBuildingIndexEntry object, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(object.indexId);
         }
     }

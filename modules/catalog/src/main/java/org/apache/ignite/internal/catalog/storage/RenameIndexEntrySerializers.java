@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link RemoveIndexEntry}.
@@ -33,7 +33,7 @@ public class RenameIndexEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class RenameIndexEntrySerializerV1 implements CatalogObjectSerializer<RenameIndexEntry> {
         @Override
-        public RenameIndexEntry readFrom(IgniteDataInput input) throws IOException {
+        public RenameIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int indexId = input.readVarIntAsInt();
 
             String newIndexName = input.readUTF();
@@ -42,7 +42,28 @@ public class RenameIndexEntrySerializers {
         }
 
         @Override
-        public void writeTo(RenameIndexEntry entry, IgniteDataOutput out) throws IOException {
+        public void writeTo(RenameIndexEntry entry, CatalogObjectDataOutput out) throws IOException {
+            out.writeVarInt(entry.indexId());
+            out.writeUTF(entry.newIndexName());
+        }
+    }
+
+    /**
+     * Serializer for {@link RemoveIndexEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class RenameIndexEntrySerializerV2 implements CatalogObjectSerializer<RenameIndexEntry> {
+        @Override
+        public RenameIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int indexId = input.readVarIntAsInt();
+
+            String newIndexName = input.readUTF();
+
+            return new RenameIndexEntry(indexId, newIndexName);
+        }
+
+        @Override
+        public void writeTo(RenameIndexEntry entry, CatalogObjectDataOutput out) throws IOException {
             out.writeVarInt(entry.indexId());
             out.writeUTF(entry.newIndexName());
         }

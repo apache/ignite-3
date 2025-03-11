@@ -22,12 +22,13 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.IndexDescriptorSerializerHelper;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link CatalogSchemaDescriptor}.
@@ -47,7 +48,7 @@ public class CatalogSchemaDescriptorSerializers {
         }
 
         @Override
-        public CatalogSchemaDescriptor readFrom(IgniteDataInput input) throws IOException {
+        public CatalogSchemaDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             CatalogObjectSerializer<CatalogTableDescriptor> tableDescriptorSerializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE.id());
             CatalogObjectSerializer<CatalogSystemViewDescriptor> viewDescriptorSerializer =
@@ -65,7 +66,7 @@ public class CatalogSchemaDescriptorSerializers {
         }
 
         @Override
-        public void writeTo(CatalogSchemaDescriptor descriptor, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogSchemaDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
             CatalogObjectSerializer<CatalogTableDescriptor> tableDescriptorSerializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE.id());
             CatalogObjectSerializer<CatalogSystemViewDescriptor> viewDescriptorSerializer =
@@ -78,6 +79,46 @@ public class CatalogSchemaDescriptorSerializers {
             writeArray(descriptor.tables(), tableDescriptorSerializer, output);
             writeArray(descriptor.indexes(), indexSerializeHelper, output);
             writeArray(descriptor.systemViews(), viewDescriptorSerializer, output);
+        }
+    }
+
+    @CatalogSerializer(version = 2, since = "3.0.0")
+    static class SchemaDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
+
+        private final MarshallableType<CatalogTableDescriptor> tableType =
+                MarshallableType.typeOf(CatalogTableDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE, 2);
+
+        private final MarshallableType<CatalogSystemViewDescriptor> systemViewType =
+                MarshallableType.typeOf(CatalogSystemViewDescriptor.class, MarshallableEntryType.DESCRIPTOR_SYSTEM_VIEW, 2);
+
+        private final MarshallableType<CatalogIndexDescriptor> indexType =
+                MarshallableType.builder(CatalogIndexDescriptor.class)
+                        .addVariant(MarshallableEntryType.DESCRIPTOR_HASH_INDEX.id(), 2)
+                        .addVariant(MarshallableEntryType.DESCRIPTOR_SORTED_INDEX.id(), 2)
+                        .build();
+
+        @Override
+        public CatalogSchemaDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
+            int id = input.readVarIntAsInt();
+            String name = input.readUTF();
+            long updateToken = input.readVarInt();
+
+            CatalogTableDescriptor[] tables = input.readEntryArray(tableType);
+            CatalogIndexDescriptor[] indexes = input.readEntryArray(indexType);
+            CatalogSystemViewDescriptor[] systemViews = input.readEntryArray(systemViewType);
+
+            return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateToken);
+        }
+
+        @Override
+        public void writeTo(CatalogSchemaDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeVarInt(descriptor.updateToken());
+
+            output.writeEntryArray(tableType, descriptor.tables());
+            output.writeEntryArray(indexType, descriptor.indexes());
+            output.writeEntryArray(systemViewType, descriptor.systemViews());
         }
     }
 }
