@@ -63,7 +63,6 @@ import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
@@ -77,6 +76,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyEventHandler;
@@ -874,16 +874,20 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private void sendClusterState(CmgRaftService raftService, Collection<ClusterNode> nodes) {
         raftService.logicalTopology()
                 .thenCompose(topology -> {
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-24769
+                    Set<ClusterNode> logicalTopology = topology.nodes().stream()
+                            .map(node -> new ClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata()))
+                            .collect(toSet());
                     // Only send the ClusterStateMessage to nodes not already present in the Logical Topology.
                     Set<ClusterNode> recipients = nodes.stream()
-                            .filter(node -> !topology.nodes().contains(node))
+                            .filter(node -> !logicalTopology.contains(node))
                             .collect(toSet());
 
                     if (recipients.isEmpty()) {
                         return nullCompletedFuture();
                     }
 
-                    Set<ClusterNode> duplicates = findDuplicateConsistentIdsOfExistingNodes(topology, recipients);
+                    Set<ClusterNode> duplicates = findDuplicateConsistentIdsOfExistingNodes(logicalTopology, recipients);
                     for (ClusterNode duplicate : duplicates) {
                         RefuseJoinMessage msg = msgFactory.refuseJoinMessage()
                                 .reason("Duplicate node name \"" + duplicate.name() + "\"")
@@ -921,11 +925,16 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     private static Set<ClusterNode> findDuplicateConsistentIdsOfExistingNodes(
-            LogicalTopologySnapshot existingTopology,
+            Set<ClusterNode> existingTopology,
             Collection<ClusterNode> candidatesForAddition
     ) {
-        Set<String> existingConsistentIds = existingTopology.nodes().stream().map(LogicalNode::name).collect(toSet());
-        return candidatesForAddition.stream().filter(node -> existingConsistentIds.contains(node.name())).collect(toSet());
+        Set<String> existingConsistentIds = existingTopology.stream()
+                .map(ClusterNode::name)
+                .collect(toSet());
+
+        return candidatesForAddition.stream()
+                .filter(node -> existingConsistentIds.contains(node.name()))
+                .collect(toSet());
     }
 
     private CompletableFuture<Void> sendWithRetry(ClusterNode node, NetworkMessage msg) {

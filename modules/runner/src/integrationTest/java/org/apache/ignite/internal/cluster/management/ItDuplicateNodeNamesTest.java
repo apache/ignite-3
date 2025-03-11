@@ -46,6 +46,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -109,7 +110,7 @@ class ItDuplicateNodeNamesTest extends BaseIgniteAbstractTest {
 
         // And two more nodes are started with the same node name
         String duplicateNodeName = testNodeNameWithoutIndex(testInfo);
-        startEmbeddedNode(duplicateNodeName, 1, nodesCount);
+        IgniteServer secondNode = startEmbeddedNode(duplicateNodeName, 1, nodesCount);
         startEmbeddedNode(duplicateNodeName, 2, nodesCount);
 
         InitParameters initParameters = InitParameters.builder()
@@ -140,6 +141,13 @@ class ItDuplicateNodeNamesTest extends BaseIgniteAbstractTest {
                 newNode.waitForInitAsync(),
                 willThrowWithCauseOrSuppressed(InitException.class, "Duplicate node name \"" + duplicateNodeName + "\"")
         );
+
+        // And the cluster is operational
+
+        metaStorageAndCmgNode.api().sql().execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR)");
+        metaStorageAndCmgNode.api().sql().execute(null, "INSERT INTO TEST VALUES (1, 'foo')");
+        KeyValueView<Integer, String> kvView = secondNode.api().tables().table("TEST").keyValueView(Integer.class, String.class);
+        assertThat(kvView.get(null, 1), is("foo"));
     }
 
     private IgniteServer startEmbeddedNode(String nodeName, int nodeIndex, int nodesCount) {
