@@ -79,6 +79,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
+            // TODO IGNITE-24766 Remove this parameter.
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,

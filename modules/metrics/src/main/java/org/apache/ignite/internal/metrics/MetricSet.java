@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * The Metric set that consists of set of metrics identified by a metric name.
@@ -52,7 +51,6 @@ public class MetricSet implements Iterable<Metric> {
      * @return Metric.
      */
     @Nullable
-    @TestOnly
     public <M extends Metric> M get(String name) {
         return (M) metrics.get(name);
     }

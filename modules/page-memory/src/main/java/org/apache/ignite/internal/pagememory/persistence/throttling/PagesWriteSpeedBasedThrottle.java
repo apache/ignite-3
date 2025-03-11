@@ -25,7 +25,12 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.DoubleGauge;
+import org.apache.ignite.internal.metrics.IntGauge;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
+import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.jetbrains.annotations.TestOnly;
 
@@ -78,32 +83,101 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     /** Checkpoint Buffer-related logic used to keep it safe. */
     private final CheckpointBufferOverflowWatchdog cpBufferWatchdog;
 
+    private final LongAdderMetric totalThrottlingTime = new LongAdderMetric(
+            "TotalThrottlingTime",
+            "Total throttling threads time in milliseconds. The Ignite throttles threads that generate "
+                    + "dirty pages during the ongoing checkpoint."
+    );
+
     /**
      * Constructor.
      *
      * @param pageMemory Page memory.
      * @param cpProgress Database manager.
      * @param stateChecker Checkpoint lock state provider.
+     * @param metricSource Metric source.
      */
     public PagesWriteSpeedBasedThrottle(
             PersistentPageMemory pageMemory,
             Supplier<CheckpointProgress> cpProgress,
-            CheckpointLockStateChecker stateChecker
+            CheckpointLockStateChecker stateChecker,
+            PersistentPageMemoryMetricSource metricSource
     ) {
         this.pageMemory = pageMemory;
         this.cpProgress = cpProgress;
         cpLockStateChecker = stateChecker;
 
-        cleanPagesProtector = new SpeedBasedMemoryConsumptionThrottlingStrategy(pageMemory, cpProgress,
-            markSpeedAndAvgParkTime);
+        cleanPagesProtector = new SpeedBasedMemoryConsumptionThrottlingStrategy(pageMemory, cpProgress, markSpeedAndAvgParkTime);
         cpBufferWatchdog = new CheckpointBufferOverflowWatchdog(pageMemory);
+
+        initMetrics(metricSource);
+    }
+
+    private void initMetrics(PersistentPageMemoryMetricSource metricSource) {
+        metricSource.addMetric(totalThrottlingTime);
+
+        metricSource.addMetric(new DoubleGauge(
+                "SpeedBasedThrottlingPercentage",
+                "Measurement shows how much throttling time is involved into average marking time.",
+                this::throttleWeight
+        ));
+        metricSource.addMetric(new LongGauge(
+                "MarkDirtySpeed",
+                "Speed of marking pages dirty. Value from past 750-1000 millis only. Pages/second.",
+                this::getMarkDirtySpeed
+        ));
+        metricSource.addMetric(new LongGauge(
+                "CpWriteSpeed",
+                "Speed average checkpoint write speed. Current and 3 past checkpoints used. Pages/second.",
+                this::getCpWriteSpeed
+        ));
+        metricSource.addMetric(new LongGauge(
+                "LastEstimatedSpeedForMarkAll",
+                "Last estimated speed for marking all clear pages as dirty till the end of checkpoint.",
+                this::getLastEstimatedSpeedForMarkAll
+        ));
+        metricSource.addMetric(new DoubleGauge(
+                "CurrDirtyRatio",
+                "Current dirty pages ratio.",
+                this::getCurrDirtyRatio
+        ));
+        metricSource.addMetric(new DoubleGauge(
+                "TargetDirtyRatio",
+                "Target (maximum) dirty pages ratio, after which throttling will start.",
+                this::getTargetDirtyRatio
+        ));
+        metricSource.addMetric(new LongGauge(
+                "ThrottleParkTime",
+                "Exponential backoff counter.",
+                this::throttleParkTime
+        ));
+        metricSource.addMetric(new IntGauge(
+                "CpTotalPages",
+                "Number of pages in current checkpoint.",
+                cleanPagesProtector::cpTotalPages
+        ));
+        metricSource.addMetric(new IntGauge(
+                "CpEvictedPages",
+                "Number of evicted pages.",
+                cleanPagesProtector::cpEvictedPages
+        ));
+        metricSource.addMetric(new IntGauge(
+                "CpWrittenPages",
+                "Number of written pages.",
+                this::cpWrittenPages
+        ));
+        metricSource.addMetric(new IntGauge(
+                "CpSyncedPages",
+                "Counter for fsynced checkpoint pages.",
+                cleanPagesProtector::cpSyncedPages
+        ));
     }
 
     @Override public void onMarkDirty(boolean isPageInCheckpoint) {
         assert cpLockStateChecker.checkpointLockIsHeldByThread();
 
-        long curNanoTime = System.nanoTime();
-        long throttleParkTimeNs = computeThrottlingParkTime(isPageInCheckpoint, curNanoTime);
+        long startTime = System.nanoTime();
+        long throttleParkTimeNs = computeThrottlingParkTime(isPageInCheckpoint, startTime);
 
         if (throttleParkTimeNs == NO_THROTTLING_MARKER) {
             return;
@@ -111,6 +185,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
             recurrentLogIfNeeded();
             doPark(throttleParkTimeNs);
         }
+
+        totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
 
         markSpeedAndAvgParkTime.addMeasurementForAverageCalculation(throttleParkTimeNs);
     }

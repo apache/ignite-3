@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
@@ -24,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -56,6 +59,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      */
     private static final double PAGE_LIST_CACHE_LIMIT_THRESHOLD = 0.1;
 
+    private final MetricManager metricManager;
+
     private final PersistentPageMemoryProfileConfiguration cfg;
 
     private final PageIoRegistry ioRegistry;
@@ -72,9 +77,12 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
     private volatile AtomicLong pageListCacheLimit;
 
+    private PersistentPageMemoryMetricSource metricSource;
+
     /**
      * Constructor.
      *
+     * @param metricManager Metric manager.
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
      * @param filePageStoreManager File page store manager.
@@ -83,6 +91,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      * @param pageSize Page size in bytes.
      */
     public PersistentPageMemoryDataRegion(
+            MetricManager metricManager,
             PersistentPageMemoryProfileConfiguration cfg,
             PageIoRegistry ioRegistry,
             FilePageStoreManager filePageStoreManager,
@@ -90,6 +99,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
             CheckpointManager checkpointManager,
             int pageSize
     ) {
+        this.metricManager = metricManager;
         this.cfg = cfg;
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
@@ -97,6 +107,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         this.filePageStoreManager = filePageStoreManager;
         this.partitionMetaManager = partitionMetaManager;
         this.checkpointManager = checkpointManager;
+
+        metricSource = new PersistentPageMemoryMetricSource("storage." + ENGINE_NAME + "." + cfg.value().name());
     }
 
     /**
@@ -107,6 +119,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 cfg,
+                metricSource,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView.size(), Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView.size()),
@@ -119,6 +132,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
         pageMemory.start();
 
+        metricManager.registerSource(metricSource);
+
         pageListCacheLimit = new AtomicLong((long) (pageMemory.totalPages() * PAGE_LIST_CACHE_LIMIT_THRESHOLD));
 
         this.pageMemory = pageMemory;
@@ -130,6 +145,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     public void stop() throws Exception {
         if (pageMemory != null) {
             pageMemory.stop(true);
+
+            metricManager.unregisterSource(metricSource);
         }
     }
 
