@@ -208,6 +208,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void testTableIgnoredOnRecovery() throws Exception {
         startComponents();
 
@@ -242,6 +243,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void testTableStartedOnRecovery() throws Exception {
         startComponents();
 

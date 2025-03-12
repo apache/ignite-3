@@ -396,6 +396,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage.lastApplied(10L, 1L);
 
@@ -591,6 +592,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
     void updatesLastAppliedForFinishTxCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 

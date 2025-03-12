@@ -529,6 +529,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest1() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -550,6 +551,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest2() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -571,6 +573,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest3() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -592,6 +595,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest4() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -661,12 +665,14 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
     }
