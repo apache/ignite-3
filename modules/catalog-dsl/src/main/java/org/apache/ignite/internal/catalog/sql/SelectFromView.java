@@ -57,7 +57,7 @@ class SelectFromView<T> extends AbstractCatalogQuery<List<T>> {
         });
     }
 
-    static <T> CompletableFuture<List<T>> collectResults(IgniteSql sql, String query, Function<SqlRow, T> mapper) {
+    static <T> CompletableFuture<List<T>> collectResults(IgniteSql sql, String query, Function<SqlRow, T> mapper, Object... params) {
         return sql.executeAsync(null, query).thenCompose(resultSet -> {
             List<T> result = new ArrayList<>();
             return iterate(resultSet, mapper, result).thenApply(unused -> result);

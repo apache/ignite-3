@@ -89,7 +89,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
 
     @Override
     public CompletableFuture<TableDefinition> tableDefinitionAsync(QualifiedName tableName) {
-        TableDefinitionCollector collector = new TableDefinitionCollector(tableName.objectName(), sql);
+        TableDefinitionCollector collector = new TableDefinitionCollector(tableName, sql);
 
         return collector.collectDefinition().thenApply(builder -> {
             if (builder != null) {

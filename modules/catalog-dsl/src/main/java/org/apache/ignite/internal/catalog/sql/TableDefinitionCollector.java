@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import static org.apache.ignite.internal.catalog.sql.Option.name;
+import static org.apache.ignite.internal.catalog.sql.Option.schemaName;
 import static org.apache.ignite.internal.catalog.sql.Option.tableName;
 import static org.apache.ignite.internal.catalog.sql.QueryUtils.splitByComma;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -39,21 +39,22 @@ import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition.Builder;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Table definition information collector from system views.
  */
-public class TableDefinitionCollector {
+class TableDefinitionCollector {
     private static final List<String> TABLE_VIEW_COLUMNS = List.of("SCHEMA", "PK_INDEX_ID", "ZONE", "COLOCATION_KEY_INDEX");
 
     private static final List<String> TABLE_COLUMNS_VIEW_COLUMNS = List.of("COLUMN_NAME", "TYPE", "LENGTH", "PREC", "SCALE",
             "NULLABLE");
 
-    private final String tableName;
+    private final QualifiedName tableName;
 
     private final IgniteSql sql;
 
-    public TableDefinitionCollector(String tableName, IgniteSql sql) {
+    TableDefinitionCollector(QualifiedName tableName, IgniteSql sql) {
         this.tableName = tableName;
         this.sql = sql;
     }
@@ -63,7 +64,7 @@ public class TableDefinitionCollector {
      *
      * @return Future with table definition build or {@code null} if table doesn't exist.
      */
-    public CompletableFuture<TableDefinition.Builder> collectDefinition() {
+    CompletableFuture<TableDefinition.Builder> collectDefinition() {
         return collectTableInfo()
                 .thenCompose(builder -> {
                     if (builder == null) {
@@ -75,12 +76,17 @@ public class TableDefinitionCollector {
     }
 
     private CompletableFuture<TableDefinitionBuilderWithIndexId> collectTableInfo() {
-        return new SelectFromView<>(sql, TABLE_VIEW_COLUMNS, "TABLES", name(tableName), row -> {
+        List<Option> options = List.of(
+                schemaName(tableName.schemaName()),
+                tableName(tableName.objectName())
+        );
+
+        return new SelectFromView<>(sql, TABLE_VIEW_COLUMNS, "TABLES", options, row -> {
             String schema = row.stringValue("SCHEMA");
             int indexId = row.intValue("PK_INDEX_ID");
             String zone = row.stringValue("ZONE");
             String colocationColumns = row.stringValue("COLOCATION_KEY_INDEX");
-            Builder builder = TableDefinition.builder(tableName).schema(schema)
+            Builder builder = TableDefinition.builder(tableName.objectName()).schema(schema)
                     .zone(zone)
                     .colocateBy(splitByComma(colocationColumns));
             return new TableDefinitionBuilderWithIndexId(builder, indexId);
@@ -141,7 +147,12 @@ public class TableDefinitionCollector {
     }
 
     private CompletableFuture<TableDefinition.Builder> collectColumns(TableDefinition.Builder builder) {
-        return new SelectFromView<>(sql, TABLE_COLUMNS_VIEW_COLUMNS, "TABLE_COLUMNS", tableName(tableName),
+        List<Option> options = List.of(
+                schemaName(tableName.schemaName()),
+                tableName(tableName.objectName())
+        );
+
+        return new SelectFromView<>(sql, TABLE_COLUMNS_VIEW_COLUMNS, "TABLE_COLUMNS", options,
                 row -> {
                     String columnName = row.stringValue("COLUMN_NAME");
                     String type = row.stringValue("TYPE");
