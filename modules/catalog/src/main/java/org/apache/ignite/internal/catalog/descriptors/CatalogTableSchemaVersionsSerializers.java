@@ -69,7 +69,7 @@ public class CatalogTableSchemaVersionsSerializers {
     /**
      * Serializer for {@link CatalogTableSchemaVersions}.
      */
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class TableSchemaVersionsSerializerV2 implements CatalogObjectSerializer<CatalogTableSchemaVersions> {
 
         private final MarshallableType<TableVersion> columnType =

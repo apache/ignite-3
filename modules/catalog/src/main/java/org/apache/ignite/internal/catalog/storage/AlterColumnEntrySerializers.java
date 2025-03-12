@@ -64,7 +64,7 @@ public class AlterColumnEntrySerializers {
     /**
      * Serializer for {@link AlterColumnEntry}.
      */
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class AlterColumnEntrySerializerV2 implements CatalogObjectSerializer<AlterColumnEntry> {
 
         private final MarshallableType<CatalogTableColumnDescriptor> tableColumnType =

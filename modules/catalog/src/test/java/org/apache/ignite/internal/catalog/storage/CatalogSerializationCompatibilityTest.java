@@ -375,6 +375,8 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
             provider = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
         }
 
+        log.info("Read fileName: {}, class: {}, version: {}", fileName, entryClass.getSimpleName(), version);
+
         UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl(provider, protocolVersion());
 
         byte[] srcBytes;

@@ -91,7 +91,7 @@ public class CatalogSortedIndexDescriptorSerializers {
     /**
      * Serializer for {@link CatalogSortedIndexDescriptor}.
      */
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class SortedIndexDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogSortedIndexDescriptor> {
         @Override
         public CatalogSortedIndexDescriptor readFrom(CatalogObjectDataInput input) throws IOException {

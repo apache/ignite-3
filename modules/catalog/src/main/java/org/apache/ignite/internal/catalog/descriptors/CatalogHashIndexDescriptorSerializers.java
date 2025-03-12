@@ -64,7 +64,7 @@ public class CatalogHashIndexDescriptorSerializers {
         }
     }
 
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class HashIndexDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogHashIndexDescriptor> {
         @Override
         public CatalogHashIndexDescriptor readFrom(CatalogObjectDataInput input) throws IOException {

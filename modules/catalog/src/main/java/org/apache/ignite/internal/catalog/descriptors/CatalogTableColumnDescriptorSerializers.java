@@ -65,7 +65,7 @@ public class CatalogTableColumnDescriptorSerializers {
         }
     }
 
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class TableColumnDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
         @Override
         public CatalogTableColumnDescriptor readFrom(CatalogObjectDataInput input) throws IOException {

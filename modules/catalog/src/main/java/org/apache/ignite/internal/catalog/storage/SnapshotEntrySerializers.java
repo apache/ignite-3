@@ -91,7 +91,7 @@ public class SnapshotEntrySerializers {
     /**
      * Serializer for {@link SnapshotEntry}.
      */
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class SnapshotEntrySerializerV2 implements CatalogObjectSerializer<SnapshotEntry> {
 
         private final MarshallableType<CatalogZoneDescriptor> zoneType = MarshallableType.typeOf(

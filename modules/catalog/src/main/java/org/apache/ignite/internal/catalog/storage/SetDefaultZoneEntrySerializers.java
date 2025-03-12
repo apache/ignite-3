@@ -48,7 +48,7 @@ public class SetDefaultZoneEntrySerializers {
     /**
      * Serializer for {@link SetDefaultZoneEntry}.
      */
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class SetDefaultZoneEntrySerializerV2 implements CatalogObjectSerializer<SetDefaultZoneEntry> {
         @Override
         public SetDefaultZoneEntry readFrom(CatalogObjectDataInput input)throws IOException {

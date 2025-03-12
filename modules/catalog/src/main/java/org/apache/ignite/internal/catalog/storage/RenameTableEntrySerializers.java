@@ -50,7 +50,7 @@ public class RenameTableEntrySerializers {
     /**
      * Serializer for {@link RenameTableEntry}.
      */
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class RenameTableEntrySerializerV2 implements CatalogObjectSerializer<RenameTableEntry> {
         @Override
         public RenameTableEntry readFrom(CatalogObjectDataInput input)throws IOException {

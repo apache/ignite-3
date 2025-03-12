@@ -61,7 +61,7 @@ public class NewSystemViewEntrySerializers {
     /**
      * Serializer for {@link NewSystemViewEntry}.
      */
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class NewSystemViewEntrySerializerV2 implements CatalogObjectSerializer<NewSystemViewEntry> {
 
         private final MarshallableType<CatalogSystemViewDescriptor> schemaType =

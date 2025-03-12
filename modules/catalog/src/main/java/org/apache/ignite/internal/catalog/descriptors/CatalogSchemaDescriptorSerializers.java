@@ -82,7 +82,7 @@ public class CatalogSchemaDescriptorSerializers {
         }
     }
 
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class SchemaDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
 
         private final MarshallableType<CatalogTableDescriptor> tableType =

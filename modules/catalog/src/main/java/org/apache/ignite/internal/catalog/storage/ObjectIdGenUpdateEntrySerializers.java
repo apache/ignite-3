@@ -48,7 +48,7 @@ public class ObjectIdGenUpdateEntrySerializers {
     /**
      * Serializer for {@link ObjectIdGenUpdateEntry}.
      */
-    @CatalogSerializer(version = 1, since = "3.1.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class ObjectIdGenUpdateEntrySerializerV2 implements CatalogObjectSerializer<ObjectIdGenUpdateEntry> {
         @Override
         public ObjectIdGenUpdateEntry readFrom(CatalogObjectDataInput input)throws IOException {
