@@ -748,8 +748,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testErrorIfBinaryValueSizeGtThanTypePrecision() {
-        String type = "VARBINARY";
-        sql(format("CREATE TABLE t(id INT PRIMARY KEY, val5 {}(5), val6 {}(6))", type, type));
+        sql(format("CREATE TABLE t(id INT PRIMARY KEY, val5 {}(5), val6 {}(6))", "VARBINARY", "VARBINARY"));
 
         Object param = "1".repeat(6).getBytes(StandardCharsets.UTF_8);
         Object value = "1".repeat(12);

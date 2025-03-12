@@ -238,8 +238,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     /** Check that insertion value is trimmed if leading is zeroes. */
     @Test
     public void testInsertZeroContainedBinary() {
-        String type = "VARBINARY";
-        sql(format("CREATE TABLE t(id INT PRIMARY KEY, val {}(5000))", type));
+        sql(format("CREATE TABLE t(id INT PRIMARY KEY, val {}(5000))", "VARBINARY"));
 
         Object trimmed = new byte[5000];
         Object zerosParam = new byte[5001];

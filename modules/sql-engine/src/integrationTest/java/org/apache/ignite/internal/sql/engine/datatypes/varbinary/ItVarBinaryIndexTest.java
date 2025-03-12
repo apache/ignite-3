@@ -45,12 +45,12 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
 
     @BeforeAll
     public void createTable() {
-        runSql("CREATE TABLE varbinary_fixed_length(id INTEGER PRIMARY KEY, test_key VARBINARY(10))");
-        runSql("CREATE INDEX varbinary_fixed_length_test_key_idx on varbinary_fixed_length (test_key)");
+        runSql("CREATE TABLE varbinary_table(id INTEGER PRIMARY KEY, test_key VARBINARY(10))");
+        runSql("CREATE INDEX varbinary_table_test_key_idx on varbinary_table (test_key)");
 
-        runSql("INSERT INTO varbinary_fixed_length VALUES(1, $0)");
-        runSql("INSERT INTO varbinary_fixed_length VALUES(2, $1)");
-        runSql("INSERT INTO varbinary_fixed_length VALUES(3, $2)");
+        runSql("INSERT INTO varbinary_table VALUES(1, $0)");
+        runSql("INSERT INTO varbinary_table VALUES(2, $1)");
+        runSql("INSERT INTO varbinary_table VALUES(3, $2)");
     }
 
     /**
@@ -102,9 +102,9 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
                 Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.LITERAL),
                 Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.CAST_WITH_PRECISION),
 
-                Arguments.of("VARBINARY_FIXED_LENGTH", ValueMode.LITERAL),
-                Arguments.of("VARBINARY_FIXED_LENGTH", ValueMode.CAST),
-                Arguments.of("VARBINARY_FIXED_LENGTH", ValueMode.CAST_WITH_PRECISION)
+                Arguments.of("VARBINARY_TABLE", ValueMode.LITERAL),
+                Arguments.of("VARBINARY_TABLE", ValueMode.CAST),
+                Arguments.of("VARBINARY_TABLE", ValueMode.CAST_WITH_PRECISION)
         );
     }
 

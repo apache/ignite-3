@@ -79,6 +79,9 @@ NULL
 statement error: VARBINARY length 0 must be between 1 and 2147483647. [column=C1]
 CREATE TABLE t_invalid_length(c1 VARBINARY(0));
 
+statement error: BINARY length 0 must be between 1 and 2147483647
+SELECT CAST(x'0101' AS BINARY(0))
+
 statement error: VARBINARY length 0 must be between 1 and 2147483647
 SELECT CAST(x'0101' AS VARBINARY(0))
 
