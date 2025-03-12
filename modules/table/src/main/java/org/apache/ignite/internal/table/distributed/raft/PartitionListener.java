@@ -650,7 +650,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
                 full ? commitTimestamp : null,
-                old == null ? null : old.tx()
+                old == null ? null : old.tx(),
+                old == null ? null : old.isFinishedDueToTimeout()
         ));
     }
 

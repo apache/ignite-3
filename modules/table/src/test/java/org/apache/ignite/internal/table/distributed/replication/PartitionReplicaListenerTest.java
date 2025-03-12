@@ -747,18 +747,19 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         doAnswer(invocation -> {
-            UUID txId = invocation.getArgument(4);
+            UUID txId = invocation.getArgument(5);
 
             txManager.updateTxMeta(txId, old -> new TxStateMeta(
                     ABORTED,
                     localNode.id(),
                     commitPartitionId,
                     null,
+                    null,
                     null
             ));
 
             return nullCompletedFuture();
-        }).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
+        }).when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), any(), any());
 
         CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(tablePartitionIdMessage(grpId))
@@ -802,7 +803,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID txId = newTxId();
 
         txStateStorage.putForRebalance(txId, new TxMeta(txState, singletonList(new EnlistedPartitionGroup(grpId)), null));
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(txState, null, null, null, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(txState, null, null, null, null, null));
 
         BinaryRow testRow = binaryRow(0);
 
@@ -937,7 +938,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, localNode.id(), commitPartitionId, clock.now(), null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, localNode.id(), commitPartitionId, clock.now(), null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -955,7 +956,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), commitPartitionId, null, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), commitPartitionId, null, null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -974,7 +975,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, localNode.id(), commitPartitionId, null, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, localNode.id(), commitPartitionId, null, null, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -1669,7 +1670,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             // Imitation of tx commit.
             txStateStorage.putForRebalance(txId, new TxMeta(COMMITTED, new ArrayList<>(), now));
-            txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID(), commitPartitionId, now, null));
+            txManager.updateTxMeta(txId, old -> new TxStateMeta(
+                    COMMITTED, UUID.randomUUID(), commitPartitionId, now, null, null)
+            );
 
             CompletableFuture<?> replicaCleanupFut = partitionReplicaListener.invoke(
                     TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
@@ -2302,8 +2305,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).cleanup(any(), anyString(), any());
+        doAnswer(invocation -> nullCompletedFuture())
+                .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), any(), any());
+        doAnswer(invocation -> nullCompletedFuture())
+                .when(txManager).cleanup(any(), anyString(), any());
     }
 
     private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, RwListenerInvocation listenerInvocation) {
@@ -2993,7 +2998,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         HybridTimestamp commitTs = clock.now();
         HybridTimestamp commitTsOrNull = commit ? commitTs : null;
 
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(newTxState, UUID.randomUUID(), commitPartitionId, commitTsOrNull, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(newTxState, UUID.randomUUID(), commitPartitionId, commitTs, null, null));
 
         if (enabledColocation()) {
             lockManager.releaseAll(txId);

@@ -1695,7 +1695,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 transactionInflights,
                 attemptsObtainLock,
                 this::streamerFlushExecutor,
-                Objects.requireNonNull(streamerReceiverRunner)
+                Objects.requireNonNull(streamerReceiverRunner),
+                () -> txCfg.value().readWriteTimeout(),
+                () -> txCfg.value().readOnlyTimeout()
         );
 
         return new TableImpl(
