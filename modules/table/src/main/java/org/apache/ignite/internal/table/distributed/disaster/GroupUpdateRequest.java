@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -47,7 +48,6 @@ import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.CLUSTER_NOT_ID
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -275,7 +275,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionIds[i]);
             LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
                     ? localStatesMap.get(replicaGrpId)
-                    : new LocalPartitionStateMessageByNode(new HashMap<>());
+                    : new LocalPartitionStateMessageByNode(emptyMap());
 
             futures[i] = partitionUpdate(
                     replicaGrpId,
