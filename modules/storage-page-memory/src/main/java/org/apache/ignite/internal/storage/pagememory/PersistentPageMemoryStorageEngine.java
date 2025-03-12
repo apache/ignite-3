@@ -39,6 +39,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -71,6 +72,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryStorageEngine.class);
 
     private final String igniteInstanceName;
+
+    private final MetricManager metricManager;
 
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
@@ -115,6 +118,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
+            MetricManager metricManager,
+            // TODO IGNITE-24766 Remove this parameter.
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
@@ -127,6 +132,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         super(clock);
 
         this.igniteInstanceName = igniteInstanceName;
+        this.metricManager = metricManager;
         this.engineConfig = engineConfig;
         this.storageConfig = storageConfig;
         this.ioRegistry = ioRegistry;
@@ -299,6 +305,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         int pageSize = engineConfig.pageSize().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
+                metricManager,
                 storageProfileConfiguration,
                 ioRegistry,
                 filePageStoreManager,

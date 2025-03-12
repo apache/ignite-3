@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
@@ -68,6 +69,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
+                mock(MetricManager.class),
                 engineConfig,
                 storageConfig,
                 ioRegistry,

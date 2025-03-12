@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
@@ -54,6 +55,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
 
         return new PersistentPageMemoryStorageEngine(
                 "test",
+                mock(MetricManager.class),
                 engineConfig,
                 storageConfig,
                 ioRegistry,

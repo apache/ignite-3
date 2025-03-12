@@ -27,6 +27,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -49,6 +50,7 @@ public class RocksDbDataStorageModule implements DataStorageModule {
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
+            MetricManager metricManager,
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,

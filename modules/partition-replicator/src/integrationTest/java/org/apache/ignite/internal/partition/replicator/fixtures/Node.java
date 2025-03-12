@@ -550,6 +550,7 @@ public class Node {
         dataStorageMgr = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
+                        new NoOpMetricManager(),
                         nodeCfgMgr.configurationRegistry(),
                         dir.resolve("storage"),
                         null,

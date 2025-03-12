@@ -24,6 +24,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -41,9 +42,17 @@ class NonVolatileTestDataStorageModule implements DataStorageModule {
     }
 
     @Override
-    public StorageEngine createEngine(String igniteInstanceName, ConfigurationRegistry configRegistry, Path storagePath,
-            @Nullable LongJvmPauseDetector longJvmPauseDetector, FailureManager failureManager, LogSyncer logSyncer, HybridClock clock,
-            ScheduledExecutorService commonScheduler) throws StorageException {
+    public StorageEngine createEngine(
+            String igniteInstanceName,
+            MetricManager metricManager,
+            ConfigurationRegistry configRegistry,
+            Path storagePath,
+            @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            FailureManager failureManager,
+            LogSyncer logSyncer,
+            HybridClock clock,
+            ScheduledExecutorService commonScheduler
+    ) throws StorageException {
         return new TestStorageEngine() {
             @Override
             public boolean isVolatile() {

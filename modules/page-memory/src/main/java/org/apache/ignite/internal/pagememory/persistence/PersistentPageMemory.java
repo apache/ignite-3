@@ -80,6 +80,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
@@ -158,6 +159,8 @@ public class PersistentPageMemory implements PageMemory {
     /** Data region configuration view. */
     private final PersistentPageMemoryProfileView storageProfileView;
 
+    private final PersistentPageMemoryMetricSource metricSource;
+
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
 
@@ -218,6 +221,7 @@ public class PersistentPageMemory implements PageMemory {
      * Constructor.
      *
      * @param storageProfileConfiguration Storage profile configuration.
+     * @param metricSource Metric source.
      * @param ioRegistry IO registry.
      * @param segmentSizes Segments sizes in bytes.
      * @param checkpointBufferSize Checkpoint buffer size in bytes.
@@ -229,6 +233,7 @@ public class PersistentPageMemory implements PageMemory {
      */
     public PersistentPageMemory(
             PersistentPageMemoryProfileConfiguration storageProfileConfiguration,
+            PersistentPageMemoryMetricSource metricSource,
             PageIoRegistry ioRegistry,
             long[] segmentSizes,
             long checkpointBufferSize,
@@ -240,6 +245,9 @@ public class PersistentPageMemory implements PageMemory {
             OffheapReadWriteLock rwLock
     ) {
         this.storageProfileView = (PersistentPageMemoryProfileView) storageProfileConfiguration.value();
+        this.metricSource = metricSource;
+        initMetrics();
+
         this.ioRegistry = ioRegistry;
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
@@ -273,6 +281,15 @@ public class PersistentPageMemory implements PageMemory {
         delayedPageReplacementTracker = new DelayedPageReplacementTracker(pageSize, flushDirtyPageForReplacement, LOG, sizes.length - 1);
 
         this.writeThrottle = null;
+    }
+
+    private void initMetrics() {
+        metricSource.addMetric(new IntGauge(
+                "UsedCheckpointBufferPages", "Number of currently used pages in checkpoint buffer.", this::usedCheckpointBufferPages
+        ));
+        metricSource.addMetric(new IntGauge(
+                "MaxCheckpointBufferPages", "The capacity of checkpoint buffer in pages.", this::maxCheckpointBufferPages
+        ));
     }
 
     /**
