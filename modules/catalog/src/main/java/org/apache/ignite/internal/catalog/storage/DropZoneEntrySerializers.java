@@ -48,7 +48,7 @@ public class DropZoneEntrySerializers {
     /**
      * Serializer for {@link DropZoneEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class DropZoneEntrySerializerV2 implements CatalogObjectSerializer<DropZoneEntry> {
         @Override
         public DropZoneEntry readFrom(CatalogObjectDataInput input)throws IOException {

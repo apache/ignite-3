@@ -98,7 +98,7 @@ public class CatalogZoneDescriptorSerializers {
     /**
      * Serializer for {@link CatalogZoneDescriptor}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class ZoneDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogZoneDescriptor> {
 
         private final MarshallableType<CatalogStorageProfilesDescriptor> storageProfileType =

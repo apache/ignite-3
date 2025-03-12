@@ -59,7 +59,7 @@ public class NewIndexEntrySerializers {
     /**
      * Serializer for {@link NewIndexEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class NewIndexEntrySerializerV2 implements CatalogObjectSerializer<NewIndexEntry> {
 
         private final MarshallableType<CatalogIndexDescriptor> indexType =

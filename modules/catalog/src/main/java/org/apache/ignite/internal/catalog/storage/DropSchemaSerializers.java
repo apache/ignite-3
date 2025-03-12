@@ -48,7 +48,7 @@ public class DropSchemaSerializers {
     /**
      * Serializer for {@link DropSchemaEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class DropSchemaSerializerV2 implements CatalogObjectSerializer<DropSchemaEntry> {
         @Override
         public DropSchemaEntry readFrom(CatalogObjectDataInput input)throws IOException {

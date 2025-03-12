@@ -61,7 +61,7 @@ public class NewZoneEntrySerializers {
     /**
      * Serializer for {@link NewZoneEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class NewZoneEntrySerializerV2 implements CatalogObjectSerializer<NewZoneEntry> {
 
         private final MarshallableType<CatalogZoneDescriptor> zoneType =

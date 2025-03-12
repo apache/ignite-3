@@ -414,6 +414,9 @@ public class CatalogUtils {
      * @param precision Type precision.
      */
     public static int defaultLength(ColumnType columnType, int precision) {
+        if (!columnType.lengthAllowed()) {
+            return -1;
+        }
         // TODO IGNITE-20432: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
         switch (columnType) {
             case STRING:

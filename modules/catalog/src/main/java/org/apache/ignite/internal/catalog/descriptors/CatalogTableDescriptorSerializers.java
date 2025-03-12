@@ -186,7 +186,7 @@ public class CatalogTableDescriptorSerializers {
     /**
      * Serializer for {@link CatalogTableDescriptor}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 2, since = "3.1.0")
     static class TableDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogTableDescriptor> {
 
         private final MarshallableType<CatalogTableSchemaVersions> tableVersionsType =

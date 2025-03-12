@@ -48,7 +48,7 @@ public class StartBuildingIndexEntrySerializers {
     /**
      * Serializer for {@link StartBuildingIndexEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class StartBuildingIndexEntrySerializerV2 implements CatalogObjectSerializer<StartBuildingIndexEntry> {
         @Override
         public StartBuildingIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {

@@ -48,7 +48,7 @@ public class RemoveIndexEntrySerializers {
     /**
      * Serializer for {@link RemoveIndexEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class RemoveIndexEntrySerializerV2 implements CatalogObjectSerializer<RemoveIndexEntry> {
         @Override
         public RemoveIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {

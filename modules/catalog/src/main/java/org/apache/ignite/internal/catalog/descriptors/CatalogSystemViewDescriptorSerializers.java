@@ -81,7 +81,7 @@ public class CatalogSystemViewDescriptorSerializers {
     /**
      * Serializer for {@link CatalogSystemViewDescriptor}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class SystemViewDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogSystemViewDescriptor> {
 
         private final MarshallableType<CatalogTableColumnDescriptor> columnType =

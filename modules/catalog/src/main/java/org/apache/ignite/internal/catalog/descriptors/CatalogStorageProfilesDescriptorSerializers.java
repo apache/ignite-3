@@ -67,7 +67,7 @@ public class CatalogStorageProfilesDescriptorSerializers {
     /**
      * Serializer for {@link CatalogStorageProfilesDescriptor}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class StorageProfilesDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogStorageProfilesDescriptor> {
 
         private final MarshallableType<CatalogStorageProfileDescriptor> profileType =

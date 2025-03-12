@@ -61,7 +61,7 @@ public class NewTableEntrySerializers {
     /**
      * Serializer for {@link NewTableEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class NewTableEntrySerializerV2 implements CatalogObjectSerializer<NewTableEntry> {
 
         private final MarshallableType<CatalogTableDescriptor> tableType =

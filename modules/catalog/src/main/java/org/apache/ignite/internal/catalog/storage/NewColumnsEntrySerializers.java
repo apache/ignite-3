@@ -70,7 +70,7 @@ public class NewColumnsEntrySerializers {
     /**
      * Serializer for {@link NewColumnsEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class NewColumnsEntrySerializerV2 implements CatalogObjectSerializer<NewColumnsEntry> {
 
         private final MarshallableType<CatalogTableColumnDescriptor> columnType =

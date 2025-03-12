@@ -48,7 +48,7 @@ public class CatalogStorageProfileDescriptorSerializers {
     /**
      * Serializer for {@link CatalogStorageProfilesDescriptor}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class StorageProfileDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogStorageProfileDescriptor> {
         @Override
         public CatalogStorageProfileDescriptor readFrom(CatalogObjectDataInput input) throws IOException {

@@ -48,7 +48,7 @@ public class MakeIndexAvailableEntrySerializers {
     /**
      * Serializer for {@link MakeIndexAvailableEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class MakeIndexAvailableEntrySerializerV2 implements CatalogObjectSerializer<MakeIndexAvailableEntry> {
         @Override
         public MakeIndexAvailableEntry readFrom(CatalogObjectDataInput input)throws IOException {

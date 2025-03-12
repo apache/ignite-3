@@ -56,7 +56,7 @@ public class DropColumnsEntrySerializers {
     /**
      * Serializer for {@link DropColumnsEntry}.
      */
-    @CatalogSerializer(version = 2, since = "3.0.0")
+    @CatalogSerializer(version = 1, since = "3.1.0")
     static class DropColumnEntrySerializerV2 implements CatalogObjectSerializer<DropColumnsEntry> {
         @Override
         public DropColumnsEntry readFrom(CatalogObjectDataInput input)throws IOException {
