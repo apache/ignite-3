@@ -71,7 +71,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond1.keys(), cond2.keys()), cond.keys());
         assertTrue(cond.test(entries));
         verify(cond1, times(1)).test(Arrays.copyOf(entries, 2));
-        verify(cond2, times(1)).test(Arrays.copyOfRange(entries, 2, 3));
+        verify(cond2, never()).test(any(Entry[].class));
     }
 
     @Test
@@ -81,7 +81,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond2.keys(), cond3.keys()), cond.keys());
         assertTrue(cond.test(entries));
         verify(cond2, times(1)).test(Arrays.copyOf(entries, 1));
-        verify(cond3, never()).test(any());
+        verify(cond3, never()).test(any(Entry[].class));
     }
 
     @Test
@@ -96,12 +96,12 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testFalseFalse() {
-        var cond = new AndCondition(cond3, cond4);
+        var cond = new OrCondition(cond3, cond4);
 
         assertArrayEquals(ArrayUtils.concat(cond3.keys(), cond4.keys()), cond.keys());
         assertFalse(cond.test(entries));
         verify(cond3, times(1)).test(Arrays.copyOf(entries, 2));
-        verify(cond4, never()).test(any());
+        verify(cond4, times(1)).test(Arrays.copyOfRange(entries, 2, 3));
     }
 
     private static Condition cond(byte[][] keys, boolean result) {
@@ -109,7 +109,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
 
         when(m.keys()).thenReturn(keys);
 
-        when(m.test(any())).thenReturn(result);
+        when(m.test(any(Entry[].class))).thenReturn(result);
 
         return m;
     }
