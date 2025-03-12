@@ -75,13 +75,13 @@ public final class MarshallableType<T> {
     }
 
     /**
-     * A convenient method for casting the given option to a type of this class.
+     * A convenient method for casting the given option to a class of this type.
      *
-     * @param elem Object.
+     * @param obj Object.
      * @return Element casted to this type.
      */
-    public T castElement(Object elem) {
-        return type.cast(elem);
+    public T cast(Object obj) {
+        return type.cast(obj);
     }
 
     /**

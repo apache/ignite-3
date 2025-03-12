@@ -63,7 +63,7 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
         checkVersion(entryVersion, version, typeId);
 
         MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
-        return type.castElement(entry);
+        return type.cast(entry);
     }
 
     /**
@@ -83,7 +83,7 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
             checkVersion(entryVersion, expectedVersion, typeId);
 
             MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
-            list.add(type.castElement(entry));
+            list.add(type.cast(entry));
         }
 
         return list;
@@ -127,7 +127,7 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
             checkVersion(entryVersion, expectedVersion, typeId);
 
             MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
-            array[i] = (type.castElement(entry));
+            array[i] = (type.cast(entry));
         }
 
         return array;
