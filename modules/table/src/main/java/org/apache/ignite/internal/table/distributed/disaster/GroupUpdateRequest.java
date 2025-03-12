@@ -47,6 +47,7 @@ import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.CLUSTER_NOT_ID
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -272,6 +273,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
         for (int i = 0; i < partitionIds.length; i++) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionIds[i]);
+            LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
+                    ? localStatesMap.get(replicaGrpId)
+                    : new LocalPartitionStateMessageByNode(new HashMap<>());
 
             futures[i] = partitionUpdate(
                     replicaGrpId,
@@ -282,7 +286,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     revision,
                     metaStorageManager,
                     tableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                    localStatesMap.get(replicaGrpId),
+                    localStatesByNode,
                     assignmentsTimestamp,
                     manualUpdate
             ).thenAccept(res -> {
@@ -304,7 +308,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             long revision,
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments,
-            @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
+            LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
             long assignmentsTimestamp,
             boolean manualUpdate
     ) {
@@ -380,19 +384,12 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     /**
      * Returns an assignment with the most up to date log index, if there are more than one node with the same index, returns the first one
-     * in the lexicographic order. If there are no alive nodes hosting partition, returns the first one.
+     * in the lexicographic order.
      */
     private static Assignment nextAssignment(
-            @Nullable LocalPartitionStateMessageByNode localPartitionStateByNode,
+            LocalPartitionStateMessageByNode localPartitionStateByNode,
             Set<Assignment> assignments
     ) {
-        // There are no alive nodes hosting this partition, we choose the node with the first consistent id in the lexicographic order.
-        if (localPartitionStateByNode == null) {
-            return assignments.stream()
-                    .min(Comparator.comparing(Assignment::consistentId))
-                    .orElseThrow();
-        }
-
         // For nodes that we know log index for (having any data), we choose the node with the highest log index.
         // If there are more than one node with same log index, we choose the one with the first consistent id in the lexicographic order.
         Optional<Assignment> nodeWithMaxLogIndex = assignments.stream()
@@ -455,12 +452,8 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      */
     private static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
-            @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
-        if (localPartitionStateMessageByNode == null) {
-            return new HashSet<>();
-        }
-
         var partAssignments = new HashSet<Assignment>();
 
         for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {
