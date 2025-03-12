@@ -88,6 +88,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRe
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -484,6 +485,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         DataStorageManager manager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         NODE_NAME,
+                        mock(MetricManager.class),
                         mockedRegistry,
                         workDir,
                         null,
@@ -535,6 +537,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             @Override
             public StorageEngine createEngine(
                     String igniteInstanceName,
+                    MetricManager metricManager,
                     ConfigurationRegistry configRegistry,
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -545,6 +548,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             ) throws StorageException {
                 return spy(super.createEngine(
                         igniteInstanceName,
+                        metricManager,
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,

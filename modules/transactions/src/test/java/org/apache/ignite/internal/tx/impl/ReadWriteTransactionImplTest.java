@@ -100,15 +100,15 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private void startTxAndTryToEnlist(boolean commit) {
         HashSet<UUID> finishedTxs = new HashSet<>();
 
-        Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), any())).thenAnswer(invocation -> {
-            finishedTxs.add(invocation.getArgument(4));
+        Mockito.when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), any(), any())).thenAnswer(invocation -> {
+            finishedTxs.add(invocation.getArgument(5));
 
             return nullCompletedFuture();
         });
 
         Mockito.when(txManager.stateMeta(any())).thenAnswer(invocation -> {
             if (finishedTxs.contains(invocation.getArgument(0))) {
-                return new TxStateMeta(txState, randomUUID(), txCommitPart, null, null);
+                return new TxStateMeta(txState, randomUUID(), txCommitPart, null, null, null);
             }
 
             return null;

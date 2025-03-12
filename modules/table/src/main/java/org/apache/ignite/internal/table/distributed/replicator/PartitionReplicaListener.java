@@ -62,6 +62,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -555,7 +556,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         req.coordinatorId(),
                         req.commitPartitionId().asReplicationGroupId(),
                         null,
-                        old == null ? null : old.tx()
+                        old == null ? null : old.tx(),
+                        old == null ? null : old.isFinishedDueToTimeout()
                 ));
             }
         }
@@ -807,7 +809,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     req.coordinatorId(),
                     req.commitPartitionId().asReplicationGroupId(),
                     null,
-                    old == null ? null : old.tx()
+                    old == null ? null : old.tx(),
+                    old == null ? null : old.isFinishedDueToTimeout()
             ));
 
             var opId = new OperationId(senderId, req.timestamp().longValue());
@@ -1828,9 +1831,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
+            boolean isFinishedDueToTimeout = txStateMeta != null
+                    && txStateMeta.isFinishedDueToTimeout() != null
+                    && txStateMeta.isFinishedDueToTimeout();
+
 
             return failedFuture(new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
+                            isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
                     "Transaction is already finished txId=[" + txId + ", txState=" + txState + "]."
             ));
         }
