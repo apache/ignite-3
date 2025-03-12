@@ -458,8 +458,9 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             ), willCompleteSuccessfully());
         }
 
-        HybridTimestamp evictionTimestamp = HybridTimestamp.hybridTimestamp(nodes.get(0).clockService.nowLong()
-                - (raftConfiguration.retryTimeout().value() + nodes.get(0).clockService.maxClockSkewMillis()));
+        HybridTimestamp evictionTimestamp = nodes.get(0).clockService.now().subtractPhysicalTime(
+                raftConfiguration.retryTimeout().value() + nodes.get(0).clockService.maxClockSkewMillis()
+        );
 
         assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(evictionTimestamp), willCompleteSuccessfully());
 
