@@ -34,8 +34,6 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -62,11 +60,6 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
     ) throws StorageException {
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
-        PersistentPageMemoryStorageEngineConfiguration engineConfig =
-                ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
-
-        assert engineConfig != null;
-
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -74,7 +67,6 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
         return new PersistentPageMemoryStorageEngine(
                 igniteInstanceName,
                 metricManager,
-                engineConfig,
                 storageConfig,
                 ioRegistry,
                 storagePath,

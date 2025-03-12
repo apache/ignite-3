@@ -29,7 +29,6 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,8 +42,6 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration
-            VolatilePageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = aimem}")
             StorageConfiguration storageConfig
     ) {
@@ -52,7 +49,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, clock);
+        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, ioRegistry, clock);
 
         engine.start();
 
@@ -61,7 +58,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
                 mock(StorageIndexDescriptorSupplier.class)
         );
 
-        initialize(tableStorage, engineConfig.pageSize().value());
+        initialize(tableStorage, engine.configuration().pageSize().value());
     }
 
     @AfterEach
