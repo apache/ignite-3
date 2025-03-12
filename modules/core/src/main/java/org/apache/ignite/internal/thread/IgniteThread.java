@@ -65,7 +65,7 @@ public class IgniteThread extends Thread implements ThreadAttributes {
      * @param r Runnable to execute.
      * @param allowedOperations Operations which this thread allows to execute.
      */
-    IgniteThread(String finalName, Runnable r, ThreadOperation... allowedOperations) {
+    public IgniteThread(String finalName, Runnable r, ThreadOperation... allowedOperations) {
         super(r, finalName);
 
         Set<ThreadOperation> operations = EnumSet.noneOf(ThreadOperation.class);
