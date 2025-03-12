@@ -112,8 +112,8 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
         vacuumizer.startLocalVacuumizationTriggering();
         assertTrue(waitForCondition(
                 () -> evictionTimestamp.get() != null,
-                TOUCH_COUNTER_CHANGE_TIMEOUT_MILLIS)
-        );
+                TOUCH_COUNTER_CHANGE_TIMEOUT_MILLIS
+        ));
 
         assertEquals(NOW_MILLIS - ttl - clockService.maxClockSkewMillis(), evictionTimestamp.get().getPhysical());
     }
