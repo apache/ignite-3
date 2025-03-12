@@ -80,7 +80,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond2.keys(), cond3.keys()), cond.keys());
         assertTrue(cond.test(entries));
         verify(cond2, times(1)).test(Arrays.copyOf(entries, 1));
-        verify(cond3, times(1)).test(Arrays.copyOfRange(entries, 1, 3));
+        verify(cond3, times(0)).test(Arrays.copyOfRange(entries, 1, 3));
     }
 
     @Test
@@ -100,7 +100,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond3.keys(), cond4.keys()), cond.keys());
         assertFalse(cond.test(entries));
         verify(cond3, times(1)).test(Arrays.copyOf(entries, 2));
-        verify(cond4, times(1)).test(Arrays.copyOfRange(entries, 2, 3));
+        verify(cond4, times(0)).test(Arrays.copyOfRange(entries, 2, 3));
     }
 
     private static Condition cond(byte[][] keys, boolean result) {

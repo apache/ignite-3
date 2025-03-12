@@ -90,7 +90,7 @@ public class AndConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond3.keys(), cond2.keys()), cond.keys());
         assertFalse(cond.test(entries));
         verify(cond3, times(1)).test(Arrays.copyOf(entries, 2));
-        verify(cond2, times(1)).test(Arrays.copyOfRange(entries, 2, 3));
+        verify(cond2, times(0)).test(Arrays.copyOfRange(entries, 2, 3));
     }
 
     @Test
@@ -100,7 +100,7 @@ public class AndConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond3.keys(), cond4.keys()), cond.keys());
         assertFalse(cond.test(entries));
         verify(cond3, times(1)).test(Arrays.copyOf(entries, 2));
-        verify(cond4, times(1)).test(Arrays.copyOfRange(entries, 2, 3));
+        verify(cond4, times(0)).test(Arrays.copyOfRange(entries, 2, 3));
     }
 
     private static Condition cond(byte[][] keys, boolean result) {
