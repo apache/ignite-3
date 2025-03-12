@@ -53,7 +53,7 @@ public class FakeCatalogService implements CatalogService {
                 0,
                 0,
                 "table",
-                0,
+                invocation.<Integer>getArgument(0) + 10_000,
                 List.of(mock(CatalogTableColumnDescriptor.class)),
                 List.of(),
                 null,
