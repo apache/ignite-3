@@ -104,7 +104,6 @@ public class RocksDbStorageEngine implements StorageEngine {
      */
     public RocksDbStorageEngine(
             String nodeName,
-            // TODO IGNITE-24766 Remove this parameter.
             StorageConfiguration storageConfiguration,
             Path storagePath,
             LogSyncer logSyncer,
