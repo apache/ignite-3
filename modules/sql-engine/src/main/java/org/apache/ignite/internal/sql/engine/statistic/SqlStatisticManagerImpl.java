@@ -50,7 +50,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
-    private static final long DEFAULT_TABLE_SIZE = 1_000_000L;
+    static final long DEFAULT_TABLE_SIZE = 1L;
     private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, 0L);
 
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);

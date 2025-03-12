@@ -37,7 +37,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -53,7 +52,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -99,7 +97,6 @@ public class CommitManyWritesBenchmark {
 
         storageEngine = new RocksDbStorageEngine(
                 "test",
-                engineConfiguration(),
                 storageConfiguration(),
                 workDir,
                 () -> {},
@@ -185,18 +182,6 @@ public class CommitManyWritesBenchmark {
                 return null;
             });
         }
-    }
-
-    private static RocksDbStorageEngineConfiguration engineConfiguration() {
-        RocksDbStorageEngineConfiguration config = mock(RocksDbStorageEngineConfiguration.class);
-
-        ConfigurationValue<Integer> flushDelayMillis = mock(ConfigurationValue.class);
-
-        when(flushDelayMillis.value()).thenReturn(100);
-
-        when(config.flushDelayMillis()).thenReturn(flushDelayMillis);
-
-        return config;
     }
 
     private static StorageConfiguration storageConfiguration() {
