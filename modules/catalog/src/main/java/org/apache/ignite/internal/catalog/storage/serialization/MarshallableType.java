@@ -26,16 +26,16 @@ import java.util.Objects;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Holds type information for of a serialized object. Examples:
+ * Holds type information of a serialized object. Examples:
  *
  * <p>Type information for a concrete type:
  * <pre>
- *     var typeInfo = MarshallableEntryTypeInfo.type(MyClass.class, myTypeId, myTypeVersion);
+ *     var typeInfo = MarshallableType.typeOf(MyClass.class, myTypeId, myTypeVersion);
  * </pre>
  *
  * <p>Type information for a field or a collection that stores elements of different types.
  * <pre>
- *     var typeInfo = MarshallableEntryTypeInfo.type(BaseClass.class)
+ *     var typeInfo = MarshallableType.builder(BaseClass.class)
  *       .addVariant(MarshallableEntry.VARIANT_1, version1)
  *       .addVariant(MarshallableEntry.VARIANT_2, version2)
  *       .build;

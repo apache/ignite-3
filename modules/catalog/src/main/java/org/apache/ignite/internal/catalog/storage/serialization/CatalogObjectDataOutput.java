@@ -41,7 +41,9 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
     }
 
     /**
-     * Writes entry.
+     * Writes an entry with the latest serializer.
+     *
+     * @param entry Entry.
      */
     public void writeEntry(MarshallableEntry entry) throws IOException {
         int typeId = entry.typeId();
@@ -52,7 +54,10 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
     }
 
     /**
-     * Writes entry.
+     * Writes an entry.
+     *
+     * @param type Element type.
+     * @param entry Entry.
      */
     public <T extends MarshallableEntry> void writeEntry(MarshallableType<T> type, T entry) throws IOException {
         int typeId = entry.typeId();
@@ -63,14 +68,17 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
     }
 
     /**
-     * Writes entry list.
+     * Writes a list of entries.
+     *
+     * @param type Element type.
+     * @param entries Entries.
      */
-    public <T extends MarshallableEntry> void writeEntryList(MarshallableType<T> listType, List<T> entries) throws IOException {
+    public <T extends MarshallableEntry> void writeEntryList(MarshallableType<T> type, List<T> entries) throws IOException {
         writeVarInt(entries.size());
 
         for (T entry : entries) {
             int typeId = entry.typeId();
-            int entryVersion = listType.version(typeId);
+            int entryVersion = type.version(typeId);
 
             writeEntryHeader(entry, entryVersion);
             serializers.get(entryVersion, typeId).writeTo(entry, this);

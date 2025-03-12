@@ -42,7 +42,7 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads entry.
+     * Reads an entry using a serializer of the version it was written with.
      */
     public MarshallableEntry readEntry() throws IOException {
         int typeId = readShort();
@@ -52,7 +52,9 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads entry.
+     * Reads an entry.
+     *
+     * @param type Entry type.
      */
     public <T extends MarshallableEntry> T readEntry(MarshallableType<T> type) throws IOException {
         int typeId = readShort();
