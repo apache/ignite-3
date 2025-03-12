@@ -22,7 +22,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * Compound condition, which {@link #combine(boolean, boolean)} results of left and right conditions.
+ * Compound condition, which combines results of left and right conditions.
  * Also, aggregate their keys in the left-right order.
  */
 public abstract class AbstractCompoundCondition implements Condition {
@@ -55,27 +55,16 @@ public abstract class AbstractCompoundCondition implements Condition {
         return keys;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean test(Entry... entries) {
-        return combine(
-                leftCondition.test(Arrays.copyOf(entries, leftCondition.keys().length)),
-                rightCondition.test(
-                        Arrays.copyOfRange(entries,
-                                leftCondition.keys().length,
-                                leftCondition.keys().length + rightCondition.keys().length)));
+    protected final boolean testLeftCondition(Entry[] entries) {
+        return leftCondition.test(Arrays.copyOf(entries, leftCondition.keys().length));
     }
 
-    /**
-     * Combine boolean condition from the results of left and right conditions.
-     *
-     * @param left condition.
-     * @param right condition.
-     * @return result of compound condition.
-     */
-    protected abstract boolean combine(boolean left, boolean right);
+    protected final boolean testRightCondition(Entry[] entries) {
+        return rightCondition.test(
+                Arrays.copyOfRange(entries,
+                        leftCondition.keys().length,
+                        leftCondition.keys().length + rightCondition.keys().length));
+    }
 
     /**
      * Returns left condition.

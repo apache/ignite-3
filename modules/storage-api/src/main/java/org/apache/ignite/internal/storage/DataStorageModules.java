@@ -30,6 +30,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,6 +87,7 @@ public class DataStorageModules {
      */
     public Map<String, StorageEngine> createStorageEngines(
             String igniteInstanceName,
+            MetricManager metricManager,
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -98,6 +100,7 @@ public class DataStorageModules {
                 Entry::getKey,
                 e -> e.getValue().createEngine(
                         igniteInstanceName,
+                        metricManager,
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,

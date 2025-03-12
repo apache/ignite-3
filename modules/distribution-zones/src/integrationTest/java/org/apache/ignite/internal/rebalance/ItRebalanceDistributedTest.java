@@ -1385,6 +1385,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
+                            metricManager,
                             nodeCfgMgr.configurationRegistry(),
                             dir.resolve("storage"),
                             null,

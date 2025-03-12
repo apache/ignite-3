@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFrom
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
+import java.util.PrimitiveIterator;
 import java.util.function.BiPredicate;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -45,7 +46,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
     /**
      * Creates NestedLoopJoinNode.
      *
-     * @param ctx  Execution context.
+     * @param ctx Execution context.
      * @param cond Join expression.
      * @param outputRowFactory Output row factory.
      */
@@ -161,9 +162,29 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         }
 
         @Override
+        protected void pushLeft(RowT row) throws Exception {
+            // Prefent fetching left if right is empty.
+            if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
+                waitingLeft--;
+
+                if (waitingLeft == 0) {
+                    waitingLeft = NOT_WAITING;
+                    leftInBuf.clear();
+
+                    join();
+                }
+
+                return;
+            }
+
+            super.pushLeft(row);
+        }
+
+        @Override
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -172,6 +193,13 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::doJoin);
+
+                                return;
+                            }
 
                             if (!cond.test(left, rightMaterialized.get(rightIdx++))) {
                                 continue;
@@ -192,19 +220,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 }
             }
 
-            if (waitingRight == 0) {
-                rightSource().request(waitingRight = inBufSize);
-            }
-
-            if (waitingLeft == 0 && leftInBuf.isEmpty()) {
-                leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
-                requested = 0;
-                rightMaterialized.clear();
-                downstream().end();
-            }
+            getMoreOrEnd();
         }
     }
 
@@ -249,6 +265,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -259,6 +276,13 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::doJoin);
+
+                                return;
+                            }
 
                             if (!cond.test(left, rightMaterialized.get(rightIdx++))) {
                                 continue;
@@ -279,6 +303,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                                 wasPushed = true;
 
                                 downstream().push(outputRowFactory.concat(left, rightRowFactory.create()));
+
+                                processed++;
                             }
 
                             if (matched || wasPushed) {
@@ -286,25 +312,20 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                                 rightIdx = 0;
                             }
                         }
+
+                        if (processed > inBufSize) {
+                            // Allow others to do their job.
+                            execute(this::doJoin);
+
+                            return;
+                        }
                     }
                 } finally {
                     inLoop = false;
                 }
             }
 
-            if (waitingRight == 0) {
-                rightSource().request(waitingRight = inBufSize);
-            }
-
-            if (waitingLeft == 0 && leftInBuf.isEmpty()) {
-                leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
-                requested = 0;
-                rightMaterialized.clear();
-                downstream().end();
-            }
+            getMoreOrEnd();
         }
     }
 
@@ -314,7 +335,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
         private @Nullable BitSet rightNotMatchedIndexes;
 
-        private int lastPushedInd;
+        private @Nullable PrimitiveIterator.OfInt rightNotMatchedIt;
 
         private int rightIdx;
 
@@ -341,10 +362,29 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         @Override
         protected void rewindInternal() {
             rightNotMatchedIndexes = null;
-            lastPushedInd = 0;
+            rightNotMatchedIt = null;
             rightIdx = 0;
 
             super.rewindInternal();
+        }
+
+        @Override
+        protected void pushLeft(RowT row) throws Exception {
+            // Prefent fetching left if right is empty.
+            if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
+                waitingLeft--;
+
+                if (waitingLeft == 0) {
+                    waitingLeft = NOT_WAITING;
+                    leftInBuf.clear();
+
+                    join();
+                }
+
+                return;
+            }
+
+            super.pushLeft(row);
         }
 
         /** {@inheritDoc} */
@@ -358,6 +398,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 }
 
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -366,6 +407,13 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::doJoin);
+
+                                return;
+                            }
 
                             RowT right = rightMaterialized.get(rightIdx++);
 
@@ -388,52 +436,42 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 } finally {
                     inLoop = false;
                 }
-            }
 
-            if (waitingLeft == NOT_WAITING && requested > 0 && (rightNotMatchedIndexes != null && !rightNotMatchedIndexes.isEmpty())) {
-                assert lastPushedInd >= 0;
-
-                inLoop = true;
-                try {
-                    for (lastPushedInd = rightNotMatchedIndexes.nextSetBit(lastPushedInd); ;
-                            lastPushedInd = rightNotMatchedIndexes.nextSetBit(lastPushedInd + 1)
-                    ) {
-                        checkState();
-
-                        if (lastPushedInd < 0) {
-                            break;
-                        }
-
-                        RowT row = outputRowFactory.concat(leftRowFactory.create(), rightMaterialized.get(lastPushedInd));
-
-                        rightNotMatchedIndexes.clear(lastPushedInd);
-
-                        requested--;
-                        downstream().push(row);
-
-                        if (lastPushedInd == Integer.MAX_VALUE || requested <= 0) {
-                            break;
-                        }
+                if (waitingLeft == NOT_WAITING && requested > 0) {
+                    if (rightNotMatchedIt == null) {
+                        rightNotMatchedIt = rightNotMatchedIndexes.stream().iterator();
                     }
-                } finally {
-                    inLoop = false;
+
+                    inLoop = true;
+                    try {
+                        while (requested > 0 && rightNotMatchedIt.hasNext()) {
+                            checkState();
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::doJoin);
+
+                                return;
+                            }
+
+                            int rowIdx = rightNotMatchedIt.nextInt();
+                            RowT row = outputRowFactory.concat(leftRowFactory.create(), rightMaterialized.get(rowIdx));
+
+                            requested--;
+                            downstream().push(row);
+                        }
+                    } finally {
+                        inLoop = false;
+                    }
                 }
             }
 
-            if (waitingRight == 0) {
-                rightSource().request(waitingRight = inBufSize);
-            }
+            getMoreOrEnd();
+        }
 
-            if (waitingLeft == 0 && leftInBuf.isEmpty()) {
-                leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null
-                    && leftInBuf.isEmpty() && rightNotMatchedIndexes.isEmpty()) {
-                requested = 0;
-                rightMaterialized.clear();
-                downstream().end();
-            }
+        @Override
+        protected boolean endOfRight() {
+            return waitingRight == NOT_WAITING && (rightNotMatchedIt != null && !rightNotMatchedIt.hasNext());
         }
     }
 
@@ -448,8 +486,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         private boolean leftMatched;
 
         private @Nullable BitSet rightNotMatchedIndexes;
-
-        private int lastPushedInd;
+        private @Nullable PrimitiveIterator.OfInt rightNotMatchedIt;
 
         private int rightIdx;
 
@@ -480,7 +517,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         protected void rewindInternal() {
             leftMatched = false;
             rightNotMatchedIndexes = null;
-            lastPushedInd = 0;
+            rightNotMatchedIt = null;
             rightIdx = 0;
 
             super.rewindInternal();
@@ -497,6 +534,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 }
 
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -507,6 +545,13 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::doJoin);
+
+                                return;
+                            }
 
                             RowT right = rightMaterialized.get(rightIdx++);
 
@@ -530,6 +575,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                                 wasPushed = true;
 
                                 downstream().push(outputRowFactory.concat(left, rightRowFactory.create()));
+                                processed++;
                             }
 
                             if (leftMatched || wasPushed) {
@@ -537,56 +583,53 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                                 rightIdx = 0;
                             }
                         }
-                    }
-                } finally {
-                    inLoop = false;
-                }
-            }
 
-            if (waitingLeft == NOT_WAITING && requested > 0 && (rightNotMatchedIndexes != null && !rightNotMatchedIndexes.isEmpty())) {
-                assert lastPushedInd >= 0;
+                        if (processed >= inBufSize) {
+                            // Allow others to do their job.
+                            execute(this::doJoin);
 
-                inLoop = true;
-                try {
-                    for (lastPushedInd = rightNotMatchedIndexes.nextSetBit(lastPushedInd); ;
-                            lastPushedInd = rightNotMatchedIndexes.nextSetBit(lastPushedInd + 1)
-                    ) {
-                        checkState();
-
-                        if (lastPushedInd < 0) {
-                            break;
-                        }
-
-                        RowT row = outputRowFactory.concat(leftRowFactory.create(), rightMaterialized.get(lastPushedInd));
-
-                        rightNotMatchedIndexes.clear(lastPushedInd);
-
-                        requested--;
-                        downstream().push(row);
-
-                        if (lastPushedInd == Integer.MAX_VALUE || requested <= 0) {
-                            break;
+                            return;
                         }
                     }
                 } finally {
                     inLoop = false;
                 }
+
+                if (waitingLeft == NOT_WAITING && requested > 0) {
+                    if (rightNotMatchedIt == null) {
+                        rightNotMatchedIt = rightNotMatchedIndexes.stream().iterator();
+                    }
+
+                    inLoop = true;
+                    try {
+                        while (requested > 0 && rightNotMatchedIt.hasNext()) {
+                            checkState();
+
+                            int rowIdx = rightNotMatchedIt.nextInt();
+                            RowT row = outputRowFactory.concat(leftRowFactory.create(), rightMaterialized.get(rowIdx));
+
+                            requested--;
+                            downstream().push(row);
+
+                            if (processed++ >= inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::doJoin);
+
+                                return;
+                            }
+                        }
+                    } finally {
+                        inLoop = false;
+                    }
+                }
             }
 
-            if (waitingRight == 0) {
-                rightSource().request(waitingRight = inBufSize);
-            }
+            getMoreOrEnd();
+        }
 
-            if (waitingLeft == 0 && leftInBuf.isEmpty()) {
-                leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null
-                    && leftInBuf.isEmpty() && rightNotMatchedIndexes.isEmpty()) {
-                requested = 0;
-                rightMaterialized.clear();
-                downstream().end();
-            }
+        @Override
+        protected boolean endOfRight() {
+            return waitingRight == NOT_WAITING && (rightNotMatchedIt != null && !rightNotMatchedIt.hasNext());
         }
     }
 
@@ -596,7 +639,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         /**
          * Creates NestedLoopJoinNode for SEMI JOIN operator.
          *
-         * @param ctx  Execution context.
+         * @param ctx Execution context.
          * @param cond Join expression.
          * @param outputRowFactory Output row factory.
          */
@@ -612,6 +655,25 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
             super.rewindInternal();
         }
 
+        @Override
+        protected void pushLeft(RowT row) throws Exception {
+            // Prefent fetching left if right is empty.
+            if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
+                waitingLeft--;
+
+                if (waitingLeft == 0) {
+                    waitingLeft = NOT_WAITING;
+                    leftInBuf.clear();
+
+                    join();
+                }
+
+                return;
+            }
+
+            super.pushLeft(row);
+        }
+
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
@@ -623,8 +685,16 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     boolean matched = false;
 
+                    int processed = 0;
                     while (!matched && requested > 0 && rightIdx < rightMaterialized.size()) {
                         checkState();
+
+                        if (processed++ > inBufSize) {
+                            // Allow others to do their job.
+                            execute(this::doJoin);
+
+                            return;
+                        }
 
                         if (!cond.test(left, rightMaterialized.get(rightIdx++))) {
                             continue;
@@ -643,20 +713,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 }
             }
 
-            if (waitingRight == 0) {
-                rightSource().request(waitingRight = inBufSize);
-            }
-
-            if (waitingLeft == 0 && leftInBuf.isEmpty()) {
-                leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null
-                    && leftInBuf.isEmpty()) {
-                rightMaterialized.clear();
-                downstream().end();
-                requested = 0;
-            }
+            getMoreOrEnd();
         }
     }
 
@@ -666,7 +723,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         /**
          * Creates NestedLoopJoinNode for ANTI JOIN operator.
          *
-         * @param ctx  Execution context.
+         * @param ctx Execution context.
          * @param cond Join expression.
          * @param outputRowFactory Output row factory.
          */
@@ -686,6 +743,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -694,11 +752,19 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         boolean matched = false;
 
-                        while (!matched && rightIdx < rightMaterialized.size()) {
+                        while (rightIdx < rightMaterialized.size()) {
                             checkState();
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::doJoin);
+
+                                return;
+                            }
 
                             if (cond.test(left, rightMaterialized.get(rightIdx++))) {
                                 matched = true;
+                                break;
                             }
                         }
 
@@ -709,25 +775,40 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         left = null;
                         rightIdx = 0;
+
+                        if (rightMaterialized.isEmpty() && processed++ >= inBufSize) {
+                            // Allow others to do their job.
+                            execute(this::doJoin);
+
+                            return;
+                        }
                     }
                 } finally {
                     inLoop = false;
                 }
             }
 
-            if (waitingRight == 0) {
-                rightSource().request(waitingRight = inBufSize);
-            }
-
-            if (waitingLeft == 0 && leftInBuf.isEmpty()) {
-                leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
-                requested = 0;
-                rightMaterialized.clear();
-                downstream().end();
-            }
+            getMoreOrEnd();
         }
+    }
+
+    void getMoreOrEnd() throws Exception {
+        if (waitingRight == 0) {
+            rightSource().request(waitingRight = inBufSize);
+        }
+
+        if (waitingLeft == 0 && leftInBuf.isEmpty()) {
+            leftSource().request(waitingLeft = inBufSize);
+        }
+
+        if (requested > 0 && waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty() && endOfRight()) {
+            requested = 0;
+            rightMaterialized.clear();
+            downstream().end();
+        }
+    }
+
+    protected boolean endOfRight() {
+        return waitingRight == NOT_WAITING;
     }
 }

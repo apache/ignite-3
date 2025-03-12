@@ -60,6 +60,7 @@ import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FakeP
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
@@ -152,6 +153,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
 
         pageMemory = new PersistentPageMemory(
                 aiPersistProfileConfig,
+                new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 new long[]{SEGMENT_SIZE},
                 CHECKPOINT_BUFFER_SIZE,
@@ -362,18 +364,22 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void hugeLoadDoesNotBreakCheckpointReadLock(boolean speedBasedThrottling) {
+        PersistentPageMemoryMetricSource metricSource = new PersistentPageMemoryMetricSource("test");
+
         PagesWriteThrottlePolicy writeThrottle;
         if (speedBasedThrottling) {
             writeThrottle = new PagesWriteSpeedBasedThrottle(
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
-                    checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread
+                    checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
+                    metricSource
             );
         } else {
             writeThrottle = new TargetRatioPagesWriteThrottle(
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
-                    checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread
+                    checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
+                    metricSource
             );
         }
 

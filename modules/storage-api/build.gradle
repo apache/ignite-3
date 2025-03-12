@@ -24,6 +24,7 @@ dependencies {
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor libs.auto.service
 
+    api project(':ignite-metrics')
     implementation project(':ignite-api')
     implementation project(':ignite-schema')
     implementation project(':ignite-configuration')

@@ -20,15 +20,20 @@ package org.apache.ignite.internal.partition.replicator.fixtures;
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.internal.util.MockUtil.isMock;
@@ -120,6 +125,7 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -544,6 +550,7 @@ public class Node {
         dataStorageMgr = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
+                        new NoOpMetricManager(),
                         nodeCfgMgr.configurationRegistry(),
                         dir.resolve("storage"),
                         null,
@@ -952,5 +959,28 @@ public class Node {
 
     public TxManager txManager() {
         return txManager;
+    }
+
+    /**
+     * Returns the primary replica for given zone's partition 0. If there is no primary yet, waits for it.
+     *
+     * @param zoneId ID of the zone.
+     */
+    public ReplicaMeta getPrimaryReplica(int zoneId) throws InterruptedException {
+        assertTrue(waitForCondition(() -> getNullablePrimaryReplica(zoneId) != null, SECONDS.toMillis(10)));
+
+        ReplicaMeta primaryReplica = getNullablePrimaryReplica(zoneId);
+        assertThat(primaryReplica, is(notNullValue()));
+        return primaryReplica;
+    }
+
+    private @Nullable ReplicaMeta getNullablePrimaryReplica(int zoneId) {
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriverManager.placementDriver().getPrimaryReplica(
+                new ZonePartitionId(zoneId, 0),
+                hybridClock.now()
+        );
+
+        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
+        return primaryReplicaFuture.join();
     }
 }

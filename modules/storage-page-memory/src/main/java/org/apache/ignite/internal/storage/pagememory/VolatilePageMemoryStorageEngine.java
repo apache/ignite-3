@@ -40,6 +40,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 
 /** Storage engine implementation based on {@link VolatilePageMemory}. */
@@ -72,14 +73,12 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
      * Constructor.
      *
      * @param igniteInstanceName Ignite instance name.
-     * @param engineConfig PageMemory storage engine configuration.
      * @param storageConfig Storage engine and storage profiles configurations.
      * @param ioRegistry IO registry.
      * @param clock Hybrid Logical Clock.
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
-            VolatilePageMemoryStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
             HybridClock clock
@@ -87,9 +86,16 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
         super(clock);
 
         this.igniteInstanceName = igniteInstanceName;
-        this.engineConfig = engineConfig;
         this.storageConfig = storageConfig;
+        this.engineConfig = ((VolatilePageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aimem();
         this.ioRegistry = ioRegistry;
+    }
+
+    /**
+     * Returns a storage engine configuration.
+     */
+    public VolatilePageMemoryStorageEngineConfiguration configuration() {
+        return engineConfig;
     }
 
     @Override
