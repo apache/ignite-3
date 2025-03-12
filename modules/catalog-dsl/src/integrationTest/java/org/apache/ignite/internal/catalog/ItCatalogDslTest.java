@@ -411,37 +411,60 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         sql("CREATE INDEX t_sorted ON t USING SORTED (col2 DESC, col1)");
         sql("CREATE INDEX t_hash ON t USING HASH (col1, col2)");
 
-        TableDefinition table = catalog().tableDefinition(QualifiedName.of("PUBLIC", "t"));
+        sql("CREATE SCHEMA s");
+        sql("CREATE TABLE s.t (id int primary key, col1 varchar, col2 int)");
 
-        List<IndexDefinition> indexes = table.indexes();
-        assertNotNull(indexes);
-
-        Map<String, IndexDefinition> indexMap = indexes.stream()
-                .collect(Collectors.toMap(IndexDefinition::name, Function.identity()));
-
-        assertEquals(Set.of("T_SORTED", "T_HASH"), indexMap.keySet());
-
-        // primary index
         {
-            assertEquals(IndexType.HASH, table.primaryKeyType());
-            assertEquals(List.of(ColumnSorted.column("ID")), table.primaryKeyColumns());
+            TableDefinition table = catalog().tableDefinition(QualifiedName.of("PUBLIC", "T"));
+
+            List<IndexDefinition> indexes = table.indexes();
+            assertNotNull(indexes);
+
+            Map<String, IndexDefinition> indexMap = indexes.stream()
+                    .collect(Collectors.toMap(IndexDefinition::name, Function.identity()));
+
+            assertEquals(Set.of("T_SORTED", "T_HASH"), indexMap.keySet());
+
+            // primary index
+            {
+                assertEquals(IndexType.HASH, table.primaryKeyType());
+                assertEquals(List.of(ColumnSorted.column("ID")), table.primaryKeyColumns());
+            }
+            // sorted index
+            {
+                IndexDefinition index = indexMap.get("T_SORTED");
+                assertEquals(IndexType.SORTED, index.type());
+                assertEquals(List.of(
+                                ColumnSorted.column("COL2", SortOrder.DESC_NULLS_FIRST),
+                                ColumnSorted.column("COL1", SortOrder.ASC_NULLS_LAST)
+                        ),
+                        index.columns()
+                );
+            }
+            // hash index
+            {
+                IndexDefinition index = indexMap.get("T_HASH");
+                assertEquals(IndexType.HASH, index.type());
+                assertEquals(List.of(ColumnSorted.column("COL1"), ColumnSorted.column("COL2")), index.columns());
+            }
         }
-        // sorted index
+
         {
-            IndexDefinition index = indexMap.get("T_SORTED");
-            assertEquals(IndexType.SORTED, index.type());
-            assertEquals(List.of(
-                            ColumnSorted.column("COL2", SortOrder.DESC_NULLS_FIRST),
-                            ColumnSorted.column("COL1", SortOrder.ASC_NULLS_LAST)
-                    ),
-                    index.columns()
-            );
-        }
-        // hash index
-        {
-            IndexDefinition index = indexMap.get("T_HASH");
-            assertEquals(IndexType.HASH, index.type());
-            assertEquals(List.of(ColumnSorted.column("COL1"), ColumnSorted.column("COL2")), index.columns());
+            TableDefinition table = catalog().tableDefinition(QualifiedName.of("S", "T"));
+
+            List<IndexDefinition> indexes = table.indexes();
+            assertNotNull(indexes);
+
+            Map<String, IndexDefinition> indexMap = indexes.stream()
+                    .collect(Collectors.toMap(IndexDefinition::name, Function.identity()));
+
+            assertEquals(Set.of(), indexMap.keySet());
+
+            // primary index
+            {
+                assertEquals(IndexType.HASH, table.primaryKeyType());
+                assertEquals(List.of(ColumnSorted.column("ID")), table.primaryKeyColumns());
+            }
         }
     }
 

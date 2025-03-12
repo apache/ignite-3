@@ -64,13 +64,13 @@ class TableDefinitionCollector {
      *
      * @return Future with table definition build or {@code null} if table doesn't exist.
      */
-    CompletableFuture<TableDefinition.Builder> collectDefinition() {
+    CompletableFuture<TableDefinition> collectDefinition() {
         return collectTableInfo()
                 .thenCompose(builder -> {
                     if (builder == null) {
                         return nullCompletedFuture();
                     } else {
-                        return collectIndexes(builder).thenCompose(this::collectColumns);
+                        return collectIndexes(builder).thenCompose(this::collectColumns).thenApply(Builder::build);
                     }
                 });
     }
@@ -104,10 +104,12 @@ class TableDefinitionCollector {
     private CompletableFuture<Builder> collectIndexes(TableDefinitionBuilderWithIndexId definition) {
         String query = "SELECT i.index_id, i.index_type, i.index_name, column_name, column_ordinal, column_collation "
                 + "FROM system.indexes i "
+                + "JOIN system.tables t USING (table_id) "
                 + "JOIN system.index_columns ic USING (index_id) "
+                + "WHERE t.schema_name=? AND t.table_name=?"
                 + "ORDER BY index_id, column_ordinal";
 
-        return SelectFromView.collectResults(sql, query, Function.identity())
+        return SelectFromView.collectResults(sql, query, Function.identity(), tableName.schemaName(), tableName.objectName())
                 .thenApply(list -> {
                     LinkedHashMap<Integer, List<ColumnSorted>> indexIdColumns = new LinkedHashMap<>();
                     Map<Integer, String> indexNames = new HashMap<>();
