@@ -25,6 +25,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.core.NodeImpl.ReadIndexHeartbeatResponseClosure;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -100,7 +101,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
                 k -> nodeOptions.getStripedExecutor().next());
 
         if (connect(peerId)) { // Replicator should be started asynchronously by node joined event.
-            if (isHeartbeatRequest(request)) {
+            if (isHeartbeatRequest(request) && !isReadIndexRequest(done)) {
                 return sendHeartbeat(peerId, request, timeoutMs, done, executor);
             }
 
@@ -163,6 +164,15 @@ public class DefaultRaftClientService extends AbstractClientService implements R
         // No entries and no data means a true heartbeat request.
         // TODO refactor, adds a new flag field? https://issues.apache.org/jira/browse/IGNITE-14832
         return request.entriesList() == null && request.data() == null;
+    }
+
+    /**
+     * Checks whether it is a read index request or not.
+     * @param doneClosure Done closure.
+     * @return True if the read index request.
+     */
+    private static boolean isReadIndexRequest(RpcResponseClosure<AppendEntriesResponse> doneClosure) {
+        return doneClosure instanceof ReadIndexHeartbeatResponseClosure;
     }
 
     @Override
