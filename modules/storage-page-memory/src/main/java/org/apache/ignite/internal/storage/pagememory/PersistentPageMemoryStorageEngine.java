@@ -54,6 +54,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -107,20 +108,17 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      * Constructor.
      *
      * @param igniteInstanceName Ignite instance name.
-     * @param engineConfig PageMemory storage engine configuration.
      * @param storageConfig Storage engine and storage profiles configurations.
      * @param ioRegistry IO registry.
      * @param storagePath Storage path.
-     * @param failureManager Failure processor that is used to handle critical errors.
      * @param longJvmPauseDetector Long JVM pause detector.
+     * @param failureManager Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
      * @param clock Hybrid Logical Clock.
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
             MetricManager metricManager,
-            // TODO IGNITE-24766 Remove this parameter.
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
@@ -133,8 +131,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         this.igniteInstanceName = igniteInstanceName;
         this.metricManager = metricManager;
-        this.engineConfig = engineConfig;
         this.storageConfig = storageConfig;
+        this.engineConfig = ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;

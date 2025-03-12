@@ -31,7 +31,6 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbTableStorage;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -58,13 +57,11 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default.engine = rocksdb")
             StorageConfiguration storageConfiguration
     ) {
         engine = new RocksDbStorageEngine(
                 testNodeName(testInfo, 0),
-                engineConfig,
                 storageConfiguration,
                 workDir,
                 mock(LogSyncer.class),
