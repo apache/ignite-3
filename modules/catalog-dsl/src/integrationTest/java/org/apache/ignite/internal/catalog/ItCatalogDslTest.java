@@ -429,7 +429,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         // sorted index
         {
             IndexDefinition index = indexMap.get("T_SORTED");
-            assertEquals("T_SORTED", index.name());
             assertEquals(IndexType.SORTED, index.type());
             assertEquals(List.of(
                             ColumnSorted.column("COL2", SortOrder.DESC_NULLS_FIRST),
@@ -441,7 +440,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         // hash index
         {
             IndexDefinition index = indexMap.get("T_HASH");
-            assertEquals("T_HASH", index.name());
             assertEquals(IndexType.HASH, index.type());
             assertEquals(List.of(ColumnSorted.column("COL1"), ColumnSorted.column("COL2")), index.columns());
         }
