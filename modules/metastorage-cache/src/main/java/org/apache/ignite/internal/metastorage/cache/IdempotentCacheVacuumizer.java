@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.cache;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -113,7 +112,7 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
                 () -> {
                     if (triggerVacuumization.get()) {
                         try {
-                            vacuumizationAction.accept(hybridTimestamp(clockService.nowLong())
+                            vacuumizationAction.accept(clockService.now()
                                     .subtractPhysicalTime(idempotentCacheTtl.value() + clockService.maxClockSkewMillis())
                             );
                         } catch (Exception e) {
