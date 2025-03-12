@@ -548,7 +548,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             ) throws StorageException {
                 return spy(super.createEngine(
                         igniteInstanceName,
-                        metricManager, configRegistry,
+                        metricManager,
+                        configRegistry,
                         storagePath,
                         longJvmPauseDetector,
                         failureManager,

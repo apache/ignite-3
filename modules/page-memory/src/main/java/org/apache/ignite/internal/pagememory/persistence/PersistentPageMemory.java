@@ -285,10 +285,10 @@ public class PersistentPageMemory implements PageMemory {
 
     private void initMetrics() {
         metricSource.addMetric(new IntGauge(
-                "CheckpointBufferPagesCount", "Number of pages used in checkpoint buffer.", this::usedCheckpointBufferPages
+                "UsedCheckpointBufferPages", "Number of currently used pages in checkpoint buffer.", this::usedCheckpointBufferPages
         ));
         metricSource.addMetric(new IntGauge(
-                "CheckpointBufferPagesSize", "Number of used pages in checkpoint buffer.", this::maxCheckpointBufferPages
+                "MaxCheckpointBufferPages", "The capacity of checkpoint buffer in pages.", this::maxCheckpointBufferPages
         ));
     }
 

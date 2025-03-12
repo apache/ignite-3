@@ -137,7 +137,7 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
                         + " for timeout(ms)=" + TimeUnit.NANOSECONDS.toMillis(throttleParkTimeNs));
             }
 
-            long startTime = System.nanoTime();
+            long startTimeNs = System.nanoTime();
 
             if (isPageInCheckpoint) {
                 cpBufThrottledThreads.put(curThread.getId(), curThread);
@@ -156,7 +156,7 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
                 LockSupport.parkNanos(throttleParkTimeNs);
             }
 
-            totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+            totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNs));
         } else {
             boolean backoffWasAlreadyStarted = exponentialThrottle.resetBackoff();
 

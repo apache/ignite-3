@@ -29,7 +29,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PersistentPageMemoryMetricSource implements MetricSource {
     private final String name;
+
+    /** Metrics map. Only modified in {@code synchronized} context. */
     private final Map<String, Metric> metrics = new HashMap<>();
+
+    /** Enabled flag. Only modified in {@code synchronized} context. */
     private boolean enabled;
 
     /**
