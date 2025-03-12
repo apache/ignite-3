@@ -189,15 +189,10 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         return invokeWithDone(peerId, request, ctx, done, timeoutMs, this.rpcExecutor, this.rpcClient);
     }
 
-    public <T extends Message> CompletableFuture<Message> invokeWithDone(
-            PeerId peerId,
-            Message request,
-            InvokeContext ctx,
-            RpcResponseClosure<T> done,
-            int timeoutMs,
-            Executor rpcExecutor,
-            NetworkInvoker rc
-    ) {
+    public <T extends Message> CompletableFuture<Message> invokeWithDone(final PeerId peerId, final Message request,
+        final InvokeContext ctx,
+        final RpcResponseClosure<T> done, final int timeoutMs,
+        final Executor rpcExecutor, NetworkInvoker rc) {
         final FutureImpl<Message> future = new FutureImpl<>();
         final Executor currExecutor = rpcExecutor != null ? rpcExecutor : this.rpcExecutor;
 

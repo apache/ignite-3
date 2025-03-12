@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl.ReadIndexHeartbeatResponseClosure;
@@ -94,14 +95,14 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
     @Override
     public Future<Message> appendEntries(final PeerId peerId, final AppendEntriesRequest request,
-            final int timeoutMs, final RpcResponseClosure<AppendEntriesResponse> done) {
+        final int timeoutMs, final RpcResponseClosure<AppendEntriesResponse> done) {
 
         // Assign an executor in round-robin fasion.
         final Executor executor = this.appendEntriesExecutorMap.computeIfAbsent(peerId,
                 k -> nodeOptions.getStripedExecutor().next());
 
         if (connect(peerId)) { // Replicator should be started asynchronously by node joined event.
-            if (isHeartbeatRequest(request) && !isReadIndexRequest(done)) {
+            if (JRaftUtils.isHeartbeatRequest(request) && !isReadIndexRequest(done)) {
                 return sendHeartbeat(peerId, request, timeoutMs, done, executor);
             }
 
@@ -152,18 +153,6 @@ public class DefaultRaftClientService extends AbstractClientService implements R
                             Utils.runInThread(callback.executor(), () -> callback.complete(res, finalErr));
                         })
         );
-    }
-
-    /**
-     * Determines whether it is a heartbeat request.
-     *
-     * @param request Append entries request.
-     * @return True if that request is heartbeat or false otherwise.
-     */
-    private static boolean isHeartbeatRequest(final AppendEntriesRequest request) {
-        // No entries and no data means a true heartbeat request.
-        // TODO refactor, adds a new flag field? https://issues.apache.org/jira/browse/IGNITE-14832
-        return request.entriesList() == null && request.data() == null;
     }
 
     /**
