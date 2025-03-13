@@ -48,17 +48,21 @@ public class FakeCatalogService implements CatalogService {
     public FakeCatalogService(int partitions) {
         catalog = mock(Catalog.class);
 
-        lenient().doAnswer(invocation -> new CatalogTableDescriptor(
-                invocation.getArgument(0),
-                0,
-                0,
-                "table",
-                invocation.<Integer>getArgument(0) + 10_000,
-                List.of(mock(CatalogTableColumnDescriptor.class)),
-                List.of(),
-                null,
-                DEFAULT_STORAGE_PROFILE)
-        ).when(catalog).table(anyInt());
+        lenient().doAnswer(invocation -> {
+            int tableId = invocation.getArgument(0);
+
+            return new CatalogTableDescriptor(
+                    tableId,
+                    0,
+                    0,
+                    "table",
+                    tableId + 10_000,
+                    List.of(mock(CatalogTableColumnDescriptor.class)),
+                    List.of(),
+                    null,
+                    DEFAULT_STORAGE_PROFILE
+            );
+        }).when(catalog).table(anyInt());
 
         lenient().doAnswer(invocation -> new CatalogZoneDescriptor(
                 invocation.getArgument(0),
