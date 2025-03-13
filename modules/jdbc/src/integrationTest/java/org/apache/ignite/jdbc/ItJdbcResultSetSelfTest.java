@@ -74,11 +74,11 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                     + "doubleval DOUBLE,"
                     + "bigval DECIMAL(10, 3),"
                     + "strval VARCHAR,"
-                    + "arrval BINARY,"
+                    + "arrval VARBINARY,"
                     + "dateval DATE,"
                     + "timeval TIME,"
                     + "tsval TIMESTAMP,"
-                    + "urlval BINARY,"
+                    + "urlval VARBINARY,"
                     + "uuidVal UUID"
                     + ")"
             );
