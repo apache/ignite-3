@@ -371,7 +371,7 @@ public class Cluster {
      * Returns an Ignite node (a member of the cluster) by its index.
      */
     public Ignite node(int index) {
-        return Objects.requireNonNull(nodes.get(index));
+        return Objects.requireNonNull(nodes.get(index), "index=" + index);
     }
 
     /**
