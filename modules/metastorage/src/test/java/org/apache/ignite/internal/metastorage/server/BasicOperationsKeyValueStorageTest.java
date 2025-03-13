@@ -2298,7 +2298,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 ByteArray.fromString("key1")
         };
 
-        AtomicBoolean invokesFinished = new AtomicBoolean();
+        var invokesFinished = new AtomicBoolean();
 
         IgniteTestUtils.runRace(
                 () -> {
