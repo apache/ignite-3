@@ -103,9 +103,9 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @return Table.
      */
     public TableViewInternal createTable(String name, int id) {
-        var newTable = getNewTable(name, id);
+        TableViewInternal newTable = getNewTable(name, id);
 
-        var oldTable = tables.putIfAbsent(QualifiedName.parse(name), newTable);
+        TableViewInternal oldTable = tables.putIfAbsent(QualifiedName.parse(name), newTable);
 
         if (oldTable != null) {
             throw new IgniteException(INTERNAL_ERR, TABLE_EXISTS);
