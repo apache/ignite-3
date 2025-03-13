@@ -719,7 +719,7 @@ public class LeaseUpdater {
                 return false;
             }
 
-            boolean result = ++statisticsLogCounter > LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
+            boolean result = ++statisticsLogCounter >= LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
 
             if (result) {
                 statisticsLogCounter = 0;
