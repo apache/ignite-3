@@ -21,11 +21,12 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -43,6 +44,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -57,9 +60,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -100,9 +105,11 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -126,7 +133,6 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -186,6 +192,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private DataStorageManager dsm;
     private HybridClockImpl clock;
     private TestLowWatermark lowWatermark;
+    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     private IndexMetaStorage indexMetaStorage;
 
@@ -207,8 +214,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void testTableIgnoredOnRecovery() throws Exception {
         startComponents();
 
@@ -242,8 +247,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void testTableStartedOnRecovery() throws Exception {
         startComponents();
 
@@ -302,11 +305,18 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
 
-        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
-                .thenReturn(nullCompletedFuture());
-        when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
-        when(replicaMgr.weakStartReplica(any(), any(), any())).thenReturn(trueCompletedFuture());
-        when(replicaMgr.weakStopReplica(any(), any(), any())).thenReturn(nullCompletedFuture());
+        doReturn(nullCompletedFuture())
+                .when(replicaMgr).startReplica(any(RaftGroupEventsListener.class), any(), anyBoolean(), any(), any(), any(), any(), any());
+        doReturn(nullCompletedFuture())
+                .when(replicaMgr)
+                .startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+        doReturn(trueCompletedFuture()).when(replicaMgr).stopReplica(any());
+        doAnswer(invocation -> {
+            Supplier<CompletableFuture<Boolean>> startSupplier = invocation.getArgument(1);
+            return bypassingThreadAssertions(startSupplier);
+        }).when(replicaMgr).weakStartReplica(any(), any(), any());
+        doReturn(nullCompletedFuture())
+                .when(replicaMgr).weakStopReplica(any(), any(), any());
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))
@@ -354,7 +364,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         var outgoingSnapshotManager = new OutgoingSnapshotsManager(node.name(), clusterService.messagingService());
 
-        var partitionReplicaLifecycleListener = new PartitionReplicaLifecycleManager(
+        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaMgr,
                 distributionZoneManager,
@@ -408,7 +418,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService),
                 indexMetaStorage,
                 logSyncer,
-                partitionReplicaLifecycleListener,
+                partitionReplicaLifecycleManager,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         ) {
@@ -438,17 +448,24 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertThat(
                 metaStorageManager.startAsync(componentContext)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
-                        .thenCompose(unused -> startAsync(
-                                componentContext,
-                                catalogManager,
-                                sm,
-                                indexMetaStorage,
-                                sharedTxStateStorage,
-                                tableManager
-                        ))
-                        .thenCompose(unused -> ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart())
-                        .thenCompose(unused -> metaStorageManager.deployWatches()),
-                willCompleteSuccessfully()
+                        .thenCompose(unused -> {
+                            CompletableFuture<Void> componentsStartFuture = startAsync(
+                                    componentContext,
+                                    catalogManager,
+                                    sm,
+                                    indexMetaStorage,
+                                    sharedTxStateStorage,
+                                    partitionReplicaLifecycleManager,
+                                    tableManager
+                            );
+                            CompletableFuture<Void> componentsAndRevisionUpdateListenersFuture = CompletableFuture.allOf(
+                                    componentsStartFuture,
+                                    ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart()
+                            );
+                            return componentsAndRevisionUpdateListenersFuture
+                                    .thenCompose(unused2 -> metaStorageManager.deployWatches());
+                        }),
+                willSucceedIn(10, SECONDS)
         );
     }
 
@@ -456,6 +473,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void stopComponents() throws Exception {
         closeAll(
                 tableManager == null ? null : tableManager::beforeNodeStop,
+                partitionReplicaLifecycleManager == null ? null : partitionReplicaLifecycleManager::beforeNodeStop,
                 dsm == null ? null : dsm::beforeNodeStop,
                 sm == null ? null : sm::beforeNodeStop,
                 indexMetaStorage == null ? null : indexMetaStorage::beforeNodeStop,
@@ -465,6 +483,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         stopAsync(
                                 new ComponentContext(),
                                 tableManager,
+                                partitionReplicaLifecycleManager,
                                 sharedTxStateStorage,
                                 dsm,
                                 sm,
@@ -529,10 +548,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     private void createIndex(String tableName, String indexName) {
         createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(INDEXED_COLUMN_NAME), false);
-    }
-
-    private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private static PersistentPageMemoryDataStorageModule createDataStorageModule() {
