@@ -150,7 +150,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void getClusterConfigurationByPathBadRequest() throws JsonProcessingException {
-        var thrown = assertThrows(
+        ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> clusterConfigurationApi.getClusterConfigurationByPath("no.such.path")
         );
@@ -184,7 +184,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void getNodeConfigurationByPathBadRequest() throws JsonProcessingException {
-        var thrown = assertThrows(
+        ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> nodeConfigurationApi.getNodeConfigurationByPath("no.such.path")
         );
@@ -268,7 +268,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void enableInvalidNodeMetric() throws JsonProcessingException {
-        var thrown = assertThrows(
+        ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> nodeMetricApi.enableNodeMetric("no.such.metric")
         );

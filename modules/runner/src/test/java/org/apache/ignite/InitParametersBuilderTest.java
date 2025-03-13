@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -120,35 +121,27 @@ class InitParametersBuilderTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void build_WithNullMetaStorageNodeCollection_SetsEmptyList() {
+    void build_WithNullMetaStorageNodeCollection_ThrowsIllegalArgumentException() {
         // Arrange
         InitParametersBuilder builder = new InitParametersBuilder();
 
-        // Act
-        InitParameters result = builder
-                .metaStorageNodeNames((List<String>) null)
-                .clusterName("TestCluster")
-                .build();
-
-        // Assert
-        assertNotNull(result);
-        assertTrue(result.metaStorageNodeNames().isEmpty());
+        // Act & Assert
+        //noinspection DataFlowIssue
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> builder.metaStorageNodeNames((Collection<String>) null));
+        assertEquals("Meta storage node names cannot be null.", exception.getMessage());
     }
 
     @Test
-    void build_WithNullCmgNodeCollection_SetsEmptyList() {
+    void build_WithNullCmgNodeCollection_ThrowsIllegalArgumentException() {
         // Arrange
         InitParametersBuilder builder = new InitParametersBuilder();
 
-        // Act
-        InitParameters result = builder
-                .cmgNodeNames((List<String>) null)
-                .clusterName("TestCluster")
-                .build();
-
-        // Assert
-        assertNotNull(result);
-        assertTrue(result.cmgNodeNames().isEmpty());
+        // Act & Assert
+        //noinspection DataFlowIssue
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> builder.cmgNodeNames((Collection<String>) null));
+        assertEquals("CMG node names cannot be null.", exception.getMessage());
     }
 
     @Test

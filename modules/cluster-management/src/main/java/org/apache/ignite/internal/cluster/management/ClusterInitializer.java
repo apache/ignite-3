@@ -92,14 +92,28 @@ public class ClusterInitializer {
     }
 
     /**
-     * Initializes the cluster that this node is present in.
+     * Initializes the cluster for this node.
      *
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage. Cannot be empty.
-     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
-     * metaStorageNodeNames} will be used instead.
-     * @param clusterName Human-readable name of the cluster.
-     * @param clusterConfiguration Cluster configuration.
-     * @return Future that represents the state of the operation.
+     * <p>Node selection rules:
+     * <ul>
+     *     <li>If {@code cmgNodeNames} is empty, it defaults to {@code metaStorageNodeNames}.</li>
+     *     <li>If {@code metaStorageNodeNames} is empty, it defaults to {@code cmgNodeNames}.</li>
+     *     <li>If both are empty, nodes are auto-selected.</li>
+     * </ul>
+     *
+     * <p>Auto-selection rules based on cluster size:
+     * <ul>
+     *     <li>For up to 3 nodes, select all available.</li>
+     *     <li>For exactly 4 nodes, select 3 to maintain an odd count.</li>
+     *     <li>For 5 or more nodes, select 5.</li>
+     * </ul>
+     * Nodes are chosen in alphabetical order.
+     *
+     * @param metaStorageNodeNames Nodes for Meta Storage.
+     * @param cmgNodeNames Nodes for the Cluster Management Group.
+     * @param clusterName Cluster name.
+     * @param clusterConfiguration Optional cluster configuration.
+     * @return Future representing the operation status.
      */
     public CompletableFuture<Void> initCluster(
             Collection<String> metaStorageNodeNames,
@@ -125,12 +139,20 @@ public class ClusterInitializer {
             throw new IllegalArgumentException("CMG node names must not contain duplicates: " + metaStorageNodeNames);
         }
 
-
+        // See Javadoc for the explanation of how the nodes are chosen.
         if (msNodeNameSet.isEmpty() && cmgNodeNameSet.isEmpty()) {
-            var clusterNodes = clusterService.topologyService().allMembers();
-            var topologySize = clusterNodes.size();
-            var numberOfMsNodes = topologySize < 5 ? 3 : 5;
-            var chosenNodes = clusterNodes.stream().map(ClusterNode::name).sorted().limit(numberOfMsNodes)
+            Collection<ClusterNode> clusterNodes = clusterService.topologyService().allMembers();
+            int topologySize = clusterNodes.size();
+
+            // For efficiency, we limit the number of MS and CMG nodes chosen by default.
+            // If the cluster has 3 or less nodes, use up to 3 MS/CMG nodes.
+            // If the cluster has 5 or more nodes, use 5 MS/CMG nodes.
+            // If the cluster has 4 nodes, use 3 MS/CMG nodes to maintain an odd number.
+            int msNodesLimit = topologySize < 5 ? 3 : 5;
+            Set<String> chosenNodes = clusterNodes.stream()
+                    .map(ClusterNode::name)
+                    .sorted()
+                    .limit(msNodesLimit)
                     .collect(Collectors.toSet());
             msNodeNameSet = chosenNodes;
             cmgNodeNameSet = chosenNodes;

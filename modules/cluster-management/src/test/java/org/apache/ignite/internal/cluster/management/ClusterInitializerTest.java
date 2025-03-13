@@ -35,6 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -130,7 +131,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 .collect(Collectors.toList());
 
         // Mock topology service behavior
-        for (var node : allNodes) {
+        for (ClusterNode node : allNodes) {
             when(topologyService.getByConsistentId(node.name())).thenReturn(node);
         }
         when(topologyService.allMembers()).thenReturn(allNodes);
@@ -145,14 +146,15 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
-        // Convert node names to a set for validation
-        var cmgNodeNameSet = allNodes.stream().map(ClusterNode::name).sorted()
+        // Convert node names to a set for validation.
+        // See initCluster(...) Javadoc for details.
+        Set<String> cmgNodeNameSet = allNodes.stream().map(ClusterNode::name).sorted()
                 .limit(numNodes < 5 ? 3 : 5)
                 .collect(Collectors.toSet());
 
         // Verify messaging service calls
         for (int i = 1; i <= allNodes.size(); i++) {
-            var node = allNodes.get(i - 1);
+            ClusterNode node = allNodes.get(i - 1);
 
             boolean shouldBeCmg = i <= 3 || (numNodes >= 5 && i <= 5);
 

@@ -168,7 +168,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         Path clusterConfigurationFile = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").toPath();
         String clusterConfiguration = Files.readString(clusterConfigurationFile);
 
-        var expectedSentContent = "{\n"
+        String expectedSentContent = "{\n"
                 + "  \"metaStorageNodes\": [\n"
                 + "    \"node1ConsistentId\",\n"
                 + "    \"node2ConsistentId\"\n"
@@ -311,7 +311,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "ignite.metaStorage.idleSyncTimeInterval: 10,\n"
                 + "ignite.replication.idleSafeTimePropagationDuration: 100";
 
-        var expectedSentContent = "{\n"
+        String expectedSentContent = "{\n"
                 + "  \"metaStorageNodes\": [\n"
                 + "    \"node1ConsistentId\"\n"
                 + "  ],\n"

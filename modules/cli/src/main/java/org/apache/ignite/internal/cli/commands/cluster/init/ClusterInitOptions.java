@@ -216,8 +216,8 @@ public class ClusterInitOptions {
         }
 
         private boolean hasDuplicate(List<String> args) {
-            var arr = args.toArray(String[]::new);
-            for (var str : arr) {
+            String[] arr = args.toArray(String[]::new);
+            for (String str : arr) {
                 if (optionToCheck.equals(str.trim())) {
                     return true;
                 }

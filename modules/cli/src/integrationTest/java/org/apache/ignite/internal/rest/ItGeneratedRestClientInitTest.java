@@ -89,7 +89,7 @@ public class ItGeneratedRestClientInitTest extends ClusterPerTestIntegrationTest
 
     @Test
     void initClusterNoSuchNode() throws JsonProcessingException {
-        var thrown = assertThrows(
+        ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> clusterManagementApi.init(
                         new InitCommand()
