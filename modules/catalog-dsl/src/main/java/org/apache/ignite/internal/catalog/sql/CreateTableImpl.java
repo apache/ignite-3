@@ -118,6 +118,9 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
     CreateTableImpl addIndex(String name, IndexType type, List<ColumnSorted> columns) {
         Objects.requireNonNull(name, "Index name must not be null.");
         Objects.requireNonNull(columns, "Index columns list must not be null.");
+        if (columns.isEmpty()) {
+            throw new IllegalArgumentException("Index columns list must not be empty.");
+        }
 
         indexes.add(new CreateIndexImpl(sql).ifNotExists().name(name).using(type).on(tableName, columns));
         return this;
