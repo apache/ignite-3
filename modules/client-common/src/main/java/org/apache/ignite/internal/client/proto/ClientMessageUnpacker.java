@@ -982,10 +982,8 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @return Qualified name.
      */
     public QualifiedName unpackQualifiedName() {
-        String schemaName = unpackString();
-        String objectName = unpackString();
-
-        return QualifiedName.of(schemaName, objectName);
+        String name = unpackString();
+        return QualifiedName.parse(name);
     }
 
     private int readLength8() {
