@@ -82,9 +82,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private static final ProtocolVersion DEFAULT_VERSION = ProtocolVersion.LATEST_VER;
 
     /** Supported features. */
-    private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(
-            EnumSet.noneOf(ProtocolBitmaskFeature.class)
-    );
+    private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(EnumSet.of(
+            ProtocolBitmaskFeature.USER_ATTRIBUTES,
+            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
+    ));
 
     /** Minimum supported heartbeat interval. */
     private static final long MIN_RECOMMENDED_HEARTBEAT_INTERVAL = 500;

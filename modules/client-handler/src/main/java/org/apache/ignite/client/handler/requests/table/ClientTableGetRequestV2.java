@@ -41,9 +41,7 @@ public class ClientTableGetRequestV2 {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-        String tableName = in.unpackString();
-        String schemaName = in.unpackString();
-        QualifiedName qualifiedName = QualifiedName.of(schemaName, tableName);
+        QualifiedName qualifiedName = in.unpackQualifiedName();
 
         return tables.tableAsync(qualifiedName).thenAccept(table -> {
             if (table == null) {
