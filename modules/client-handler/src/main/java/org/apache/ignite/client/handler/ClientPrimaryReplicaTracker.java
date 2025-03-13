@@ -255,8 +255,8 @@ public class ClientPrimaryReplicaTracker {
 
     private ReplicationGroupId replicationGroupId(int tableId, int partition, HybridTimestamp timestamp) {
         if (enabledColocation) {
-            CatalogZoneDescriptor zone = requiredZone(tableId, timestamp);
-            return new ZonePartitionId(zone.id(), partition);
+            CatalogTableDescriptor table = requiredTable(tableId, timestamp);
+            return new ZonePartitionId(table.zoneId(), partition);
         } else {
             return new TablePartitionId(tableId, partition);
         }
@@ -267,12 +267,20 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private int partitionsNoWait(int tableId, HybridTimestamp timestamp) {
-        CatalogZoneDescriptor zone = requiredZone(tableId, timestamp);
+        Catalog catalog = catalogService.activeCatalog(timestamp.longValue());
+
+        CatalogTableDescriptor table = requiredTable(tableId, timestamp);
+
+        CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
+
+        if (zone == null) {
+            throw tableIdNotFoundException(tableId);
+        }
 
         return zone.partitions();
     }
 
-    private CatalogZoneDescriptor requiredZone(int tableId, HybridTimestamp timestamp) {
+    private CatalogTableDescriptor requiredTable(int tableId, HybridTimestamp timestamp) {
         Catalog catalog = catalogService.activeCatalog(timestamp.longValue());
 
         CatalogTableDescriptor table = catalog.table(tableId);
@@ -281,12 +289,7 @@ public class ClientPrimaryReplicaTracker {
             throw tableIdNotFoundException(tableId);
         }
 
-        CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
-
-        if (zone == null) {
-            throw tableIdNotFoundException(tableId);
-        }
-        return zone;
+        return table;
     }
 
     long maxStartTime() {
