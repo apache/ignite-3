@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -79,7 +80,7 @@ import org.jetbrains.annotations.Nullable;
  *       Don't block the client for too long, it is better to miss the primary than to delay the request.
  */
 public class ClientPrimaryReplicaTracker {
-    private final ConcurrentHashMap<ReplicationGroupId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ReplicationGroupId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong maxStartTime = new AtomicLong();
 
