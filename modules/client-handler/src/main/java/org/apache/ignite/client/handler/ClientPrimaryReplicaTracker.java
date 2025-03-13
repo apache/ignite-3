@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -453,30 +452,6 @@ public class ClientPrimaryReplicaTracker {
 
         public int partitions() {
             return partitions;
-        }
-    }
-
-    private static final class PrimaryReplicasMapKey {
-        private final int tableId;
-        private final int partitionId;
-
-        private PrimaryReplicasMapKey(int tableId, int partitionId) {
-            this.tableId = tableId;
-            this.partitionId = partitionId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            PrimaryReplicasMapKey that = (PrimaryReplicasMapKey) o;
-            return tableId == that.tableId && partitionId == that.partitionId;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(tableId, partitionId);
         }
     }
 }
