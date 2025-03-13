@@ -112,9 +112,10 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
                 () -> {
                     if (triggerVacuumization.get()) {
                         try {
-                            vacuumizationAction.accept(clockService.now()
-                                    .subtractPhysicalTime(idempotentCacheTtl.value() + clockService.maxClockSkewMillis())
-                            );
+                            HybridTimestamp evictionTimestamp = clockService.now()
+                                    .subtractPhysicalTime(idempotentCacheTtl.value() + clockService.maxClockSkewMillis());
+
+                            vacuumizationAction.accept(evictionTimestamp);
                         } catch (Exception e) {
                             LOG.warn("An exception occurred while executing idempotent cache vacuumization action."
                                     + " Idempotent cache vacuumizer won't be stopped.", e);

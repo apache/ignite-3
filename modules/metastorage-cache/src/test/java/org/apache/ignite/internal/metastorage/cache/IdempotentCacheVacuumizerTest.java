@@ -94,8 +94,6 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
         long ttl = 10L;
         when(idempotentCacheTtlConfigurationValue.value()).thenReturn(ttl);
 
-        assertEquals(ttl, idempotentCacheTtlConfigurationValue.value());
-
         vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
                 scheduler,

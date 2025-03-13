@@ -432,7 +432,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         // Restart cluster.
         startCluster(testInfo);
 
-        long timestampAfterRestartPhysicalLong = nodes.get(0).clockService.now().getPhysical();
+        ClockService node0ClockService = nodes.get(0).clockService;
+        long timestampAfterRestartPhysicalLong = node0ClockService.now().getPhysical();
 
         leader = leader(raftClient());
 
@@ -458,8 +459,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             ), willCompleteSuccessfully());
         }
 
-        HybridTimestamp evictionTimestamp = nodes.get(0).clockService.now().subtractPhysicalTime(
-                raftConfiguration.retryTimeout().value() + nodes.get(0).clockService.maxClockSkewMillis()
+        HybridTimestamp evictionTimestamp = node0ClockService.now().subtractPhysicalTime(
+                raftConfiguration.retryTimeout().value() + node0ClockService.maxClockSkewMillis()
         );
 
         assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(evictionTimestamp), willCompleteSuccessfully());
