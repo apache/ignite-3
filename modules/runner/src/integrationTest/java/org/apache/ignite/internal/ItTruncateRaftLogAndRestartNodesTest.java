@@ -28,24 +28,42 @@ import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.option.LogStorageOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 
@@ -65,19 +83,49 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
     @Test
     void enterNodeWithIndexGreaterThanCurrentMajority() throws Exception {
-        cluster.startAndInit(3, new int[]{0, 1, 2});
+        cluster.startAndInit(3);
 
         createZoneAndTablePerson(ZONE_NAME, TABLE_NAME, 3, 1);
 
         cluster.transferLeadershipTo(2, cluster.solePartitionId());
 
-        Person[] people = generatePeople(10);
-        insertPeople(TABLE_NAME, people);
+        var closableResources = new ArrayList<ManuallyCloseable>();
 
-        // TODO: IGNITE-24785 остановить все узлы и обрезать логи
+        try {
+            TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0, cluster.solePartitionId());
+            closableResources.add(testLogStorageFactoryNode0);
 
-        verifyThatPeopleAvailableViaSql(TABLE_NAME, people);
-        verifyThatPeoplePresentOnNodes(3, TABLE_NAME, people);
+            TestLogStorageFactory testLogStorageFactoryNode1 = createTestLogStorageFactory(1, cluster.solePartitionId());
+            closableResources.add(testLogStorageFactoryNode1);
+
+            long lastLogIndexBeforeInsertNode0 = raftNodeImpl(0, cluster.solePartitionId()).lastLogIndex();
+            long lastLogIndexBeforeInsertNode1 = raftNodeImpl(1, cluster.solePartitionId()).lastLogIndex();
+
+            Person[] people = generatePeople(10);
+            insertPeople(TABLE_NAME, people);
+
+            stopNodes(0, 1, 2);
+
+            LogStorage logStorageNode0 = testLogStorageFactoryNode0.createLogStorage();
+            closableResources.add(logStorageNode0::shutdown);
+
+            LogStorage logStorageNode1 = testLogStorageFactoryNode1.createLogStorage();
+            closableResources.add(logStorageNode1::shutdown);
+
+            truncateRaftLogSuffixHalfOfChanges(logStorageNode0, lastLogIndexBeforeInsertNode0);
+            truncateRaftLogSuffixHalfOfChanges(logStorageNode1, lastLogIndexBeforeInsertNode1);
+
+            closeAllReversed(closableResources);
+
+            startNodes(0, 1);
+
+            // TODO: IGNITE-24785 продолжить
+
+            verifyThatPeopleAvailableViaSql(TABLE_NAME, people);
+            verifyThatPeoplePresentOnNodes(3, TABLE_NAME, people);
+        } finally {
+            closeAllReversed(closableResources);
+        }
     }
 
     private void createZoneAndTablePerson(String zoneName, String tableName, int replicas, int partitions) {
@@ -111,6 +159,44 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
                 scanPeopleFromAllPartitions(node, tableName),
                 arrayContainingInAnyOrder(expPeople)
         );
+    }
+
+    private NodeImpl raftNodeImpl(int nodeIndex, TablePartitionId tablePartitionId) {
+        NodeImpl[] node = {null};
+
+        unwrapIgniteImpl(cluster.node(nodeIndex)).raftManager().forEach((raftNodeId, raftGroupService) -> {
+            if (tablePartitionId.equals(raftNodeId.groupId())) {
+                assertNull(
+                        node[0],
+                        String.format("NodeImpl already found: [nodeIndex=%s, tablePartitionId=%s]", nodeIndex, tablePartitionId)
+                );
+
+                node[0] = (NodeImpl) raftGroupService.getRaftNode();
+            }
+        });
+
+        NodeImpl res = node[0];
+
+        assertNotNull(res, String.format("Can't find NodeImpl: [nodeIndex=%s, tablePartitionId=%s]", nodeIndex, tablePartitionId));
+
+        return res;
+    }
+
+    /**
+     * Creates and prepares {@link TestLogStorageFactory} for {@link TestLogStorageFactory#createLogStorage} creation after the
+     * corresponding node is stopped, so that there are no errors.
+     */
+    private TestLogStorageFactory createTestLogStorageFactory(int nodeIndex, TablePartitionId tablePartitionId) {
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.node(nodeIndex));
+
+        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+                ignite.name(),
+                ignite.partitionsWorkDir().raftLogPath()
+        );
+
+        NodeImpl nodeImpl = raftNodeImpl(nodeIndex, tablePartitionId);
+
+        return new TestLogStorageFactory(logStorageFactory, nodeImpl.getOptions(), nodeImpl.getRaftOptions());
     }
 
     private static String selectPeopleDml(String tableName) {
@@ -237,6 +323,70 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
                 ));
     }
 
+    private static void truncateRaftLogSuffixHalfOfChanges(LogStorage logStorage, long startRaftLogIndex) {
+        long lastLogIndex = logStorage.getLastLogIndex();
+
+        assertTrue(
+                logStorage.truncateSuffix(lastLogIndex - (lastLogIndex - startRaftLogIndex) / 2),
+                String.format("Failed to truncate raft log index: [startRaftLogIndex=%s, logStorage=%s]", startRaftLogIndex, logStorage)
+        );
+    }
+
+    private static void closeAllReversed(List<ManuallyCloseable> manuallyCloseables) throws Exception {
+        Collections.reverse(manuallyCloseables);
+
+        IgniteUtils.closeAllManually(manuallyCloseables);
+    }
+
+    private static class TestLogStorageFactory implements ManuallyCloseable {
+        private final LogStorageFactory logStorageFactory;
+
+        private final NodeOptions nodeOptions;
+
+        private final RaftOptions raftOptions;
+
+        private final AtomicBoolean closeGuard = new AtomicBoolean();
+
+        private TestLogStorageFactory(
+                LogStorageFactory logStorageFactory,
+                NodeOptions nodeOptions,
+                RaftOptions raftOptions
+        ) {
+            this.logStorageFactory = logStorageFactory;
+            this.nodeOptions = nodeOptions;
+            this.raftOptions = raftOptions;
+        }
+
+        /**
+         * Creates and initializes {@link LogStorage}. Should be created only after the corresponding node is stopped to avoid errors.
+         * Currently can only create one instance before it and {@link TestLogStorageFactory} are closed.
+         */
+        LogStorage createLogStorage() {
+            assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+            LogStorage logStorage = logStorageFactory.createLogStorage(nodeOptions.getLogUri(), raftOptions);
+
+            var igniteJraftServiceFactory = new IgniteJraftServiceFactory(logStorageFactory);
+
+            var logStorageOptions = new LogStorageOptions();
+            logStorageOptions.setConfigurationManager(new ConfigurationManager());
+            logStorageOptions.setLogEntryCodecFactory(igniteJraftServiceFactory.createLogEntryCodecFactory());
+
+            logStorage.init(logStorageOptions);
+
+            return logStorage;
+        }
+
+        @Override
+        public void close() {
+            if (!closeGuard.compareAndSet(false, true)) {
+                return;
+            }
+
+            assertThat(logStorageFactory.stopAsync(), willCompleteSuccessfully());
+        }
+    }
+
     private static class Person {
         static final String ID_COLUMN_NAME = "ID";
 
@@ -244,10 +394,13 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         static final String SALARY_COLUMN_NAME = "SALARY";
 
+        @IgniteToStringInclude
         final long id;
 
+        @IgniteToStringInclude
         final String name;
 
+        @IgniteToStringInclude
         final long salary;
 
         private Person(long id, String name, long salary) {
@@ -280,7 +433,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         @Override
         public String toString() {
-            return S.toString(this);
+            return S.toString(Person.class, this);
         }
     }
 }
