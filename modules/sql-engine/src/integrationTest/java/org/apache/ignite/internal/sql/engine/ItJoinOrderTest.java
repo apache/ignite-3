@@ -178,14 +178,22 @@ public class ItJoinOrderTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("joinTypesWithRulesToDisable")
+    @SuppressWarnings("ConcatenationWithEmptyString")
     void joinWithProjectionOnTopReturnsValidaResults(JoinType joinType, List<String> rulesToDisable) {
-        String queryToAcquireExpectedResults = format(
-                "SELECT p.*, d.* FROM Products p {} JOIN Discounts d ON p.ProductID = d.ProductID", joinType
+        String queryToAcquireExpectedResults = format("" 
+                + "SELECT p.*, d.* " 
+                + "  FROM Products p " 
+                + "    {} JOIN Discounts d ON p.ProductID = d.ProductID" 
+                + "  JOIN Reviews r ON p.ProductID = r.ProductID" 
+                + " WHERE r.Rating > 2", joinType
         );
 
-        String queryToValidate = format(
-                "SELECT /*+ enforce_join_order, disable_rule({}) */ p.*, d.* " 
-                        + "FROM Discounts d {} JOIN Products p ON p.ProductID = d.ProductID",
+        String queryToValidate = format(""
+                + "SELECT /*+ enforce_join_order, disable_rule({}) */ p.*, d.* "
+                + "  FROM Discounts d "
+                + "    {} JOIN Products p ON p.ProductID = d.ProductID"
+                + "  JOIN Reviews r ON p.ProductID = r.ProductID"
+                + " WHERE r.Rating > 2",
                 '\'' + String.join("', '", rulesToDisable) + '\'',
                 joinType.swap()
         );
@@ -195,7 +203,7 @@ public class ItJoinOrderTest extends BaseSqlIntegrationTest {
         Assumptions.assumeFalse(expectedResult.isEmpty());
 
         QueryChecker checker = assertQuery(queryToValidate)
-                .matches(matches(".*Project.*Join.*"));
+                .matches(matches(".*Project.*Join.*Join.*"));
 
         expectedResult.forEach(row -> checker.returns(row.toArray()));
 

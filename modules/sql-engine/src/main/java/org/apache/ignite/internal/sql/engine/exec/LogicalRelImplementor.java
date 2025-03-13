@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiPredicate;
@@ -148,6 +149,10 @@ import org.jetbrains.annotations.Nullable;
  */
 @SuppressWarnings("TypeMayBeWeakened")
 public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>> {
+    private static final EnumSet<JoinRelType> JOIN_NEEDS_PROJECTION = EnumSet.of(
+            JoinRelType.INNER, JoinRelType.LEFT, JoinRelType.FULL, JoinRelType.RIGHT
+    );
+
     public static final String CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG =
             "only INNER and LEFT join supported by IgniteCorrelatedNestedLoop";
 
@@ -1131,28 +1136,21 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         if (rel instanceof Join) {
             Join join = (Join) rel;
 
-            return joinNeedsProjection(join);
+            return JOIN_NEEDS_PROJECTION.contains(join.getJoinType());
         }
 
         return false;
     }
 
-    private static boolean joinNeedsProjection(Join join) {
-        return join.getJoinType() == JoinRelType.INNER
-                || join.getJoinType() == JoinRelType.LEFT
-                || join.getJoinType() == JoinRelType.FULL
-                || join.getJoinType() == JoinRelType.RIGHT;
-    }
-
     private @Nullable SqlJoinProjection<RowT> createJoinProjection(Join rel, RelDataType outType, int leftRowSize) {
         SqlJoinProjection<RowT> joinProjection = null;
         if (projectionToFuse != null) {
-            assert joinNeedsProjection(rel);
+            assert JOIN_NEEDS_PROJECTION.contains(rel.getJoinType());
 
             joinProjection = expressionFactory.joinProject(projectionToFuse, outType, leftRowSize);
 
             projectionToFuse = null;
-        } else if (joinNeedsProjection(rel)) {
+        } else if (JOIN_NEEDS_PROJECTION.contains(rel.getJoinType())) {
             List<RexNode> identityProjection = rel.getCluster().getRexBuilder().identityProjects(outType);
 
             joinProjection = expressionFactory.joinProject(identityProjection, outType, leftRowSize);
