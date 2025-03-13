@@ -338,13 +338,11 @@ public class ClientPrimaryReplicaTracker {
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         inBusyLockSafe(busyLock, () -> {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-24345 - support zone destruction.
-            if (!enabledColocation) {
-                int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
+            int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
-                List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
+            List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
 
-                events.forEach(event -> removeTable(event.tableId(), event.partitions()));
-            }
+            events.forEach(event -> removeTable(event.tableId(), event.partitions()));
         });
     }
 
