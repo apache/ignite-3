@@ -59,6 +59,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -75,8 +76,10 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -2282,6 +2285,58 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertThat(storage.revision(), equalTo(newRevision));
         assertThat(revisionUpdateListener.get(newRevision), willSucceedFast());
         assertThat(watchEventHandlingCallback.get(newRevision), willSucceedFast());
+    }
+
+    /**
+     * Tests that invokes continue to correctly evaluate their conditions while compaction is in progress.
+     */
+    @Test
+    void testInvokeWithConcurrentCompaction() {
+        // One key should be enough, but two is better anyway.
+        ByteArray[] keys = {
+                ByteArray.fromString("key0"),
+                ByteArray.fromString("key1")
+        };
+
+        AtomicBoolean invokesFinished = new AtomicBoolean();
+
+        IgniteTestUtils.runRace(
+                () -> {
+                    try {
+                        // Sufficiently large number of iterations. 10 used to be enough to reproduce the issue, but 1000 is better.
+                        for (int i = 0; i < 1000; i++) {
+                            for (ByteArray key : keys) {
+                                // if (!exists(key) || get(key) == i - 1) { put(key, i) }
+                                boolean result = storage.invoke(
+                                        new OrCondition(
+                                                new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key.bytes()),
+                                                new ValueCondition(Type.EQUAL, key.bytes(), ByteUtils.longToBytes(i - 1))
+                                        ),
+                                        List.of(put(key, ByteUtils.longToBytes(i))),
+                                        List.of(noop()),
+                                        kvContext(hybridTimestamp(10L)),
+                                        createCommandId()
+                                );
+
+                                assertTrue(result, "Update of key " + key + " failed on iteration " + i);
+                            }
+                        }
+                    } finally {
+                        invokesFinished.set(true);
+                    }
+                },
+                () -> {
+                    while (!invokesFinished.get()) {
+                        if (storage.revision() <= 1) {
+                            Thread.onSpinWait();
+
+                            continue;
+                        }
+
+                        storage.compact(storage.revision() - 1);
+                    }
+                }
+        );
     }
 
     private CompletableFuture<Void> watchExact(
