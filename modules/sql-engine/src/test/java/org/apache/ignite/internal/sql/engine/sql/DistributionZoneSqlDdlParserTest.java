@@ -35,6 +35,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -83,6 +84,54 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\"");
     }
 
+    @Test
+    public void createZoneWithOptions1() {
+        IgniteSqlCreateZoneV2 createZone = parseCreateZoneV2(
+                "create zone test_zone "
+                        + "(replicas 2) "
+                        + "storage profiles ['default', 'new']"
+        );
+    }
+
+    @Test
+    public void createZoneWithOptions0() {
+        IgniteSqlCreateZoneV2 createZone = parseCreateZoneV2(
+                "create zone test_zone "
+                        + "(replicas 2, "
+                        + "partitions 3, "
+                        + "nodes filter '(\"US\" || \"EU\") && \"SSD\"', "
+                        + "distribution algorithm 'test_Distribution', "
+                        + "auto adjust 1, "
+                        + "auto scale up 2, "
+                        + "auto scale down 3, "
+                        + "consistency mode 'HIGH_AVAILABILITY') "
+                        + "storage profiles ['default', 'new']"
+        );
+
+        assertNotNull(createZone.createOptionList());
+
+        List<SqlNode> optList = createZone.createOptionList().getList();
+
+        @Nullable SqlNode profiles = createZone.storageProfiles();
+
+        expectUnparsed(profiles, "\"STORAGE_PROFILES\"['default', 'new']");
+
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, 2);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.PARTITIONS, 3);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, 2);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, 3);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.CONSISTENCY_MODE, "HIGH_AVAILABILITY");
+
+        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" "
+                + "(\"REPLICAS\" 2, \"PARTITIONS\" 3, \"DATA_NODES_FILTER\" '(\"US\" || \"EU\") && \"SSD\"', "
+                + "\"DISTRIBUTION_ALGORITHM\" 'test_Distribution', \"DATA_NODES_AUTO_ADJUST\" 1, \"DATA_NODES_AUTO_ADJUST_SCALE_UP\" 2, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" 3, \"CONSISTENCY_MODE\" 'HIGH_AVAILABILITY') "
+                + "\"STORAGE_PROFILES\"['default', 'new']");
+    }
+
     /**
      * Parse CREATE ZONE WITH ... statement.
      */
@@ -90,6 +139,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     public void createZoneWithOptions() {
         IgniteSqlCreateZone createZone = parseCreateZone(
                 "create zone test_zone with "
+                        + "storage_profiles='default, new', "
                         + "replicas=2, "
                         + "partitions=3, "
                         + "data_nodes_filter='(\"US\" || \"EU\") && \"SSD\"', "
@@ -104,6 +154,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
 
         List<SqlNode> optList = createZone.createOptionList().getList();
 
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.STORAGE_PROFILES, "default, new");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.PARTITIONS, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");
@@ -112,6 +163,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.CONSISTENCY_MODE, "HIGH_AVAILABILITY");
 
         expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" WITH "
+                + "\"STORAGE_PROFILES\" = 'default, new', "
                 + "\"REPLICAS\" = 2, "
                 + "\"PARTITIONS\" = 3, "
                 + "\"DATA_NODES_FILTER\" = '(\"US\" || \"EU\") && \"SSD\"', "
@@ -332,6 +384,18 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         SqlNode node = parse(stmt);
 
         return assertInstanceOf(IgniteSqlCreateZone.class, node);
+    }
+
+    /**
+     * Parse CREATE ZONE statement.
+     *
+     * @param stmt Create zone query.
+     * @return {@link org.apache.calcite.sql.SqlCreate SqlCreate} node.
+     */
+    private static IgniteSqlCreateZoneV2 parseCreateZoneV2(String stmt) {
+        SqlNode node = parse(stmt);
+
+        return assertInstanceOf(IgniteSqlCreateZoneV2.class, node);
     }
 
     /**

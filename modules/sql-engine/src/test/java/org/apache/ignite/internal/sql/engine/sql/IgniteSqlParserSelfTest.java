@@ -78,6 +78,14 @@ public class IgniteSqlParserSelfTest {
     }
 
     @Test
+    public void test0() {
+        IgniteSqlParser.parse("CREATE ZONE zone1 (AUTO SCALE UP 100, AUTO SCALE DOWN 200, REPLICAS 2) "
+                + "STORAGE PROFILES ['default2', 'new']", StatementParseResult.MODE);
+        IgniteSqlParser.parse("CREATE ZONE IF NOT EXISTS z WITH REPLICAS=1, "
+                + "PARTITIONS=1, STORAGE_PROFILES='default';", StatementParseResult.MODE);
+    }
+
+    @Test
     public void testGrammarViolation() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,

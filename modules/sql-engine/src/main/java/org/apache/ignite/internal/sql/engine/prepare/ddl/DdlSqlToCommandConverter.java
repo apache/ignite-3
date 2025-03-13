@@ -62,6 +62,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -127,6 +128,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneV2;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchema;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchemaBehavior;
@@ -135,9 +137,11 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStorageProfile;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionV2;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
@@ -261,6 +265,10 @@ public class DdlSqlToCommandConverter {
 
         if (ddlNode instanceof IgniteSqlCreateZone) {
             return convertCreateZone((IgniteSqlCreateZone) ddlNode, ctx);
+        }
+
+        if (ddlNode instanceof IgniteSqlCreateZoneV2) {
+            return convertCreateZone((IgniteSqlCreateZoneV2) ddlNode, ctx);
         }
 
         if (ddlNode instanceof IgniteSqlAlterZoneRenameTo) {
@@ -705,6 +713,47 @@ public class DdlSqlToCommandConverter {
         if (remainingKnownOptions.contains(STORAGE_PROFILES.name())) {
             throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
         }
+
+        return builder.build();
+    }
+
+    private CatalogCommand convertCreateZone(IgniteSqlCreateZoneV2 createZoneNode, PlanningContext ctx) {
+        CreateZoneCommandBuilder builder = CreateZoneCommand.builder();
+
+        builder.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
+        builder.ifNotExists(createZoneNode.ifNotExists());
+
+        if (createZoneNode.storageProfiles() == null) {
+            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
+        }
+
+        Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
+
+        if (createZoneNode.createOptionList() != null) {
+            for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
+                IgniteSqlZoneOptionV2 option = (IgniteSqlZoneOptionV2) optionNode;
+
+                updateZoneOption(option, remainingKnownOptions, zoneOptionInfos,
+                        createReplicasOptionInfo, ctx, builder);
+            }
+        }
+
+        IgniteSqlStorageProfile profiles = (IgniteSqlStorageProfile) createZoneNode.storageProfiles();
+
+        List<String> profileNames = new ArrayList<>(profiles.value().size());
+
+        SqlCharStringLiteral literal;
+        for (SqlNode node : profiles.value()) {
+            literal = (SqlCharStringLiteral) node;
+            profileNames.add(literal.getValueAs(String.class));
+        }
+
+        String profilesJoined = String.join(",", profileNames);
+
+        literal = SqlLiteral.createCharString(profilesJoined, profiles.getParserPosition());
+
+        updateZoneOption(new IgniteSqlZoneOptionV2(profiles.key(), literal, profiles.getParserPosition()),
+                remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
 
         return builder.build();
     }
