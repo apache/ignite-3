@@ -30,6 +30,8 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -78,6 +80,11 @@ import org.jetbrains.annotations.Nullable;
 class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientConnectionStateHandler {
     /** Protocol version used by default on first connection attempt. */
     private static final ProtocolVersion DEFAULT_VERSION = ProtocolVersion.LATEST_VER;
+
+    /** Supported features. */
+    private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(
+            EnumSet.noneOf(ProtocolBitmaskFeature.class)
+    );
 
     /** Minimum supported heartbeat interval. */
     private static final long MIN_RECOMMENDED_HEARTBEAT_INTERVAL = 500;
@@ -634,7 +641,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         req.packInt(HandshakeUtils.CLIENT_TYPE_GENERAL);
 
-        HandshakeUtils.packFeatures(req, HandshakeUtils.EMPTY_FEATURES);
+        HandshakeUtils.packFeatures(req, SUPPORTED_FEATURES);
 
         IgniteClientAuthenticator authenticator = cfg.clientConfiguration().authenticator();
         if (authenticator != null) {
@@ -686,11 +693,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             unpacker.unpackByteNullable(); // cluster version patch
             unpacker.unpackStringNullable(); // cluster version pre release
 
-            HandshakeUtils.unpackFeatures(unpacker);
+            BitSet serverFeatures = HandshakeUtils.unpackFeatures(unpacker);
             HandshakeUtils.unpackExtensions(unpacker);
 
-            protocolCtx = new ProtocolContext(
-                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterIds, clusterName);
+            BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(SUPPORTED_FEATURES, serverFeatures);
+            EnumSet<ProtocolBitmaskFeature> features = ProtocolBitmaskFeature.enumSet(mutuallySupportedFeatures);
+
+            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName);
 
             return null;
         } catch (Throwable e) {

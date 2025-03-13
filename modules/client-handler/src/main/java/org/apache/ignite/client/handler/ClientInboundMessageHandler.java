@@ -75,8 +75,10 @@ import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerBatchSendRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerWithReceiverBatchSendRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTableGetRequestV2;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequestV2;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsAllKeysRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -395,7 +397,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             int clientCode = unpacker.unpackInt();
 
-            BitSet features = HandshakeUtils.unpackFeatures(unpacker);
+            BitSet clientFeatures = HandshakeUtils.unpackFeatures(unpacker);
             Map<HandshakeExtension, Object> extensions = HandshakeUtils.unpackExtensions(unpacker);
 
             authenticationManager
@@ -404,7 +406,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         if (err != null) {
                             handshakeError(ctx, packer, err);
                         } else {
-                            clientContext = new ClientContext(clientVer, clientCode, features, user);
+                            BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
+                            clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user);
 
                             sendHandshakeResponse(ctx, packer);
                         }
@@ -681,16 +684,25 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return null;
 
             case ClientOp.TABLES_GET:
-                return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> {
-                    out.meta(clockService.current());
-                });
+                if (clientContext.hasFeature(ServerProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME)) {
+                    return ClientTablesGetRequestV2.process(out, igniteTables).thenRun(() -> {
+                        out.meta(clockService.current());
+                    });
+                } else {
+                    return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> {
+                        out.meta(clockService.current());
+                    });
+                }
 
             case ClientOp.SCHEMAS_GET:
                 return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
 
             case ClientOp.TABLE_GET:
-                return ClientTableGetRequest.process(in, out, igniteTables);
-
+                if (clientContext.hasFeature(ServerProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME)) {
+                    return ClientTableGetRequestV2.process(in, out, igniteTables);
+                } else {
+                    return ClientTableGetRequest.process(in, out, igniteTables);
+                }
             case ClientOp.TUPLE_UPSERT:
                 return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, txManager);
 

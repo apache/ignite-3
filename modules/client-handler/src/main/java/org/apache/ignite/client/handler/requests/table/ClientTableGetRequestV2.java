@@ -21,13 +21,13 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Client table retrieval request.
  */
-public class ClientTableGetRequest {
+public class ClientTableGetRequestV2 {
     /**
      * Processes the request.
      *
@@ -42,30 +42,16 @@ public class ClientTableGetRequest {
             IgniteTables tables
     ) {
         String tableName = in.unpackString();
+        String schemaName = in.unpackString();
+        QualifiedName qualifiedName = QualifiedName.of(schemaName, tableName);
 
-        return tables.tableAsync(tableName).thenAccept(table -> {
+        return tables.tableAsync(qualifiedName).thenAccept(table -> {
             if (table == null) {
                 out.packNil();
             } else {
                 out.packInt(((TableViewInternal) table).tableId());
-                out.packString(quoteTableNameIfNotAllUpper(table.qualifiedName().objectName()));
+                out.packQualifiedName(table.qualifiedName());
             }
         });
-    }
-
-    private static String quoteTableNameIfNotAllUpper(String name) {
-        for (int i = 0; i < name.length(); i++) {
-            char ch = name.charAt(i);
-
-            if (Character.isDigit(ch) || ch == '_') {
-                continue;
-            }
-
-            if (!Character.isUpperCase(ch)) {
-                return IgniteNameUtils.quoteIfNeeded(name);
-            }
-        }
-
-        return name;
     }
 }
