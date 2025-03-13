@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
@@ -31,6 +30,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
@@ -184,8 +184,8 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     ? Mappings.invert(Mappings.source(requiredColumns.asList(), tableRowSize))
                     : Mappings.createIdentity(tableRowSize);
 
-            Map<Integer, Integer> mappingMap = new HashMap<>();
 
+            List<IntPair> pairs = new ArrayList<>(projects.size());
             for (int i = 0; i < projects.size(); i++) {
                 RexNode rex = projects.get(i);
                 if (!(rex instanceof RexLocalRef)) {
@@ -194,11 +194,11 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
                 RexLocalRef ref = (RexLocalRef) rex;
 
-                mappingMap.put(trimmingMapping.getSource(ref.getIndex()), i);
+                pairs.add(IntPair.of(trimmingMapping.getSource(ref.getIndex()), i));
             }
 
             return Mappings.target(
-                mappingMap,
+                pairs,
                 tableRowSize,
                 projects.size()
             );

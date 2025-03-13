@@ -25,10 +25,10 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimi
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -657,10 +657,10 @@ public class PrepareServiceImpl implements PrepareService {
     @Nullable
     private static CacheKey tryCreateCacheKeyFromParameterValues(ParsedResult parsedResult, PlanningContext ctx) {
 
-        Map<Integer, Object> parameters = ctx.parameters();
+        Int2ObjectMap<Object> parameters = ctx.parameters();
 
         int maxParamNum = 0;
-        for (Integer key : parameters.keySet()) {
+        for (int key : parameters.keySet()) {
             maxParamNum = Math.max(maxParamNum, key);
         }
 
@@ -684,7 +684,7 @@ public class PrepareServiceImpl implements PrepareService {
         } else {
             ColumnType[] result = new ColumnType[parameters.size()];
 
-            for (Map.Entry<Integer, Object> entry : parameters.entrySet()) {
+            for (Int2ObjectMap.Entry<Object> entry : parameters.int2ObjectEntrySet()) {
                 Object value = entry.getValue();
                 ColumnType columnType;
                 if (value != null) {
@@ -692,7 +692,7 @@ public class PrepareServiceImpl implements PrepareService {
                 } else {
                     columnType = ColumnType.NULL;
                 }
-                result[entry.getKey()] = columnType;
+                result[entry.getIntKey()] = columnType;
             }
 
             paramTypes = result;

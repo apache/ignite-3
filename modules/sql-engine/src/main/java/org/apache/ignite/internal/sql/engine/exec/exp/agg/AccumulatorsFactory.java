@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.SqlScalar;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -255,13 +258,15 @@ public class AccumulatorsFactory<RowT> {
     }
 
     private static final class AccumulatorWrapperImpl<RowT> implements AccumulatorWrapper<RowT> {
+        static final IntList SINGLE_ARG_LIST = IntList.of(0);
+
         private final Accumulator accumulator;
 
         private final Function<Object[], Object[]> inAdapter;
 
         private final Function<Object, Object> outAdapter;
 
-        private final List<Integer> argList;
+        private final IntList argList;
 
         private final boolean literalAgg;
 
@@ -289,9 +294,10 @@ public class AccumulatorsFactory<RowT> {
             this.distinct = call.isDistinct();
 
             literalAgg = call.getAggregation() == LITERAL_AGG;
-            argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
+
+            argList = distinct && call.getArgList().isEmpty() ? SINGLE_ARG_LIST : new IntArrayList(call.getArgList());
 
             if (literalAgg) {
                 assert call.getArgList().isEmpty() : "LiteralAgg should have no operands: " + call;
@@ -323,20 +329,16 @@ public class AccumulatorsFactory<RowT> {
                 return new Object[]{preOperand};
             }
 
-            int params = argList.size();
-
-            List<Integer> argList0 = argList;
-
-            if ((distinct && argList.isEmpty())) {
+            if (IgniteUtils.assertionsEnabled() && argList == SINGLE_ARG_LIST) {
                 int cnt = handler.columnCount(row);
                 assert cnt <= 1;
-                argList0 = List.of(0);
-                params = 1;
             }
+
+            int params = argList.size();
 
             Object[] args = new Object[params];
             for (int i = 0; i < params; i++) {
-                int argPos = argList0.get(i);
+                int argPos = argList.getInt(i);
                 args[i] = handler.get(argPos, row);
 
                 if (ignoreNulls && args[i] == null) {

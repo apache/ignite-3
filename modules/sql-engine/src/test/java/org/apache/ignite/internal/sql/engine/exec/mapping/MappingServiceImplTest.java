@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestHybridClock;
@@ -127,7 +128,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
         // Initialize mapping service.
-        Supplier<Long> logicalTopologyVerSupplier = createChangingTopologySupplier();
+        LongSupplier logicalTopologyVerSupplier = createChangingTopologySupplier();
         TestExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
@@ -196,7 +197,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
-        Supplier<Long> logicalTopologyVerSupplier = createTriggeredTopologySupplier();
+        LongSupplier logicalTopologyVerSupplier = createTriggeredTopologySupplier();
         TestExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
@@ -258,7 +259,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         };
 
         // Initialize mapping service.
-        Supplier<Long> logicalTopologyVerSupplier = createStableTopologySupplier();
+        LongSupplier logicalTopologyVerSupplier = createStableTopologySupplier();
         ExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
@@ -291,7 +292,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private MappingServiceImpl createMappingService(String localNodeName, List<String> nodeNames, int cacheSize) {
-        Supplier<Long> logicalTopologyVerSupplier = createChangingTopologySupplier();
+        LongSupplier logicalTopologyVerSupplier = createChangingTopologySupplier();
         ExecutionDistributionProvider execProvider = new TestExecutionDistributionProvider(nodeNames);
 
         return new MappingServiceImpl(
@@ -342,15 +343,15 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static Supplier<Long> createStableTopologySupplier() {
+    private static LongSupplier createStableTopologySupplier() {
         return () -> 1L;
     }
 
-    private Supplier<Long> createTriggeredTopologySupplier() {
+    private LongSupplier createTriggeredTopologySupplier() {
         return () -> topologyChange ? ++topologyVer : topologyVer;
     }
 
-    private Supplier<Long> createChangingTopologySupplier() {
+    private LongSupplier createChangingTopologySupplier() {
         return () -> topologyVer++;
     }
 }
