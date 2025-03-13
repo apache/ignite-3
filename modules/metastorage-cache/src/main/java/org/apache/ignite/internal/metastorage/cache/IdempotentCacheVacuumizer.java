@@ -112,7 +112,7 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
                 () -> {
                     if (triggerVacuumization.get()) {
                         try {
-                            HybridTimestamp evictionTimestamp = clockService.now()
+                            HybridTimestamp evictionTimestamp = clockService.current()
                                     .subtractPhysicalTime(idempotentCacheTtl.value() + clockService.maxClockSkewMillis());
 
                             vacuumizationAction.accept(evictionTimestamp);
