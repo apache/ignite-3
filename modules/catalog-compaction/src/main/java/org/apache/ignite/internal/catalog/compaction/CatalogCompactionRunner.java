@@ -25,11 +25,13 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +81,7 @@ import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
@@ -287,7 +290,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 chosenMinTime
         );
 
-        Map<Integer, BitSet> tableBitSet = buildTablePartitions(partitionStates);
+        Int2ObjectMap<BitSet> tableBitSet = buildTablePartitions(partitionStates);
 
         return new LocalMinTime(chosenMinTime, tableBitSet);
     }
@@ -297,14 +300,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         LocalMinTime localMinRequiredTime = getMinLocalTime(lwm);
         long localMinTime = localMinRequiredTime.time;
-        Map<Integer, BitSet> localPartitions = localMinRequiredTime.availablePartitions;
+        Int2ObjectMap<BitSet> localPartitions = localMinRequiredTime.availablePartitions;
 
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinTime, localPartitions)
                 .thenComposeAsync(timeHolder -> {
 
                     long minRequiredTime = timeHolder.minRequiredTime;
                     long txMinRequiredTime = timeHolder.txMinRequiredTime;
-                    Map<String, Map<Integer, BitSet>> allPartitions = timeHolder.allPartitions;
+                    Map<String, Int2ObjectMap<BitSet>> allPartitions = timeHolder.allPartitions;
 
                     CompletableFuture<Boolean> catalogCompactionFut = tryCompactCatalog(
                             minRequiredTime,
@@ -335,13 +338,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
             Collection<? extends ClusterNode> nodes,
             long localMinimumRequiredTime) {
 
-        return determineGlobalMinimumRequiredTime(nodes, localMinimumRequiredTime, Map.of());
+        return determineGlobalMinimumRequiredTime(nodes, localMinimumRequiredTime, Int2ObjectMaps.emptyMap());
     }
 
     private CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
             Collection<? extends ClusterNode> nodes,
             long localMinimumRequiredTime,
-            Map<Integer, BitSet> localPartitions
+            Int2ObjectMap<BitSet> localPartitions
     ) {
         CatalogCompactionMinimumTimesRequest request = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesRequest().build();
         List<CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>>> responseFutures = new ArrayList<>(nodes.size() - 1);
@@ -363,7 +366,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     long globalMinimumRequiredTime = localMinimumRequiredTime;
                     long globalMinimumTxRequiredTime = activeLocalTxMinimumRequiredTimeProvider.minimumRequiredTime();
 
-                    Map<String, Map<Integer, BitSet>> allPartitions = new HashMap<>();
+                    Map<String, Int2ObjectMap<BitSet>> allPartitions = new HashMap<>();
                     allPartitions.put(localNodeName, localPartitions);
 
                     for (CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>> fut : responseFutures) {
@@ -421,7 +424,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             long minRequiredTime,
             LogicalTopologySnapshot topologySnapshot,
             HybridTimestamp lwm,
-            Map<String, Map<Integer, BitSet>> allPartitions
+            Map<String, Int2ObjectMap<BitSet>> allPartitions
     ) {
         Catalog catalog = catalogManagerFacade.catalogPriorToVersionAtTsNullable(minRequiredTime);
 
@@ -473,7 +476,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private CompletableFuture<Pair<Boolean, Set<String>>> validatePartitions(
             Catalog catalog,
             HybridTimestamp lwm,
-            Map<String, Map<Integer, BitSet>> allPartitions
+            Map<String, Int2ObjectMap<BitSet>> allPartitions
     ) {
         HybridTimestamp nowTs = clockService.now();
         ConcurrentHashMap<String, RequiredPartitions> requiredPartitionsPerNode = new ConcurrentHashMap<>();
@@ -493,19 +496,19 @@ public class CatalogCompactionRunner implements IgniteComponent {
             for (Map.Entry<String, RequiredPartitions> entry : requiredPartitionsPerNode.entrySet()) {
                 RequiredPartitions partitionsPerNode = entry.getValue();
                 String nodeId = entry.getKey();
-                Map<Integer, BitSet> actualPartitions = allPartitions.get(nodeId);
+                Int2ObjectMap<BitSet> actualPartitions = allPartitions.get(nodeId);
 
                 if (actualPartitions == null) {
                     return new Pair<>(false, requiredNodeNames);
                 }
 
-                Map<Integer, BitSet> requiredPartitions = partitionsPerNode.data();
+                Int2ObjectMap<BitSet> requiredPartitions = partitionsPerNode.data();
                 if (!actualPartitions.keySet().containsAll(requiredPartitions.keySet())) {
                     return new Pair<>(false, requiredNodeNames);
                 }
 
-                for (Map.Entry<Integer, BitSet> tableParts : requiredPartitions.entrySet()) {
-                    BitSet actual = actualPartitions.get(tableParts.getKey());
+                for (Int2ObjectMap.Entry<BitSet> tableParts : requiredPartitions.int2ObjectEntrySet()) {
+                    BitSet actual = actualPartitions.get(tableParts.getIntKey());
                     BitSet expected = tableParts.getValue();
 
                     BitSet cmp = (BitSet) actual.clone();
@@ -675,7 +678,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             }
 
             long minRequiredTime = minLocalTime.time;
-            Map<Integer, BitSet> availablePartitions = minLocalTime.availablePartitions;
+            Int2ObjectMap<BitSet> availablePartitions = minLocalTime.availablePartitions;
 
             CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(minRequiredTime)
@@ -698,8 +701,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
     }
 
-    private static Map<Integer, BitSet> buildTablePartitions(Map<TablePartitionId, @Nullable Long> tablePartitionMap) {
-        Map<Integer, BitSet> tableIdBitSet = new HashMap<>();
+    private static Int2ObjectMap<BitSet> buildTablePartitions(Map<TablePartitionId, @Nullable Long> tablePartitionMap) {
+        Int2ObjectMap<BitSet> tableIdBitSet = new Int2ObjectOpenHashMap<>();
 
         for (var e : tablePartitionMap.entrySet()) {
             TablePartitionId tp = e.getKey();
@@ -720,13 +723,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private static class LocalMinTime {
-        private static final LocalMinTime NOT_AVAILABLE = new LocalMinTime(HybridTimestamp.MIN_VALUE.longValue(), Collections.emptyMap());
+        private static final LocalMinTime NOT_AVAILABLE = new LocalMinTime(HybridTimestamp.MIN_VALUE.longValue(),
+                Int2ObjectMaps.emptyMap());
 
         final long time;
         // TableId to partition number(s).
-        final Map<Integer, BitSet> availablePartitions;
+        final Int2ObjectMap<BitSet> availablePartitions;
 
-        LocalMinTime(long time, Map<Integer, BitSet> availablePartitions) {
+        LocalMinTime(long time, Int2ObjectMap<BitSet> availablePartitions) {
             this.time = time;
             this.availablePartitions = availablePartitions;
         }
@@ -735,9 +739,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
     static class TimeHolder {
         final long minRequiredTime;
         final long txMinRequiredTime;
-        final Map<String, Map<Integer, BitSet>> allPartitions;
+        final Map<String, Int2ObjectMap<BitSet>> allPartitions;
 
-        private TimeHolder(long minRequiredTime, long txMinRequiredTime, Map<String, Map<Integer, BitSet>> allPartitions) {
+        private TimeHolder(long minRequiredTime, long txMinRequiredTime, Map<String, Int2ObjectMap<BitSet>> allPartitions) {
             this.minRequiredTime = minRequiredTime;
             this.txMinRequiredTime = txMinRequiredTime;
             this.allPartitions = allPartitions;
@@ -745,7 +749,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private static class RequiredPartitions {
-        final Map<Integer, BitSet> partitions = new HashMap<>();
+        final Int2ObjectMap<BitSet> partitions = new Int2ObjectOpenHashMap<>();
 
         synchronized void update(int tableId, int p) {
             partitions.compute(tableId, (k, v) -> {
@@ -757,23 +761,22 @@ public class CatalogCompactionRunner implements IgniteComponent {
             });
         }
 
-        synchronized Map<Integer, BitSet> data() {
+        synchronized Int2ObjectMap<BitSet> data() {
             return partitions;
         }
     }
 
-    private static List<AvailablePartitionsMessage> availablePartitionsMessages(Map<Integer, BitSet> availablePartitions) {
-        return availablePartitions.entrySet().stream()
+    private static List<AvailablePartitionsMessage> availablePartitionsMessages(Int2ObjectMap<BitSet> availablePartitions) {
+        return availablePartitions.int2ObjectEntrySet().stream()
                 .map(e -> COMPACTION_MESSAGES_FACTORY.availablePartitionsMessage()
-                        .tableId(e.getKey())
+                        .tableId(e.getIntKey())
                         .partitions(e.getValue())
                         .build())
                 .collect(Collectors.toList());
     }
 
-    private static Map<Integer, BitSet> availablePartitionListToMap(List<AvailablePartitionsMessage> availablePartitions) {
+    private static Int2ObjectMap<BitSet> availablePartitionListToMap(List<AvailablePartitionsMessage> availablePartitions) {
         return availablePartitions.stream()
-                .map(a -> Map.entry(a.tableId(), a.partitions()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(CollectionUtils.toIntMapCollector(AvailablePartitionsMessage::tableId, AvailablePartitionsMessage::partitions));
     }
 }
