@@ -55,7 +55,7 @@ class ItIndexAvailabilityTest extends BaseSqlIntegrationTest {
     void indexIsQueriableRightAfterCreationFutureCompletes() {
         sql(String.format("CREATE INDEX %s ON %s (val)", INDEX_NAME, TABLE_NAME));
 
-        assertQuery(format("SELECT * FROM {} WHERE val = 'test'", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX(TEST_INDEX) */ * FROM {} WHERE val = 'test'", TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .check();
     }
@@ -77,7 +77,7 @@ class ItIndexAvailabilityTest extends BaseSqlIntegrationTest {
                 + String.format("CREATE INDEX %s ON %s (val)", INDEX_NAME, TABLE_NAME)
         );
 
-        assertQuery(format("SELECT * FROM {} WHERE val = 'test'", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX(TEST_INDEX) */ * FROM {} WHERE val = 'test'", TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .check();
     }

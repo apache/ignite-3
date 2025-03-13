@@ -33,7 +33,6 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -51,8 +50,6 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
     void setUp(
             @WorkDirectory
             Path workDir,
-            @InjectConfiguration
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
             StorageConfiguration storageConfig
     ) {
@@ -63,7 +60,6 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 mock(MetricManager.class),
-                engineConfig,
                 storageConfig,
                 ioRegistry,
                 workDir,
@@ -80,7 +76,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
                 mock(StorageIndexDescriptorSupplier.class)
         );
 
-        initialize(tableStorage, engineConfig.pageSize().value());
+        initialize(tableStorage, engine.configuration().pageSize().value());
     }
 
     @AfterEach

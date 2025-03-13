@@ -32,7 +32,6 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -47,8 +46,6 @@ class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableS
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
             StorageConfiguration storageConfig
     ) {
@@ -59,7 +56,6 @@ class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableS
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 mock(MetricManager.class),
-                engineConfig,
                 storageConfig,
                 ioRegistry,
                 workDir,

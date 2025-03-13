@@ -33,8 +33,6 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,10 +58,7 @@ public class RocksDbDataStorageModule implements DataStorageModule {
             ScheduledExecutorService commonScheduler
     ) throws StorageException {
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
-        RocksDbStorageEngineConfiguration engineConfig = ((RocksDbStorageEngineExtensionConfiguration) storageConfig.engines()).rocksdb();
 
-        assert engineConfig != null;
-
-        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storageConfig, storagePath, logSyncer, commonScheduler);
+        return new RocksDbStorageEngine(igniteInstanceName, storageConfig, storagePath, logSyncer, commonScheduler);
     }
 }

@@ -38,7 +38,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -59,7 +58,6 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default.engine = aipersist")
             StorageConfiguration storageConfig
     ) {
@@ -70,7 +68,6 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 mock(MetricManager.class),
-                engineConfig,
                 storageConfig,
                 ioRegistry,
                 workDir,

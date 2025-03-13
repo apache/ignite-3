@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.cache;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -113,8 +112,10 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
                 () -> {
                     if (triggerVacuumization.get()) {
                         try {
-                            vacuumizationAction.accept(hybridTimestamp(clockService.nowLong()
-                                    - (idempotentCacheTtl.value() + clockService.maxClockSkewMillis())));
+                            HybridTimestamp evictionTimestamp = clockService.current()
+                                    .subtractPhysicalTime(idempotentCacheTtl.value() + clockService.maxClockSkewMillis());
+
+                            vacuumizationAction.accept(evictionTimestamp);
                         } catch (Exception e) {
                             LOG.warn("An exception occurred while executing idempotent cache vacuumization action."
                                     + " Idempotent cache vacuumizer won't be stopped.", e);
