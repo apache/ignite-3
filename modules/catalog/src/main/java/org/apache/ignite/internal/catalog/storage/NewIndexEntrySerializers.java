@@ -25,8 +25,6 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.IndexDescriptorSerializerHelper;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link NewIndexEntry}.
@@ -61,23 +59,16 @@ public class NewIndexEntrySerializers {
      */
     @CatalogSerializer(version = 2, since = "3.1.0")
     static class NewIndexEntrySerializerV2 implements CatalogObjectSerializer<NewIndexEntry> {
-
-        private final MarshallableType<CatalogIndexDescriptor> indexType =
-                MarshallableType.builder(CatalogIndexDescriptor.class)
-                        .addVariant(MarshallableEntryType.DESCRIPTOR_HASH_INDEX.id(), 2)
-                        .addVariant(MarshallableEntryType.DESCRIPTOR_SORTED_INDEX.id(), 2)
-                        .build();
-
         @Override
         public NewIndexEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogIndexDescriptor descriptor = input.readEntry(indexType);
+            CatalogIndexDescriptor descriptor = input.readEntry(CatalogIndexDescriptor.class);
 
             return new NewIndexEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewIndexEntry entry, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntry(indexType, entry.descriptor());
+            output.writeEntry(entry.descriptor());
         }
     }
 }

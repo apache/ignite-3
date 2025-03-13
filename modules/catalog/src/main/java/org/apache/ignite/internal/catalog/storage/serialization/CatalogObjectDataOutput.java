@@ -54,40 +54,25 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
     }
 
     /**
-     * Writes an entry.
-     *
-     * @param type Element type.
-     * @param entry Entry.
-     */
-    public <T extends MarshallableEntry> void writeEntry(MarshallableType<T> type, T entry) throws IOException {
-        int typeId = entry.typeId();
-        int version = type.version(typeId);
-
-        writeEntryHeader(entry, version);
-        serializers.get(version, typeId).writeTo(entry, this);
-    }
-
-    /**
      * Writes a list of entries.
      *
-     * @param type Element type.
      * @param entries Entries.
      */
-    public <T extends MarshallableEntry> void writeEntryList(MarshallableType<T> type, List<T> entries) throws IOException {
+    public <T extends MarshallableEntry> void writeEntryList(List<T> entries) throws IOException {
         writeVarInt(entries.size());
 
         for (T entry : entries) {
             int typeId = entry.typeId();
-            int entryVersion = type.version(typeId);
+            int version = serializers.latestSerializerVersion(typeId);
 
-            writeEntryHeader(entry, entryVersion);
-            serializers.get(entryVersion, typeId).writeTo(entry, this);
+            writeEntryHeader(entry, version);
+            serializers.get(version, typeId).writeTo(entry, this);
         }
     }
 
     /**
      * Writes a list of elements.
-     * <b>NOTE: To write versioned elements use {@link #writeEntryList(MarshallableType, List)} instead.</b>
+     * <b>NOTE: To write versioned elements use {@link #writeEntryList(List)} instead.</b>
      *
      * @param writer Element writer.
      * @param <T> Element type.
@@ -102,15 +87,15 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
     /**
      * Writes entry array.
      */
-    public <T extends MarshallableEntry> void writeEntryArray(MarshallableType<T> listType, T[] entries) throws IOException {
+    public <T extends MarshallableEntry> void writeEntryArray(T[] entries) throws IOException {
         writeVarInt(entries.length);
 
         for (T entry : entries) {
             int typeId = entry.typeId();
-            int entryVersion = listType.version(typeId);
+            int version = serializers.latestSerializerVersion(typeId);
 
-            writeEntryHeader(entry, entryVersion);
-            serializers.get(entryVersion, typeId).writeTo(entry, this);
+            writeEntryHeader(entry, version);
+            serializers.get(version, typeId).writeTo(entry, this);
         }
     }
 

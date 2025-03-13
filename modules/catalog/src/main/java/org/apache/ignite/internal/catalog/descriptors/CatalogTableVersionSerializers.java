@@ -29,7 +29,6 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link TableVersion}.
@@ -71,19 +70,16 @@ public class CatalogTableVersionSerializers {
     @CatalogSerializer(version = 2, since = "3.1.0")
     static class TableVersionSerializerV2 implements CatalogObjectSerializer<TableVersion> {
 
-        private final MarshallableType<CatalogTableColumnDescriptor> columnType =
-                MarshallableType.typeOf(CatalogTableColumnDescriptor.class, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN, 2);
-
         @Override
         public TableVersion readFrom(CatalogObjectDataInput input) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = input.readEntryList(columnType);
+            List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
 
             return new TableVersion(columns);
         }
 
         @Override
         public void writeTo(TableVersion tableVersion, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntryList(columnType, tableVersion.columns());
+            output.writeEntryList(tableVersion.columns());
         }
     }
 }

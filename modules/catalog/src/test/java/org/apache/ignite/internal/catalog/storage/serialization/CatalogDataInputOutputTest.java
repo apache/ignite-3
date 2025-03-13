@@ -41,21 +41,17 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testReadWriteEntry() throws IOException {
-        MarshallableType<TestEntry> type = MarshallableType.typeOf(TestEntry.class, TestEntry.TYPE_ID, 2);
-
-        provider.addSerializer(TestEntry.TYPE_ID, 2, new SimpleTestEntrySerializer(TestEntry::new));
-
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
-            TestEntry entry1 = new TestEntry(random.nextInt());
-            TestEntry entry2 = new TestEntry(random.nextInt());
+            TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
+            TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
 
-            output.writeEntry(type, entry1);
-            output.writeEntry(type, entry2);
+            output.writeEntry(entry1);
+            output.writeEntry(entry2);
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                TestEntry actual1 = input.readEntry(type);
-                TestEntry actual2 = input.readEntry(type);
+                TestEntryVar1 actual1 = input.readEntry(TestEntryVar1.class);
+                TestEntryVar2 actual2 = input.readEntry(TestEntryVar2.class);
 
                 expectEntries(List.of(entry1, entry2), List.of(actual1, actual2));
             }
@@ -63,52 +59,16 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testReadWriteEntryVariants() throws IOException {
-        MarshallableType<BaseTestEntry> type = MarshallableType.builder(BaseTestEntry.class)
-                .addVariant(TestEntry.TYPE_ID, 11)
-                .addVariant(TestEntryVar1.TYPE_ID, 12)
-                .addVariant(TestEntryVar2.TYPE_ID, 13)
-                .build();
-
-        provider.addSerializer(TestEntry.TYPE_ID, 11, new SimpleTestEntrySerializer(TestEntry::new));
-        provider.addSerializer(TestEntryVar1.TYPE_ID, 12, new SimpleTestEntrySerializer(TestEntryVar1::new));
-        provider.addSerializer(TestEntryVar2.TYPE_ID, 13, new SimpleTestEntrySerializer(TestEntryVar2::new));
-
-        try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
-            TestEntry entry1 = new TestEntry(random.nextInt());
-            TestEntryVar1 entry2 = new TestEntryVar1(random.nextInt());
-            TestEntryVar2 entry3 = new TestEntryVar2(random.nextInt());
-
-            output.writeEntry(type, entry1);
-            output.writeEntry(type, entry2);
-            output.writeEntry(type, entry3);
-
-            byte[] data = output.array();
-            try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                BaseTestEntry actual1 = input.readEntry(type);
-                BaseTestEntry actual2 = input.readEntry(type);
-                BaseTestEntry actual3 = input.readEntry(type);
-
-                expectEntries(List.of(entry1, entry2, entry3), List.of(actual1, actual2, actual3));
-            }
-        }
-    }
-
-    @Test
     public void testReadWriteEntryList() throws IOException {
-        MarshallableType<TestEntry> type = MarshallableType.typeOf(TestEntry.class, TestEntry.TYPE_ID, 2);
-
-        provider.addSerializer(TestEntry.TYPE_ID, 2, new SimpleTestEntrySerializer(TestEntry::new));
-
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
-            TestEntry entry1 = new TestEntry(random.nextInt());
-            TestEntry entry2 = new TestEntry(random.nextInt());
+            TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
+            TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
 
-            output.writeEntryList(type, List.of(entry1, entry2));
+            output.writeEntryList(List.of(entry1, entry2));
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                List<TestEntry> list = input.readEntryList(type);
+                List<BaseTestEntry> list = input.readEntryList(BaseTestEntry.class);
 
                 expectEntries(List.of(entry1, entry2), list);
             }
@@ -116,84 +76,23 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testReadWriteEntryListVariants() throws IOException {
-        MarshallableType<BaseTestEntry> type = MarshallableType.builder(BaseTestEntry.class)
-                .addVariant(TestEntry.TYPE_ID, 11)
-                .addVariant(TestEntryVar1.TYPE_ID, 12)
-                .addVariant(TestEntryVar2.TYPE_ID, 13)
-                .build();
-
-        provider.addSerializer(TestEntry.TYPE_ID, 11, new SimpleTestEntrySerializer(TestEntry::new));
-        provider.addSerializer(TestEntryVar1.TYPE_ID, 12, new SimpleTestEntrySerializer(TestEntryVar1::new));
-        provider.addSerializer(TestEntryVar2.TYPE_ID, 13, new SimpleTestEntrySerializer(TestEntryVar2::new));
-
-        try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
-            TestEntry entry1 = new TestEntry(random.nextInt());
-            TestEntryVar1 entry2 = new TestEntryVar1(random.nextInt());
-            TestEntryVar2 entry3 = new TestEntryVar2(random.nextInt());
-
-            output.writeEntryList(type, List.of(entry1, entry2, entry3));
-
-            byte[] data = output.array();
-            try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                List<BaseTestEntry> list = input.readEntryList(type);
-
-                expectEntries(List.of(entry1, entry2, entry3), list);
-            }
-        }
-    }
-
-    @Test
     public void testReadWriteEntryArray() throws IOException {
-        MarshallableType<TestEntry> type = MarshallableType.typeOf(TestEntry.class, TestEntry.TYPE_ID, 2);
-
-        provider.addSerializer(TestEntry.TYPE_ID, 2, new SimpleTestEntrySerializer(TestEntry::new));
-
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
-            TestEntry entry1 = new TestEntry(random.nextInt());
-            TestEntry entry2 = new TestEntry(random.nextInt());
+            TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
+            TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
 
-            output.writeEntryArray(type, new TestEntry[]{entry1, entry2});
+            output.writeEntryArray(new BaseTestEntry[]{entry1, entry2});
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                BaseTestEntry[] list = input.readEntryArray(type);
+                BaseTestEntry[] list = input.readEntryArray(BaseTestEntry.class);
                 expectEntries(List.of(entry1, entry2), List.of(list));
-            }
-        }
-    }
-
-    @Test
-    public void testReadWriteEntryArrayVariants() throws IOException {
-        MarshallableType<BaseTestEntry> type = MarshallableType.builder(BaseTestEntry.class)
-                .addVariant(TestEntry.TYPE_ID, 11)
-                .addVariant(TestEntryVar1.TYPE_ID, 12)
-                .addVariant(TestEntryVar2.TYPE_ID, 13)
-                .build();
-
-        provider.addSerializer(TestEntry.TYPE_ID, 11, new SimpleTestEntrySerializer(TestEntry::new));
-        provider.addSerializer(TestEntryVar1.TYPE_ID, 12, new SimpleTestEntrySerializer(TestEntryVar1::new));
-        provider.addSerializer(TestEntryVar2.TYPE_ID, 13, new SimpleTestEntrySerializer(TestEntryVar2::new));
-
-        try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
-            TestEntry entry1 = new TestEntry(random.nextInt());
-            TestEntryVar1 entry2 = new TestEntryVar1(random.nextInt());
-            TestEntryVar2 entry3 = new TestEntryVar2(random.nextInt());
-
-            output.writeEntryArray(type, new BaseTestEntry[]{entry1, entry2, entry3});
-
-            byte[] data = output.array();
-            try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                BaseTestEntry[] list = input.readEntryArray(type);
-
-                expectEntries(List.of(entry1, entry2, entry3), List.of(list));
             }
         }
     }
 
     private static void expectEntries(List<? extends BaseTestEntry> expected, List<? extends BaseTestEntry> actual) {
         assertEquals(expected.size(), actual.size());
-
 
         for (int i = 0; i < expected.size(); i++) {
             BaseTestEntry e = expected.get(i);
@@ -205,9 +104,6 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testReadWriteLatest() throws Exception {
-        provider.addSerializer(TestEntryVar1.TYPE_ID, 2, new SimpleTestEntrySerializer(TestEntryVar1::new));
-        provider.addSerializer(TestEntryVar2.TYPE_ID, 3, new SimpleTestEntrySerializer(TestEntryVar2::new));
-
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
             TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
             TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
@@ -248,8 +144,9 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
 
         private final Map<Map.Entry<Integer, Integer>, CatalogObjectSerializer<?>> serializerMap = new HashMap<>();
 
-        public void addSerializer(int typeId, int version, CatalogObjectSerializer<?> serializer) {
-            serializerMap.put(Map.entry(typeId, version), serializer);
+        TestCatalogEntrySerializerProvider() {
+            serializerMap.put(Map.entry(TestEntryVar1.TYPE_ID, 2), new SimpleTestEntrySerializer(TestEntryVar1::new));
+            serializerMap.put(Map.entry(TestEntryVar2.TYPE_ID, 3), new SimpleTestEntrySerializer(TestEntryVar2::new));
         }
 
         @Override
@@ -279,20 +176,6 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
 
         private BaseTestEntry(int value) {
             this.value = value;
-        }
-    }
-
-    private static class TestEntry extends BaseTestEntry {
-
-        private static final int TYPE_ID = 40;
-
-        private TestEntry(int val) {
-            super(val);
-        }
-
-        @Override
-        public int typeId() {
-            return TYPE_ID;
         }
     }
 

@@ -25,7 +25,6 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link NewSchemaEntry}.
@@ -62,19 +61,15 @@ public class NewSchemaEntrySerializers {
      */
     @CatalogSerializer(version = 2, since = "3.1.0")
     static class SerializerV2 implements CatalogObjectSerializer<NewSchemaEntry> {
-
-        private final MarshallableType<CatalogSchemaDescriptor> schemaType =
-                MarshallableType.typeOf(CatalogSchemaDescriptor.class, MarshallableEntryType.DESCRIPTOR_SCHEMA, 2);
-
         @Override
         public NewSchemaEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogSchemaDescriptor schemaDescriptor = input.readEntry(schemaType);
+            CatalogSchemaDescriptor schemaDescriptor = input.readEntry(CatalogSchemaDescriptor.class);
             return new NewSchemaEntry(schemaDescriptor);
         }
 
         @Override
         public void writeTo(NewSchemaEntry value, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntry(schemaType, value.descriptor());
+            output.writeEntry(value.descriptor());
         }
     }
 }

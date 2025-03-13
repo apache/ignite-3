@@ -24,7 +24,6 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link CatalogZoneDescriptor}.
@@ -100,19 +99,13 @@ public class CatalogZoneDescriptorSerializers {
      */
     @CatalogSerializer(version = 2, since = "3.1.0")
     static class ZoneDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogZoneDescriptor> {
-
-        private final MarshallableType<CatalogStorageProfilesDescriptor> storageProfileType =
-                MarshallableType.typeOf(
-                        CatalogStorageProfilesDescriptor.class,
-                        MarshallableEntryType.DESCRIPTOR_STORAGE_PROFILES, 2);
-
         @Override
         public CatalogZoneDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = input.readEntry(storageProfileType);
+            CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = input.readEntry(CatalogStorageProfilesDescriptor.class);
 
             int partitions = input.readVarIntAsInt();
             int replicas = input.readVarIntAsInt();
@@ -143,7 +136,7 @@ public class CatalogZoneDescriptorSerializers {
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
 
-            output.writeEntry(storageProfileType, descriptor.storageProfiles());
+            output.writeEntry(descriptor.storageProfiles());
 
             output.writeVarInt(descriptor.partitions());
             output.writeVarInt(descriptor.replicas());

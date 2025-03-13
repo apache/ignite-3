@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage.serialization;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -56,12 +54,9 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
      *
      * @param type Entry type.
      */
-    public <T extends MarshallableEntry> T readEntry(MarshallableType<T> type) throws IOException {
+    public <T extends MarshallableEntry> T readEntry(Class<T> type) throws IOException {
         int typeId = readShort();
         int entryVersion = readVarIntAsInt();
-        int version = type.version(typeId);
-        checkVersion(entryVersion, version, typeId);
-
         MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
         return type.cast(entry);
     }
@@ -70,17 +65,14 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
      * Reads entry list.
      *
      * @param type Type.
-     * @see MarshallableType
      */
-    public <T extends MarshallableEntry> List<T> readEntryList(MarshallableType<T> type) throws IOException {
+    public <T extends MarshallableEntry> List<T> readEntryList(Class<T> type) throws IOException {
         int size = readVarIntAsInt();
         List<T> list = new ArrayList<>(size);
 
         for (int i = 0; i < size; i++) {
             int typeId = readShort();
             int entryVersion = readVarIntAsInt();
-            int expectedVersion = type.version(typeId);
-            checkVersion(entryVersion, expectedVersion, typeId);
 
             MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
             list.add(type.cast(entry));
@@ -91,7 +83,7 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
 
     /**
      * Reads a list of elements.
-     * <b>NOTE: To read versioned elements use {@link #readEntryList(MarshallableType)} instead.</b>
+     * <b>NOTE: To read versioned elements use {@link #readEntryList(Class)} instead.</b>
      *
      * @param reader Element reader.
      * @param <T> Element type.
@@ -114,33 +106,20 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
      * Reads entry array.
      *
      * @param type Type.
-     * @see MarshallableType
      */
-    public <T extends MarshallableEntry> T[] readEntryArray(MarshallableType<T> type) throws IOException {
+    public <T extends MarshallableEntry> T[] readEntryArray(Class<T> type) throws IOException {
         int size = readVarIntAsInt();
-        T[] array = (T[]) Array.newInstance(type.type(), size);
+        T[] array = (T[]) Array.newInstance(type, size);
 
         for (int i = 0; i < size; i++) {
             int typeId = readShort();
             int entryVersion = readVarIntAsInt();
-            int expectedVersion = type.version(typeId);
-            checkVersion(entryVersion, expectedVersion, typeId);
 
             MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
             array[i] = (type.cast(entry));
         }
 
         return array;
-    }
-
-    private static void checkVersion(int entryVersion, int expectedVersion, int typeId) {
-        if (entryVersion != expectedVersion) {
-            String error = format(
-                    "Versions do not match. TypeId: {}, expected by serializer: {}, read from output: {}",
-                    typeId, expectedVersion, entryVersion
-            );
-            throw new CatalogMarshallerException(error);
-        }
     }
 
     /**

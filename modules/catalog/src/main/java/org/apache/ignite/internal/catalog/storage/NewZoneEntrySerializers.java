@@ -25,7 +25,6 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableType;
 
 /**
  * Serializers for {@link NewZoneEntry}.
@@ -63,20 +62,16 @@ public class NewZoneEntrySerializers {
      */
     @CatalogSerializer(version = 2, since = "3.1.0")
     static class NewZoneEntrySerializerV2 implements CatalogObjectSerializer<NewZoneEntry> {
-
-        private final MarshallableType<CatalogZoneDescriptor> zoneType =
-                MarshallableType.typeOf(CatalogZoneDescriptor.class, MarshallableEntryType.DESCRIPTOR_ZONE, 2);
-
         @Override
         public NewZoneEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogZoneDescriptor descriptor = input.readEntry(zoneType);
+            CatalogZoneDescriptor descriptor = input.readEntry(CatalogZoneDescriptor.class);
 
             return new NewZoneEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewZoneEntry object, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntry(zoneType, object.descriptor());
+            output.writeEntry(object.descriptor());
         }
     }
 }
