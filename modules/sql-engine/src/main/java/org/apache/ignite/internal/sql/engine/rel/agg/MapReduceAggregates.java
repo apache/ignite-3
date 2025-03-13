@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.rel.agg;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.math.BigDecimal;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -78,7 +79,7 @@ public class MapReduceAggregates {
      * Should be used by aggregates that use the same operator for both MAP and REDUCE phases.
      */
     private static final MakeReduceExpr USE_INPUT_FIELD = (rexBuilder, input, args, typeFactory) ->
-            rexBuilder.makeInputRef(input, args.get(0));
+            rexBuilder.makeInputRef(input, args.getInt(0));
 
     private MapReduceAggregates() {
 
@@ -210,7 +211,7 @@ public class MapReduceAggregates {
             int argIdx = groupByColumns + argOffset;
 
             for (int j = 0; j < mapReduceAgg.reduceCalls.size(); j++) {
-                RexNode projExpr = mapReduceAgg.makeReduceInputExpr.makeExpr(rexBuilder, map, List.of(argIdx), typeFactory);
+                RexNode projExpr = mapReduceAgg.makeReduceInputExpr.makeExpr(rexBuilder, map, IntList.of(argIdx), typeFactory);
                 reduceInputExprs.set(argIdx, projExpr);
 
                 if (mapReduceAgg.makeReduceInputExpr != USE_INPUT_FIELD) {
@@ -246,7 +247,7 @@ public class MapReduceAggregates {
         // Build a list of projections (arg-list, expr) that accept reduce phase and combine/collect/cast results.
 
         List<AggregateCall> reduceAggCalls = new ArrayList<>();
-        List<Map.Entry<List<Integer>, MakeReduceExpr>> projection = new ArrayList<>(mapReduceAggs.size());
+        List<Map.Entry<IntList, MakeReduceExpr>> projection = new ArrayList<>(mapReduceAggs.size());
 
         for (MapReduceAgg mapReduceAgg : mapReduceAggs) {
             // Update row type returned by REDUCE node.
@@ -258,7 +259,7 @@ public class MapReduceAggregates {
             }
 
             // Update projection list
-            List<Integer> reduceArgList = mapReduceAgg.argList;
+            IntList reduceArgList = mapReduceAgg.argList;
             MakeReduceExpr projectionExpr = mapReduceAgg.makeReduceOutputExpr;
             projection.add(new SimpleEntry<>(reduceArgList, projectionExpr));
 
@@ -320,7 +321,7 @@ public class MapReduceAggregates {
             projectionList.add(ref);
         }
 
-        for (Map.Entry<List<Integer>, MakeReduceExpr> expr : projection) {
+        for (Map.Entry<IntList, MakeReduceExpr> expr : projection) {
             RexNode resultExpr = expr.getValue().makeExpr(rexBuilder, reduce, expr.getKey(), typeFactory);
             projectionList.add(resultExpr);
         }
@@ -393,7 +394,7 @@ public class MapReduceAggregates {
     public static class MapReduceAgg {
 
         /** Argument list on reduce phase. */
-        final List<Integer> argList;
+        final IntList argList;
 
         /** MAP phase aggregate, an initial aggregation function was transformed into. */
         final List<AggregateCall> mapCalls;
@@ -408,7 +409,7 @@ public class MapReduceAggregates {
         final MakeReduceExpr makeReduceOutputExpr;
 
         MapReduceAgg(
-                List<Integer> argList,
+                IntList argList,
                 AggregateCall mapCalls,
                 AggregateCall reduceCalls,
                 MakeReduceExpr makeReduceOutputExpr
@@ -417,7 +418,7 @@ public class MapReduceAggregates {
         }
 
         MapReduceAgg(
-                List<Integer> argList,
+                IntList argList,
                 List<AggregateCall> mapCalls,
                 MakeReduceExpr makeReduceInputExpr,
                 List<AggregateCall> reduceCalls,
@@ -438,7 +439,7 @@ public class MapReduceAggregates {
     }
 
     private static MapReduceAgg createCountAgg(AggregateCall call, int reduceArgumentOffset) {
-        List<Integer> argList = List.of(reduceArgumentOffset);
+        IntList argList = IntList.of(reduceArgumentOffset);
 
         AggregateCall sum0 = AggregateCall.create(
                 SqlStdOperatorTable.SUM0,
@@ -457,7 +458,7 @@ public class MapReduceAggregates {
         // COUNT(x) aggregate have type BIGINT, but the type of SUM(COUNT(x)) is DECIMAL,
         // so we should convert it to back to BIGINT.
         MakeReduceExpr exprBuilder = (rexBuilder, input, args, typeFactory) -> {
-            RexInputRef ref = rexBuilder.makeInputRef(input, args.get(0));
+            RexInputRef ref = rexBuilder.makeInputRef(input, args.getInt(0));
             return rexBuilder.makeCast(typeFactory.createSqlType(SqlTypeName.BIGINT), ref, true, false);
         };
 
@@ -465,7 +466,7 @@ public class MapReduceAggregates {
     }
 
     private static MapReduceAgg createSimpleAgg(AggregateCall call, int reduceArgumentOffset) {
-        List<Integer> argList = List.of(reduceArgumentOffset);
+        IntList argList = IntList.of(reduceArgumentOffset);
 
         AggregateCall reduceCall = AggregateCall.create(
                 call.getAggregation(),
@@ -507,7 +508,7 @@ public class MapReduceAggregates {
          *
          * @return Expression.
          */
-        RexNode makeExpr(RexBuilder rexBuilder, RelNode input, List<Integer> args, IgniteTypeFactory typeFactory);
+        RexNode makeExpr(RexBuilder rexBuilder, RelNode input, IntList args, IgniteTypeFactory typeFactory);
     }
 
     private static MapReduceAgg createAvgAgg(
@@ -566,7 +567,7 @@ public class MapReduceAggregates {
                 "AVG_COUNT" + reduceArgumentOffset);
 
         // REDUCE : SUM(s) as reduce_sum, SUM0(c) as reduce_count
-        List<Integer> reduceSumArgs = List.of(reduceArgumentOffset);
+        IntList reduceSumArgs = IntList.of(reduceArgumentOffset);
 
         // SUM0(s)
         RelDataType reduceSumType = typeSystem.deriveSumType(tf, mapSumType);
@@ -591,7 +592,7 @@ public class MapReduceAggregates {
 
         // SUM0(c)
         RelDataType reduceSumCountType = typeSystem.deriveSumType(tf, mapCount0.type);
-        List<Integer> reduceSumCountArgs = List.of(reduceArgumentOffset + 1);
+        IntList reduceSumCountArgs = IntList.of(reduceArgumentOffset + 1);
 
         AggregateCall reduceSumCount = AggregateCall.create(
                 SqlStdOperatorTable.SUM0,
@@ -610,9 +611,9 @@ public class MapReduceAggregates {
         RelDataType finalReduceSumType = reduceSumType;
 
         MakeReduceExpr reduceInputExpr = (rexBuilder, input, args, typeFactory) -> {
-            RexInputRef argExpr = rexBuilder.makeInputRef(input, args.get(0));
+            RexInputRef argExpr = rexBuilder.makeInputRef(input, args.getInt(0));
 
-            if (args.get(0) == reduceArgumentOffset) {
+            if (args.getInt(0) == reduceArgumentOffset) {
                 // Accumulator functions handle NULL, so it is safe to ignore it.
                 if (!SqlTypeUtil.equalSansNullability(finalReduceSumType, argExpr.getType())) {
                     return rexBuilder.makeCast(finalReduceSumType, argExpr, true, false);
@@ -661,7 +662,7 @@ public class MapReduceAggregates {
             }
         };
 
-        List<Integer> argList = List.of(reduceArgumentOffset, reduceArgumentOffset + 1);
+        IntList argList = IntList.of(reduceArgumentOffset, reduceArgumentOffset + 1);
         return new MapReduceAgg(
                 argList,
                 List.of(mapSum0, mapCount0),

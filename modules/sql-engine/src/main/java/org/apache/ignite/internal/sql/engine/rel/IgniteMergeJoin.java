@@ -346,9 +346,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         ImmutableBitSet colKeysBitset = ImmutableBitSet.of(collation.getKeys());
         ImmutableBitSet exceptBitset = keysBitset.except(colKeysBitset);
 
-        for (Integer i : exceptBitset) {
-            fieldsForNewCollation.add(new RelFieldCollation(i));
-        }
+        exceptBitset.forEachInt(i -> fieldsForNewCollation.add(new RelFieldCollation(i)));
 
         return RelCollations.of(fieldsForNewCollation);
     }

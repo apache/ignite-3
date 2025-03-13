@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -290,7 +291,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private AggregateRow<RowT> create() {
-            Int2ObjectArrayMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
+            Int2ObjectMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
 
             for (int i = 0; i < accs.size(); i++) {
                 AccumulatorWrapper<RowT> acc = accs.get(i);

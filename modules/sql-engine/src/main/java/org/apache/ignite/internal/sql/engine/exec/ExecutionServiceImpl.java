@@ -1152,8 +1152,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     tx.assignCommitPartition(targetReplicationGroupId(tableId, zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
-                    for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
-                        ReplicationGroupId replicationGroupId = targetReplicationGroupId(tableId, zoneId, partWithToken.getKey());
+                    for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
+                        ReplicationGroupId replicationGroupId = targetReplicationGroupId(tableId, zoneId, partWithToken.getIntKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
