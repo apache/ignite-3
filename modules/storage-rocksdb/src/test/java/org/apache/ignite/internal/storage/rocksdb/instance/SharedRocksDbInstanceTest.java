@@ -53,7 +53,6 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.Sto
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -83,11 +82,10 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
             @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
             StorageConfiguration storageConfiguration,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
             @InjectExecutorService
             ScheduledExecutorService scheduledExecutor
     ) throws Exception {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
+        engine = new RocksDbStorageEngine("test", storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
 
         engine.start();
 

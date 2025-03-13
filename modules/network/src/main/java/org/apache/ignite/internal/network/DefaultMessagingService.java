@@ -66,7 +66,6 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThread;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
@@ -156,7 +155,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.criticalWorkerRegistry = criticalWorkerRegistry;
 
         outboundExecutor = new CriticalSingleThreadExecutor(
-                IgniteThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
+                IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
 
         inboundExecutors = new CriticalStripedExecutors(

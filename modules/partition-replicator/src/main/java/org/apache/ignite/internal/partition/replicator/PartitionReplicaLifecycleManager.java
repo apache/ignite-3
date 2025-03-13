@@ -413,25 +413,25 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
-        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
-        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
+        return recoverStableAssignments(recoveryRevision).thenCompose(v -> recoverPendingAssignments(recoveryRevision));
+    }
 
-        // It's required to handle stable assignments changes on recovery in order to cleanup obsolete resources.
-        CompletableFuture<Void> stableFuture = handleAssignmentsOnRecovery(
-                stableAssignmentsPrefix,
+    private CompletableFuture<Void> recoverStableAssignments(long recoveryRevision) {
+        return handleAssignmentsOnRecovery(
+                new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES),
                 recoveryRevision,
                 (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
         );
+    }
 
-        CompletableFuture<Void> pendingFuture = handleAssignmentsOnRecovery(
-                pendingAssignmentsPrefix,
+    private CompletableFuture<Void> recoverPendingAssignments(long recoveryRevision) {
+        return handleAssignmentsOnRecovery(
+                new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
                 recoveryRevision,
-                (entry, rev) -> handleChangePendingAssignmentEvent(entry, rev),
+                this::handleChangePendingAssignmentEvent,
                 "pending"
         );
-
-        return allOf(stableFuture, pendingFuture);
     }
 
     private CompletableFuture<Void> handleAssignmentsOnRecovery(

@@ -34,6 +34,7 @@ import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest;
@@ -85,6 +86,7 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
 
         return new PersistentPageMemory(
                 (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
+                new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
                 10 * MiB,

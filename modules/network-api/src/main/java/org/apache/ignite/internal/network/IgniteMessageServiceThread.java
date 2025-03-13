@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.network;
 
-import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.thread.ThreadOperation;
 
 /**
- * Compound condition, which implements logical AND of left and right subcondition.
+ * Extension for use in {@link MessagingService} implementations that will allow, for example, tracking long message processing, which can
+ * be critical for network communications.
  */
-public class AndCondition extends AbstractCompoundCondition {
+public class IgniteMessageServiceThread extends IgniteThread {
     /**
-     * Constructs new and condition.
+     * Creates thread with given name.
      *
-     * @param leftCondition left condition.
-     * @param rightCondition right condition.
+     * @param finalName Name of thread.
+     * @param r Runnable to execute.
+     * @param allowedOperations Operations which this thread allows to execute.
      */
-    public AndCondition(Condition leftCondition, Condition rightCondition) {
-        super(leftCondition, rightCondition);
-    }
-
-    @Override
-    public boolean test(Entry... entries) {
-        return testLeftCondition(entries) && testRightCondition(entries);
+    public IgniteMessageServiceThread(String finalName, Runnable r, ThreadOperation... allowedOperations) {
+        super(finalName, r, allowedOperations);
     }
 }

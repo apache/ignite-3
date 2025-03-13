@@ -23,7 +23,9 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 
 /**
@@ -57,22 +59,32 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
     /** Threads that are throttled due to checkpoint buffer overflow. */
     private final ConcurrentHashMap<Long, Thread> cpBufThrottledThreads = new ConcurrentHashMap<>();
 
+    private final LongAdderMetric totalThrottlingTime = new LongAdderMetric(
+            "TotalThrottlingTime",
+            "Total throttling threads time in milliseconds. The Ignite throttles threads that generate "
+                        + "dirty pages during the ongoing checkpoint."
+    );
+
     /**
      * Constructor.
      *
      * @param pageMemory Page memory.
      * @param cpProgress Database manager.
      * @param stateChecker checkpoint lock state checker.
+     * @param metricSource Metric source.
      */
     public TargetRatioPagesWriteThrottle(
             PersistentPageMemory pageMemory,
             Supplier<CheckpointProgress> cpProgress,
-            CheckpointLockStateChecker stateChecker
+            CheckpointLockStateChecker stateChecker,
+            PersistentPageMemoryMetricSource metricSource
     ) {
         this.pageMemory = pageMemory;
         this.cpProgress = cpProgress;
         this.stateChecker = stateChecker;
         cpBufferWatchdog = new CheckpointBufferOverflowWatchdog(pageMemory);
+
+        metricSource.addMetric(totalThrottlingTime);
 
         assert cpProgress != null
                 : "cpProgress must be not null if ratio based throttling mode is used";
@@ -125,6 +137,8 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
                         + " for timeout(ms)=" + TimeUnit.NANOSECONDS.toMillis(throttleParkTimeNs));
             }
 
+            long startTimeNs = System.nanoTime();
+
             if (isPageInCheckpoint) {
                 cpBufThrottledThreads.put(curThread.getId(), curThread);
 
@@ -141,6 +155,8 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
             } else {
                 LockSupport.parkNanos(throttleParkTimeNs);
             }
+
+            totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNs));
         } else {
             boolean backoffWasAlreadyStarted = exponentialThrottle.resetBackoff();
 

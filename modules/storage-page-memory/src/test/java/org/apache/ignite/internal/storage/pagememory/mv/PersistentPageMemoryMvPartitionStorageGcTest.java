@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -49,8 +49,6 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
             StorageConfiguration storageConfig
     ) {
@@ -60,7 +58,7 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
 
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
-                engineConfig,
+                mock(MetricManager.class),
                 storageConfig,
                 ioRegistry,
                 workDir,

@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import static java.util.Arrays.asList;
-import static org.apache.ignite.internal.catalog.sql.IndexColumnImpl.parseIndexColumnList;
 import static org.apache.ignite.internal.catalog.sql.QueryPartCollection.partsList;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
@@ -86,12 +86,8 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
-    CreateTableImpl primaryKey(String columnList) {
-        return primaryKey(IndexType.DEFAULT, columnList);
-    }
-
-    CreateTableImpl primaryKey(IndexType type, String columnList) {
-        return primaryKey(type, parseIndexColumnList(columnList));
+    CreateTableImpl primaryKey(List<String> columns) {
+        return primaryKey(IndexType.DEFAULT, columns.stream().map(ColumnSorted::column).collect(Collectors.toList()));
     }
 
     CreateTableImpl primaryKey(IndexType type, List<ColumnSorted> columns) {
@@ -99,10 +95,6 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
 
         constraints.add(new Constraint().primaryKey(type, columns));
         return this;
-    }
-
-    CreateTableImpl colocateBy(String columnList) {
-        return colocateBy(QueryUtils.splitByComma(columnList));
     }
 
     CreateTableImpl colocateBy(String... columns) {
@@ -123,21 +115,12 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
-    CreateTableImpl addIndex(String name, String columnList) {
-        return addIndex(name, null, columnList);
-    }
-
-    CreateTableImpl addIndex(String name, IndexType type, String columnList) {
-        return addIndex(name, type, parseIndexColumnList(columnList));
-    }
-
-    CreateTableImpl addIndex(String name, IndexType type, ColumnSorted... columns) {
-        return addIndex(name, type, asList(columns));
-    }
-
     CreateTableImpl addIndex(String name, IndexType type, List<ColumnSorted> columns) {
         Objects.requireNonNull(name, "Index name must not be null.");
         Objects.requireNonNull(columns, "Index columns list must not be null.");
+        if (columns.isEmpty()) {
+            throw new IllegalArgumentException("Index columns list must not be empty.");
+        }
 
         indexes.add(new CreateIndexImpl(sql).ifNotExists().name(name).using(type).on(tableName, columns));
         return this;

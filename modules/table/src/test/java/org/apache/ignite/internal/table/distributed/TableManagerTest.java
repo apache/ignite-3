@@ -103,6 +103,7 @@ import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -944,6 +945,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         DataStorageManager manager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         NODE_NAME,
+                        mock(MetricManager.class),
                         mockedRegistry,
                         storagePath,
                         null,

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -88,12 +89,12 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -182,7 +183,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     // Table manager dependencies.
     private SchemaManager sm;
     private CatalogManager catalogManager;
-    private MetaStorageManager metaStorageManager;
+    private MetaStorageManagerImpl metaStorageManager;
     private TxStateRocksDbSharedStorage sharedTxStateStorage;
     private TableManager tableManager;
     @InjectExecutorService(threadCount = 4, allowedOperations = {STORAGE_READ, STORAGE_WRITE})
@@ -449,7 +450,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 metaStorageManager.startAsync(componentContext)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
                         .thenCompose(unused -> {
-                            CompletableFuture<Void> componentsStartFuture = startAsync(
+                            CompletableFuture<Void> startComponentsFuture = startAsync(
                                     componentContext,
                                     catalogManager,
                                     sm,
@@ -458,13 +459,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                                     partitionReplicaLifecycleManager,
                                     tableManager
                             );
-                            CompletableFuture<Void> componentsAndRevisionUpdateListenersFuture = CompletableFuture.allOf(
-                                    componentsStartFuture,
-                                    ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart()
-                            );
-                            return componentsAndRevisionUpdateListenersFuture
-                                    .thenCompose(unused2 -> metaStorageManager.deployWatches());
-                        }),
+                            return allOf(startComponentsFuture, metaStorageManager.notifyRevisionUpdateListenerOnStart());
+                        })
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willSucceedIn(10, SECONDS)
         );
     }
@@ -508,6 +505,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         DataStorageManager manager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         NODE_NAME,
+                        mock(MetricManager.class),
                         mockedRegistry,
                         workDir,
                         null,
@@ -555,6 +553,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             @Override
             public StorageEngine createEngine(
                     String igniteInstanceName,
+                    MetricManager metricManager,
                     ConfigurationRegistry configRegistry,
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -565,6 +564,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             ) throws StorageException {
                 return spy(super.createEngine(
                         igniteInstanceName,
+                        metricManager,
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,
