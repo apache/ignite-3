@@ -185,7 +185,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true})
+    @ValueSource(booleans = {true, false})
     public void testClientReceivesPartitionAssignmentUpdates(boolean useHeartbeat) throws InterruptedException {
         ReliableChannel ch = ((TcpIgniteClient) client2).channel();
 
