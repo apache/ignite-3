@@ -78,6 +78,7 @@ public class NodeManager implements Lifecycle<NodeOptions> {
         scheduler = opts.getScheduler();
         messagesFactory = opts.getRaftMessagesFactory();
 
+        // TODO: IGNITE-24789 Single trigger for all RAFT heartbeat in node.
         scheduler.schedule(this::onSentHeartbeat , opts.getElectionTimeoutMs(), TimeUnit.MILLISECONDS);
 
         return true;
