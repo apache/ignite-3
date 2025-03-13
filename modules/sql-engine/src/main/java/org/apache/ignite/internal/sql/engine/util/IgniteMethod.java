@@ -47,10 +47,6 @@ public enum IgniteMethod {
     /** See {@link RowHandler#get(int, Object)}. */
     ROW_HANDLER_GET(RowHandler.class, "get", int.class, Object.class),
 
-    /** See {@link Commons#getFieldFromBiRows(RowHandler, int, Object, Object)}. */
-    ROW_HANDLER_BI_GET(Commons.class, "getFieldFromBiRows", RowHandler.class, int.class,
-            Object.class, Object.class),
-
     /** See {@link ExecutionContext#rowHandler()}. */
     CONTEXT_ROW_HANDLER(ExecutionContext.class, "rowHandler"),
 

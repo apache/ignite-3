@@ -605,15 +605,24 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RelDataType rowType = new Builder(tf)
                 .add("c1", intType)
                 .add("c2", intType)
+                .add("c3", intType)
                 .build();
 
         RexInputRef ref1 = rexBuilder.makeInputRef(rowType, 0);
-        RexInputRef ref2 = rexBuilder.makeInputRef(rowType, 1);
+        RexInputRef ref2 = rexBuilder.makeInputRef(rowType, 2);
         List<RexNode> projections = List.of(ref2, ref1);
 
-        SqlJoinProjection<Object[]> predicate = expFactory.joinProject(projections, rowType);
-        assertArrayEquals(new Object[] {1, 0},  predicate.project(ctx, new Object[]{0}, new Object[]{1}));
-        assertArrayEquals(new Object[] {10, 5},  predicate.project(ctx, new Object[]{5}, new Object[]{10}));
+        {
+            SqlJoinProjection<Object[]> predicate = expFactory.joinProject(projections, rowType, 1);
+            assertArrayEquals(new Object[]{1, 0}, predicate.project(ctx, new Object[]{0}, new Object[]{42, 1}));
+            assertArrayEquals(new Object[]{10, 5}, predicate.project(ctx, new Object[]{5}, new Object[]{42, 10}));
+        }
+
+        {
+            SqlJoinProjection<Object[]> predicate = expFactory.joinProject(projections, rowType, 2);
+            assertArrayEquals(new Object[]{1, 0}, predicate.project(ctx, new Object[]{0, 42}, new Object[]{1}));
+            assertArrayEquals(new Object[]{10, 5}, predicate.project(ctx, new Object[]{5, 42}, new Object[]{10}));
+        }
     }
 
     @Test
@@ -642,15 +651,24 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RelDataType rowType = new Builder(tf)
                 .add("c1", intType)
                 .add("c2", intType)
+                .add("c3", intType)
                 .build();
 
         RexInputRef ref1 = rexBuilder.makeInputRef(rowType, 0);
-        RexInputRef ref2 = rexBuilder.makeInputRef(rowType, 1);
+        RexInputRef ref2 = rexBuilder.makeInputRef(rowType, 2);
         RexNode filter = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, List.of(ref1, ref2));
 
-        SqlJoinPredicate<Object[]> predicate = expFactory.joinPredicate(filter, rowType);
-        assertFalse(predicate.test(ctx, new Object[]{0, 1}, new Object[]{1, 0}));
-        assertTrue(predicate.test(ctx, new Object[]{0, 0}, new Object[]{0, 0}));
+        {
+            SqlJoinPredicate<Object[]> predicate = expFactory.joinPredicate(filter, rowType, 1);
+            assertTrue(predicate.test(ctx, new Object[]{0}, new Object[]{42, 0}));
+            assertFalse(predicate.test(ctx, new Object[]{0}, new Object[]{42, 1}));
+        }
+
+        {
+            SqlJoinPredicate<Object[]> predicate = expFactory.joinPredicate(filter, rowType, 2);
+            assertTrue(predicate.test(ctx, new Object[]{0, 42}, new Object[]{0}));
+            assertFalse(predicate.test(ctx, new Object[]{0, 42}, new Object[]{1}));
+        }
     }
 
     @Test

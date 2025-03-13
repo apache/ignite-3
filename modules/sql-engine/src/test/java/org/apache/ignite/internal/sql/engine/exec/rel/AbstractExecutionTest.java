@@ -402,4 +402,18 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         return identityProjection();
     }
+
+    /**
+     * Gets appropriate field from two rows by offset.
+     *
+     * @param hnd RowHandler impl.
+     * @param offset Current offset.
+     * @param row1 row1.
+     * @param row2 row2.
+     * @return Returns field by offset.
+     */
+    static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
+        return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
+                hnd.get(offset - hnd.columnCount(row1), row2);
+    }
 }

@@ -72,23 +72,24 @@ class JoinProjectionImplementor {
      *
      * @param projections The list of projections, i.e. expressions used to compute a new row.
      * @param type The type of the input row as if rows from both sides will be joined.
+     * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
      * @param <RowT> The type of the execution row.
      * @return An implementation of join projection.
      * @see SqlJoinProjection
      */
-    <RowT> SqlJoinProjection<RowT> implement(List<RexNode> projections, RelDataType type) {
-        String digest = digest(SqlJoinProjection.class, projections, type);
+    <RowT> SqlJoinProjection<RowT> implement(List<RexNode> projections, RelDataType type, int firstRowSize) {
+        String digest = digest(SqlJoinProjection.class, projections, type, "firstRowSize=" + firstRowSize);
         Cache<String, SqlJoinProjection<RowT>> cache = cast(this.cache);
 
         return cache.get(digest, key -> {
             RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RexUtil.types(projections));
-            SqlJoinProjectionExt<RowT> projectionExt = implementInternal(projections, type);
+            SqlJoinProjectionExt<RowT> projectionExt = implementInternal(projections, type, firstRowSize);
 
             return new SqlJoinProjectionImpl<>(projectionExt, rowSchema);
         });
     }
 
-    private <RowT> SqlJoinProjectionExt<RowT> implementInternal(List<RexNode> projections, RelDataType type) {
+    private <RowT> SqlJoinProjectionExt<RowT> implementInternal(List<RexNode> projections, RelDataType type, int firstRowSize) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
         for (RexNode node : projections) {
@@ -112,7 +113,7 @@ class JoinProjectionImplementor {
 
         Expression rowHandler = builder.append("hnd", Expressions.call(ctx, IgniteMethod.CONTEXT_ROW_HANDLER.method()));
 
-        InputGetter inputGetter = new BiFieldGetter(rowHandler, left, right, type);
+        InputGetter inputGetter = new BiFieldGetter(rowHandler, left, right, type, firstRowSize);
 
         Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler).build(projections);
 
