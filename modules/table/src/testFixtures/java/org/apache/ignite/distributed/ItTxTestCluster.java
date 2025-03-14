@@ -847,7 +847,7 @@ public class ItTxTestCluster {
 
     /**
      * If colocation is enabled given method creates zone raft listener for specific zone partition if it wasn't created previously and
-     * populate it with table raft processor. If colocation is disabled given method will create table raft listener.
+     * populates it with table raft processor. If colocation is disabled given method will create table raft listener.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-24798 Simplify after switching main towards colocation.
     private RaftGroupListener getOrCreateAndPopulateRaftGroupListener(
