@@ -37,6 +37,8 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMet
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle;
+import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 
@@ -128,6 +130,22 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 checkpointManager.checkpointTimeoutLock(),
                 pageSize,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
+        );
+
+        boolean speedBasedThrottling = false;
+
+        pageMemory.initThrottling(speedBasedThrottling
+                ? new PagesWriteSpeedBasedThrottle(
+                        pageMemory,
+                        checkpointManager::currentCheckpointProgress,
+                        checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
+                        metricSource
+                ) : new TargetRatioPagesWriteThrottle(
+                        pageMemory,
+                        checkpointManager::currentCheckpointProgress,
+                        checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
+                        metricSource
+                )
         );
 
         pageMemory.start();
