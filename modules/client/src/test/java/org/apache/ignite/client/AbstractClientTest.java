@@ -79,7 +79,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      * After each.
      */
     @BeforeEach
-    public void beforeEach() throws InterruptedException {
+    public void beforeEach() {
         FakeSchemaRegistry.setLastVer(1);
 
         dropTables(server);

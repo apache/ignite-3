@@ -71,6 +71,10 @@ class Option extends QueryPart {
         return new Option("TABLE_NAME", tableName);
     }
 
+    public static Option schemaName(String tableName) {
+        return new Option("SCHEMA_NAME", tableName);
+    }
+
     public static Option zoneName(String zoneName) {
         return new Option("ZONE_NAME", zoneName);
     }

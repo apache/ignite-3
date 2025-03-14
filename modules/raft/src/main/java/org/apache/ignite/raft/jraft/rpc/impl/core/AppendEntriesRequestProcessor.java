@@ -22,6 +22,7 @@ import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -376,12 +377,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         return getOrCreatePeerRequestContext(groupId, pair, node).getAndIncrementSequence();
     }
 
-    private boolean isHeartbeatRequest(final AppendEntriesRequest request) {
-        // No entries and no data means a true heartbeat request.
-        // TODO refactor, adds a new flag field? https://issues.apache.org/jira/browse/IGNITE-14832
-        return request.entriesList() == null && request.data() == null;
-    }
-
     @Override
     public Message processRequest0(final RaftServerService service, final AppendEntriesRequest request,
         final RpcRequestClosure done) {
@@ -392,7 +387,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             final String groupId = request.groupId();
             final PeerPair pair = pairOf(request.peerId(), request.serverId());
 
-            boolean isHeartbeat = isHeartbeatRequest(request);
+            boolean isHeartbeat = JRaftUtils.isHeartbeatRequest(request);
             int reqSequence = -1;
 
             if (!isHeartbeat) {

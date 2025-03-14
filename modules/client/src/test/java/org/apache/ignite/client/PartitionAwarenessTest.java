@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -44,6 +46,8 @@ import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
@@ -714,8 +718,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             replicas = defaultReplicas();
         }
 
+        int currentTableId = nextTableId.get() - 1;
+
         placementDriver.returnError(false);
-        placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
+        placementDriver.setReplicas(replicas, currentTableId, zoneId(currentTableId), leaseStartTime);
+    }
+
+    private static int zoneId(int tableId) {
+        Catalog catalog = testServer.catalogService().activeCatalog(Long.MAX_VALUE);
+        assertThat(catalog, is(notNullValue()));
+
+        CatalogTableDescriptor table = catalog.table(tableId);
+        assertThat(table, is(notNullValue()));
+
+        return table.zoneId();
     }
 
     private static List<String> defaultReplicas() {

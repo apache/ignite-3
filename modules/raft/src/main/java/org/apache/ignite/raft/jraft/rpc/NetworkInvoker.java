@@ -14,30 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.internal.network.TopologyEventHandler;
-import org.apache.ignite.raft.jraft.Lifecycle;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.option.RpcOptions;
+import org.apache.ignite.raft.jraft.error.RemotingException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * RPC client.
+ * Rpc invocation.
  */
-public interface RpcClient extends Lifecycle<RpcOptions>, NetworkInvoker {
+public interface NetworkInvoker {
     /**
-     * Check connection for given address.
+     * Asynchronous invocation with a callback.
      *
-     * @param peerId target peer ID.
-     * @return true if there is a connection and the connection is active and writable.
-     * @deprecated // TODO asch remove IGNITE-14832
-     */
-    boolean checkConnection(PeerId peerId);
-
-    /**
-     * Register a connect event listener for the handler.
+     * @param peerId target peer ID
+     * @param request request object
+     * @param ctx invoke context
+     * @param callback invoke callback
+     * @param timeoutMs timeout millisecond
      *
-     * @param handler The handler.
+     * @return The future.
      */
-    void registerConnectEventListener(TopologyEventHandler handler);
+    CompletableFuture<Message> invokeAsync(
+            PeerId peerId,
+            Object request,
+            @Nullable InvokeContext ctx,
+            InvokeCallback callback,
+            long timeoutMs
+    ) throws InterruptedException, RemotingException;
 }
