@@ -43,12 +43,16 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
@@ -124,6 +128,8 @@ abstract class ChangeIndexStatusTask {
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final FailureManager failureManager;
+
     private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
@@ -140,6 +146,7 @@ abstract class ChangeIndexStatusTask {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
+            FailureManager failureManager,
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
@@ -150,6 +157,7 @@ abstract class ChangeIndexStatusTask {
         this.logicalTopologyService = logicalTopologyService;
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
+        this.failureManager = failureManager;
         this.executor = executor;
         this.busyLock = busyLock;
     }
@@ -176,8 +184,14 @@ abstract class ChangeIndexStatusTask {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);
 
-                            if (!(cause instanceof IndexTaskStoppingException) && !(cause instanceof NodeStoppingException)) {
-                                LOG.error("Error starting index task: {}", cause, indexDescriptor.id());
+                            if (!(cause instanceof IndexTaskStoppingException)
+                                    && !(cause instanceof NodeStoppingException)
+                                    // The index's table might have been dropped while we were waiting for the ability to switch the index
+                                    // status to a new state, so IndexNotFound is not a problem.
+                                    && !(cause instanceof IndexNotFoundValidationException)) {
+                                LOG.error("Error starting index task: {}", throwable, indexDescriptor.id());
+
+                                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, throwable));
                             }
                         }
                     })
@@ -249,6 +263,11 @@ abstract class ChangeIndexStatusTask {
             }
 
             CatalogTableDescriptor tableDescriptor = catalogManager.catalog(indexMeta.catalogVersion()).table(indexDescriptor.tableId());
+
+            if (tableDescriptor == null) {
+                // Table was dropped, no need to build the index.
+                throw new IndexTaskStoppingException();
+            }
 
             ReplicationGroupId groupId = enabledColocation()
                     ? new ZonePartitionId(tableDescriptor.zoneId(), 0)
