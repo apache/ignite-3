@@ -567,8 +567,8 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                     ctx,
                     joinType,
                     null,
-                    IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
-                    IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                    () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
+                    () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
                     resultSize
             );
         }
@@ -582,8 +582,8 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                     ctx,
                     joinType,
                     null,
-                    IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
-                    IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                    () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
+                    () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
                     resultSize
             );
         }
@@ -604,8 +604,8 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 ctx,
                 joinType,
                 (l, r) -> true,
-                IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
-                IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
+                () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
                 resultSize
         );
 
@@ -613,8 +613,8 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 ctx,
                 joinType,
                 (l, r) -> false,
-                IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
-                IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
+                () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
                 0
         );
     }
