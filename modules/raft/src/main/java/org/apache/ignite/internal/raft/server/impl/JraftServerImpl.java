@@ -137,9 +137,6 @@ public class JraftServerImpl implements RaftServer {
      * needed to prevent concurrent start of the same raft group. */
     private final List<Object> startGroupInProgressMonitors;
 
-    /** Node manager. */
-    private final NodeManager nodeManager;
-
     /** Options. */
     private final NodeOptions opts;
 
@@ -180,7 +177,6 @@ public class JraftServerImpl implements RaftServer {
     ) {
         this.service = service;
         this.groupStoragesContextResolver = groupStoragesContextResolver;
-        this.nodeManager = new NodeManager();
         this.groupStoragesDestructionIntents = groupStoragesDestructionIntents;
 
         this.opts = opts;
@@ -277,6 +273,10 @@ public class JraftServerImpl implements RaftServer {
             opts.setSnapshotTimer(JRaftUtils.createTimer(opts, "JRaft-SnapshotTimer"));
         }
 
+        if (opts.getNodeManager() == null) {
+            opts.setNodeManager(new NodeManager(service));
+        }
+
         requestExecutor = Executors.newFixedThreadPool(
                 opts.getRaftRpcThreadPoolSize(),
                 IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, PROCESS_RAFT_REQ)
@@ -284,7 +284,7 @@ public class JraftServerImpl implements RaftServer {
 
         rpcServer = new IgniteRpcServer(
                 service,
-                nodeManager,
+                opts.getNodeManager(),
                 opts.getRaftMessagesFactory(),
                 requestExecutor,
                 serviceEventInterceptor,
@@ -353,6 +353,7 @@ public class JraftServerImpl implements RaftServer {
         }
 
         rpcServer.init(null);
+        opts.getNodeManager().init(opts);
 
         return completeRaftGroupStoragesDestruction(componentContext.executor());
     }
@@ -363,6 +364,7 @@ public class JraftServerImpl implements RaftServer {
         assert nodes.isEmpty() : IgniteStringFormatter.format("Raft nodes {} are still running on the Ignite node {}", nodes.keySet(),
                 service.topologyService().localMember().name());
 
+        opts.getNodeManager().shutdown();
         rpcServer.shutdown();
 
         if (opts.getfSMCallerExecutorDisruptor() != null) {
@@ -516,9 +518,7 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds));
 
-            IgniteRpcClient client = new IgniteRpcClient(service);
-
-            nodeOptions.setRpcClient(client);
+            nodeOptions.setRpcClient(new IgniteRpcClient(service));
 
             nodeOptions.setExternallyEnforcedConfigIndex(groupOptions.externallyEnforcedConfigIndex());
 
@@ -527,7 +527,6 @@ public class JraftServerImpl implements RaftServer {
                     PeerId.fromPeer(nodeId.peer()),
                     nodeOptions,
                     rpcServer,
-                    nodeManager,
                     groupOptions.ownFsmCallerExecutorDisruptorConfig()
             );
 
