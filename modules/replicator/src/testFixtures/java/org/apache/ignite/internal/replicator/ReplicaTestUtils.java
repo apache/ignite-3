@@ -77,45 +77,6 @@ public final class ReplicaTestUtils {
     }
 
     /**
-     * Returns raft-client of a zone partition if exists.
-     *
-     * @param node Ignite node that hosts the raft-client.
-     * @param zoneId Desired zone's ID.
-     * @param partId Desired partition's ID.
-     *
-     * @return Optional with raft-client if exists on the node by given identifiers.
-     */
-    @TestOnly
-    public static Optional<RaftGroupService> getZoneRaftClient(Ignite node, int zoneId, int partId) {
-        return getZoneRaftClient(getReplicaManager(node), zoneId, partId);
-    }
-
-    /**
-     * Returns raft-client of a zone partition if exists.
-     *
-     * @param replicaManager Ignite node's replica manager with replica that should contains a raft client.
-     * @param zoneId Desired zone's ID.
-     * @param partId Desired partition's ID.
-     *
-     * @return Optional with raft-client if exists on the node by given identifiers.
-     */
-    @TestOnly
-    public static Optional<RaftGroupService> getZoneRaftClient(ReplicaManager replicaManager, int zoneId, int partId) {
-        CompletableFuture<Replica> replicaFut = replicaManager
-                .replica(new ZonePartitionId(zoneId, partId));
-
-        if  (replicaFut == null) {
-            return Optional.empty();
-        }
-
-        try {
-            return Optional.of(replicaFut.get(15, TimeUnit.SECONDS).raftClient());
-        } catch (ExecutionException | InterruptedException | TimeoutException e) {
-            return Optional.empty();
-        }
-    }
-
-    /**
      * Extracts {@link ReplicaManager} from the given {@link Ignite} node.
      *
      * @param node The given node with desired replica manager.
