@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -43,8 +45,10 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ReplicatorConstants;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -257,7 +261,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
     protected @Nullable String primaryNode(TableViewInternal t) {
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver().getPrimaryReplica(
-                new TablePartitionId(t.tableId(), 0),
+                replicationGroupId(t, 0),
                 txTestCluster.clocks().get(txTestCluster.localNodeName()).now());
 
         assertThat(primaryReplicaFuture, willCompleteSuccessfully());
@@ -282,7 +286,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
             var server = (JraftServerImpl) svc.server();
 
-            var groupId = new TablePartitionId(table.tableId(), partId);
+            var groupId = replicationGroupId(table, partId);
 
             Peer serverPeer = server.localPeers(groupId).get(0);
 
@@ -290,7 +294,12 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
-            PartitionListener listener = (PartitionListener) fsm.getListener();
+            PartitionListener listener;
+            if (enabledColocation()) {
+                listener = (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
+            } else {
+                listener = (PartitionListener) fsm.getListener();
+            }
 
             MvPartitionStorage storage = listener.getMvStorage();
 
@@ -365,5 +374,11 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
      */
     protected Tuple makeValue(String name) {
         return Tuple.create().set("name", name);
+    }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove TablePartitionId part.
+    private static ReplicationGroupId replicationGroupId(TableViewInternal tableViewInternal, int partitionIndex) {
+        return enabledColocation() ? new ZonePartitionId(tableViewInternal.internalTable().zoneId(), partitionIndex) :
+                new TablePartitionId(tableViewInternal.tableId(), partitionIndex);
     }
 }

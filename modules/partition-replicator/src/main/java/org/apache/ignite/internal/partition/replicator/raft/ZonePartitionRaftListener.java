@@ -388,6 +388,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         }
     }
 
+    @TestOnly
+    public RaftTableProcessor tableProcessor(int tableId) {
+        return tableProcessors.get(tableId);
+    }
+
     /**
      * Removes a given Table Partition-level Raft processor from the set of managed processors.
      *
