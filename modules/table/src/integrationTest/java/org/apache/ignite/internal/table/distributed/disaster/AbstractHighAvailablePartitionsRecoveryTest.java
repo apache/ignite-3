@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static java.util.Map.of;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
@@ -33,6 +34,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -85,14 +87,18 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
@@ -511,6 +517,26 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         for (Integer index : indexes) {
             assertValuesOnNode(table, ts, index, rowFut -> rowFut.join() == null);
         }
+    }
+
+    void assertPartitionsAreEmpty(String tableName,  Set<Integer> partitionIds, Integer... indexes) throws InterruptedException {
+        for (Integer index : indexes) {
+            for (Integer partId : partitionIds) {
+                assertTrue(waitForCondition(() -> partitionIsEmpty(index, tableName, partId), 10_000));
+            }
+        }
+    }
+
+    private boolean partitionIsEmpty(Integer index, String tableName, int partId) {
+        IgniteImpl targetNode = unwrapIgniteImpl(node(index));
+        TableManager tableManager = unwrapTableManager(targetNode.tables());
+
+        MvPartitionStorage storage = tableManager.tableView(QualifiedName.fromSimple(tableName))
+                .internalTable()
+                .storage()
+                .getMvPartition(partId);
+
+        return storage == null || bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(partId))) == null;
     }
 
     private void assertValuesOnNode(
