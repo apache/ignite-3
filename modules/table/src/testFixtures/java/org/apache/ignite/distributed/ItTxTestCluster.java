@@ -282,9 +282,9 @@ public class ItTxTestCluster {
 
     protected String localNodeName;
 
-    private Map<String, Map<ZonePartitionId, ZonePartitionRaftListener>> zonePartitionRaftGroupListeners = new HashMap<>();
+    private final Map<String, Map<ZonePartitionId, ZonePartitionRaftListener>> zonePartitionRaftGroupListeners = new HashMap<>();
 
-    private Map<String, Map<ZonePartitionId, ZonePartitionReplicaListener>> zonePartitionReplicaListeners = new HashMap<>();
+    private final Map<String, Map<ZonePartitionId, ZonePartitionReplicaListener>> zonePartitionReplicaListeners = new HashMap<>();
 
     private final ClusterNodeResolver nodeResolver = new ClusterNodeResolver() {
         @Override
