@@ -35,24 +35,10 @@ public abstract class BaseJoinDataTypeTest<T extends Comparable<T>> extends Base
 
     /** Creates join tables. */
     @BeforeAll
-    public void createJoinTables() {
-        Stream<TestTypeArguments<T>> args = TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min());
-        args.forEach(arg -> {
-            String typeName = arg.typeName(0);
-            String createTable = format("create table t_join_{}(id integer primary key, test_key {})", typeName, typeName);
-            runSql(createTable);
-        });
-    }
+    public abstract void createJoinTables();
 
     @AfterEach
-    public void cleanJoinTables() {
-        Stream<TestTypeArguments<T>> args = TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min());
-        args.forEach(arg -> {
-            String typeName = arg.typeName(0);
-            String delete = format("DELETE FROM t_join_{}", typeName);
-            runSql(delete);
-        });
-    }
+    public abstract void cleanJoinTables();
 
     /** Equijoins. Joins with equality predicate in condition. */
     @ParameterizedTest(name = "{0}")

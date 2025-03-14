@@ -40,9 +40,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -215,6 +217,32 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(5), collectRevisions(FOO_KEY));
         assertEquals(List.of(), collectRevisions(BAR_KEY));
         assertEquals(List.of(), collectRevisions(SOME_KEY));
+    }
+
+    /**
+     * Tests that compaction works correctly when it updates a large number of keys at the same time.
+     */
+    @Test
+    void testCompactLargeNumberOfKeys() {
+        int count = 1000;
+
+        List<byte[]> keys = IntStream.range(0, count).mapToObj(k -> ("uniqueKey" + k).getBytes(UTF_8)).collect(toList());
+
+        for (int i = 0; i < 2; i++) {
+            storage.putAll(
+                    keys,
+                    Collections.nCopies(count, new byte[5]),
+                    kvContext(clock.now())
+            );
+        }
+
+        long revision = storage.revision();
+        storage.compact(revision - 1);
+
+        for (byte[] key : keys) {
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(List.of((int) revision), collectRevisions(key));
+        }
     }
 
     /**
