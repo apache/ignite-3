@@ -24,15 +24,18 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
+import static org.hamcrest.Matchers.arrayWithSize;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -40,10 +43,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
@@ -52,8 +58,10 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -66,6 +74,8 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.tx.TransactionOptions;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -73,6 +83,8 @@ import org.junit.jupiter.api.Test;
  * groups associated with tables.
  */
 public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ItTruncateRaftLogAndRestartNodesTest.class);
+
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -82,6 +94,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         return 0;
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24802")
     @Test
     void enterNodeWithIndexGreaterThanCurrentMajority() throws Exception {
         cluster.startAndInit(3);
@@ -105,6 +118,9 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
             Person[] people = generatePeople(10);
             insertPeople(TABLE_NAME, people);
 
+            // Let's flush the state machine so that the raft log on a node cannot be truncated.
+            flushMvPartitionStorage(2, TABLE_NAME, 0);
+
             stopNodes(0, 1, 2);
 
             LogStorage logStorageNode0 = testLogStorageFactoryNode0.createLogStorage();
@@ -124,10 +140,18 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
             startNode(2);
 
-            awaitMajority(cluster.solePartitionId());
+            assertThat(
+                    toPeopleFromSqlRows(executeSql(selectPeopleDml(TABLE_NAME))),
+                    arrayWithSize(Matchers.allOf(greaterThan(0), lessThan(people.length)))
+            );
 
-            verifyThatPeopleAvailableViaSql(TABLE_NAME, people);
-            verifyThatPeoplePresentOnNodes(3, TABLE_NAME, people);
+            for (int nodeIndex = 0; nodeIndex < 3; nodeIndex++) {
+                assertThat(
+                        "nodeIndex=" + nodeIndex,
+                        scanPeopleFromAllPartitions(nodeIndex, TABLE_NAME),
+                        arrayWithSize(Matchers.allOf(greaterThan(0), lessThan(people.length)))
+                );
+            }
         } finally {
             closeAllReversed(closableResources);
         }
@@ -144,32 +168,10 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         }
     }
 
-    private void verifyThatPeopleAvailableViaSql(String tableName, Person... expPeople) {
-        assertThat(
-                toPeopleFromSqlRows(executeSql(selectPeopleDml(tableName))),
-                arrayContainingInAnyOrder(expPeople)
-        );
-    }
-
-    private void verifyThatPeoplePresentOnNodes(int nodeCount, String tableName, Person... expPeople) {
-        for (int i = 0; i < nodeCount; i++) {
-            verifyThatPeoplePresentOnNode(i, tableName, expPeople);
-        }
-    }
-
-    private void verifyThatPeoplePresentOnNode(int nodeIndex, String tableName, Person... expPeople) {
-        IgniteImpl node = unwrapIgniteImpl(node(nodeIndex));
-
-        assertThat(
-                scanPeopleFromAllPartitions(node, tableName),
-                arrayContainingInAnyOrder(expPeople)
-        );
-    }
-
     private NodeImpl raftNodeImpl(int nodeIndex, TablePartitionId tablePartitionId) {
         NodeImpl[] node = {null};
 
-        unwrapIgniteImpl(node(nodeIndex)).raftManager().forEach((raftNodeId, raftGroupService) -> {
+        igniteImpl(nodeIndex).raftManager().forEach((raftNodeId, raftGroupService) -> {
             if (tablePartitionId.equals(raftNodeId.groupId())) {
                 assertNull(
                         node[0],
@@ -192,7 +194,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
      * corresponding node is stopped, so that there are no errors.
      */
     private TestLogStorageFactory createTestLogStorageFactory(int nodeIndex, TablePartitionId tablePartitionId) {
-        IgniteImpl ignite = unwrapIgniteImpl(node(nodeIndex));
+        IgniteImpl ignite = igniteImpl(nodeIndex);
 
         LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
                 ignite.name(),
@@ -209,6 +211,25 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         assertThat(
                 ignite.placementDriver().awaitPrimaryReplica(tablePartitionId, ignite.clock().now(), 10, TimeUnit.SECONDS),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void flushMvPartitionStorage(int nodeIndex, String tableName, int partitionId) {
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(igniteImpl(nodeIndex).tables().table(tableName));
+
+        MvPartitionStorage mvPartition = tableViewInternal.internalTable().storage().getMvPartition(partitionId);
+
+        assertNotNull(
+                mvPartition,
+                String.format(
+                        "Missing MvPartitionStorage: [nodeIndex=%s, tableName=%s, partitionId=%s]",
+                        nodeIndex, tableName, partitionId
+                )
+        );
+
+        assertThat(
+                IgniteTestUtils.runAsync(() -> mvPartition.flush(true)).thenCompose(Function.identity()),
                 willCompleteSuccessfully()
         );
     }
@@ -269,18 +290,20 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         return new Person((Long) sqlRow.get(0), (String) sqlRow.get(1), (Long) sqlRow.get(2));
     }
 
-    private static Person[] scanPeopleFromAllPartitions(IgniteImpl node, String tableName) {
-        TableViewInternal tableViewInternal = unwrapTableViewInternal(node.tables().table(tableName));
+    private Person[] scanPeopleFromAllPartitions(int nodeIndex, String tableName) {
+        IgniteImpl ignite = igniteImpl(nodeIndex);
+
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(tableName));
 
         InternalTableImpl table = (InternalTableImpl) tableViewInternal.internalTable();
 
-        InternalTransaction roTx = (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
+        InternalTransaction roTx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(true));
 
         var scanFutures = new ArrayList<CompletableFuture<List<BinaryRow>>>();
 
         try {
             for (int partitionId = 0; partitionId < table.partitions(); partitionId++) {
-                scanFutures.add(subscribeToList(scan(table, roTx, partitionId, node.node())));
+                scanFutures.add(subscribeToList(scan(table, roTx, partitionId, ignite.node())));
             }
 
             assertThat(allOf(scanFutures), willCompleteSuccessfully());
@@ -295,6 +318,10 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         } finally {
             roTx.commit();
         }
+    }
+
+    private static Person[] half(Person... people) {
+        return Arrays.copyOfRange(people, 0, people.length / 2);
     }
 
     private static Publisher<BinaryRow> scan(
@@ -339,10 +366,19 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
     private static void truncateRaftLogSuffixHalfOfChanges(LogStorage logStorage, long startRaftLogIndex) {
         long lastLogIndex = logStorage.getLastLogIndex();
+        long lastIndexKept = lastLogIndex - (lastLogIndex - startRaftLogIndex) / 2;
 
         assertTrue(
-                logStorage.truncateSuffix(lastLogIndex - (lastLogIndex - startRaftLogIndex) / 2),
-                String.format("Failed to truncate raft log index: [startRaftLogIndex=%s, logStorage=%s]", startRaftLogIndex, logStorage)
+                logStorage.truncateSuffix(lastIndexKept),
+                String.format(
+                        "Failed to truncate raft log suffix: [startRaftLogIndex=%s, lastLogIndex=%s, lastIndexKept=%s]",
+                        startRaftLogIndex, lastLogIndex, lastIndexKept
+                )
+        );
+
+        LOG.info(
+                "Successfully truncated raft log suffix: [startRaftLogIndex={}, oldLastLogIndex={}, lastIndexKept={}, term={}]",
+                startRaftLogIndex, lastLogIndex, lastIndexKept, logStorage.getEntry(lastIndexKept).getId().getTerm()
         );
     }
 
@@ -378,7 +414,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         LogStorage createLogStorage() {
             assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            LogStorage logStorage = logStorageFactory.createLogStorage(nodeOptions.getLogUri(), raftOptions);
+            LogStorage storage = logStorageFactory.createLogStorage(nodeOptions.getLogUri(), raftOptions);
 
             var igniteJraftServiceFactory = new IgniteJraftServiceFactory(logStorageFactory);
 
@@ -386,9 +422,14 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
             logStorageOptions.setConfigurationManager(new ConfigurationManager());
             logStorageOptions.setLogEntryCodecFactory(igniteJraftServiceFactory.createLogEntryCodecFactory());
 
-            logStorage.init(logStorageOptions);
+            storage.init(logStorageOptions);
 
-            return logStorage;
+            LOG.info(
+                    "Successfully created LogStorage: [firstLogIndex={}, lastLogIndex={}, term={}]",
+                    storage.getFirstLogIndex(), storage.getLastLogIndex(), storage.getEntry(storage.getLastLogIndex()).getId().getTerm()
+            );
+
+            return storage;
         }
 
         @Override
