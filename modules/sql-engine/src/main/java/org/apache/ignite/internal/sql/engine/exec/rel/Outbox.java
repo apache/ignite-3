@@ -117,7 +117,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
         downstream.onBatchRequested(amountOfBatches);
 
-        if (waiting != -1 || !inBuf.isEmpty()) {
+        if (waiting != NOT_WAITING || !inBuf.isEmpty()) {
             flush();
         }
     }
@@ -155,8 +155,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     public void push(RowT row) throws Exception {
         assert waiting > 0 : waiting;
 
-        checkState();
-
         waiting--;
 
         if (currentNode == null || dest.targets(row).contains(currentNode)) {
@@ -171,9 +169,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     public void end() throws Exception {
         assert waiting > 0 : waiting;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         flush();
     }
@@ -296,8 +292,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
     private void flush() throws Exception {
         while (!inBuf.isEmpty()) {
-            checkState();
-
             List<String> targets = dest.targets(inBuf.peek());
             List<RemoteDownstream<RowT>> buffers = new ArrayList<>(targets.size());
 
@@ -324,7 +318,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);
-        } else if (waiting == -1) {
+        } else if (waiting == NOT_WAITING) {
             if (currentNode != null) {
                 nodeBuffers.get(currentNode).end();
                 currentNode = null; // Allow incoming rewind request from next node.

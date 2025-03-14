@@ -70,8 +70,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         assert downstream() != null;
         assert waitingRight > 0;
 
-        checkState();
-
         waitingRight--;
 
         rightMaterialized.add(row);
@@ -192,11 +190,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         }
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
-                            checkState();
-
                             if (processed++ > inBufSize) {
                                 // Allow others to do their job.
-                                execute(this::doJoin);
+                                execute(this::join);
 
                                 return;
                             }
@@ -275,11 +271,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         }
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
-                            checkState();
-
                             if (processed++ > inBufSize) {
                                 // Allow others to do their job.
-                                execute(this::doJoin);
+                                execute(this::join);
 
                                 return;
                             }
@@ -315,7 +309,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         if (processed > inBufSize) {
                             // Allow others to do their job.
-                            execute(this::doJoin);
+                            execute(this::join);
 
                             return;
                         }
@@ -406,11 +400,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         }
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
-                            checkState();
-
                             if (processed++ > inBufSize) {
                                 // Allow others to do their job.
-                                execute(this::doJoin);
+                                execute(this::join);
 
                                 return;
                             }
@@ -445,11 +437,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                     inLoop = true;
                     try {
                         while (requested > 0 && rightNotMatchedIt.hasNext()) {
-                            checkState();
-
                             if (processed++ > inBufSize) {
                                 // Allow others to do their job.
-                                execute(this::doJoin);
+                                execute(this::join);
 
                                 return;
                             }
@@ -544,11 +534,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         }
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
-                            checkState();
-
                             if (processed++ > inBufSize) {
                                 // Allow others to do their job.
-                                execute(this::doJoin);
+                                execute(this::join);
 
                                 return;
                             }
@@ -586,7 +574,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         if (processed >= inBufSize) {
                             // Allow others to do their job.
-                            execute(this::doJoin);
+                            execute(this::join);
 
                             return;
                         }
@@ -603,8 +591,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                     inLoop = true;
                     try {
                         while (requested > 0 && rightNotMatchedIt.hasNext()) {
-                            checkState();
-
                             int rowIdx = rightNotMatchedIt.nextInt();
                             RowT row = outputRowFactory.concat(leftRowFactory.create(), rightMaterialized.get(rowIdx));
 
@@ -613,7 +599,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                             if (processed++ >= inBufSize) {
                                 // Allow others to do their job.
-                                execute(this::doJoin);
+                                execute(this::join);
 
                                 return;
                             }
@@ -687,11 +673,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     int processed = 0;
                     while (!matched && requested > 0 && rightIdx < rightMaterialized.size()) {
-                        checkState();
-
                         if (processed++ > inBufSize) {
                             // Allow others to do their job.
-                            execute(this::doJoin);
+                            execute(this::join);
 
                             return;
                         }
@@ -753,11 +737,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         boolean matched = false;
 
                         while (rightIdx < rightMaterialized.size()) {
-                            checkState();
-
                             if (processed++ > inBufSize) {
                                 // Allow others to do their job.
-                                execute(this::doJoin);
+                                execute(this::join);
 
                                 return;
                             }
@@ -778,7 +760,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         if (rightMaterialized.isEmpty() && processed++ >= inBufSize) {
                             // Allow others to do their job.
-                            execute(this::doJoin);
+                            execute(this::join);
 
                             return;
                         }
