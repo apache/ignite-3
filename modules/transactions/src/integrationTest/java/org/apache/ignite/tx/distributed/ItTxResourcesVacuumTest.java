@@ -79,7 +79,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -180,7 +179,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24633")
     public void testVacuum() throws InterruptedException {
         // We should test the TTL-triggered vacuum.
         setTxResourceTtl(1);
@@ -211,7 +209,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         // Check that the volatile PENDING state of the transaction is preserved.
         parallelTx1.commit();
         waitForTxStateVacuum(nodes, parallelTx1Id, partIdForParallelTx, true, 10_000);
-        assertTrue(checkVolatileTxStateOnNodes(nodes, txId));
+        assertTrue(waitForCondition(() -> checkVolatileTxStateOnNodes(nodes, txId), 10_000));
 
         Transaction parallelTx2 = node.transactions().begin();
         UUID parallelTx2Id = txId(parallelTx2);
