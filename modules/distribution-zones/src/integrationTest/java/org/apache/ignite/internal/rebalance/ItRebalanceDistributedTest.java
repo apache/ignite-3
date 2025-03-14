@@ -998,17 +998,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(n -> isNodeInAssignments(n, assignments))
-                        .allMatch(n -> ReplicaTestUtils.getRaftClient(n.replicaManager, getTableOrZoneId(n, tableName), partNum).
-                                isPresent()),
+                        .allMatch(n -> ReplicaTestUtils.getRaftClient(n.replicaManager, getTableOrZoneId(n, tableName), partNum)
+                                .isPresent()),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
     }
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId, remove.
     private static int getTableOrZoneId(Node node, String tableName) {
-        return enabledColocation() ?
-                TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager, tableName, node.hybridClock.nowLong()) :
-                getTableId(node, tableName);
+        return enabledColocation() ? TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager, tableName, node.hybridClock.nowLong())
+                : getTableId(node, tableName);
     }
 
     private void waitPartitionPendingAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {

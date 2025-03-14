@@ -768,30 +768,31 @@ public class ItTxTestCluster {
                         schemaManager
                 );
 
-                Function<RaftGroupService, ReplicaListener> replicaListenerProvider = raftClient -> getOrCreateAndPopulateReplicaListenerProvider(
-                        assignment,
-                        mvPartStorage,
-                        raftClient,
-                        txManagers.get(assignment),
-                        new ZonePartitionId(predefinedZoneId, partId),
-                        tableId,
-                        () -> Map.of(pkLocker.id(), pkLocker),
-                        pkStorage,
-                        Map::of,
-                        clockServices.get(assignment),
-                        safeTime,
-                        txStateStorage,
-                        transactionStateResolver,
-                        storageUpdateHandler,
-                        new DummyValidationSchemasSource(schemaManager),
-                        nodeResolver.getByConsistentId(assignment),
-                        new AlwaysSyncedSchemaSyncService(),
-                        catalogService,
-                        placementDriver,
-                        nodeResolver,
-                        cursorRegistries.get(assignment),
-                        schemaManager
-                );
+                Function<RaftGroupService, ReplicaListener> replicaListenerProvider =
+                        raftClient -> getOrCreateAndPopulateReplicaListenerProvider(
+                                assignment,
+                                mvPartStorage,
+                                raftClient,
+                                txManagers.get(assignment),
+                                new ZonePartitionId(predefinedZoneId, partId),
+                                tableId,
+                                () -> Map.of(pkLocker.id(), pkLocker),
+                                pkStorage,
+                                Map::of,
+                                clockServices.get(assignment),
+                                safeTime,
+                                txStateStorage,
+                                transactionStateResolver,
+                                storageUpdateHandler,
+                                new DummyValidationSchemasSource(schemaManager),
+                                nodeResolver.getByConsistentId(assignment),
+                                new AlwaysSyncedSchemaSyncService(),
+                                catalogService,
+                                placementDriver,
+                                nodeResolver,
+                                cursorRegistries.get(assignment),
+                                schemaManager
+                        );
 
                 CompletableFuture<?> partitionReadyFuture = startReplica(
                         assignment,
@@ -1020,7 +1021,7 @@ public class ItTxTestCluster {
         }
     }
 
-    private CompletableFuture<Replica> startReplica (
+    private CompletableFuture<Replica> startReplica(
             String assignment,
             RaftGroupListener raftGroupListener,
             Function<RaftGroupService, ReplicaListener> replicaListenerProvider,

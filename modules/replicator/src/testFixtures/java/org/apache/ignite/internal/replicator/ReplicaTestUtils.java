@@ -167,7 +167,12 @@ public final class ReplicaTestUtils {
      */
     @TestOnly
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
-    public static ClusterNode leaderAssignment(ReplicaManager replicaManager, TopologyService topologyService, int tableOrZoneId, int partId) {
+    public static ClusterNode leaderAssignment(
+            ReplicaManager replicaManager,
+            TopologyService topologyService,
+            int tableOrZoneId,
+            int partId
+    ) {
         RaftGroupService raftClient = getRaftClient(replicaManager, tableOrZoneId, partId)
                 // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Pay attention to " in table or zone "
                 .orElseThrow(() -> new IgniteInternalException("No such partition " + partId + " in table or zone " + tableOrZoneId));
