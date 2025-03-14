@@ -215,7 +215,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     public @Nullable ClusterNode getByConsistentId(String consistentId) {
         ClusterNode nodeInLogicalTopology = membersByConsistentIdInLogicalTopology.get(consistentId);
         if (nodeInLogicalTopology != null) {
-            return nodeInLogicalTopology;
+            // Node is in the logical topology, return it if the same node is in the physical topology, otherwise return null
+            return idToMemberMap.get(nodeInLogicalTopology.id());
         }
 
         // Node is not in the logical topology, check if it's the only node in the physical topology
