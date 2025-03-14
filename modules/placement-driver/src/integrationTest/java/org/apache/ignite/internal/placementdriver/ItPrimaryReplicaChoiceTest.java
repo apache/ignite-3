@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -405,8 +406,12 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws InterruptedException If fail.
      */
     private static void waitingForLeaderCache(IgniteImpl node, TableViewInternal tbl) throws InterruptedException {
-        RaftGroupService raftSrvc = ReplicaTestUtils.getRaftClient(node, tbl.tableId(), 0)
-                        .orElseThrow(AssertionError::new);
+        RaftGroupService raftSrvc = ReplicaTestUtils.getRaftClient(
+                        node,
+                        enabledColocation() ? tbl.internalTable().zoneId() : tbl.tableId(),
+                        0
+                )
+                .orElseThrow(AssertionError::new);
 
         assertTrue(waitForCondition(() -> {
             raftSrvc.refreshLeader();
