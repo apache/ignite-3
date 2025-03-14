@@ -211,14 +211,14 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         cluster.stopNode(name);
     }
 
-    /** Stops nodes by indexes.*/
+    /** Stops nodes by indexes. */
     public void stopNodes(int... nodeIndexes) {
         for (int nodeIndex : nodeIndexes) {
             stopNode(nodeIndex);
         }
     }
 
-    /** Starts nodes by indexes.*/
+    /** Starts nodes by indexes. */
     public void startNodes(int... nodeIndexes) {
         for (int nodeIndex : nodeIndexes) {
             startNode(nodeIndex);
