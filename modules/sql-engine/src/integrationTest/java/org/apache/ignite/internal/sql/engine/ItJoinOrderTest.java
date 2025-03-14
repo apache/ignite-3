@@ -179,7 +179,7 @@ public class ItJoinOrderTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("joinTypesWithRulesToDisable")
     @SuppressWarnings("ConcatenationWithEmptyString")
-    void joinWithProjectionOnTopReturnsValidaResults(JoinType joinType, List<String> rulesToDisable) {
+    void joinWithProjectionOnTopReturnsValidResults(JoinType joinType, List<String> rulesToDisable) {
         String queryToAcquireExpectedResults = format("" 
                 + "SELECT p.*, d.* " 
                 + "  FROM Products p " 
