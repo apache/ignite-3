@@ -133,6 +133,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
             truncateRaftLogSuffixHalfOfChanges(logStorageNode1, lastLogIndexBeforeInsertNode1);
 
             closeAllReversed(closableResources);
+            closableResources.clear();
 
             startNodes(0, 1);
 
