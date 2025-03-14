@@ -513,12 +513,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         }
     }
 
-    void assertValuesNotPresentOnNodes(HybridTimestamp ts, Table table, Integer... indexes) {
-        for (Integer index : indexes) {
-            assertValuesOnNode(table, ts, index, rowFut -> rowFut.join() == null);
-        }
-    }
-
     void assertPartitionsAreEmpty(String tableName,  Set<Integer> partitionIds, Integer... indexes) throws InterruptedException {
         for (Integer index : indexes) {
             for (Integer partId : partitionIds) {
