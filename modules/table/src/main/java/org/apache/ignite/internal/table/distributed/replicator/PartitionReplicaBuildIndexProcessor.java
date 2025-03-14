@@ -76,7 +76,7 @@ public class PartitionReplicaBuildIndexProcessor {
         this.busyLock = busyLock;
         this.tableId = tableId;
         this.indexMetaStorage = indexMetaStorage;
-        this.txRwOperationTracker = new IndexBuilderTxRwOperationTracker();;
+        this.txRwOperationTracker = new IndexBuilderTxRwOperationTracker();
         this.catalogService = catalogService;
 
         prepareIndexBuilderTxRwOperationTracker();
