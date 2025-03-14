@@ -746,10 +746,9 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         }
     }
 
-    @ParameterizedTest
-    @CsvSource({"BINARY", "VARBINARY"})
-    public void testErrorIfBinaryValueSizeGtThanTypePrecision(String type) {
-        sql(format("CREATE TABLE t(id INT PRIMARY KEY, val5 {}(5), val6 {}(6))", type, type));
+    @Test
+    public void testErrorIfBinaryValueSizeGtThanTypePrecision() {
+        sql("CREATE TABLE t(id INT PRIMARY KEY, val5 VARBINARY(5), val6 VARBINARY(6))");
 
         Object param = "1".repeat(6).getBytes(StandardCharsets.UTF_8);
         Object value = "1".repeat(12);

@@ -93,6 +93,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -228,6 +229,9 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ZoneResourcesManager zoneResourcesManager;
 
+    private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
+    private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
+
     /**
      * The constructor.
      *
@@ -348,9 +352,7 @@ public class PartitionReplicaLifecycleManager extends
         }
 
         CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
-
         assert recoveryFinishFuture.isDone();
-
         long recoveryRevision = recoveryFinishFuture.join().revision();
 
         cleanUpResourcesForDroppedZonesOnRecovery();
@@ -362,14 +364,11 @@ public class PartitionReplicaLifecycleManager extends
         metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES), assignmentsSwitchRebalanceListener);
 
-        catalogService.listen(ZONE_CREATE,
-                (CreateZoneEventParameters parameters) ->
-                        inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((ignored) -> false))
-        );
+        catalogService.listen(ZONE_CREATE, onCreateZoneListener);
 
         rebalanceRetryDelayConfiguration.init();
 
-        executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+        executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
 
         return processZonesAndAssignmentsOnStart;
     }
@@ -414,25 +413,25 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
-        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
-        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
+        return recoverStableAssignments(recoveryRevision).thenCompose(v -> recoverPendingAssignments(recoveryRevision));
+    }
 
-        // It's required to handle stable assignments changes on recovery in order to cleanup obsolete resources.
-        CompletableFuture<Void> stableFuture = handleAssignmentsOnRecovery(
-                stableAssignmentsPrefix,
+    private CompletableFuture<Void> recoverStableAssignments(long recoveryRevision) {
+        return handleAssignmentsOnRecovery(
+                new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES),
                 recoveryRevision,
                 (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
         );
+    }
 
-        CompletableFuture<Void> pendingFuture = handleAssignmentsOnRecovery(
-                pendingAssignmentsPrefix,
+    private CompletableFuture<Void> recoverPendingAssignments(long recoveryRevision) {
+        return handleAssignmentsOnRecovery(
+                new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
                 recoveryRevision,
-                (entry, rev) -> handleChangePendingAssignmentEvent(entry, rev),
+                this::handleChangePendingAssignmentEvent,
                 "pending"
         );
-
-        return allOf(stableFuture, pendingFuture);
     }
 
     private CompletableFuture<Void> handleAssignmentsOnRecovery(
@@ -469,13 +468,15 @@ public class PartitionReplicaLifecycleManager extends
         // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
     }
 
-    private CompletableFuture<Void> onCreateZone(CreateZoneEventParameters createZoneEventParameters) {
+    private CompletableFuture<Boolean> onCreateZone(CreateZoneEventParameters createZoneEventParameters) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22535 start replica must be moved from metastore thread
-        return calculateZoneAssignmentsAndCreateReplicationNodes(
-                createZoneEventParameters.causalityToken(),
-                createZoneEventParameters.catalogVersion(),
-                createZoneEventParameters.zoneDescriptor()
-        );
+        return inBusyLock(busyLock, () -> {
+            return calculateZoneAssignmentsAndCreateReplicationNodes(
+                    createZoneEventParameters.causalityToken(),
+                    createZoneEventParameters.catalogVersion(),
+                    createZoneEventParameters.zoneDescriptor()
+            ).thenApply(unused -> false);
+        });
     }
 
     private CompletableFuture<Void> calculateZoneAssignmentsAndCreateReplicationNodes(
@@ -673,6 +674,10 @@ public class PartitionReplicaLifecycleManager extends
     @Override
     public void beforeNodeStop() {
         busyLock.block();
+
+        executorInclinedPlacementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
+
+        catalogService.removeListener(ZONE_CREATE, onCreateZoneListener);
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);

@@ -888,6 +888,7 @@ public class IgniteImpl implements Ignite {
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
+                metricManager,
                 nodeConfigRegistry,
                 storagePath,
                 longJvmPauseDetector,

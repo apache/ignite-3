@@ -21,7 +21,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseDmlDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
@@ -32,11 +31,5 @@ public class ItUuidDmlTest extends BaseDmlDataTypeTest<UUID> {
     @Override
     protected DataTypeTestSpec<UUID> getTypeSpec() {
         return DataTypeTestSpecs.UUID_TYPE;
-    }
-
-    @Override
-    public void testUpdateFromLiteral(TestTypeArguments<UUID> arguments) {
-        // UUID is only member of family, and cross-family type coercion is not allowed,
-        // therefore we need to ignore this test case
     }
 }

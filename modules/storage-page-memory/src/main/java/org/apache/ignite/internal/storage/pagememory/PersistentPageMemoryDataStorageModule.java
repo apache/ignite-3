@@ -27,14 +27,13 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,6 +49,7 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
+            MetricManager metricManager,
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -60,18 +60,13 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
     ) throws StorageException {
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
-        PersistentPageMemoryStorageEngineConfiguration engineConfig =
-                ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
-
-        assert engineConfig != null;
-
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PersistentPageMemoryStorageEngine(
                 igniteInstanceName,
-                engineConfig,
+                metricManager,
                 storageConfig,
                 ioRegistry,
                 storagePath,

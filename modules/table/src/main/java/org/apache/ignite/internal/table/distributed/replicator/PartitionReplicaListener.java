@@ -62,6 +62,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -235,6 +236,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener, ReplicaTableProcessor {
@@ -555,7 +557,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         req.coordinatorId(),
                         req.commitPartitionId().asReplicationGroupId(),
                         null,
-                        old == null ? null : old.tx()
+                        old == null ? null : old.tx(),
+                        old == null ? null : old.isFinishedDueToTimeout()
                 ));
             }
         }
@@ -807,7 +810,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     req.coordinatorId(),
                     req.commitPartitionId().asReplicationGroupId(),
                     null,
-                    old == null ? null : old.tx()
+                    old == null ? null : old.tx(),
+                    old == null ? null : old.isFinishedDueToTimeout()
             ));
 
             var opId = new OperationId(senderId, req.timestamp().longValue());
@@ -1828,9 +1832,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
+            boolean isFinishedDueToTimeout = txStateMeta != null
+                    && txStateMeta.isFinishedDueToTimeout() != null
+                    && txStateMeta.isFinishedDueToTimeout();
+
 
             return failedFuture(new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
+                            isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
                     "Transaction is already finished txId=[" + txId + ", txState=" + txState + "]."
             ));
         }
@@ -3745,6 +3753,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
+    }
+
+    @TestOnly
+    public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
     }
 
     /**

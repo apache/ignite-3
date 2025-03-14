@@ -35,10 +35,12 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -53,6 +55,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private static final ClusterNode CLUSTER_NODE = new ClusterNodeImpl(
             randomUUID(),
@@ -100,15 +103,15 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private void startTxAndTryToEnlist(boolean commit) {
         HashSet<UUID> finishedTxs = new HashSet<>();
 
-        Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), any())).thenAnswer(invocation -> {
-            finishedTxs.add(invocation.getArgument(4));
+        Mockito.when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), any(), any())).thenAnswer(invocation -> {
+            finishedTxs.add(invocation.getArgument(5));
 
             return nullCompletedFuture();
         });
 
         Mockito.when(txManager.stateMeta(any())).thenAnswer(invocation -> {
             if (finishedTxs.contains(invocation.getArgument(0))) {
-                return new TxStateMeta(txState, randomUUID(), txCommitPart, null, null);
+                return new TxStateMeta(txState, randomUUID(), txCommitPart, null, null, null);
             }
 
             return null;

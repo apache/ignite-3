@@ -100,6 +100,8 @@ public class TestServer implements AutoCloseable {
 
     private final AuthenticationManager authenticationManager;
 
+    private final FakeCatalogService catalogService;
+
     private final FakeIgnite ignite;
 
     /**
@@ -245,6 +247,8 @@ public class TestServer implements AutoCloseable {
                 .build();
         ClusterInfo clusterInfo = new ClusterInfo(tag, List.of(tag.clusterId()));
 
+        catalogService = new FakeCatalogService(FakeInternalTable.PARTITIONS);
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -271,7 +275,7 @@ public class TestServer implements AutoCloseable {
                         authenticationManager,
                         new TestClockService(clock),
                         new AlwaysSyncedSchemaSyncService(),
-                        new FakeCatalogService(FakeInternalTable.PARTITIONS),
+                        catalogService,
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark(),
@@ -342,6 +346,15 @@ public class TestServer implements AutoCloseable {
      */
     public FakePlacementDriver placementDriver() {
         return ignite.placementDriver();
+    }
+
+    /**
+     * Gets the catalog service.
+     *
+     * @return Catalog service.
+     */
+    public FakeCatalogService catalogService() {
+        return catalogService;
     }
 
     /** {@inheritDoc} */

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.readonly;
+package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 
@@ -24,12 +24,11 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.tx.impl.ReadOnlyTransactionImpl;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
-class ItClientReadOnlyTxTimeoutOneNodeTest extends ItReadOnlyTxTimeoutOneNodeTest {
+class ItClientTxTimeoutOneNodeTest extends ItTxTimeoutOneNodeTest {
     private IgniteClient client;
 
     @BeforeEach
@@ -52,12 +51,12 @@ class ItClientReadOnlyTxTimeoutOneNodeTest extends ItReadOnlyTxTimeoutOneNodeTes
     }
 
     @Override
-    ReadOnlyTransactionImpl transactionImpl(Transaction tx) {
+    InternalTransaction toInternalTransaction(Transaction tx) {
         long txId = ClientLazyTransaction.get(tx).startedTx().id();
 
         ClientResourceRegistry resources = unwrapIgniteImpl(cluster.aliveNode()).clientInboundMessageHandler().resources();
         try {
-            return resources.get(txId).get(ReadOnlyTransactionImpl.class);
+            return resources.get(txId).get(InternalTransaction.class);
         } catch (IgniteInternalCheckedException e) {
             throw new RuntimeException(e);
         }

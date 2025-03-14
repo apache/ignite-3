@@ -29,13 +29,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,6 +52,8 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     private boolean returnError;
 
+    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;
         primaryReplicas = new ArrayList<>(nCopies(partitions, getReplicaMeta("s", new UUID(3, 4), HybridTimestamp.MIN_VALUE.longValue())));
@@ -61,22 +66,23 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     /**
      * Sets all primary replicas.
      */
-    public void setReplicas(List<String> replicas, int tableId, long leaseStartTime) {
+    public void setReplicas(List<String> replicas, int tableId, int zoneId, long leaseStartTime) {
         assert replicas.size() == partitions;
 
         for (int partition = 0; partition < replicas.size(); partition++) {
             String replica = replicas.get(partition);
-            updateReplica(replica, tableId, partition, leaseStartTime);
+            updateReplica(replica, tableId, zoneId, partition, leaseStartTime);
         }
     }
 
     /**
      * Sets primary replica for the given partition.
      */
-    public void updateReplica(@Nullable String replica, int tableId, int partition, long leaseStartTime) {
+    public void updateReplica(@Nullable String replica, int tableId, int zoneId, int partition, long leaseStartTime) {
         UUID leaseHolderId = replica == null ? null : deriveUuidFrom(replica);
         primaryReplicas.set(partition, getReplicaMeta(replica, leaseHolderId, leaseStartTime));
-        TablePartitionId groupId = new TablePartitionId(tableId, partition);
+        ReplicationGroupId groupId = enabledColocation ? new ZonePartitionId(zoneId, partition)
+                : new TablePartitionId(tableId, partition);
 
         PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
                 0,
@@ -92,7 +98,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
-        TablePartitionId id = (TablePartitionId) groupId;
+        PartitionGroupId id = (PartitionGroupId) groupId;
 
         return returnError
                 ? failedFuture(new RuntimeException("FakePlacementDriver expected error"))
@@ -106,7 +112,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     @Override
     public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        TablePartitionId id = (TablePartitionId) replicationGroupId;
+        PartitionGroupId id = (PartitionGroupId) replicationGroupId;
 
         return primaryReplicas.get(id.partitionId());
     }

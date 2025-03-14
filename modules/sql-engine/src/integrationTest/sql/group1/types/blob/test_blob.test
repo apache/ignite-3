@@ -76,9 +76,6 @@ SELECT NULL::VARBINARY
 ----
 NULL
 
-statement error: BINARY length 0 must be between 1 and 2147483647. [column=C1]
-CREATE TABLE t_invalid_length(c1 BINARY(0));
-
 statement error: VARBINARY length 0 must be between 1 and 2147483647. [column=C1]
 CREATE TABLE t_invalid_length(c1 VARBINARY(0));
 
@@ -89,15 +86,15 @@ statement error: VARBINARY length 0 must be between 1 and 2147483647
 SELECT CAST(x'0101' AS VARBINARY(0))
 
 statement ok
-CREATE TABLE all_blobs (c1 binary, c2 binary(10), c3 varbinary, c4 varbinary(10), c5 binary varying, c6 binary varying(10));
+CREATE TABLE all_blobs (c3 varbinary, c4 varbinary(10), c5 binary varying, c6 binary varying(10));
 
 statement ok
-INSERT INTO all_blobs VALUES (x'cc', x'ccaaffee', x'ccaaffee', x'ccaaffee', x'ccaaffee', x'ccaaffee');
+INSERT INTO all_blobs VALUES (x'ccaaffee', x'ccaaffee', x'ccaaffee', x'ccaaffee');
 
-query TTTTTT
+query TTTT
 SELECT * FROM all_blobs;
 ----
-cc	ccaaffee	ccaaffee	ccaaffee	ccaaffee	ccaaffee
+ccaaffee	ccaaffee	ccaaffee	ccaaffee
 
 statement ok
 DELETE FROM all_blobs
@@ -125,11 +122,8 @@ select CAST(x'Aa' AS BINARY VARYING(1000));
 ----
 aa
 
-
-for type in [BINARY, VARBINARY]
-
 statement ok
-CREATE TABLE t(id INT PRIMARY KEY, val ${type}(2))
+CREATE TABLE t(id INT PRIMARY KEY, val VARBINARY(2))
 
 statement ok
 INSERT INTO t VALUES(201, x'000000')
@@ -148,7 +142,7 @@ SELECT val FROM t WHERE id = 202
 0000
 
 statement ok
-CREATE TABLE t1(id INT PRIMARY KEY, val ${type}(3))
+CREATE TABLE t1(id INT PRIMARY KEY, val VARBINARY(3))
 
 statement ok
 INSERT INTO t1 VALUES(2, x'000000')
@@ -177,5 +171,3 @@ DROP TABLE t
 
 statement ok
 DROP TABLE t1
-
-endfor

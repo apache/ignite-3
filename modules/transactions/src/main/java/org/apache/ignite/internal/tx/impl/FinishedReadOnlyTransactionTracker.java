@@ -96,6 +96,6 @@ public class FinishedReadOnlyTransactionTracker {
     }
 
     void onTransactionFinished(UUID id) {
-        transactionInflights.markReadOnlyTxFinished(id);
+        transactionInflights.markReadOnlyTxFinished(id, false);
     }
 }

@@ -78,7 +78,9 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -132,8 +134,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
     private static final int PARTITIONS_NUM = 3;
 
-    private static final List<TablePartitionId> TABLE_PARTITION_IDS = IntStream.range(0, PARTITIONS_NUM)
-            .mapToObj(i -> new TablePartitionId(TABLE_ID, i))
+    private static final List<ReplicationGroupId> PARTITION_GROUP_IDS = IntStream.range(0, PARTITIONS_NUM)
+            .mapToObj(i -> replicationGroupId(i))
             .collect(toList());
 
     private static final UUID DEAD_NODE_ID = new UUID(-1, -1);
@@ -143,6 +145,10 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
     private InternalTableImpl table;
 
     private MessagingService messagingService;
+
+    private static ReplicationGroupId replicationGroupId(int partId) {
+        return enabledColocation() ? new ZonePartitionId(ZONE_ID, partId) : new TablePartitionId(TABLE_ID, partId);
+    }
 
     @Mock
     private PlacementDriver placementDriver;
@@ -220,7 +226,9 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService),
                 0,
                 () -> null,
-                mock(StreamerReceiverRunner.class)
+                mock(StreamerReceiverRunner.class),
+                () -> 10_000L,
+                () -> 10_000L
         );
 
         when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
@@ -249,7 +257,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         lenient().doAnswer(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
 
-            var tablePartitionId = (TablePartitionId) request.groupId().asReplicationGroupId();
+            var tablePartitionId = (PartitionGroupId) request.groupId().asReplicationGroupId();
 
             return partitionReplicaListeners.get(tablePartitionId.partitionId())
                     .invoke(request, node.id())
@@ -339,7 +347,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         HybridTimestamp startTime = HybridTimestamp.MIN_VALUE;
         HybridTimestamp expireTime = HybridTimestamp.MAX_VALUE;
 
-        TABLE_PARTITION_IDS.forEach(groupId -> {
+        PARTITION_GROUP_IDS.forEach(groupId -> {
             var replicaMeta = new Lease(node.name(), node.id(), startTime, expireTime, groupId);
 
             when(placementDriver.awaitPrimaryReplica(eq(groupId), any(), anyLong(), any()))
@@ -362,8 +370,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         HybridTimestamp startTime = HybridTimestamp.MIN_VALUE;
         HybridTimestamp expireTime = clock.now().addPhysicalTime(10_000);
 
-        for (int i = 0; i < TABLE_PARTITION_IDS.size(); i++) {
-            TablePartitionId groupId = TABLE_PARTITION_IDS.get(i);
+        for (int i = 0; i < PARTITION_GROUP_IDS.size(); i++) {
+            ReplicationGroupId groupId = PARTITION_GROUP_IDS.get(i);
 
             var replicaMeta = new Lease(node.name(), node.id(), startTime, expireTime, groupId);
 
@@ -403,8 +411,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         HybridTimestamp startTime = HybridTimestamp.MIN_VALUE;
         HybridTimestamp expireTime = clock.now().addPhysicalTime(10_000);
 
-        for (int i = 0; i < TABLE_PARTITION_IDS.size(); i++) {
-            TablePartitionId groupId = TABLE_PARTITION_IDS.get(i);
+        for (int i = 0; i < PARTITION_GROUP_IDS.size(); i++) {
+            ReplicationGroupId groupId = PARTITION_GROUP_IDS.get(i);
 
             var replicaMeta = new Lease(node.name(), node.id(), startTime, expireTime, groupId);
 
@@ -445,8 +453,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         HybridTimestamp startTime = HybridTimestamp.MIN_VALUE;
         HybridTimestamp expireTime = clock.now().addPhysicalTime(10_000);
 
-        for (int i = 0; i < TABLE_PARTITION_IDS.size(); i++) {
-            TablePartitionId groupId = TABLE_PARTITION_IDS.get(i);
+        for (int i = 0; i < PARTITION_GROUP_IDS.size(); i++) {
+            ReplicationGroupId groupId = PARTITION_GROUP_IDS.get(i);
 
             var replicaMeta = new Lease(node.name(), node.id(), startTime, expireTime, groupId);
 

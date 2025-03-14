@@ -27,12 +27,12 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -49,8 +49,6 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
             StorageConfiguration storageConfig
     ) {
@@ -60,7 +58,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
 
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
-                engineConfig,
+                mock(MetricManager.class),
                 storageConfig,
                 ioRegistry,
                 workDir,
@@ -77,7 +75,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
                 mock(StorageIndexDescriptorSupplier.class)
         );
 
-        initialize(tableStorage, engineConfig.pageSize().value());
+        initialize(tableStorage, engine.configuration().pageSize().value());
     }
 
     @AfterEach

@@ -673,7 +673,9 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 0,
                 null,
-                mock(StreamerReceiverRunner.class)
+                mock(StreamerReceiverRunner.class),
+                () -> 10_000L,
+                () -> 10_000L
         );
 
         TableImpl table = new TableImpl(
