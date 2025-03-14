@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -119,7 +120,11 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
             startNodes(0, 1);
 
-            // TODO: IGNITE-24785 продолжить
+            awaitMajority(cluster.solePartitionId());
+
+            startNode(2);
+
+            awaitMajority(cluster.solePartitionId());
 
             verifyThatPeopleAvailableViaSql(TABLE_NAME, people);
             verifyThatPeoplePresentOnNodes(3, TABLE_NAME, people);
@@ -153,7 +158,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
     }
 
     private void verifyThatPeoplePresentOnNode(int nodeIndex, String tableName, Person... expPeople) {
-        IgniteImpl node = unwrapIgniteImpl(cluster.node(nodeIndex));
+        IgniteImpl node = unwrapIgniteImpl(node(nodeIndex));
 
         assertThat(
                 scanPeopleFromAllPartitions(node, tableName),
@@ -164,7 +169,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
     private NodeImpl raftNodeImpl(int nodeIndex, TablePartitionId tablePartitionId) {
         NodeImpl[] node = {null};
 
-        unwrapIgniteImpl(cluster.node(nodeIndex)).raftManager().forEach((raftNodeId, raftGroupService) -> {
+        unwrapIgniteImpl(node(nodeIndex)).raftManager().forEach((raftNodeId, raftGroupService) -> {
             if (tablePartitionId.equals(raftNodeId.groupId())) {
                 assertNull(
                         node[0],
@@ -187,7 +192,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
      * corresponding node is stopped, so that there are no errors.
      */
     private TestLogStorageFactory createTestLogStorageFactory(int nodeIndex, TablePartitionId tablePartitionId) {
-        IgniteImpl ignite = unwrapIgniteImpl(cluster.node(nodeIndex));
+        IgniteImpl ignite = unwrapIgniteImpl(node(nodeIndex));
 
         LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
                 ignite.name(),
@@ -197,6 +202,15 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         NodeImpl nodeImpl = raftNodeImpl(nodeIndex, tablePartitionId);
 
         return new TestLogStorageFactory(logStorageFactory, nodeImpl.getOptions(), nodeImpl.getRaftOptions());
+    }
+
+    private void awaitMajority(TablePartitionId tablePartitionId) {
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
+
+        assertThat(
+                ignite.placementDriver().awaitPrimaryReplica(tablePartitionId, ignite.clock().now(), 10, TimeUnit.SECONDS),
+                willCompleteSuccessfully()
+        );
     }
 
     private static String selectPeopleDml(String tableName) {
