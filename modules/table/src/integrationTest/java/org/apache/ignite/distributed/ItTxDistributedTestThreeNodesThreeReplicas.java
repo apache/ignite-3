@@ -81,18 +81,19 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends TxAbstractTest {
             if (msg instanceof RpcRequests.AppendEntriesRequest) {
                 RpcRequests.AppendEntriesRequest tmp = (AppendEntriesRequest) msg;
 
-                if (tmp.entriesList() != null && !tmp.entriesList().isEmpty()) {
+                if (tmp.entriesList() != null && !tmp.entriesList().isEmpty() && tmp.data() != null) {
                     return true;
                 }
             }
             return false;
         });
 
+        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) igniteTransactions.begin();
+        CompletableFuture<Void> fut = accounts.recordView().upsertAsync(tx, makeValue(1, 100.));
+
         assertTrue(IgniteTestUtils.waitForCondition(() -> server.blockedMessages(new RaftNodeId(groupId, leader)).size() == 2, 10000),
                 "Failed to wait for blocked messages");
 
-        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) igniteTransactions.begin();
-        CompletableFuture<Void> fut = accounts.recordView().upsertAsync(tx, makeValue(1, 100.));
         // Update must complete now despite the blocked replication protocol.
         assertTrue(IgniteTestUtils.waitForCondition(fut::isDone, 5_000), "The update future is not completed within timeout");
 

@@ -172,6 +172,12 @@ public class RaftMessageGroup {
 
         /** */
         public static final short SM_ERROR_RESPONSE = 3014;
+
+        /** */
+        public static final short COALESCED_HEARTBEAT_REQUEST = 3015;
+
+        /** */
+        public static final short COALESCED_HEARTBEAT_RESPONSE = 3016;
     }
 
     /**
