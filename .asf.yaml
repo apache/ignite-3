@@ -42,9 +42,9 @@ github:
     rebase:  false
   protected_branches:
     main:
-      allow_force_pushes: false
       required_linear_history: true
       required_signatures: false
+      required_conversation_resolution: true
   autolink_jira:
     - IGNITE
   dependabot_alerts:  true
