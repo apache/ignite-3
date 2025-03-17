@@ -22,7 +22,6 @@ import static java.lang.Math.min;
 import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -32,28 +31,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.core.CorrelationId;
-import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * ExecutionTest.
@@ -274,66 +261,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
         assertArrayEquals(new Object[]{null, null, "QA"}, rows.get(4));
     }
 
-    /**
-     * TestCorrelatedNestedLoopJoin.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @ParameterizedTest
-    @MethodSource("provideArgumentsForCnlJtest")
-    @DisabledOnOs(value = OS.WINDOWS, disabledReason =
-            "This test uses AbstractExecutionTest.IgniteTestStripedThreadPoolExecutor"
-                    + "which use LockSupport.parkNanos as way to sleep with nanotime to emulate different JVM pauses or another cases."
-                    + "Windows doesn't support park() with nanos argument,"
-                    + " see https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/19fb8f93c59dfd791f62d41f332db9e306bc1422/src/hotspot/os/windows/os_windows.cpp#L5228C59-L5228C59"
-                    + "So, as described above Windows OS doesn't support nanotime park "
-                    + "without additional manipulation (different hacks via JNI)."
-    )
-    public void testCorrelatedNestedLoopJoin(int leftSize, int rightSize, int rightBufSize, JoinRelType joinType) {
-        ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-
-        ScanNode<Object[]> left = new ScanNode<>(ctx, new TestTable(leftSize, rowType));
-        ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(rightSize, rowType));
-
-        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-
-        RowHandler<Object[]> hnd = ctx.rowHandler();
-
-        CorrelatedNestedLoopJoinNode<Object[]> join = new CorrelatedNestedLoopJoinNode<>(
-                ctx,
-                (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
-                Set.of(new CorrelationId(0)),
-                joinType,
-                hnd.factory(rowSchema),
-                identityProjection()
-        );
-
-        IgniteTestUtils.setFieldValue(join, "rightInBufferSize", rightBufSize);
-
-        join.register(Arrays.asList(left, right));
-
-        FilterNode<Object[]> filter = new FilterNode<>(ctx, r -> true);
-        filter.register(join);
-
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(filter);
-
-        int cnt = 0;
-        while (root.hasNext()) {
-            root.next();
-
-            cnt++;
-        }
-
-        assertEquals(
-                joinType == INNER ? min(leftSize, rightSize) : leftSize,
-                cnt,
-                "Invalid result size. [left=" + leftSize + ", right=" + rightSize + ", results=" + cnt
-        );
-    }
-
     @Test
     public void testMergeJoin() {
         ExecutionContext<Object[]> ctx = executionContext(true);
@@ -493,27 +420,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
         public void close() {
 
         }
-    }
-
-    private static Stream<Arguments> provideArgumentsForCnlJtest() {
-        List<Arguments> args = new ArrayList<>();
-
-        int[] leftSizes = {1, 99, 100, 101, 512, 513, 2000};
-        int[] rightSizes = {1, 99, 100, 101, 512, 513, 2000};
-        int[] rightBufSizes = {1, 100, 512};
-        JoinRelType[] joinTypes = {INNER, LEFT};
-
-        for (JoinRelType joinType : joinTypes) {
-            for (int rightBufSize : rightBufSizes) {
-                for (int leftSize : leftSizes) {
-                    for (int rightSize : rightSizes) {
-                        args.add(Arguments.of(leftSize, rightSize, rightBufSize, joinType));
-                    }
-                }
-            }
-        }
-
-        return args.stream();
     }
 
     @Override

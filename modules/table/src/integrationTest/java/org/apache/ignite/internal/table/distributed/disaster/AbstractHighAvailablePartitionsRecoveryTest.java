@@ -376,10 +376,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(gatewayNode).empty(), timeoutMillis));
     }
 
-    void stopNodes(Integer... nodes) {
-        Arrays.stream(nodes).forEach(this::stopNode);
-    }
-
     static void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeoutSeconds) {
         CompletableFuture<Void> changeFuture = gatewayNode
                 .clusterConfiguration()

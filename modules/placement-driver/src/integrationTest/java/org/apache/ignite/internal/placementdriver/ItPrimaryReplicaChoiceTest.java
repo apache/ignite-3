@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -417,10 +416,12 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws InterruptedException If fail.
      */
     private static void waitForLeaderCache(IgniteImpl node, TableViewInternal tbl) throws InterruptedException {
-        Optional<RaftGroupService> maybeRaftSvc = enabledColocation()
-                ? ReplicaTestUtils.getZoneRaftClient(node, tbl.internalTable().zoneId(), 0)
-                : ReplicaTestUtils.getRaftClient(node, tbl.tableId(), 0);
-        RaftGroupService raftSrvc = maybeRaftSvc.orElseThrow(AssertionError::new);
+        RaftGroupService raftSrvc = ReplicaTestUtils.getRaftClient(
+                        node,
+                        enabledColocation() ? tbl.internalTable().zoneId() : tbl.tableId(),
+                        0
+                )
+                .orElseThrow(AssertionError::new);
 
         assertTrue(waitForCondition(() -> {
             raftSrvc.refreshLeader();

@@ -100,14 +100,12 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            this.execute(this::flush);
+            this.execute(this::doFlush);
         }
     }
 
@@ -116,8 +114,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -136,9 +132,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         flush();
     }
@@ -161,14 +155,12 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
+    private void doFlush() throws Exception {
+        flush();
+    }
+
     private void flush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
-        assert waiting == -1;
+        assert waiting == NOT_WAITING;
 
         int processed = 0;
         ArrayDeque<Grouping> groupingsQueue = groupingsQueue();
@@ -181,8 +173,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 int toSnd = Math.min(requested, inBufSize - processed);
 
                 for (RowT row : grouping.getRows(toSnd)) {
-                    checkState();
-
                     requested--;
                     downstream().push(row);
 
@@ -191,7 +181,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
                 if (processed >= inBufSize && requested > 0) {
                     // allow others to do their job
-                    this.execute(this::flush);
+                    this.execute(this::doFlush);
 
                     return;
                 }
