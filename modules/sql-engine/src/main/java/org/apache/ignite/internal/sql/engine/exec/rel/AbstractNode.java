@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
 import org.apache.ignite.internal.lang.RunnableX;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -31,12 +30,19 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Abstract node of execution tree.
  */
 public abstract class AbstractNode<RowT> implements Node<RowT> {
+    /** Special value to highlight that all row were received and we do not expect more. */
+    static final int NOT_WAITING = -1;
+
+    /** Batch size for DML operations. */
     public static final int MODIFY_BATCH_SIZE = 100;
 
-    protected static final int IO_BATCH_SIZE = Commons.IO_BATCH_SIZE;
+    /** Batch size for network operations. */
+    static final int IO_BATCH_SIZE = Commons.IO_BATCH_SIZE;
 
-    protected static final int IO_BATCH_CNT = Commons.IO_BATCH_COUNT;
+    /** Max count for parallel network requests. */
+    static final int IO_BATCH_CNT = Commons.IO_BATCH_COUNT;
 
+    /** Execution node buffer size. */
     protected final int inBufSize;
 
     private final ExecutionContext<RowT> ctx;
@@ -119,6 +125,9 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
             if (this.isClosed()) {
                 return;
             }
+
+            checkState();
+
             task.run();
         }, this::onError);
     }
@@ -159,19 +168,21 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
         return closed;
     }
 
-    protected void checkState() throws Exception {
-        if (context().isCancelled() || Thread.interrupted()) {
-            throw new QueryCancelledException();
-        }
+    void checkState() {
         if (!IgniteUtils.assertionsEnabled()) {
             return;
         }
-        if (thread == null) {
-            thread = Thread.currentThread();
-        } else {
-            assert thread == Thread.currentThread() : format("expThread={}, actThread={}, "
-                            + "executionId={}, fragmentId={}", thread.getName(), Thread.currentThread().getName(),
-                    context().executionId(), context().fragmentId());
+
+        Thread currentedThread = Thread.currentThread();
+
+        synchronized (this) {
+            if (thread == null) {
+                thread = currentedThread;
+            } else {
+                assert thread == currentedThread : format("expThread={}, actThread={}, "
+                                + "executionId={}, fragmentId={}", thread.getName(), currentedThread.getName(),
+                        context().executionId(), context().fragmentId());
+            }
         }
     }
 
