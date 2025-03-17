@@ -22,6 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 
@@ -269,7 +271,8 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     }
 
     private static final AtomicInteger CNTR = new AtomicInteger();
-    public static final int NUM_LOGS = 2000;
+    private static final int NUM_LOGS = 2000;
+    private static final IgniteLogger LOG = Loggers.forClass(SpeedBasedMemoryConsumptionThrottlingStrategy.class);
 
     /**
      * Calculates speed needed to mark dirty all currently clean pages before the current checkpoint ends. May return 0 if the provided
@@ -298,7 +301,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         }
 
         if (CNTR.get() < NUM_LOGS && CNTR.getAndIncrement() < NUM_LOGS) {
-            System.out.println("<$> calcSpeedToMarkAllSpaceTillEndOfCp ["
+            LOG.info("<$> calcSpeedToMarkAllSpaceTillEndOfCp ["
                     + "dirtyPagesRatio=" + dirtyPagesRatio + ", donePages=" + donePages + ", "
                     + "avgCpWriteSpeed=" + avgCpWriteSpeed + ", cpTotalPages=" + cpTotalPages + "]");
         }
