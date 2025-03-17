@@ -780,7 +780,8 @@ public class ClientMessagePacker implements AutoCloseable {
      * @param name Qualified name.
      */
     public void packQualifiedName(QualifiedName name) {
-        packString(name.toCanonicalForm());
+        packString(name.schemaName());
+        packString(name.objectName());
     }
 
     /**
