@@ -15,8 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index;
+package org.apache.ignite.internal.catalog.storage;
 
-/** An internal exception that will be thrown when the task (legitimately) stops. */
-class IndexTaskStoppingException extends RuntimeException {
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+
+import org.junit.jupiter.api.Test;
+
+class DropIndexEntryTest {
+    @Test
+    void toStringContainsIndexId() {
+        var entry = new DropIndexEntry(42);
+
+        assertThat(entry.toString(), containsString("indexId=42"));
+    }
 }
