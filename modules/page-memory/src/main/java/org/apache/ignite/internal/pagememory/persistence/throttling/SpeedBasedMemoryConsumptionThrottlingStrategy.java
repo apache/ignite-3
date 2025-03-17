@@ -142,8 +142,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             // number of pages in the current CP, so we calculate park time by only using information we have.
             return parkTimeToThrottleByJustCpSpeed(instantaneousMarkDirtySpeed, avgCpWriteSpeed);
         } else {
-            return speedBasedParkTime(cpWrittenPages, donePages, cpTotalPages, instantaneousMarkDirtySpeed,
-                    avgCpWriteSpeed);
+            return speedBasedParkTime(cpWrittenPages, donePages, cpTotalPages, instantaneousMarkDirtySpeed, avgCpWriteSpeed);
         }
     }
 
@@ -222,8 +221,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             long instantaneousMarkDirtySpeed,
             long avgCpWriteSpeed) {
 
-        long targetSpeedToMarkAll = calcSpeedToMarkAllSpaceTillEndOfCp(dirtyPagesRatio, donePages,
-                avgCpWriteSpeed, cpTotalPages);
+        long targetSpeedToMarkAll = calcSpeedToMarkAllSpaceTillEndOfCp(dirtyPagesRatio, donePages, avgCpWriteSpeed, cpTotalPages);
         double targetCurrentDirtyRatio = targetCurrentDirtyRatio(donePages, cpTotalPages);
 
         publishSpeedAndRatioForMetrics(targetSpeedToMarkAll, targetCurrentDirtyRatio);
@@ -270,6 +268,9 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         this.targetDirtyRatio = targetDirtyRatio;
     }
 
+    private static final AtomicInteger CNTR = new AtomicInteger();
+    public static final int NUM_LOGS = 2000;
+
     /**
      * Calculates speed needed to mark dirty all currently clean pages before the current checkpoint ends. May return 0 if the provided
      * parameters do not give enough information to calculate the speed, OR if the current dirty pages ratio is too high (higher than
@@ -294,6 +295,12 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
 
         if (dirtyPagesRatio >= MAX_DIRTY_PAGES) {
             return 0;
+        }
+
+        if (CNTR.get() < NUM_LOGS && CNTR.getAndIncrement() < NUM_LOGS) {
+            System.out.println("<$> calcSpeedToMarkAllSpaceTillEndOfCp ["
+                    + "dirtyPagesRatio=" + dirtyPagesRatio + ", donePages=" + donePages + ", "
+                    + "avgCpWriteSpeed=" + avgCpWriteSpeed + ", cpTotalPages=" + cpTotalPages + "]");
         }
 
         // IDEA: here, when calculating the count of clean pages, it includes the pages under checkpoint. It is kinda
