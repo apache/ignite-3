@@ -23,6 +23,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -271,39 +272,13 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     @Nullable BinaryRow vacuum(GcEntry entry);
 
-    /**
-     * Updates the current lease start time in the storage.
-     *
-     * @param leaseStartTime Lease start time.
-     * @param primaryReplicaNodeId Primary replica node id.
-     * @param primaryReplicaNodeName Primary replica node name.
-     */
-    void updateLease(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    );
+    /** Saves the given lease information in the storage. */
+    void updateLease(LeaseInfo leaseInfo);
 
     /**
-     * Returns the start time of the known lease for this replication group.
-     *
-     * @return Lease start time.
+     * Returns the last saved lease information or {@code null} if it was never saved.
      */
-    long leaseStartTime();
-
-    /**
-     * Return the node id of the known lease for this replication group.
-     *
-     * @return Primary replica node id or null if there is no information about lease in the storage.
-     */
-    @Nullable UUID primaryReplicaNodeId();
-
-    /**
-     * Return the node name of the known lease for this replication group.
-     *
-     * @return Primary replica node name or null if there is no information about lease in the storage.
-     */
-    @Nullable String primaryReplicaNodeName();
+    @Nullable LeaseInfo leaseInfo();
 
     /**
      * Returns the <em>estimated size</em> of this partition.

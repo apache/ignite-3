@@ -137,9 +137,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                             Objects.requireNonNull(storageWithMinLastAppliedIndex.committedGroupConfiguration()),
                             lastCatalogVersionAtStart,
                             collectNextRowIdToBuildIndexesAtStart(lastCatalogVersionAtStart),
-                            storageWithMinLastAppliedIndex.leaseStartTime(),
-                            storageWithMinLastAppliedIndex.primaryReplicaNodeId(),
-                            storageWithMinLastAppliedIndex.primaryReplicaNodeName()
+                            storageWithMinLastAppliedIndex.leaseInfo()
                     );
                 })
                 .orElse(null);

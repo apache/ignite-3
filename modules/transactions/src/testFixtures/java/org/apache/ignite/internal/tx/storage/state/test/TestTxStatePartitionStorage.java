@@ -260,14 +260,7 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
                     lastAppliedIndex = partitionMeta.lastAppliedIndex();
                     lastAppliedTerm = partitionMeta.lastAppliedTerm();
                     config = partitionMeta.groupConfig();
-
-                    if (partitionMeta.primaryReplicaNodeId() != null) {
-                        leaseInfo = new LeaseInfo(
-                                partitionMeta.leaseStartTime(),
-                                partitionMeta.primaryReplicaNodeId(),
-                                partitionMeta.primaryReplicaNodeName()
-                        );
-                    }
+                    leaseInfo = partitionMeta.leaseInfo();
                 });
     }
 
