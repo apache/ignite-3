@@ -36,6 +36,8 @@ public class RetryReadPolicy extends RetryLimitPolicy {
             case TUPLE_GET:
             case TABLE_GET:
             case CHANNEL_CONNECT:
+            case TABLES_GET_QUALIFIED:
+            case TABLE_GET_QUALIFIED:
                 return true;
 
             case TUPLE_UPSERT:

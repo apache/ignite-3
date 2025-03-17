@@ -79,16 +79,6 @@ class ClientContext {
         return features;
     }
 
-    /**
-     * Returns {@code true} if the client can handle the given feature.
-     *
-     * @param feature Feature.
-     * @return {@code true} if the client can handle the given feature or {@code false} otherwise.
-     */
-    public boolean hasFeature(ServerProtocolBitmaskFeature feature) {
-        return features.get(feature.featureId());
-    }
-
     public UserDetails userDetails() {
         return userDetails;
     }

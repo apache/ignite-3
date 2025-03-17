@@ -25,6 +25,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
@@ -193,5 +194,15 @@ public enum ClientOperationType {
     /**
      * Get all primary replicas mapping to cluster nodes ({@link PartitionManager#primaryReplicasAsync()}).
      */
-    PRIMARY_REPLICAS_GET
+    PRIMARY_REPLICAS_GET,
+
+    /**
+     * Get tables ({@link IgniteTables#tables()}) that returns qualified names.
+     */
+    TABLES_GET_QUALIFIED,
+
+    /**
+     * Get table ({@link IgniteTables#table(QualifiedName)}).
+     */
+    TABLE_GET_QUALIFIED,
 }

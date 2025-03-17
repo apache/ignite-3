@@ -202,6 +202,12 @@ public class ClientUtils {
                 // and these requests are terminated when the connection is lost.
                 return null;
 
+            case ClientOp.TABLES_GET_QUALIFIED:
+                return ClientOperationType.TABLES_GET_QUALIFIED;
+
+            case ClientOp.TABLE_GET_QUALIFIED:
+                return ClientOperationType.TABLE_GET_QUALIFIED;
+
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
                 throw new UnsupportedOperationException("Invalid op code: " + opCode);

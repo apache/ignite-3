@@ -81,12 +81,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Protocol version used by default on first connection attempt. */
     private static final ProtocolVersion DEFAULT_VERSION = ProtocolVersion.LATEST_VER;
 
-    /** Supported features. */
-    private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(EnumSet.of(
-            ProtocolBitmaskFeature.USER_ATTRIBUTES,
-            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
-    ));
-
     /** Minimum supported heartbeat interval. */
     private static final long MIN_RECOMMENDED_HEARTBEAT_INTERVAL = 500;
 
@@ -642,7 +636,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         req.packInt(HandshakeUtils.CLIENT_TYPE_GENERAL);
 
-        HandshakeUtils.packFeatures(req, SUPPORTED_FEATURES);
+        HandshakeUtils.packFeatures(req, HandshakeUtils.EMPTY_FEATURES);
 
         IgniteClientAuthenticator authenticator = cfg.clientConfiguration().authenticator();
         if (authenticator != null) {
@@ -694,13 +688,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             unpacker.unpackByteNullable(); // cluster version patch
             unpacker.unpackStringNullable(); // cluster version pre release
 
-            BitSet serverFeatures = HandshakeUtils.unpackFeatures(unpacker);
+            HandshakeUtils.unpackFeatures(unpacker);
             HandshakeUtils.unpackExtensions(unpacker);
 
-            BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(SUPPORTED_FEATURES, serverFeatures);
-            EnumSet<ProtocolBitmaskFeature> features = ProtocolBitmaskFeature.enumSet(mutuallySupportedFeatures);
-
-            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName);
+            protocolCtx = new ProtocolContext(
+                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterIds, clusterName);
 
             return null;
         } catch (Throwable e) {

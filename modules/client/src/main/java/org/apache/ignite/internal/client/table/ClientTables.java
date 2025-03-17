@@ -23,8 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.ClientChannel;
-import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -67,13 +65,7 @@ public class ClientTables implements IgniteTables {
 
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
-                QualifiedName name;
-
-                if (useQualifiedNames(r.clientChannel())) {
-                    name = in.unpackQualifiedName();
-                } else {
-                    name = QualifiedName.parse(in.unpackString());
-                }
+                QualifiedName name = QualifiedName.parse(in.unpackString());
 
                 res.add(new ClientTable(ch, marshallers, tableId, name));
             }
@@ -93,31 +85,9 @@ public class ClientTables implements IgniteTables {
     public CompletableFuture<Table> tableAsync(QualifiedName name) {
         Objects.requireNonNull(name);
 
-        return ch.serviceAsync(ClientOp.TABLE_GET,  w -> {
-            if (useQualifiedNames(w.clientChannel())) {
-                w.out().packQualifiedName(name);
-            } else {
-                w.out().packString(name.toCanonicalForm());
-            }
-        }, r -> {
-            if (r.in().tryUnpackNil()) {
-                return null;
-            }
-
-            int tableId = r.in().unpackInt();
-            QualifiedName qname;
-
-            if (useQualifiedNames(r.clientChannel())) {
-                qname = r.in().unpackQualifiedName();
-            } else {
-                qname = QualifiedName.parse(r.in().unpackString());
-            }
-
-            return new ClientTable(ch, marshallers, tableId, qname);
-        });
-    }
-
-    private static boolean useQualifiedNames(ClientChannel ch) {
-        return ch.protocolContext().isFeatureSupported(ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME);
+        return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name.toCanonicalForm()),
+                r -> r.in().tryUnpackNil()
+                        ? null
+                        : new ClientTable(ch, marshallers, r.in().unpackInt(), QualifiedName.parse(r.in().unpackString())));
     }
 }

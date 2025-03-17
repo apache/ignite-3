@@ -20,18 +20,13 @@ package org.apache.ignite.internal.client;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.EnumSet;
-import org.apache.ignite.table.QualifiedName;
 
 /**
  * Defines supported bitmask features for thin client.
  */
 public enum ProtocolBitmaskFeature {
     /** Feature for user attributes. */
-    USER_ATTRIBUTES(0),
-    /**
-     * TABLE_GET/TABLES_GET requests use {@link QualifiedName}.
-     */
-    TABLE_GET_REQS_USE_QUALIFIED_NAME(1);
+    USER_ATTRIBUTES(0);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
@@ -60,14 +55,20 @@ public enum ProtocolBitmaskFeature {
     /**
      * Returns set of supported features.
      *
-     * @param bitSet Features bitset.
+     * @param bytes Feature byte array.
      * @return Set of supported features.
      */
-    public static EnumSet<ProtocolBitmaskFeature> enumSet(BitSet bitSet) {
+    public static EnumSet<ProtocolBitmaskFeature> enumSet(byte[] bytes) {
         EnumSet<ProtocolBitmaskFeature> set = EnumSet.noneOf(ProtocolBitmaskFeature.class);
 
-        for (ProtocolBitmaskFeature e : values()) {
-            if (bitSet.get(e.featureId())) {
+        if (bytes == null) {
+            return set;
+        }
+
+        final BitSet bSet = BitSet.valueOf(bytes);
+
+        for (ProtocolBitmaskFeature e : ProtocolBitmaskFeature.values()) {
+            if (bSet.get(e.featureId())) {
                 set.add(e);
             }
         }
@@ -81,14 +82,14 @@ public enum ProtocolBitmaskFeature {
      * @param features Feature set.
      * @return Byte array representing all supported features.
      */
-    static BitSet featuresAsBitSet(Collection<ProtocolBitmaskFeature> features) {
-        BitSet set = new BitSet();
+    static byte[] featuresAsBytes(Collection<ProtocolBitmaskFeature> features) {
+        final BitSet set = new BitSet();
 
         for (ProtocolBitmaskFeature f : features) {
             set.set(f.featureId());
         }
 
-        return set;
+        return set.toByteArray();
     }
 
     /**
