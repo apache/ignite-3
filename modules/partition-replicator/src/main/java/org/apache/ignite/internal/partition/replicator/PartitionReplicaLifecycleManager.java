@@ -1438,7 +1438,8 @@ public class PartitionReplicaLifecycleManager extends
             int tableId,
             Function<RaftCommandRunner, ReplicaTableProcessor> tablePartitionReplicaProcessorFactory,
             RaftTableProcessor raftTableProcessor,
-            PartitionMvStorageAccess partitionMvStorageAccess
+            PartitionMvStorageAccess partitionMvStorageAccess,
+            boolean onNodeRecovery
     ) {
         ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
 
@@ -1451,7 +1452,11 @@ public class PartitionReplicaLifecycleManager extends
                 tablePartitionReplicaProcessorFactory
         ));
 
-        resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
+        if (onNodeRecovery) {
+            resources.raftListener().addTableProcessorOnRecovery(tableId, raftTableProcessor);
+        } else {
+            resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
+        }
 
         resources.snapshotStorageFactory().addMvPartition(tableId, partitionMvStorageAccess);
     }
