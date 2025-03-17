@@ -333,7 +333,7 @@ public class MappingServiceImpl implements MappingService {
         Stream<IntObjectPair<ExecutionTarget>> tableTargets = template.fragments.stream().flatMap(fragment ->
                 fragment.tables().values().stream()
                         .map(table -> IntObjectPair.of(table.id(),
-                                buildTargetForTable(targetFactory, distr.tableAssignments(table.id())))));
+                                targetFactory.partitioned(distr.tableAssignments(table.id())))));
 
         Stream<IntObjectPair<ExecutionTarget>> viewTargets = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
                 .map(view -> IntObjectPair.of(view.id(), buildTargetForSystemView(targetFactory, view, distr.viewNodes(view.id())))));
@@ -350,10 +350,6 @@ public class MappingServiceImpl implements MappingService {
         return view.distribution() == IgniteDistributions.single()
                 ? factory.oneOf(nodes)
                 : factory.allOf(nodes);
-    }
-
-    private static ExecutionTarget buildTargetForTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
-        return factory.partitioned(assignments);
     }
 
     private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {
