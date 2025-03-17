@@ -377,7 +377,13 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Returns counter for fsynced checkpoint pages.
      */
     int cpSyncedPages() {
-        AtomicInteger syncedPagesCounter = cpProgress.get().syncedPagesCounter();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        AtomicInteger syncedPagesCounter = progress.syncedPagesCounter();
 
         // Null-check simplifies testing, we don't have to mock this counter.
         return syncedPagesCounter == null ? 0 : syncedPagesCounter.get();
@@ -387,14 +393,26 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Return a number of pages in current checkpoint.
      */
     int cpTotalPages() {
-        return cpProgress.get().currentCheckpointPagesCount();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        return progress.currentCheckpointPagesCount();
     }
 
     /**
      * Returns a number of evicted pages.
      */
     int cpEvictedPages() {
-        AtomicInteger evictedPagesCounter = cpProgress.get().evictedPagesCounter();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        AtomicInteger evictedPagesCounter = progress.evictedPagesCounter();
 
         // Null-check simplifies testing, we don't have to mock this counter.
         return evictedPagesCounter == null ? 0 : evictedPagesCounter.get();
