@@ -24,9 +24,11 @@ import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.typeFamiliesAreCompatible;
 
 import java.nio.charset.Charset;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
@@ -187,7 +189,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     @Override
     public boolean inOperationCoercion(SqlCallBinding binding) {
         SqlOperator operator = binding.getOperator();
-        if (operator.getKind() != SqlKind.IN && operator.getKind() != SqlKind.NOT_IN) {
+        if (!operatorIsInOrQuantify(operator)) {
             return false;
         }
 
@@ -203,12 +205,117 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 typeFactory, type2, null
         );
 
-        //noinspection SimplifiableIfStatement
         if (!typeFamiliesAreCompatible(typeFactory, leftRowType, rightRowType)) {
             return false;
         }
 
+        if (operatorIsQuantify(operator)) {
+            return quantifyOperationCoercion(binding);
+        }
+
         return super.inOperationCoercion(binding);
+    }
+
+    private static boolean operatorIsIn(SqlOperator operator) {
+        return operator.getKind().belongsTo(Set.of(SqlKind.IN, SqlKind.NOT_IN));
+    }
+
+    private static boolean operatorIsQuantify(SqlOperator operator) {
+        return operator.getKind().belongsTo(Set.of(SqlKind.SOME, SqlKind.ALL));
+    }
+
+    private static boolean operatorIsInOrQuantify(SqlOperator operator) {
+        return operatorIsIn(operator) || operatorIsQuantify(operator);
+    }
+
+    private boolean quantifyOperationCoercion(SqlCallBinding binding) {
+        // This method is a copy-paste of org.apache.calcite.sql.validate.implicit.TypeCoercionImpl.inOperationCoercion
+        // with stripped validation of operation kind.
+        assert operatorIsQuantify(binding.getOperator());
+        assert binding.getOperandCount() == 2;
+
+        RelDataType type1 = binding.getOperandType(0);
+        RelDataType type2 = binding.getOperandType(1);
+        SqlNode node1 = binding.operand(0);
+        SqlNode node2 = binding.operand(1);
+        SqlValidatorScope scope = binding.getScope();
+
+        if (type1.isStruct() && type2.isStruct() && type1.getFieldCount() != type2.getFieldCount()) {
+            return false;
+        }
+
+        int colCount = type1.isStruct() ? type1.getFieldCount() : 1;
+        RelDataType[] argTypes = new RelDataType[2];
+        argTypes[0] = type1;
+        argTypes[1] = type2;
+        boolean coerced = false;
+        List<RelDataType> widenTypes = new ArrayList<>();
+        for (int i = 0; i < colCount; i++) {
+            int i2 = i;
+            List<RelDataType> columnIthTypes = new AbstractList<>() {
+                @Override
+                public RelDataType get(int index) {
+                    return argTypes[index].isStruct() ? argTypes[index].getFieldList().get(i2).getType() : argTypes[index];
+                }
+
+                @Override
+                public int size() {
+                    return argTypes.length;
+                }
+            };
+
+            RelDataType widenType = commonTypeForBinaryComparison(columnIthTypes.get(0), columnIthTypes.get(1));
+            if (widenType == null) {
+                widenType = getTightestCommonType(columnIthTypes.get(0), columnIthTypes.get(1));
+            }
+            if (widenType == null) {
+                // Can not find any common type, just return early.
+                return false;
+            }
+            widenTypes.add(widenType);
+        }
+        // Find all the common type for RSH and LSH columns.
+        assert widenTypes.size() == colCount;
+        for (int i = 0; i < widenTypes.size(); i++) {
+            RelDataType desired = widenTypes.get(i);
+            // LSH maybe a row values or single node.
+            if (node1.getKind() == SqlKind.ROW) {
+                assert node1 instanceof SqlCall;
+                if (coerceOperandType(scope, (SqlCall) node1, i, desired)) {
+                    updateInferredColumnType(requireNonNull(scope, "scope"), node1, i, widenTypes.get(i));
+                    coerced = true;
+                }
+            } else {
+                coerced = coerceOperandType(scope, binding.getCall(), 0, desired) || coerced;
+            }
+            // RHS may be a row values expression or sub-query.
+            if (node2 instanceof SqlNodeList) {
+                final SqlNodeList node3 = (SqlNodeList) node2;
+                boolean listCoerced = false;
+                if (type2.isStruct()) {
+                    for (SqlNode node : (SqlNodeList) node2) {
+                        assert node instanceof SqlCall;
+                        listCoerced = coerceOperandType(scope, (SqlCall) node, i, desired) || listCoerced;
+                    }
+                    if (listCoerced) {
+                        updateInferredColumnType(requireNonNull(scope, "scope"), node2, i, desired);
+                    }
+                } else {
+                    for (int j = 0; j < ((SqlNodeList) node2).size(); j++) {
+                        listCoerced = coerceColumnType(scope, node3, j, desired) || listCoerced;
+                    }
+                    if (listCoerced) {
+                        updateInferredType(node2, desired);
+                    }
+                }
+                coerced = coerced || listCoerced;
+            } else {
+                // Another sub-query.
+                SqlValidatorScope scope1 = node2 instanceof SqlSelect ? validator.getSelectScope((SqlSelect) node2) : scope;
+                coerced = rowTypeCoercion(scope1, node2, i, desired) || coerced;
+            }
+        }
+        return coerced;
     }
 
     /** {@inheritDoc} */

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Collections.singletonMap;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
@@ -124,6 +125,7 @@ import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
@@ -393,6 +395,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage.lastApplied(10L, 1L);
 
@@ -587,6 +591,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
     void updatesLastAppliedForFinishTxCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 
@@ -703,18 +709,18 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         InOrder inOrder = inOrder(partitionDataStorage, indexUpdateHandler);
 
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row0.uuid()), false), 10, 1);
+        commandListener.processCommand(createBuildIndexCommand(indexId, List.of(row0.uuid()), false), 10, 1, null);
 
         inOrder.verify(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), eq(row0.increment()));
         inOrder.verify(partitionDataStorage).lastApplied(10, 1);
 
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row1.uuid()), true), 20, 2);
+        commandListener.processCommand(createBuildIndexCommand(indexId, List.of(row1.uuid()), true), 20, 2, null);
 
         inOrder.verify(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), eq(null));
         inOrder.verify(partitionDataStorage).lastApplied(20, 2);
 
         // Let's check that the command with a lower commandIndex than in the storage will not be executed.
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row2.uuid()), false), 5, 1);
+        commandListener.processCommand(createBuildIndexCommand(indexId, List.of(row2.uuid()), false), 5, 1, null);
 
         inOrder.verify(indexUpdateHandler, never()).buildIndex(eq(indexId), any(Stream.class), eq(row2.increment()));
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
@@ -723,6 +729,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
                 .indexId(indexId)
+                .tableId(TABLE_ID)
                 .rowIds(rowUuids)
                 .finish(finish)
                 .build();

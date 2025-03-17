@@ -47,9 +47,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** The tracker is used to track an observable timestamp. */
     protected final HybridTimestampTracker observableTsTracker;
 
-    /**
-     * Transaction coordinator inconsistent ID.
-     */
+    /** Transaction coordinator ephemeral ID. */
     private final UUID coordinatorId;
 
     /** Implicit transaction flag. */
@@ -57,6 +55,9 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
     /** Transaction timeout. */
     protected final long timeout;
+
+    /** Flag indicating that the transaction was rolled back due to timeout. */
+    protected volatile boolean timeoutExceeded;
 
     /**
      * The constructor.
@@ -154,7 +155,13 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
     /** {@inheritDoc} */
     @Override
-    public long timeout() {
+    public long getTimeout() {
         return timeout;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return timeoutExceeded;
     }
 }

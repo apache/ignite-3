@@ -53,7 +53,6 @@ public class VacuumTxStateReplicaRequestHandler {
                 .txIds(request.transactionIds())
                 .build();
 
-
         return commandApplicator.applyCommand(cmd);
     }
 }

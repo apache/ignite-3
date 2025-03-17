@@ -35,6 +35,7 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -78,6 +79,7 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
 
         Map<String, StorageEngine> engines = dataStorageModules.createStorageEngines(
                 "test",
+                mock(MetricManager.class),
                 mock(ConfigurationRegistry.class),
                 workDir,
                 null,
@@ -100,7 +102,7 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
 
         when(mock.name()).thenReturn(name);
 
-        when(mock.createEngine(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(mock(StorageEngine.class));
+        when(mock.createEngine(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(mock(StorageEngine.class));
 
         return mock;
     }

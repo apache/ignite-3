@@ -222,6 +222,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     HybridTimestampTracker observableTimestampTracker,
                     ReplicationGroupId commitPartition,
                     boolean commitIntent,
+                    boolean timeoutExceeded,
                     Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
@@ -359,7 +360,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 transactionInflights,
                 0,
                 null,
-                mock(StreamerReceiverRunner.class)
+                mock(StreamerReceiverRunner.class),
+                () -> 10_000L,
+                () -> 10_000L
         );
     }
 

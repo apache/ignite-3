@@ -107,7 +107,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         lock.lock();
         try {
-            if (waiting != -1 || !outBuff.isEmpty()) {
+            if (waiting != NOT_WAITING || !outBuff.isEmpty()) {
                 ex.compareAndSet(null, new QueryCancelledException());
             }
 
@@ -140,8 +140,6 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         try {
             assert waiting > 0;
 
-            checkState();
-
             waiting--;
 
             inBuff.offer(row);
@@ -161,9 +159,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         lock.lock();
         try {
-            checkState();
-
-            waiting = -1;
+            waiting = NOT_WAITING;
 
             cond.signalAll();
         } finally {
@@ -245,20 +241,20 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             while (ex.get() == null) {
                 assert outBuff.isEmpty();
 
-                if (inBuff.size() == inBufSize || waiting == -1) {
+                if (inBuff.size() == inBufSize || waiting == NOT_WAITING) {
                     Deque<RowT> tmp = inBuff;
                     inBuff = outBuff;
                     outBuff = tmp;
                 }
 
-                if (waiting == -1 && outBuff.isEmpty()) {
+                if (waiting == NOT_WAITING && outBuff.isEmpty()) {
                     close();
                 } else if (inBuff.isEmpty() && waiting == 0) {
                     int req = waiting = inBufSize;
                     this.execute(() -> source().request(req));
                 }
 
-                if (!outBuff.isEmpty() || waiting == -1) {
+                if (!outBuff.isEmpty() || waiting == NOT_WAITING) {
                     break;
                 }
 

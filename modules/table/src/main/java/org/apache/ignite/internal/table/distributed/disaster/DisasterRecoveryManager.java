@@ -869,7 +869,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         String schemaName = catalog.schema(tableDescriptor.schemaId()).name();
 
         return new LocalPartitionState(
+                tableDescriptor.zoneId(),
                 zoneName,
+                tableDescriptor.schemaId(),
                 schemaName,
                 tableDescriptor.id(),
                 tableDescriptor.name(),

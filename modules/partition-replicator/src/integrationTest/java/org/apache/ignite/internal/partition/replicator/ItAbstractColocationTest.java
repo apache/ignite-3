@@ -102,7 +102,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
     private StorageConfiguration storageConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.idleSyncTimeInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
     private MetaStorageConfiguration metaStorageConfiguration;
 
     @InjectConfiguration
@@ -173,8 +173,9 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
         cluster.parallelStream().forEach(Node::start);
 
         Node node0 = cluster.get(0);
+        List<String> allNodeNames = cluster.stream().map(n -> n.name).collect(toList());
 
-        node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
+        node0.cmgManager.initCluster(allNodeNames, allNodeNames, "cluster");
 
         cluster.forEach(Node::waitWatches);
 

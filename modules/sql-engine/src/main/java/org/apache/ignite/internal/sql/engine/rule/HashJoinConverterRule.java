@@ -57,13 +57,18 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
     public boolean matches(RelOptRuleCall call) {
         LogicalJoin logicalJoin = call.rel(0);
 
-        if (nullOrEmpty(logicalJoin.analyzeCondition().pairs())) {
+        return matches(logicalJoin);
+    }
+
+    /** Returns {@code true} if this rule can be applied to given join node, returns {@code false} otherwise. */
+    public static boolean matches(LogicalJoin join) {
+        if (nullOrEmpty(join.analyzeCondition().pairs())) {
             return false;
         }
 
         List<Boolean> filterNulls = new ArrayList<>();
         RelOptUtil.splitJoinCondition(
-                logicalJoin.getLeft(), logicalJoin.getRight(), logicalJoin.getCondition(),
+                join.getLeft(), join.getRight(), join.getCondition(),
                 new ArrayList<>(), new ArrayList<>(), filterNulls
         );
 
@@ -73,7 +78,7 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
         }
 
         //noinspection RedundantIfStatement
-        if (!logicalJoin.analyzeCondition().isEqui() && !TYPES_SUPPORTING_NON_EQUI_CONDITIONS.contains(logicalJoin.getJoinType())) {
+        if (!join.analyzeCondition().isEqui() && !TYPES_SUPPORTING_NON_EQUI_CONDITIONS.contains(join.getJoinType())) {
             // Joins which emits unmatched left or right part requires special handling of `nonEquiCondition`
             // on execution level. As of now it's known limitations.
             return false;

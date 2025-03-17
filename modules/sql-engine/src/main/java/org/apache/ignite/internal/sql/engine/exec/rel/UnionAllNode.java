@@ -55,8 +55,6 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
         assert !nullOrEmpty(sources());
         assert rowsCnt > 0 && waiting == 0;
 
-        checkState();
-
         source().request(waiting = rowsCnt);
     }
 
@@ -65,8 +63,6 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -79,12 +75,10 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
         if (++curSrc < sources().size()) {
             source().request(waiting);
         } else {
-            waiting = -1;
+            waiting = NOT_WAITING;
             downstream().end();
         }
     }

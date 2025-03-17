@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -759,7 +759,8 @@ public class IgniteImpl implements Ignite {
                 new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),
                 msRaftConfigurer,
                 readOperationForCompactionTracker,
-                threadPoolsManager.tableIoExecutor()
+                threadPoolsManager.tableIoExecutor(),
+                failureManager
         );
 
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -869,7 +870,7 @@ public class IgniteImpl implements Ignite {
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
-                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                         .thenApply(org.apache.ignite.internal.metastorage.Entry::value)
         );
 
@@ -889,6 +890,7 @@ public class IgniteImpl implements Ignite {
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
+                metricManager,
                 nodeConfigRegistry,
                 storagePath,
                 longJvmPauseDetector,
@@ -1153,7 +1155,7 @@ public class IgniteImpl implements Ignite {
 
         systemViewManager.register(qryEngine);
 
-        sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
+        sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker, threadPoolsManager.commonScheduler());
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -1212,7 +1214,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                threadPoolsManager.commonScheduler()
         );
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
@@ -2067,6 +2070,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public SystemDisasterRecoveryManager systemDisasterRecoveryManager() {
         return systemDisasterRecoveryManager;
+    }
+
+    @TestOnly
+    public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager() {
+        return partitionReplicaLifecycleManager;
     }
 
     /**

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
@@ -163,7 +164,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         metaStorageManager = StandaloneMetaStorageManager.create();
 
-        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockService);
+        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockService, () -> TEST_DELAY_DURATION);
 
         replicaManager = new ReplicaManager(
                 nodeName,

@@ -26,27 +26,37 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 
 /** Base class for testing the placement driver. */
 abstract class BasePlacementDriverTest extends IgniteAbstractTest {
+    protected final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+
+    protected PartitionGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
+        return enabledColocation ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId);
+    }
+
     /**
      * Creates an assignment for the fake table.
      *
      * @return Replication group id.
      */
-    protected TablePartitionId createTableAssignment(
+    protected PartitionGroupId createAssignments(
             MetaStorageManager metastore,
-            int tableId,
+            int tableOrZoneId,
             List<String> dataNodes,
             long assignmentsTimestamp) {
         List<Set<Assignment>> assignments = calculateAssignments(dataNodes, 1, dataNodes.size());
@@ -54,16 +64,20 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 
         for (int i = 0; i < assignments.size(); i++) {
+            PartitionGroupId replicationGroupId = targetReplicationGroupId(tableOrZoneId, i);
+            ByteArray stableAssignmentsKey = enabledColocation
+                    ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) replicationGroupId)
+                    : stablePartAssignmentsKey((TablePartitionId) replicationGroupId);
             partitionAssignments.put(
-                    stablePartAssignmentsKey(new TablePartitionId(tableId, i)),
+                    stableAssignmentsKey,
                     Assignments.toBytes(assignments.get(i), assignmentsTimestamp));
         }
 
         metastore.putAll(partitionAssignments).join();
 
-        var grpPart0 = new TablePartitionId(tableId, 0);
+        PartitionGroupId grpPart0 = targetReplicationGroupId(tableOrZoneId, 0);
 
-        log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
+        log.info("Fake table created [id={}, repGrp={}]", tableOrZoneId, grpPart0);
 
         return grpPart0;
     }

@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.is;
@@ -36,8 +35,6 @@ import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.replicator.Member;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,12 +53,10 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         startCluster(3);
 
         // Create a zone with a single partition on every node.
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+        createZone(TEST_ZONE_NAME, 1, cluster.size());
 
         createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
         createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
-
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -170,23 +165,6 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // Wait for the rebalance to kick in.
         assertTrue(waitForCondition(() -> newNode.replicaManager.isReplicaStarted(zonePartitionId), 10_000L));
 
-        // Wait for the data to appear. At the moment of writing, we don't have any partition safe time to wait for and
-        // the primary replica has been assigned manually, so there's no guarantee that the data has been replicated.
-        // Not using "assertTrue" on purpose, the next line will produce a nicer error message.
-        // TODO: remove this line after https://issues.apache.org/jira/browse/IGNITE-22620
-        waitForCondition(() -> {
-            try {
-                return kvView1.getAll(null, data1.keySet()).equals(data1);
-            } catch (IgniteException e) {
-                if (hasCauseOrSuppressed(e, StorageRebalanceException.class)) {
-                    // This is expected.
-                    return false;
-                } else {
-                    throw e;
-                }
-            }
-        }, 10_000L);
-
         assertThat(kvView1.getAll(null, data1.keySet()), is(data1));
         assertThat(kvView1.getAll(null, data2.keySet()), is(anEmptyMap()));
 
@@ -203,11 +181,9 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         // Create a zone with the test profile. The storage in it is augmented to lose all data upon restart, but its Raft configuration
         // is persistent, so the data can be restored.
-        int zoneId = createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
+        createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
 
         createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 

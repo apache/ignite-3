@@ -50,7 +50,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
-    private static final long DEFAULT_TABLE_SIZE = 1_000_000L;
+    static final long DEFAULT_TABLE_SIZE = 1L;
     private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, 0L);
 
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
@@ -126,7 +126,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                                 return v;
                             }
 
-                            return new ActualSize(size, currTimestamp);
+                            return new ActualSize(Math.max(size, 1), currTimestamp);
                         });
                     }).exceptionally(e -> {
                         LOG.info("Can't calculate size for table [id={}].", e, tableId);

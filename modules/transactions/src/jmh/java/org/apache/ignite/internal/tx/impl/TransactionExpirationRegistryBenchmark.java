@@ -18,7 +18,11 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -27,32 +31,52 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Timeout;
 import org.openjdk.jmh.annotations.Warmup;
 
 /** Benchmark for TransactionExpirationRegistry. */
 @State(Scope.Benchmark)
-@OutputTimeUnit(MILLISECONDS)
+@OutputTimeUnit(SECONDS)
 @Timeout(time = 200, timeUnit = MILLISECONDS)
 @Warmup(iterations = 2, time = 5, timeUnit = MILLISECONDS)
 @Measurement(time = 5, timeUnit = MILLISECONDS, iterations = 5)
 public class TransactionExpirationRegistryBenchmark {
-    private static final int ITERATIONS_COUNT = 10_000;
+    private static final int ITERATIONS_COUNT = 100_000;
+
+    private static final List<InternalTransaction> transactions = new ArrayList<>(ITERATIONS_COUNT);
+
+    @Setup
+    static void setup() {
+        for (int i = 0; i < ITERATIONS_COUNT; i++) {
+            transactions.add(new FakeInternalTransaction(i));
+        }
+    }
 
     /** Register transactions in the cycle. */
     @Benchmark
     public static void register() {
         TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
-            registry.register(new FakeInternalTransaction(i), i);
+            registry.register(transactions.get(i), i);
+        }
+    }
+
+    @Benchmark
+    static void register10() {
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        int iterCnt = ITERATIONS_COUNT / 10;
+        for (int i = 0; i < iterCnt; i++) {
+            for (int j = 0; j < 10; j++) {
+                registry.register(transactions.get(i * 10 + j), i);
+            }
         }
     }
 
@@ -61,11 +85,11 @@ public class TransactionExpirationRegistryBenchmark {
     public static void registerUnregister() {
         TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
-            registry.register(new FakeInternalTransaction(i), i);
+            registry.register(transactions.get(i), i);
         }
 
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
-            registry.unregister(new FakeInternalTransaction(i));
+            registry.unregister(transactions.get(i));
         }
     }
 
@@ -74,7 +98,7 @@ public class TransactionExpirationRegistryBenchmark {
     public static void registerExpire() {
         TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
-            registry.register(new FakeInternalTransaction(i), i);
+            registry.register(transactions.get(i), i);
         }
 
         for (int i = ITERATIONS_COUNT; i > 0; i--) {
@@ -118,7 +142,7 @@ public class TransactionExpirationRegistryBenchmark {
         public void enlist(
                 ReplicationGroupId replicationGroupId,
                 int tableId,
-                ClusterNode primaryNode,
+                String primaryNodeConsistentId,
                 long consistencyToken
         ) {
             // No-op.
@@ -145,7 +169,9 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full) {
+        public CompletableFuture<Void> finish(
+                boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+        ) {
             return null;
         }
 
@@ -155,13 +181,28 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public long timeout() {
+        public long getTimeout() {
+            return 0;
+        }
+
+        @Override
+        public long getTimeoutOrDefault(long defaultTimeout) {
             return 0;
         }
 
         @Override
         public CompletableFuture<Void> kill() {
             return null;
+        }
+
+        @Override
+        public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public boolean isRolledBackWithTimeoutExceeded() {
+            return false;
         }
 
         @Override

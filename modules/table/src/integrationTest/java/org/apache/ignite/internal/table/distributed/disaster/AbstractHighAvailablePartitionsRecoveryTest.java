@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
@@ -78,6 +78,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -227,7 +228,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
 
                             ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
-                            ByteArray pendingKey = pendingPartAssignmentsKey(tablePartitionId);
+                            ByteArray pendingKey = pendingPartAssignmentsQueueKey(tablePartitionId);
                             ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
 
                             Map<ByteArray, Entry> results = await(gatewayNode.metaStorageManager()
@@ -238,7 +239,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                             boolean isPlannedEmpty = results.get(plannedKey).value() == null;
 
                             stableNodes.set(assignmentsFromEntry(results.get(stableKey)));
-                            pendingNodes.set(assignmentsFromEntry(results.get(pendingKey)));
+                            pendingNodes.set(assignmentsFromPendingEntry(results.get(pendingKey)));
                             plannedNodes.set(assignmentsFromEntry(results.get(plannedKey)));
 
                             return isStableAsExpected && isPendingEmpty && isPlannedEmpty;
@@ -259,6 +260,15 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private static Set<String> assignmentsFromEntry(Entry entry) {
         return (entry.value() != null)
                 ? Assignments.fromBytes(entry.value()).nodes()
+                        .stream()
+                        .map(Assignment::consistentId)
+                        .collect(Collectors.toUnmodifiableSet())
+                : emptySet();
+    }
+
+    private static Set<String> assignmentsFromPendingEntry(Entry entry) {
+        return (entry.value() != null)
+                ? AssignmentsQueue.fromBytes(entry.value()).poll().nodes()
                         .stream()
                         .map(Assignment::consistentId)
                         .collect(Collectors.toUnmodifiableSet())
@@ -364,10 +374,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     static void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode, long timeoutMillis) throws InterruptedException {
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(gatewayNode).empty(), timeoutMillis));
-    }
-
-    void stopNodes(Integer... nodes) {
-        Arrays.stream(nodes).forEach(this::stopNode);
     }
 
     static void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeoutSeconds) {

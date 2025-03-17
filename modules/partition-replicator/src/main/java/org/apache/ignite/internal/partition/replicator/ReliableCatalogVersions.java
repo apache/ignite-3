@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -36,7 +37,8 @@ public class ReliableCatalogVersions {
     }
 
     /**
-     * Returns Catalog version corresponding to the given timestamp.
+     * Returns Catalog version corresponding to the given timestamp. Must only be called if there is a guarantee that
+     * the corresponding version was not yet compacted.
      *
      * <p>This should only be used when the startup procedure is complete as it relies on the catalog to be started.
      *
@@ -45,5 +47,24 @@ public class ReliableCatalogVersions {
     public CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
         return schemaSyncService.waitForMetadataCompleteness(ts)
                 .thenApply(unused -> catalogService.activeCatalogVersion(ts.longValue()));
+    }
+
+    /**
+     * Returns Catalog version corresponding to the given timestamp, or a later one. A later version will be returned
+     * if the exactly matching version is already compacted out.
+     *
+     * <p>This should only be used when the startup procedure is complete as it relies on the catalog to be started.
+     *
+     * @param ts Timestamp.
+     */
+    public CompletableFuture<Integer> safeReliableCatalogVersionFor(HybridTimestamp ts) {
+        return schemaSyncService.waitForMetadataCompleteness(ts)
+                .thenApply(unused -> {
+                    try {
+                        return catalogService.activeCatalogVersion(ts.longValue());
+                    } catch (CatalogNotFoundException e) {
+                        return catalogService.earliestCatalogVersion();
+                    }
+                });
     }
 }

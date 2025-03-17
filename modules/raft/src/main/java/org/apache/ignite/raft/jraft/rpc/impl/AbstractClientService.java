@@ -21,16 +21,17 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import java.net.ConnectException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.raft.PeerUnavailableException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -41,6 +42,7 @@ import org.apache.ignite.raft.jraft.rpc.ClientService;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.NetworkInvoker;
 import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
@@ -152,7 +154,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 .build();
 
         CompletableFuture<Message> fut =
-                invokeWithDone(peerId, req, null, null, rpcOptions.getRpcConnectTimeoutMs(), rpcExecutor);
+                invokeWithDone(peerId, req, null, null, rpcOptions.getRpcConnectTimeoutMs(), rpcExecutor, this.rpcClient);
 
         return fut.thenApply(msg -> {
             ErrorResponse resp = (ErrorResponse) msg;
@@ -178,20 +180,19 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     public <T extends Message> CompletableFuture<Message> invokeWithDone(final PeerId peerId, final Message request,
         final RpcResponseClosure<T> done, final int timeoutMs,
         final Executor rpcExecutor) {
-        return invokeWithDone(peerId, request, null, done, timeoutMs, rpcExecutor);
+        return invokeWithDone(peerId, request, null, done, timeoutMs, rpcExecutor, this.rpcClient);
     }
 
     public <T extends Message> CompletableFuture<Message> invokeWithDone(final PeerId peerId, final Message request,
         final InvokeContext ctx,
         final RpcResponseClosure<T> done, final int timeoutMs) {
-        return invokeWithDone(peerId, request, ctx, done, timeoutMs, this.rpcExecutor);
+        return invokeWithDone(peerId, request, ctx, done, timeoutMs, this.rpcExecutor, this.rpcClient);
     }
 
     public <T extends Message> CompletableFuture<Message> invokeWithDone(final PeerId peerId, final Message request,
         final InvokeContext ctx,
         final RpcResponseClosure<T> done, final int timeoutMs,
-        final Executor rpcExecutor) {
-        final RpcClient rc = this.rpcClient;
+        final Executor rpcExecutor, NetworkInvoker rc) {
         final FutureImpl<Message> future = new FutureImpl<>();
         final Executor currExecutor = rpcExecutor != null ? rpcExecutor : this.rpcExecutor;
 

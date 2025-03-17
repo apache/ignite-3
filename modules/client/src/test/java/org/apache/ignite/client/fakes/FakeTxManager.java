@@ -39,7 +39,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -110,7 +109,7 @@ public class FakeTxManager implements TxManager {
             public void enlist(
                     ReplicationGroupId replicationGroupId,
                     int tableId,
-                    ClusterNode primaryNode,
+                    String primaryNodeConsistentId,
                     long consistencyToken
             ) {
                 // No-op.
@@ -162,7 +161,9 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+            public CompletableFuture<Void> finish(
+                    boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+            ) {
                 return nullCompletedFuture();
             }
 
@@ -172,13 +173,28 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public long timeout() {
+            public long getTimeout() {
+                return 10_000;
+            }
+
+            @Override
+            public long getTimeoutOrDefault(long defaultTimeout) {
                 return 10_000;
             }
 
             @Override
             public CompletableFuture<Void> kill() {
                 return nullCompletedFuture();
+            }
+
+            @Override
+            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public boolean isRolledBackWithTimeoutExceeded() {
+                return false;
             }
         };
     }
@@ -208,6 +224,7 @@ public class FakeTxManager implements TxManager {
             HybridTimestampTracker timestampTracker,
             ReplicationGroupId commitPartition,
             boolean commit,
+            boolean timeoutExceeded,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
@@ -227,7 +244,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -262,7 +279,9 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit) {
+    public void finishFull(
+            HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    ) {
         // No-op.
     }
 }

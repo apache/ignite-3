@@ -146,6 +146,10 @@ public class ApiClientFactory {
         try {
             Builder builder = new Builder();
 
+            // There is evidence (IGNITE 24671) that sometimes POST requests get duplicated if this is true, hence turning it off
+            // for safety.
+            builder.retryOnConnectionFailure(false);
+
             if (!nullOrBlank(settings.trustStorePath()) || !nullOrBlank(settings.trustStorePassword())) {
                 applySslSettings(builder, settings);
             }

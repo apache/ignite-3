@@ -76,11 +76,11 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
@@ -90,8 +90,6 @@ import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
@@ -161,11 +159,10 @@ public class PersistentPageMemory implements PageMemory {
     /** Data region configuration view. */
     private final PersistentPageMemoryProfileView storageProfileView;
 
+    private final PersistentPageMemoryMetricSource metricSource;
+
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
-
-    /** The supplier of checkpoint progress. */
-    private final Supplier<@Nullable CheckpointProgress> checkpointProgressSupplier;
 
     /** Page manager. */
     private final PageReadWriteManager pageStoreManager;
@@ -209,7 +206,7 @@ public class PersistentPageMemory implements PageMemory {
     private volatile @Nullable PagePool checkpointPool;
 
     /** Pages write throttle. */
-    private final @Nullable PagesWriteThrottlePolicy writeThrottle;
+    private volatile @Nullable PagesWriteThrottlePolicy writeThrottle;
 
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
@@ -224,32 +221,34 @@ public class PersistentPageMemory implements PageMemory {
      * Constructor.
      *
      * @param storageProfileConfiguration Storage profile configuration.
+     * @param metricSource Metric source.
      * @param ioRegistry IO registry.
      * @param segmentSizes Segments sizes in bytes.
      * @param checkpointBufferSize Checkpoint buffer size in bytes.
      * @param pageStoreManager Page store manager.
      * @param flushDirtyPageForReplacement Write callback invoked when a dirty page is removed for replacement.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
-     * @param checkpointProgressSupplier The supplier of checkpoint progress.
      * @param pageSize Page size in bytes.
      * @param rwLock Read-write lock for pages.
      */
     public PersistentPageMemory(
             PersistentPageMemoryProfileConfiguration storageProfileConfiguration,
+            PersistentPageMemoryMetricSource metricSource,
             PageIoRegistry ioRegistry,
             long[] segmentSizes,
             long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
             WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
-            Supplier<@Nullable CheckpointProgress> checkpointProgressSupplier,
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
             OffheapReadWriteLock rwLock
     ) {
         this.storageProfileView = (PersistentPageMemoryProfileView) storageProfileConfiguration.value();
+        this.metricSource = metricSource;
+        initMetrics();
+
         this.ioRegistry = ioRegistry;
-        this.checkpointProgressSupplier = checkpointProgressSupplier;
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
@@ -281,14 +280,27 @@ public class PersistentPageMemory implements PageMemory {
 
         delayedPageReplacementTracker = new DelayedPageReplacementTracker(pageSize, flushDirtyPageForReplacement, LOG, sizes.length - 1);
 
-        // TODO IGNITE-24548 Use this initialization code.
-        //        new PagesWriteThrottle(
-        //                this,
-        //                checkpointProgressSupplier,
-        //                checkpointTimeoutLock::checkpointLockIsHeldByThread,
-        //                false
-        //        );
-        writeThrottle = null;
+        this.writeThrottle = null;
+    }
+
+    private void initMetrics() {
+        metricSource.addMetric(new IntGauge(
+                "UsedCheckpointBufferPages", "Number of currently used pages in checkpoint buffer.", this::usedCheckpointBufferPages
+        ));
+        metricSource.addMetric(new IntGauge(
+                "MaxCheckpointBufferPages", "The capacity of checkpoint buffer in pages.", this::maxCheckpointBufferPages
+        ));
+    }
+
+    /**
+     * Temporary method to enable throttling in tests.
+     *
+     * @param writeThrottle Page write throttling instance.
+     */
+    // TODO IGNITE-24548 Make a proper implementation.
+    @TestOnly
+    public void initThrottling(PagesWriteThrottlePolicy writeThrottle) {
+        this.writeThrottle = writeThrottle;
     }
 
     /** {@inheritDoc} */
@@ -623,13 +635,7 @@ public class PersistentPageMemory implements PageMemory {
     /** {@inheritDoc} */
     @Override
     public long acquirePage(int grpId, long pageId) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, IoStatisticsHolderNoOp.INSTANCE, false);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, statHolder, false);
+        return acquirePage(grpId, pageId, false);
     }
 
     /**
@@ -643,7 +649,7 @@ public class PersistentPageMemory implements PageMemory {
      * @see #acquirePage(int, long) Sets additional flag indicating that page was not found in memory and had to be allocated.
      */
     public long acquirePage(int grpId, long pageId, AtomicBoolean pageAllocated) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, IoStatisticsHolderNoOp.INSTANCE, false, pageAllocated);
+        return acquirePage(grpId, pageId, false, pageAllocated);
     }
 
     /**
@@ -656,14 +662,13 @@ public class PersistentPageMemory implements PageMemory {
      * @throws IgniteInternalCheckedException If failed.
      * @see #acquirePage(int, long) Will read page from file if it is not present in memory.
      */
-    public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder, boolean restore) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, statHolder, restore, null);
+    public long acquirePage(int grpId, long pageId, boolean restore) throws IgniteInternalCheckedException {
+        return acquirePage(grpId, pageId, restore, null);
     }
 
     private long acquirePage(
             int grpId,
             long pageId,
-            IoStatisticsHolder statHolder,
             boolean restore,
             @Nullable AtomicBoolean pageAllocated
     ) throws IgniteInternalCheckedException {
@@ -692,8 +697,6 @@ public class PersistentPageMemory implements PageMemory {
                 seg.acquirePage(absPtr);
 
                 seg.pageReplacementPolicy.onHit(relPtr);
-
-                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
 
                 return absPtr;
             }
@@ -803,10 +806,6 @@ public class PersistentPageMemory implements PageMemory {
 
             seg.acquirePage(absPtr);
 
-            if (!readPageFromStore) {
-                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
-            }
-
             return absPtr;
         } finally {
             seg.writeLock().unlock();
@@ -827,8 +826,6 @@ public class PersistentPageMemory implements PageMemory {
 
                 try {
                     pageStoreManager.read(grpId, pageId, buf, false);
-
-                    statHolder.trackPhysicalAndLogicalRead(pageAddr);
 
                     actualPageId = getPageId(buf);
                 } finally {
@@ -1336,6 +1333,23 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
+     * Returns max dirty pages ratio among all segments.
+     */
+    public double dirtyPagesRatio() {
+        if (segments == null) {
+            return 0;
+        }
+
+        double res = 0;
+
+        for (Segment segment : segments) {
+            res = Math.max(res, segment.dirtyPagesRatio());
+        }
+
+        return res;
+    }
+
+    /**
      * Page segment.
      */
     public class Segment extends ReentrantReadWriteLock {
@@ -1443,6 +1457,10 @@ public class PersistentPageMemory implements PageMemory {
             } finally {
                 writeLock().unlock();
             }
+        }
+
+        private double dirtyPagesRatio() {
+            return dirtyPagesCntr.doubleValue() / pages();
         }
 
         /**

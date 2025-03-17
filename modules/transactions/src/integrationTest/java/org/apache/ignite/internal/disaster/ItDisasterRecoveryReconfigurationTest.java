@@ -30,7 +30,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
@@ -95,6 +95,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsLink;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.RendezvousDistributionFunction;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
@@ -461,10 +462,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Start nodes 1 and 2 back, but they should not start their replicas.
         startNode(1);
         startNode(2);
-
-        // Make sure recovery has finished.
-        assertThat(igniteImpl(1).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
-        assertThat(igniteImpl(2).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
 
         // Make sure 1 and 2 did not start.
         assertRealAssignments(node0, partId, 0);
@@ -2004,13 +2001,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private @Nullable Assignments getPendingAssignments(IgniteImpl node, int partId) {
         CompletableFuture<Entry> pendingFut = node.metaStorageManager()
-                .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partId)));
+                .get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partId)));
 
         assertThat(pendingFut, willCompleteSuccessfully());
 
         Entry pending = pendingFut.join();
 
-        return pending.empty() ? null : Assignments.fromBytes(pending.value());
+        return pending.empty() ? null : AssignmentsQueue.fromBytes(pending.value()).poll();
     }
 
     private @Nullable Assignments getStableAssignments(IgniteImpl node, int partId) {

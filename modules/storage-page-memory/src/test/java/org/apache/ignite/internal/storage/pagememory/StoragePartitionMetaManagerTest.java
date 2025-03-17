@@ -106,7 +106,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
                 filePageStore.allocatePage();
 
-                filePageStore.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind(), true);
+                filePageStore.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind());
 
                 filePageStore.sync();
             }
@@ -140,7 +140,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                         () -> new int[]{0}
                 ).get(1, SECONDS);
 
-                deltaFilePageStoreIo.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind(), true);
+                deltaFilePageStoreIo.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind());
 
                 deltaFilePageStoreIo.sync();
 

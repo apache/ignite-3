@@ -18,22 +18,14 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readStringCollection;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Hash index descriptor. */
 public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
-    public static final CatalogObjectSerializer<CatalogHashIndexDescriptor> SERIALIZER = new HashIndexDescriptorSerializer();
-
     private final List<String> columns;
 
     /**
@@ -90,7 +82,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      *
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    private CatalogHashIndexDescriptor(
+    CatalogHashIndexDescriptor(
             int id,
             String name,
             int tableId,
@@ -111,35 +103,12 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
     }
 
     @Override
-    public String toString() {
-        return S.toString(CatalogHashIndexDescriptor.class, this, super.toString());
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_HASH_INDEX.id();
     }
 
-    private static class HashIndexDescriptorSerializer implements CatalogObjectSerializer<CatalogHashIndexDescriptor> {
-        @Override
-        public CatalogHashIndexDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readVarIntAsInt();
-            String name = input.readUTF();
-            long updateToken = input.readVarInt();
-            int tableId = input.readVarIntAsInt();
-            boolean unique = input.readBoolean();
-            CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
-            boolean isCreatedWithTable = input.readBoolean();
-            List<String> columns = readStringCollection(input, ArrayList::new);
-
-            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateToken, isCreatedWithTable);
-        }
-
-        @Override
-        public void writeTo(CatalogHashIndexDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeVarInt(descriptor.id());
-            output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
-            output.writeVarInt(descriptor.tableId());
-            output.writeBoolean(descriptor.unique());
-            output.writeByte(descriptor.status().id());
-            output.writeBoolean(descriptor.isCreatedWithTable());
-            writeStringCollection(descriptor.columns(), output);
-        }
+    @Override
+    public String toString() {
+        return S.toString(CatalogHashIndexDescriptor.class, this, super.toString());
     }
 }

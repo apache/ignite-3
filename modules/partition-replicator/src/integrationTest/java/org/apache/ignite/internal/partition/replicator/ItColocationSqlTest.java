@@ -134,13 +134,6 @@ class ItColocationSqlTest extends ItAbstractColocationTest {
         kvView2.putAll(null, Map.of(3L, 33, 4L, 44));
 
         node.transactions().runInTransaction(tx -> {
-            if (readOnly) {
-                // Doing these puts just to advance safe time.
-                // TODO: remove after https://issues.apache.org/jira/browse/IGNITE-22620
-                kvView1.putAll(null, Map.of(1L, 11, 2L, 22));
-                kvView2.putAll(null, Map.of(3L, 33, 4L, 44));
-            }
-
             try (ResultSet<SqlRow> resultSet = node.sql().execute(tx, "SELECT VAL FROM " + TEST_TABLE_NAME1 + " ORDER BY KEY")) {
                 List<Integer> results = extractIntegers(resultSet);
                 assertThat(results, contains(11, 22));

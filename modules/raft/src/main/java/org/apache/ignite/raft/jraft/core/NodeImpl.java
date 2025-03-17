@@ -716,7 +716,7 @@ public class NodeImpl implements Node, RaftServerService {
         electionRound++;
 
         if (electionRound > 1)
-            LOG.info("Unsuccessful election round number {}", electionRound);
+            LOG.info("Unsuccessful election round number {}, group '{}'", electionRound, groupId);
 
         if (!electionAdjusted) {
             initialElectionTimeout = options.getElectionTimeoutMs();
@@ -1763,7 +1763,7 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * ReadIndex response closure
      */
-    private static class ReadIndexHeartbeatResponseClosure extends RpcResponseClosureAdapter<AppendEntriesResponse> {
+    public static class ReadIndexHeartbeatResponseClosure extends RpcResponseClosureAdapter<AppendEntriesResponse> {
         final ReadIndexResponseBuilder respBuilder;
         final RpcResponseClosure<ReadIndexResponse> closure;
         final int quorum;

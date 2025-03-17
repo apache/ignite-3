@@ -350,6 +350,9 @@ namespace Apache.Ignite
 
             /// <summary> TxStaleReadOnlyOperation error. </summary>
             public const int TxStaleReadOnlyOperation = (GroupCode << 16) | (15 & 0xFFFF);
+
+            /// <summary> TxAlreadyFinishedWithTimeout error. </summary>
+            public const int TxAlreadyFinishedWithTimeout = (GroupCode << 16) | (16 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>

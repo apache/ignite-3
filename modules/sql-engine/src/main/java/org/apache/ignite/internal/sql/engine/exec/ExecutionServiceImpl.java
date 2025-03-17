@@ -154,8 +154,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final MessageService messageService;
 
-    private final TopologyService topSrvc;
-
     private final ClusterNode localNode;
 
     private final SqlSchemaManager sqlSchemaManager;
@@ -221,7 +219,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.handler = handler;
         this.messageService = messageService;
         this.mappingService = mappingService;
-        this.topSrvc = topSrvc;
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.ddlCmdHnd = ddlCmdHnd;
@@ -452,7 +449,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 handler,
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
-                operationContext.timeZoneId()
+                operationContext.timeZoneId(),
+                -1
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -940,7 +938,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     handler,
                     Commons.parametersMap(ctx.parameters()),
                     txAttributes,
-                    ctx.timeZoneId()
+                    ctx.timeZoneId(),
+                    -1
             );
         }
 
@@ -1161,7 +1160,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         tx.enlist(
                                 replicationGroupId,
                                 tableId,
-                                topSrvc.getByConsistentId(assignment.name()),
+                                assignment.name(),
                                 assignment.enlistmentConsistencyToken()
                         );
                     }

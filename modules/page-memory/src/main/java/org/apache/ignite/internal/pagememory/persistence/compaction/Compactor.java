@@ -411,7 +411,7 @@ public class Compactor extends IgniteWorker {
                 return;
             }
 
-            filePageStore.write(pageId, buffer.rewind(), true);
+            filePageStore.write(pageId, buffer.rewind());
 
             tracker.onDataPageWritten();
         }

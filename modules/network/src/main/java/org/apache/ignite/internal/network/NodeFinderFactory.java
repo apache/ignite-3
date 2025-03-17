@@ -20,7 +20,9 @@ package org.apache.ignite.internal.network;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
+import java.net.InetSocketAddress;
 import java.util.Arrays;
+import org.apache.ignite.internal.network.configuration.MulticastView;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.configuration.NodeFinderView;
 import org.apache.ignite.network.NetworkAddress;
@@ -33,9 +35,10 @@ public class NodeFinderFactory {
      * Creates a {@link NodeFinder} based on the provided configuration.
      *
      * @param nodeFinderConfiguration Node finder configuration.
+     * @param nodeName Node name.
      * @return Node finder.
      */
-    public static NodeFinder createNodeFinder(NodeFinderView nodeFinderConfiguration) {
+    public static NodeFinder createNodeFinder(NodeFinderView nodeFinderConfiguration, String nodeName, InetSocketAddress localAddress) {
         String typeString = nodeFinderConfiguration.type();
 
         NodeFinderType type;
@@ -51,10 +54,19 @@ public class NodeFinderFactory {
                 return Arrays.stream(nodeFinderConfiguration.netClusterNodes())
                         .map(NetworkAddress::from)
                         .collect(collectingAndThen(toUnmodifiableList(), StaticNodeFinder::new));
+            case MULTICAST:
+                MulticastView multicastConfig = nodeFinderConfiguration.multicast();
 
+                return new MulticastNodeFinder(
+                        multicastConfig.group(),
+                        multicastConfig.port(),
+                        multicastConfig.resultWaitTime(),
+                        multicastConfig.ttl(),
+                        nodeName,
+                        localAddress
+                );
             default:
                 throw new IllegalArgumentException("Unsupported NodeFinder type " + type);
-
         }
     }
 }

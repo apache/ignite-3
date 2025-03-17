@@ -20,47 +20,32 @@ package org.apache.ignite.internal.catalog.storage;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes altering zone.
  */
 public class AlterZoneEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<AlterZoneEntry> SERIALIZER = new AlterZoneEntrySerializer();
-
     private final CatalogZoneDescriptor descriptor;
-
-    private final CatalogZoneDescriptor previousDescriptor;
 
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a zone to alter.
-     * @param previousDescriptor A previous descriptor of a zone.
      */
-    public AlterZoneEntry(CatalogZoneDescriptor descriptor, CatalogZoneDescriptor previousDescriptor) {
+    public AlterZoneEntry(CatalogZoneDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.previousDescriptor = previousDescriptor;
     }
 
     /** Returns descriptor of a zone to alter. */
     public CatalogZoneDescriptor descriptor() {
         return descriptor;
-    }
-
-    /** Returns previous descriptor of a zone. */
-    public CatalogZoneDescriptor previousDescriptor() {
-        return previousDescriptor;
     }
 
     @Override
@@ -75,7 +60,7 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new AlterZoneEventParameters(causalityToken, catalogVersion, descriptor, previousDescriptor);
+        return new AlterZoneEventParameters(causalityToken, catalogVersion, descriptor);
     }
 
     @Override
@@ -97,24 +82,5 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link AlterZoneEntry}.
-     */
-    private static class AlterZoneEntrySerializer implements CatalogObjectSerializer<AlterZoneEntry> {
-        @Override
-        public AlterZoneEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(input);
-            CatalogZoneDescriptor previousDescriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(input);
-
-            return new AlterZoneEntry(descriptor, previousDescriptor);
-        }
-
-        @Override
-        public void writeTo(AlterZoneEntry object, IgniteDataOutput output) throws IOException {
-            CatalogZoneDescriptor.SERIALIZER.writeTo(object.descriptor(), output);
-            CatalogZoneDescriptor.SERIALIZER.writeTo(object.previousDescriptor(), output);
-        }
     }
 }

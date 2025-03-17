@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -50,6 +51,7 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -113,6 +115,13 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private TableViewInternal table;
 
     private InternalTable internalTable;
+
+    @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        // Set a short timeout for the test because it uses defaultTimeouts for implicit transactions,
+        // It is too long to wait for 30 seconds (default value for Read-Write Transactions).
+        builder.clusterConfiguration("{ignite.transaction.readWriteTimeout: 5000}");
+    }
 
     @BeforeEach
     public void beforeTest() {
@@ -578,10 +587,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     public void testScanWithUpperBound() throws Exception {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1).appendInt(5).build()));
-        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1).appendInt(9).build()));
+        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(
+                new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(5).build())
+        );
+        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(
+                new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(9).build())
+        );
 
         int soredIndexId = getSortedIndexId();
 
@@ -748,14 +759,13 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Ensures that multiple consecutive scan requests with different requested rows amount
-     * return the expected total number of requested rows.
+     * Ensures that multiple consecutive scan requests with different requested rows amount return the expected total number of requested
+     * rows.
      *
      * @param requestAmount1 Number of rows in the first request.
      * @param requestAmount2 Number of rows in the second request.
      * @param readOnly If true, RO transaction is initiated, otherwise, RW transaction is initiated.
      * @param implicit If false, an explicit transaction is initiated, otherwise, an implicit one.
-     *
      * @throws Exception If failed.
      */
     @ParameterizedTest
@@ -1040,20 +1050,27 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
+        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(
+                // Default values for timeout is too long for the test,
+                // So the test changes them to 5 secs. As a result,
+                // implicit RW transactions have 5 secs timeout.
+                // But we want explicit transaction to be longer that implicit one,
+                // so here we set timeout to 10 seconds.
+                new TransactionOptions().timeoutMillis(10_000).readOnly(readOnly)
+        );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
+                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS)
+        );
 
         tx.enlist(
                 tblPartId,
                 tblPartId.tableId(),
-                ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
-                        .findFirst().orElseThrow(),
+                requireNonNull(primaryReplica.getLeaseholder(), "primaryReplica#getLeaseholder"),
                 primaryReplica.getStartTime().longValue()
         );
 

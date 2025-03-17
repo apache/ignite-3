@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -1458,7 +1459,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                         ReplicaTestUtils.leaderAssignment(
                                 txTestCluster.replicaManagers().get(txTestCluster.localNodeName()),
                                 txTestCluster.clusterServices().get(txTestCluster.localNodeName()).topologyService(),
-                                internalTable.tableId(),
+                                enabledColocation() ? internalTable.zoneId() : internalTable.tableId(),
                                 0
                         ),
                         internalTx.coordinatorId()
@@ -2172,7 +2173,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                     new UUID(1, 2),
                     old.commitPartitionId(),
                     old.commitTimestamp(),
-                    old == null ? null : old.tx()
+                    old == null ? null : old.tx(),
+                    old == null ? null : old.isFinishedDueToTimeout()
             ));
         }
 
@@ -2202,7 +2204,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     @Test
-    public void testBatchSinglePartitionGet() throws Exception {
+    public void testBatchSinglePartitionGet() {
         var accountRecordsView = accounts.recordView();
 
         SchemaRegistry schemaRegistry = accounts.schemaView();
