@@ -58,14 +58,14 @@ public class ClientTables implements IgniteTables {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        return ch.serviceAsync(ClientOp.TABLES_GET, r -> {
+        return ch.serviceAsync(ClientOp.TABLES_GET_QUALIFIED, r -> {
             var in = r.in();
             var cnt = in.unpackInt();
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
-                QualifiedName name = QualifiedName.parse(in.unpackString());
+                QualifiedName name = in.unpackQualifiedName();
 
                 res.add(new ClientTable(ch, marshallers, tableId, name));
             }
@@ -85,9 +85,9 @@ public class ClientTables implements IgniteTables {
     public CompletableFuture<Table> tableAsync(QualifiedName name) {
         Objects.requireNonNull(name);
 
-        return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name.toCanonicalForm()),
+        return ch.serviceAsync(ClientOp.TABLE_GET_QUALIFIED, w -> w.out().packQualifiedName(name),
                 r -> r.in().tryUnpackNil()
                         ? null
-                        : new ClientTable(ch, marshallers, r.in().unpackInt(), QualifiedName.parse(r.in().unpackString())));
+                        : new ClientTable(ch, marshallers, r.in().unpackInt(), r.in().unpackQualifiedName()));
     }
 }

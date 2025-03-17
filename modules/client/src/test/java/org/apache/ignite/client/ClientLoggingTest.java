@@ -99,7 +99,7 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
             client.tables().table("t");
 
             loggerFactory.waitForLogContains("Connection established", 5000);
-            loggerFactory.waitForLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1", 5000);
+            loggerFactory.waitForLogContains("c:Sending request [opCode=71, remoteAddress=127.0.0.1", 5000);
             loggerFactory.waitForLogMatches(".*c:Failed to establish connection to 127\\.0\\.0\\.1(/<unresolved>)?:43210.*", 5000);
         }
     }

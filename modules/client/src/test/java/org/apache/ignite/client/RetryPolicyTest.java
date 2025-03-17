@@ -140,7 +140,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         RetryPolicyContext ctx = plc.invocations.get(1);
 
         assertEquals(1, ctx.iteration());
-        assertEquals(ClientOperationType.TABLES_GET, ctx.operation());
+        assertEquals(ClientOperationType.TABLES_GET_QUALIFIED, ctx.operation());
         assertSame(plc, ctx.configuration().retryPolicy());
         assertThat(ctx.exception().getMessage(), containsString("Channel is closed"));
     }
