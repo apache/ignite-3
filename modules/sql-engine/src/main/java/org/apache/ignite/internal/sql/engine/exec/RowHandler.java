@@ -111,9 +111,6 @@ public interface RowHandler<RowT> {
          * @return A new row with fields from the specified mapping.
          */
         RowT map(RowT row, int[] mapping);
-
-        /** Concatenate two rows. The result row will satisfy the current factory's schema. */
-        RowT concat(RowT left, RowT right);
     }
 
     /**

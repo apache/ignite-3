@@ -25,22 +25,27 @@ import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 class BiFieldGetter extends CommonFieldGetter {
     private final Expression row2;
+    private final int secondRowOffset;
 
-    BiFieldGetter(Expression hnd, Expression row1, Expression row2, RelDataType rowType) {
+    BiFieldGetter(Expression hnd, Expression row1, Expression row2, RelDataType rowType, int secondRowOffset) {
         super(hnd, row1, rowType);
         this.row2 = row2;
+        this.secondRowOffset = secondRowOffset;
     }
 
     /** {@inheritDoc} */
     @Override
     protected Expression fillExpressions(BlockBuilder list, int index) {
-        Expression row1 = list.append("row1", this.row);
-        Expression row2 = list.append("row2", this.row2);
+        Expression row;
+        if (index < secondRowOffset) {
+            row = list.append("row1", this.row);
+        } else {
+            row = list.append("row2", this.row2);
+            index -= secondRowOffset;
+        }
 
-        Expression field = Expressions.call(
-                IgniteMethod.ROW_HANDLER_BI_GET.method(), hnd,
-                Expressions.constant(index), row1, row2);
-
-        return field;
+        return Expressions.call(
+                hnd, IgniteMethod.ROW_HANDLER_GET.method(), Expressions.constant(index), row
+        );
     }
 }
