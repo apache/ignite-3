@@ -3478,7 +3478,14 @@ public class NodeImpl implements Node, RaftServerService {
                     return;
             }
 
-            LOG.info("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newPeersAndLearners);
+            if (LOG.isDebugEnabled()) {
+                if (this.conf.getConf().equals(newPeersAndLearners)) {
+                    LOG.debug("Node {} change configuration to the same one {}.", getNodeId(), this.conf.getConf());
+                } else {
+                    LOG.debug("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newPeersAndLearners);
+                }
+            }
+
             unsafeRegisterConfChange(this.conf.getConf(), newPeersAndLearners, done);
         }
         finally {
@@ -3503,7 +3510,13 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            LOG.info("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
+            if (LOG.isDebugEnabled()) {
+                if (this.conf.getConf().equals(newConf)) {
+                    LOG.debug("Node {} change configuration to the same one {}.", getNodeId(), this.conf.getConf());
+                } else {
+                    LOG.debug("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
+                }
+            }
 
             unsafeRegisterConfChange(this.conf.getConf(), newConf, done, true);
         }
