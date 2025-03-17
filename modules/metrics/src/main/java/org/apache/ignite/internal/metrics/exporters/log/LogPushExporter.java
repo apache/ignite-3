@@ -33,6 +33,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 @AutoService(MetricExporter.class)
 public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
     public static final String EXPORTER_NAME = "logPush";
+    private static final String PADDING = "  ";
 
     @Override
     protected long period() {
@@ -51,7 +52,8 @@ public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
             report.append(metricSet.name()).append(":\n");
 
             StreamSupport.stream(metricSet.spliterator(), false).sorted(Comparator.comparing(Metric::name)).forEach(metric ->
-                    report.append(metric.name())
+                    report.append(PADDING)
+                            .append(metric.name())
                             .append(':')
                             .append(metric.getValueAsString())
                             .append('\n'));
