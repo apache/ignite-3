@@ -63,7 +63,7 @@ public interface ExpressionFactory<RowT> {
     /**
      * Creates a Filter predicate.
      *
-     * @param filter  Filter expression.
+     * @param filter Filter expression.
      * @param rowType Input row type.
      * @return Filter predicate.
      */
@@ -74,9 +74,10 @@ public interface ExpressionFactory<RowT> {
      *
      * @param filter Filter expression.
      * @param rowType Input row type.
+     * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
      * @return Filter predicate.
      */
-    SqlJoinPredicate<RowT> joinPredicate(RexNode filter, RelDataType rowType);
+    SqlJoinPredicate<RowT> joinPredicate(RexNode filter, RelDataType rowType, int firstRowSize);
 
     /**
      * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
@@ -86,6 +87,16 @@ public interface ExpressionFactory<RowT> {
      * @return Project function.
      */
     SqlProjection<RowT> project(List<RexNode> projects, RelDataType rowType);
+
+    /**
+     * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
+     *
+     * @param projects Projection expressions.
+     * @param rowType Input row type.
+     * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
+     * @return Project function.
+     */
+    SqlJoinProjection<RowT> joinProject(List<RexNode> projects, RelDataType rowType, int firstRowSize);
 
     /**
      * Creates a Values relational node rows source.

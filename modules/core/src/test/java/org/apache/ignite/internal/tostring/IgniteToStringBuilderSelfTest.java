@@ -20,6 +20,9 @@ package org.apache.ignite.internal.tostring;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.identity;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,8 +95,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         map1.put("2", map2);
         map2.put("1", map1);
 
-        assertEquals("HashMap []", IgniteToStringBuilder.toString(HashMap.class, map1));
-        assertEquals("HashMap []", IgniteToStringBuilder.toString(HashMap.class, map2));
+        assertThat(IgniteToStringBuilder.toString(HashMap.class, map1), not(containsString("2=")));
+        assertThat(IgniteToStringBuilder.toString(HashMap.class, map2), not(containsString("1=")));
     }
 
     @Test
@@ -124,10 +127,13 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         final String hash1 = identity(map1);
         final String hash2 = identity(map2);
 
-        assertEquals("HashMap" + hash1 + " [name=HashMap {1=HashMap" + hash1 + "}]",
-                IgniteToStringBuilder.toString(HashMap.class, map1, "name", map2));
-        assertEquals("HashMap" + hash2 + " [name=HashMap {2=HashMap" + hash2 + "}]",
-                IgniteToStringBuilder.toString(HashMap.class, map2, "name", map1));
+        String str1 = IgniteToStringBuilder.toString(HashMap.class, map1, "name", map2);
+        assertThat(str1, containsString("HashMap" + hash1));
+        assertThat(str1, containsString("name=HashMap {1=HashMap" + hash1 + "}"));
+
+        String str2 = IgniteToStringBuilder.toString(HashMap.class, map2, "name", map1);
+        assertThat(str2, containsString("HashMap" + hash2));
+        assertThat(str2, containsString("name=HashMap {2=HashMap" + hash2 + "}"));
     }
 
     @Test

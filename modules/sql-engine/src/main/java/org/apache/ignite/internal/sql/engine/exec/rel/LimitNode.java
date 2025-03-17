@@ -79,7 +79,6 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
             rowsCnt = Math.min(rowsCnt, (fetch + offset) - rowsProcessed);
         }
 
-        checkState();
 
         source().request(rowsCnt);
     }
@@ -87,15 +86,12 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     public void push(RowT row) throws Exception {
-        if (waiting == -1) {
+        if (waiting == NOT_WAITING) {
             return;
         }
-
         ++rowsProcessed;
 
         --waiting;
-
-        checkState();
 
         if (rowsProcessed > offset) {
             if (fetchNode == null || rowsProcessed <= fetch + offset) {
@@ -111,13 +107,13 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {
-        if (waiting == -1) {
+        if (waiting == NOT_WAITING) {
             return;
         }
 
         assert downstream() != null;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         downstream().end();
     }

@@ -65,8 +65,6 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0 : "rowsCnt=" + rowsCnt + ", requested=" + requested;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
@@ -105,12 +103,6 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     }
 
     private void push() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
         inLoop = true;
         try {
             if (inst == null) {
@@ -119,12 +111,10 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
             int processed = 0;
             while (requested > 0 && inst.hasNext()) {
-                checkState();
-
                 requested--;
                 downstream().push(inst.next());
 
-                if (++processed == inBufSize && requested > 0) {
+                if (++processed == inBufSize) {
                     // allow others to do their job
                     this.execute(this::push);
 

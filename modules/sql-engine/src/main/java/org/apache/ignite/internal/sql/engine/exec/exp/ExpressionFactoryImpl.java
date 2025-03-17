@@ -54,6 +54,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private final ComparatorImplementor comparatorImplementor;
     private final JoinPredicateImplementor joinPredicateImplementor;
     private final PredicateImplementor predicateImplementor;
+    private final JoinProjectionImplementor joinProjectionImplementor;
     private final ProjectionImplementor projectionImplementor;
     private final RowProviderImplementor rowProviderImplementor;
     private final ScalarImplementor scalarImplementor;
@@ -82,6 +83,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 cache, REX_BUILDER, TYPE_FACTORY, SQL_CONFORMANCE
         );
         predicateImplementor = new PredicateImplementor(
+                cache, REX_BUILDER, TYPE_FACTORY, SQL_CONFORMANCE
+        );
+        joinProjectionImplementor = new JoinProjectionImplementor(
                 cache, REX_BUILDER, TYPE_FACTORY, SQL_CONFORMANCE
         );
         projectionImplementor = new ProjectionImplementor(
@@ -129,14 +133,20 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public SqlJoinPredicate<RowT> joinPredicate(RexNode filter, RelDataType rowType) {
-        return joinPredicateImplementor.implement(filter, rowType);
+    public SqlJoinPredicate<RowT> joinPredicate(RexNode filter, RelDataType rowType, int firstRowSize) {
+        return joinPredicateImplementor.implement(filter, rowType, firstRowSize);
     }
 
     /** {@inheritDoc} */
     @Override
     public SqlProjection<RowT> project(List<RexNode> projects, RelDataType rowType) {
         return projectionImplementor.implement(projects, rowType);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SqlJoinProjection<RowT> joinProject(List<RexNode> projects, RelDataType rowType, int firstRowSize) {
+        return joinProjectionImplementor.implement(projects, rowType, firstRowSize);
     }
 
     /** {@inheritDoc} */
@@ -168,6 +178,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
     static String digest(Class<?> clazz, List<? extends RexNode> nodes, @Nullable RelDataType type) {
+        return digest(clazz, nodes, type, null);
+    }
+
+    static String digest(
+            Class<?> clazz, List<? extends RexNode> nodes, @Nullable RelDataType type, @Nullable Object additionalContext
+    ) {
         StringBuilder b = new StringBuilder(clazz.getSimpleName());
 
         b.append('[');
@@ -208,6 +224,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         if (type != null) {
             b.append(':').append(type.getFullTypeString());
+        }
+
+        if (additionalContext != null) {
+            b.append(',').append(additionalContext);
         }
 
         return b.toString();
