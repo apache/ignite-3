@@ -35,23 +35,27 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
-/** Implementor which implements {@link SqlJoinPredicate}. */
-class JoinPredicateImplementor {
+/** Implementor which implements {@link SqlJoinProjection}. */
+class JoinProjectionImplementor {
     private final Cache<String, Object> cache;
     private final RexBuilder rexBuilder;
     private final JavaTypeFactory typeFactory;
     private final SqlConformance conformance;
 
-    JoinPredicateImplementor(
+    JoinProjectionImplementor(
             Cache<String, Object> cache,
             RexBuilder rexBuilder,
             JavaTypeFactory typeFactory,
@@ -64,26 +68,35 @@ class JoinPredicateImplementor {
     }
 
     /**
-     * Implements given expression as {@link SqlJoinPredicate}.
+     * Implements given expression as {@link SqlJoinProjection}.
      *
-     * @param predicateExpression The expression to implement.
+     * @param projections The list of projections, i.e. expressions used to compute a new row.
      * @param type The type of the input row as if rows from both sides will be joined.
      * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
      * @param <RowT> The type of the execution row.
-     * @return An implementation of join predicate.
-     * @see SqlJoinPredicate
+     * @return An implementation of join projection.
+     * @see SqlJoinProjection
      */
-    <RowT> SqlJoinPredicate<RowT> implement(RexNode predicateExpression, RelDataType type, int firstRowSize) {
-        String digest = digest(SqlJoinPredicate.class, List.of(predicateExpression), type, "firstRowSize=" + firstRowSize);
-        Cache<String, SqlJoinPredicate<RowT>> cache = cast(this.cache);
+    <RowT> SqlJoinProjection<RowT> implement(List<RexNode> projections, RelDataType type, int firstRowSize) {
+        String digest = digest(SqlJoinProjection.class, projections, type, "firstRowSize=" + firstRowSize);
+        Cache<String, SqlJoinProjection<RowT>> cache = cast(this.cache);
 
-        return cache.get(digest, ignored -> implementInternal(predicateExpression, type, firstRowSize));
+        return cache.get(digest, key -> {
+            RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RexUtil.types(projections));
+            SqlJoinProjectionExt<RowT> projectionExt = implementInternal(projections, type, firstRowSize);
+
+            return new SqlJoinProjectionImpl<>(projectionExt, rowSchema);
+        });
     }
 
-    private <RowT> SqlJoinPredicate<RowT> implementInternal(RexNode predicateExpression, RelDataType type, int firstRowSize) {
+    private <RowT> SqlJoinProjectionExt<RowT> implementInternal(List<RexNode> projections, RelDataType type, int firstRowSize) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
-        programBuilder.addCondition(predicateExpression);
+        for (RexNode node : projections) {
+            assert node != null : "unexpected nullable node";
+
+            programBuilder.addProject(node, null);
+        }
 
         RexProgram program = programBuilder.getProgram();
 
@@ -92,6 +105,7 @@ class JoinPredicateImplementor {
         ParameterExpression ctx = Expressions.parameter(ExecutionContext.class, "ctx");
         ParameterExpression left = Expressions.parameter(Object.class, "left");
         ParameterExpression right = Expressions.parameter(Object.class, "right");
+        ParameterExpression outBuilder = Expressions.parameter(RowBuilder.class, "outBuilder");
 
         builder.add(
                 Expressions.declare(Modifier.FINAL, DataContext.ROOT, Expressions.convert_(ctx, DataContext.class))
@@ -101,13 +115,15 @@ class JoinPredicateImplementor {
 
         InputGetter inputGetter = new BiFieldGetter(rowHandler, left, right, type, firstRowSize);
 
-        Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler)
-                .build(List.of(predicateExpression));
+        Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler).build(projections);
 
-        Expression condition = RexToLixTranslator.translateCondition(program, typeFactory, builder,
-                inputGetter, correlates, conformance, ctx);
+        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
+                builder, null, null, ctx, inputGetter, correlates);
 
-        builder.add(condition);
+        for (Expression val : projects) {
+            Expression addRowField = Expressions.call(outBuilder, IgniteMethod.ROW_BUILDER_ADD_FIELD.method(), val);
+            builder.add(Expressions.statement(addRowField));
+        }
 
         ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
         Expression sqlException = Expressions.new_(SqlException.class, Expressions.constant(Sql.RUNTIME_ERR), ex);
@@ -115,16 +131,51 @@ class JoinPredicateImplementor {
 
         tryCatchBlock.add(Expressions.tryCatch(builder.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
 
-        List<ParameterExpression> params = List.of(ctx, left, right);
+        List<ParameterExpression> params = List.of(ctx, left, right, outBuilder);
 
         MethodDeclaration declaration = Expressions.methodDecl(
-                Modifier.PUBLIC, boolean.class, "test",
+                Modifier.PUBLIC, void.class, "project",
                 params, tryCatchBlock.toBlock());
 
-        Class<SqlJoinPredicate<RowT>> clazz = cast(SqlJoinPredicate.class);
+        Class<SqlJoinProjectionExt<RowT>> clazz = cast(SqlJoinProjectionExt.class);
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 
         return Commons.compile(clazz, body);
+    }
+
+    /** Internal interface of this implementor. Need to be public due to visibility for compiler. */
+    @FunctionalInterface
+    public interface SqlJoinProjectionExt<RowT> {
+        void project(ExecutionContext<RowT> context, RowT left, RowT right, RowBuilder<RowT> outBuilder);
+    }
+
+    private static class SqlJoinProjectionImpl<RowT> implements SqlJoinProjection<RowT> {
+        private final SqlJoinProjectionExt<RowT> projection;
+        private final RowSchema rowSchema;
+
+        /**
+         * Constructor.
+         *
+         * @param projection Scalar.
+         * @param rowSchema Row factory.
+         */
+        private SqlJoinProjectionImpl(SqlJoinProjectionExt<RowT> projection, RowSchema rowSchema) {
+            this.projection = projection;
+            this.rowSchema = rowSchema;
+        }
+
+        private RowBuilder<RowT> builder(ExecutionContext<RowT> context) {
+            return context.rowHandler().factory(rowSchema).rowBuilder();
+        }
+
+        @Override
+        public RowT project(ExecutionContext<RowT> context, RowT left, RowT right) {
+            RowBuilder<RowT> rowBuilder = builder(context);
+
+            projection.project(context, left, right, rowBuilder);
+
+            return rowBuilder.buildAndReset();
+        }
     }
 }

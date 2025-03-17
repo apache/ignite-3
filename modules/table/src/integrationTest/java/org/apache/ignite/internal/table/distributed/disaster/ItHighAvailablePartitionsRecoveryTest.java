@@ -494,7 +494,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24509")
     void testNodeStateCleanupAfterRestartInHaMode() throws Exception {
         startNode(3);
         startNode(4);
@@ -518,6 +517,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         startNode(6);
 
-        assertValuesNotPresentOnNodes(node0.clock().now(), table, 6);
+        assertPartitionsAreEmpty(HA_TABLE_NAME, PARTITION_IDS, 6);
     }
 }

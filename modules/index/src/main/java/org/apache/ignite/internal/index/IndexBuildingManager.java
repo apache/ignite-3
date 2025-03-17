@@ -34,6 +34,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -84,7 +85,8 @@ public class IndexBuildingManager implements IgniteComponent {
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
-            ClockService clockService
+            ClockService clockService,
+            FailureManager failureManager
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -121,6 +123,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 clockService,
                 placementDriver,
                 indexMetaStorage,
+                failureManager,
                 executor
         );
 

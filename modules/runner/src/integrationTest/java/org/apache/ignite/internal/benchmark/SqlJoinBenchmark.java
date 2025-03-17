@@ -71,7 +71,6 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark left hash join.
      */
     @Benchmark
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void leftHashJoin(Blackhole bh) {
         try (var rs = sql.execute(null, ""
                 + "SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "
@@ -88,7 +87,6 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark left merge join.
      */
     @Benchmark
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void leftMergeJoin(Blackhole bh) {
         try (var rs = sql.execute(null, ""
                 + "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'NestedLoopJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "
@@ -105,7 +103,6 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark left nl join.
      */
     @Benchmark
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void leftNestedJoin(Blackhole bh) {
         try (var rs = sql.execute(null, ""
                 + "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "

@@ -75,15 +75,9 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
         ScanNode<Object[]> right = new ScanNode<>(ctx, deps);
 
         IgniteTypeFactory tf = ctx.getTypeFactory();
-
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
-        RelDataType outType = TypeUtils.combinedRowType(tf, leftType, rightType);
 
         RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightType));
-        RowSchema outRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(outType));
-
 
         CorrelatedNestedLoopJoinNode<Object[]> join = new CorrelatedNestedLoopJoinNode<>(
                 ctx,
@@ -91,7 +85,7 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
                 Set.of(new CorrelationId(0)),
                 joinType,
                 hnd.factory(rightRowSchema),
-                hnd.factory(outRowSchema)
+                identityProjection()
         );
 
         join.register(Arrays.asList(left, right));
@@ -237,13 +231,9 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
     private static CorrelatedNestedLoopJoinNode<Object[]> createJoinNode(ExecutionContext<Object[]> ctx,
             JoinRelType joinType) {
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
-        RelDataType outType = TypeUtils.combinedRowType(tf, leftType, rightType);
 
         RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightType));
-        RowSchema outRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(outType));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -253,7 +243,7 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
                 Set.of(new CorrelationId(0)),
                 joinType,
                 hnd.factory(rightRowSchema),
-                hnd.factory(outRowSchema)
+                identityProjection()
         );
     }
 
