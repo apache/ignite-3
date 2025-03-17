@@ -125,9 +125,9 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
     void testLocksViewWorksCorrectlyWhenTxConflict() {
         Ignite ignite = CLUSTER.aliveNode();
 
-        ignite.sql().executeScript("CREATE TABLE test (accountNumber INT PRIMARY KEY, balance DOUBLE)");
+        ignite.sql().executeScript("CREATE TABLE testTable (accountNumber INT PRIMARY KEY, balance DOUBLE)");
 
-        Table test = ignite.tables().table("test");
+        Table test = ignite.tables().table("testTable");
 
         test.recordView().upsert(null, makeValue(1, 100.0));
 
