@@ -270,9 +270,9 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         this.targetDirtyRatio = targetDirtyRatio;
     }
 
-    private static final AtomicInteger CNTR = new AtomicInteger();
-    private static final int NUM_LOGS = 2000;
-    private static final IgniteLogger LOG = Loggers.forClass(SpeedBasedMemoryConsumptionThrottlingStrategy.class);
+    public static final AtomicInteger CNTR = new AtomicInteger();
+    public static final int NUM_LOGS = 2000;
+    public static final IgniteLogger LOG = Loggers.forClass(SpeedBasedMemoryConsumptionThrottlingStrategy.class);
 
     /**
      * Calculates speed needed to mark dirty all currently clean pages before the current checkpoint ends. May return 0 if the provided
