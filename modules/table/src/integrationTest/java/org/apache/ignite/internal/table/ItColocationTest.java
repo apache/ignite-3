@@ -271,8 +271,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             ClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
-            ReplicationGroupIdMessage commitPartId = enabledColocation() ?
-                    toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(ZONE_ID, 0)) :
+            ReplicationGroupIdMessage commitPartId = enabledColocation()
+                    ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(ZONE_ID, 0)) :
                     toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(TABLE_ID, 0));
 
             RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
