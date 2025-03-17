@@ -34,6 +34,7 @@ github:
     wiki: false
     issues: false
     projects: false
+    discussions: false
   enabled_merge_buttons:
     squash:  true
     squash_commit_message: PR_TITLE_AND_DESC
