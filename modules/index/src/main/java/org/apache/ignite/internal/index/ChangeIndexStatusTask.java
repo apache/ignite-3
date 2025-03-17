@@ -186,8 +186,8 @@ abstract class ChangeIndexStatusTask {
 
                             if (!(cause instanceof IndexTaskStoppingException)
                                     && !(cause instanceof NodeStoppingException)
-                                    // The index's table might have been dropped while we were waiting for the ability to switch the index
-                                    // status to a new state, so IndexNotFound is not a problem.
+                                    // The index's table might have been dropped while we were waiting for the ability
+                                    // to switch the index status to a new state, so IndexNotFound is not a problem.
                                     && !(cause instanceof IndexNotFoundValidationException)) {
                                 LOG.error("Error starting index task: {}", throwable, indexDescriptor.id());
 
