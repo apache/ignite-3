@@ -72,14 +72,14 @@ public class CatalogTableVersionSerializers {
 
         @Override
         public TableVersion readFrom(CatalogObjectDataInput input) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
+            List<CatalogTableColumnDescriptor> columns = input.readObjects(CatalogTableColumnDescriptor.class);
 
             return new TableVersion(columns);
         }
 
         @Override
         public void writeTo(TableVersion tableVersion, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntryList(tableVersion.columns());
+            output.writeObjects(tableVersion.columns());
         }
     }
 }

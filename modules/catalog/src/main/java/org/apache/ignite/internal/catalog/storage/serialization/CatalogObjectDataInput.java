@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 
@@ -40,9 +40,9 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads an entry using a serializer of the version it was written with.
+     * Reads an object using a serializer of the version it was written with.
      */
-    public MarshallableEntry readEntry() throws IOException {
+    public MarshallableEntry readObject() throws IOException {
         int typeId = readShort();
         int entryVersion = readVarIntAsInt();
 
@@ -50,11 +50,11 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads an entry.
+     * Reads an object.
      *
-     * @param type Entry type.
+     * @param type Object type.
      */
-    public <T extends MarshallableEntry> T readEntry(Class<T> type) throws IOException {
+    public <T extends MarshallableEntry> T readObject(Class<T> type) throws IOException {
         int typeId = readShort();
         int entryVersion = readVarIntAsInt();
         MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
@@ -62,11 +62,11 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads entry list.
+     * Reads an object list.
      *
      * @param type Type.
      */
-    public <T extends MarshallableEntry> List<T> readEntryList(Class<T> type) throws IOException {
+    public <T extends MarshallableEntry> List<T> readObjects(Class<T> type) throws IOException {
         int size = readVarIntAsInt();
         List<T> list = new ArrayList<>(size);
 
@@ -82,8 +82,32 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
+     * Reads a compact object list.
+     *
+     * @param type Type.
+     */
+    public <T extends MarshallableEntry> List<T> readObjectsCompact(Class<T> type) throws IOException {
+        int size = readVarIntAsInt();
+        if (size == 0) {
+            return Collections.emptyList();
+        }
+
+        List<T> list = new ArrayList<>(size);
+        int typeId = readShort();
+        int entryVersion = readVarIntAsInt();
+        CatalogObjectSerializer<MarshallableEntry> serializer = serializers.get(entryVersion, typeId);
+
+        for (int i = 0; i < size; i++) {
+            MarshallableEntry entry = serializer.readFrom(this);
+            list.add(type.cast(entry));
+        }
+
+        return list;
+    }
+
+    /**
      * Reads a list of elements.
-     * <b>NOTE: To read versioned elements use {@link #readEntryList(Class)} instead.</b>
+     * <b>NOTE: To read versioned elements use {@link #readObjects(Class)} or {@link #readObjectsCompact(Class)} instead.</b>
      *
      * @param reader Element reader.
      * @param <T> Element type.
@@ -100,26 +124,6 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
         }
 
         return list;
-    }
-
-    /**
-     * Reads entry array.
-     *
-     * @param type Type.
-     */
-    public <T extends MarshallableEntry> T[] readEntryArray(Class<T> type) throws IOException {
-        int size = readVarIntAsInt();
-        T[] array = (T[]) Array.newInstance(type, size);
-
-        for (int i = 0; i < size; i++) {
-            int typeId = readShort();
-            int entryVersion = readVarIntAsInt();
-
-            MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
-            array[i] = (type.cast(entry));
-        }
-
-        return array;
     }
 
     /**

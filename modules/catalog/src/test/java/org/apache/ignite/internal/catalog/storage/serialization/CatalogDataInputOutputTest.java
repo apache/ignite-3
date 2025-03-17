@@ -40,18 +40,18 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
     private final Random random = new Random();
 
     @Test
-    public void testReadWriteEntry() throws IOException {
+    public void testReadWriteObjects() throws IOException {
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
             TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
             TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
 
-            output.writeEntry(entry1);
-            output.writeEntry(entry2);
+            output.writeObject(entry1);
+            output.writeObject(entry2);
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                TestEntryVar1 actual1 = input.readEntry(TestEntryVar1.class);
-                TestEntryVar2 actual2 = input.readEntry(TestEntryVar2.class);
+                TestEntryVar1 actual1 = input.readObject(TestEntryVar1.class);
+                TestEntryVar2 actual2 = input.readObject(TestEntryVar2.class);
 
                 expectEntries(List.of(entry1, entry2), List.of(actual1, actual2));
             }
@@ -59,34 +59,18 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testReadWriteEntryList() throws IOException {
+    public void testReadWriteObjectsCompact() throws IOException {
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
             TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
-            TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
+            TestEntryVar1 entry2 = new TestEntryVar1(random.nextInt());
 
-            output.writeEntryList(List.of(entry1, entry2));
+            output.writeObjectsCompact(List.of(entry1, entry2));
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                List<BaseTestEntry> list = input.readEntryList(BaseTestEntry.class);
+                List<BaseTestEntry> list = input.readObjectsCompact(BaseTestEntry.class);
 
                 expectEntries(List.of(entry1, entry2), list);
-            }
-        }
-    }
-
-    @Test
-    public void testReadWriteEntryArray() throws IOException {
-        try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
-            TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
-            TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
-
-            output.writeEntryArray(new BaseTestEntry[]{entry1, entry2});
-
-            byte[] data = output.array();
-            try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                BaseTestEntry[] list = input.readEntryArray(BaseTestEntry.class);
-                expectEntries(List.of(entry1, entry2), List.of(list));
             }
         }
     }
@@ -108,13 +92,13 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
             TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
             TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
 
-            output.writeEntry(entry1);
-            output.writeEntry(entry2);
+            output.writeObject(entry1);
+            output.writeObject(entry2);
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                TestEntryVar1 actual1 = (TestEntryVar1) input.readEntry();
-                TestEntryVar2 actual2 = (TestEntryVar2) input.readEntry();
+                TestEntryVar1 actual1 = (TestEntryVar1) input.readObject();
+                TestEntryVar2 actual2 = (TestEntryVar2) input.readObject();
 
                 expectEntries(List.of(entry1, entry2), List.of(actual1, actual2));
             }

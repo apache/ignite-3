@@ -65,14 +65,14 @@ public class AlterZoneEntrySerializers {
     static class AlterZoneEntrySerializerV2 implements CatalogObjectSerializer<AlterZoneEntry> {
         @Override
         public AlterZoneEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogZoneDescriptor descriptor = input.readEntry(CatalogZoneDescriptor.class);
+            CatalogZoneDescriptor descriptor = input.readObject(CatalogZoneDescriptor.class);
 
             return new AlterZoneEntry(descriptor);
         }
 
         @Override
         public void writeTo(AlterZoneEntry object, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntry(object.descriptor());
+            output.writeObject(object.descriptor());
         }
     }
 }

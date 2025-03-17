@@ -90,7 +90,7 @@ public class CatalogSystemViewDescriptorSerializers {
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
+            List<CatalogTableColumnDescriptor> columns = input.readObjects(CatalogTableColumnDescriptor.class);
 
             byte sysViewTypeId = input.readByte();
             SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
@@ -104,7 +104,7 @@ public class CatalogSystemViewDescriptorSerializers {
             output.writeVarInt(descriptor.schemaId());
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
-            output.writeEntryList(descriptor.columns());
+            output.writeObjects(descriptor.columns());
             output.writeByte(descriptor.systemViewType().id());
         }
     }

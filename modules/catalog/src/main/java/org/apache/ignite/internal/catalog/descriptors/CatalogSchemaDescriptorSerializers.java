@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
@@ -90,11 +92,16 @@ public class CatalogSchemaDescriptorSerializers {
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            CatalogTableDescriptor[] tables = input.readEntryArray(CatalogTableDescriptor.class);
-            CatalogIndexDescriptor[] indexes = input.readEntryArray(CatalogIndexDescriptor.class);
-            CatalogSystemViewDescriptor[] systemViews = input.readEntryArray(CatalogSystemViewDescriptor.class);
+            List<CatalogTableDescriptor> tables = input.readObjectsCompact(CatalogTableDescriptor.class);
+            List<CatalogIndexDescriptor> indexes = input.readObjects(CatalogIndexDescriptor.class);
+            List<CatalogSystemViewDescriptor> systemViews = input.readObjectsCompact(CatalogSystemViewDescriptor.class);
 
-            return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateToken);
+            return new CatalogSchemaDescriptor(id, name,
+                    tables.toArray(new CatalogTableDescriptor[0]),
+                    indexes.toArray(new CatalogIndexDescriptor[0]),
+                    systemViews.toArray(new CatalogSystemViewDescriptor[0]),
+                    updateToken
+            );
         }
 
         @Override
@@ -103,9 +110,9 @@ public class CatalogSchemaDescriptorSerializers {
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
 
-            output.writeEntryArray(descriptor.tables());
-            output.writeEntryArray(descriptor.indexes());
-            output.writeEntryArray(descriptor.systemViews());
+            output.writeObjectsCompact(Arrays.asList(descriptor.tables()));
+            output.writeObjects(Arrays.asList(descriptor.indexes()));
+            output.writeObjectsCompact(Arrays.asList(descriptor.systemViews()));
         }
     }
 }

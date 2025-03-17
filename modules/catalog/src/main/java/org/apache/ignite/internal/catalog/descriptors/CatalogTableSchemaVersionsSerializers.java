@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
@@ -73,15 +75,15 @@ public class CatalogTableSchemaVersionsSerializers {
 
         @Override
         public CatalogTableSchemaVersions readFrom(CatalogObjectDataInput input) throws IOException {
-            TableVersion[] versions = input.readEntryArray(TableVersion.class);
+            List<TableVersion> versions = input.readObjectsCompact(TableVersion.class);
             int base = input.readVarIntAsInt();
 
-            return new CatalogTableSchemaVersions(base, versions);
+            return new CatalogTableSchemaVersions(base, versions.toArray(new TableVersion[0]));
         }
 
         @Override
         public void writeTo(CatalogTableSchemaVersions tabVersions, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntryArray(tabVersions.versions());
+            output.writeObjectsCompact(Arrays.asList(tabVersions.versions()));
             output.writeVarInt(tabVersions.earliestVersion());
         }
     }

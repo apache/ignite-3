@@ -70,14 +70,14 @@ public class CatalogStorageProfilesDescriptorSerializers {
     static class StorageProfilesDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogStorageProfilesDescriptor> {
         @Override
         public CatalogStorageProfilesDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
-            List<CatalogStorageProfileDescriptor> storageProfileDescriptors = input.readEntryList(CatalogStorageProfileDescriptor.class);
+            List<CatalogStorageProfileDescriptor> storageProfileDescriptors = input.readObjects(CatalogStorageProfileDescriptor.class);
 
             return new CatalogStorageProfilesDescriptor(storageProfileDescriptors);
         }
 
         @Override
         public void writeTo(CatalogStorageProfilesDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntryList(descriptor.profiles());
+            output.writeObjects(descriptor.profiles());
         }
     }
 }

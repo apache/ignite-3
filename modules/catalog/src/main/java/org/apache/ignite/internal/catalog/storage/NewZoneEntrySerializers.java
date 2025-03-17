@@ -64,14 +64,14 @@ public class NewZoneEntrySerializers {
     static class NewZoneEntrySerializerV2 implements CatalogObjectSerializer<NewZoneEntry> {
         @Override
         public NewZoneEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogZoneDescriptor descriptor = input.readEntry(CatalogZoneDescriptor.class);
+            CatalogZoneDescriptor descriptor = input.readObject(CatalogZoneDescriptor.class);
 
             return new NewZoneEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewZoneEntry object, CatalogObjectDataOutput output) throws IOException {
-            output.writeEntry(object.descriptor());
+            output.writeObject(object.descriptor());
         }
     }
 }

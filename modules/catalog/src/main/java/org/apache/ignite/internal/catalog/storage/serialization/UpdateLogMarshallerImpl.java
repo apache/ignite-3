@@ -85,7 +85,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
                 output.writeShort(update.typeId());
                 serializers.get(1, update.typeId()).writeTo(update, output);
             } else {
-                output.writeEntry(update);
+                output.writeObject(update);
             }
             return output.array();
         } catch (Throwable t) {
@@ -104,7 +104,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
                     return (UpdateLogEvent) serializers.get(1, typeId).readFrom(input);
                 }
                 case 2: {
-                    return (UpdateLogEvent) input.readEntry();
+                    return (UpdateLogEvent) input.readObject();
                 }
                 default:
                     throw new IllegalStateException(format("An object could not be deserialized because it was using a newer"

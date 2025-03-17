@@ -73,7 +73,7 @@ public class NewColumnsEntrySerializers {
     static class NewColumnsEntrySerializerV2 implements CatalogObjectSerializer<NewColumnsEntry> {
         @Override
         public NewColumnsEntry readFrom(CatalogObjectDataInput in) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = in.readEntryList(CatalogTableColumnDescriptor.class);
+            List<CatalogTableColumnDescriptor> columns = in.readObjects(CatalogTableColumnDescriptor.class);
             int tableId = in.readVarIntAsInt();
 
             return new NewColumnsEntry(tableId, columns);
@@ -81,7 +81,7 @@ public class NewColumnsEntrySerializers {
 
         @Override
         public void writeTo(NewColumnsEntry entry, CatalogObjectDataOutput out) throws IOException {
-            out.writeEntryList(entry.descriptors());
+            out.writeObjects(entry.descriptors());
             out.writeVarInt(entry.tableId());
         }
     }

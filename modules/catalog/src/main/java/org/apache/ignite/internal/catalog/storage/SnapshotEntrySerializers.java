@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
@@ -98,15 +100,22 @@ public class SnapshotEntrySerializers {
             long activationTime = input.readLong();
             int objectIdGenState = input.readVarIntAsInt();
 
-            CatalogZoneDescriptor[] zones = input.readEntryArray(CatalogZoneDescriptor.class);
-            CatalogSchemaDescriptor[] schemas = input.readEntryArray(CatalogSchemaDescriptor.class);
+            List<CatalogZoneDescriptor> zones = input.readObjectsCompact(CatalogZoneDescriptor.class);
+            List<CatalogSchemaDescriptor> schemas = input.readObjectsCompact(CatalogSchemaDescriptor.class);
 
             Integer defaultZoneId = null;
             if (input.readBoolean()) {
                 defaultZoneId = input.readVarIntAsInt();
             }
 
-            return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas, defaultZoneId);
+            return new SnapshotEntry(
+                    catalogVersion,
+                    activationTime,
+                    objectIdGenState,
+                    zones.toArray(new CatalogZoneDescriptor[0]),
+                    schemas.toArray(new CatalogSchemaDescriptor[0]),
+                    defaultZoneId
+            );
         }
 
         @Override
@@ -115,8 +124,8 @@ public class SnapshotEntrySerializers {
             output.writeLong(entry.activationTime());
             output.writeVarInt(entry.objectIdGenState());
 
-            output.writeEntryArray(entry.zones());
-            output.writeEntryArray(entry.schemas());
+            output.writeObjectsCompact(Arrays.asList(entry.zones()));
+            output.writeObjectsCompact(Arrays.asList(entry.schemas()));
 
             Integer defaultZoneId = entry.defaultZoneId();
             output.writeBoolean(defaultZoneId != null);
