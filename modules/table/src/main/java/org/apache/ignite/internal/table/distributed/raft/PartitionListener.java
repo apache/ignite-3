@@ -307,9 +307,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {
-        if (lastAppliedIndex <= storage.lastAppliedIndex()) {
-            return;
-        }
+        assert storage.lastAppliedIndex() == 0 : "This method must only be called on empty storages.";
 
         storage.runConsistently(locker -> {
             if (config != null) {

@@ -26,7 +26,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -102,9 +104,16 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     @Mock
     private MvPartitionStorage mvPartitionStorage;
 
+    @InjectExecutorService
+    private ExecutorService executor;
+
     @BeforeEach
-    void setUp(@InjectExecutorService ExecutorService executor) {
-        listener = new ZonePartitionRaftListener(
+    void setUp() {
+        listener = createListener();
+    }
+
+    private ZonePartitionRaftListener createListener() {
+        return new ZonePartitionRaftListener(
                 new ZonePartitionId(ZONE_ID, PARTITION_ID),
                 txStatePartitionStorage,
                 txManager,
@@ -292,6 +301,65 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         assertThat(tableProcessor.leaseInfo, is(expectedLeaseInfo));
         assertThat(tableProcessor.lastAppliedIndex, is(index));
         assertThat(tableProcessor.lastAppliedTerm, is(term));
+    }
+
+    @Test
+    void usesSnapshotInfoForRecovery(
+            @Mock RaftTableProcessor tableProcessor1,
+            @Mock RaftTableProcessor tableProcessor2,
+            @Mock RaftTableProcessor tableProcessor3,
+            @Mock CommandClosure<WriteCommand> writeCommandClosure,
+            @Mock PrimaryReplicaChangeCommand command
+    ) {
+        when(writeCommandClosure.command()).thenReturn(command);
+        when(writeCommandClosure.index()).thenReturn(1L);
+        when(writeCommandClosure.term()).thenReturn(1L);
+
+        var leaseInfo = new LeaseInfo(123L, UUID.randomUUID(), "foo");
+
+        when(command.leaseStartTime()).thenReturn(leaseInfo.leaseStartTime());
+        when(command.primaryReplicaNodeId()).thenReturn(leaseInfo.primaryReplicaNodeId());
+        when(command.primaryReplicaNodeName()).thenReturn(leaseInfo.primaryReplicaNodeName());
+
+        listener.onWrite(List.of(writeCommandClosure).iterator());
+
+        var config = new RaftGroupConfiguration(26, 43, List.of("foo"), List.of("bar"), null, null);
+
+        listener.onConfigurationCommitted(config, config.index(), config.term());
+
+        when(tableProcessor1.flushStorage()).thenReturn(nullCompletedFuture());
+
+        listener.addTableProcessor(42, tableProcessor1);
+
+        var future = new CompletableFuture<Void>();
+
+        listener.onSnapshotSave(Path.of("foo"), throwable -> {
+            if (throwable == null) {
+                future.complete(null);
+            } else {
+                future.completeExceptionally(throwable);
+            }
+        });
+
+        assertThat(future, willCompleteSuccessfully());
+
+        // Emulate a restart.
+        listener = createListener();
+
+        // Adding a table processor that participated in the snapshot.
+        listener.addTableProcessorOnRecovery(42, tableProcessor2);
+        // Adding a table processor that did not in the snapshot.
+        listener.addTableProcessorOnRecovery(43, tableProcessor3);
+
+        verify(tableProcessor2, never()).initialize(any(), any(), anyLong(), anyLong());
+        verify(tableProcessor3).initialize(config, leaseInfo, config.index(), config.term());
+    }
+
+    @Test
+    void processorsAreNotInitializedWithoutSnapshot(@Mock RaftTableProcessor tableProcessor) {
+        listener.addTableProcessorOnRecovery(42, tableProcessor);
+
+        verify(tableProcessor, never()).initialize(any(), any(), anyLong(), anyLong());
     }
 
     private PartitionListener partitionListener(int tableId) {
