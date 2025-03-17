@@ -764,8 +764,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             if (waiter != null) {
                 LockMode lockMode = waiter.lockMode();
 
-                assert lockMode != null : "Lock mode is null";
-
                 return new Lock(key, lockMode, txId);
             }
 
