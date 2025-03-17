@@ -29,7 +29,7 @@ docker run --name ignite3-node -d --rm -p 10300:10300 -p 10800:10800 \
   -v $IGNITE_SOURCES/examples/config/ignite-config.conf:/opt/ignite/etc/ignite-config.conf apacheignite/ignite:3.0.0
 ```
 
-3Get the IP address of the node:
+3. Get the IP address of the node:
 ```shell
 NODE_IP_ADDRESS=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ignite3-node)
 ```
