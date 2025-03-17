@@ -34,7 +34,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 @AutoService(MetricExporter.class)
 public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
     public static final String EXPORTER_NAME = "logPush";
-    private static final String PADDING = "  ";
 
     /** Padding for individual metric output. */
     private static final String PADDING = "  ";
