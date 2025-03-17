@@ -66,7 +66,7 @@ public class ClientTables implements IgniteTables {
             } else {
                 return ClientOp.TABLES_GET;
             }
-        }, null, r -> {
+        }, ClientOp.TABLES_GET, null, r -> {
             var in = r.in();
             var cnt = in.unpackInt();
             var res = new ArrayList<Table>(cnt);
@@ -107,7 +107,7 @@ public class ClientTables implements IgniteTables {
             } else {
                 return ClientOp.TABLE_GET;
             }
-        }, w -> {
+        }, ClientOp.TABLE_GET, w -> {
             if (useQualifiedNames(w.clientChannel())) {
                 w.out().packQualifiedName(name);
             } else {

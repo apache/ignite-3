@@ -267,6 +267,7 @@ public final class ReliableChannel implements AutoCloseable {
      * Sends request and handles response asynchronously.
      *
      * @param opCodeFunc    Function that returns opCode.
+     * @param retryOpCode   OpCode to use in retry.
      * @param payloadWriter Payload writer.
      * @param payloadReader Payload reader.
      * @param <T>           response type.
@@ -274,6 +275,7 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public <T> CompletableFuture<T> serviceAsync(
             ToIntFunction<ClientChannel> opCodeFunc,
+            int retryOpCode,
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader
     ) {
@@ -281,23 +283,12 @@ public final class ReliableChannel implements AutoCloseable {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(null)
                         .thenCompose(ch -> {
-                            // Set retry context only once.
-                            if (retryContext.opCode == 0) {
-                                retryContext.opCode = opCodeFunc.applyAsInt(ch);
-                            }
-                            return serviceAsyncInternal(retryContext.opCode, payloadWriter, payloadReader, false, ch);
+                            int opCode = opCodeFunc.applyAsInt(ch);
+                            return serviceAsyncInternal(opCode, payloadWriter, payloadReader, false, ch);
                         }),
                 null,
                 retryContext,
-                ctx -> {
-                    // Failed to retrieve an opCode from the channel, retry.
-                    // Assume that operation is retryable.
-                    if (ctx.opCode == 0) {
-                        return true;
-                    } else {
-                        return shouldRetry(ctx.opCode, ctx, null);
-                    }
-                });
+                ctx -> shouldRetry(retryOpCode, ctx, null));
     }
 
     /**

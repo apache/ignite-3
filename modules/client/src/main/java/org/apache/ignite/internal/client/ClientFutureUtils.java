@@ -93,7 +93,6 @@ class ClientFutureUtils {
     }
 
     static class RetryContext {
-        int opCode;
         int attempt;
 
         @Nullable ArrayList<Throwable> errors;
