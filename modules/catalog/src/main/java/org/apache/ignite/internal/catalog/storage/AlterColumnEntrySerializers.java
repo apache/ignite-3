@@ -67,7 +67,7 @@ public class AlterColumnEntrySerializers {
     static class AlterColumnEntrySerializerV2 implements CatalogObjectSerializer<AlterColumnEntry> {
         @Override
         public AlterColumnEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogTableColumnDescriptor descriptor = input.readObject(CatalogTableColumnDescriptor.class);
+            CatalogTableColumnDescriptor descriptor = input.readEntry(CatalogTableColumnDescriptor.class);
             int tableId = input.readVarIntAsInt();
 
             return new AlterColumnEntry(tableId, descriptor);
@@ -75,7 +75,7 @@ public class AlterColumnEntrySerializers {
 
         @Override
         public void writeTo(AlterColumnEntry value, CatalogObjectDataOutput output) throws IOException {
-            output.writeObject(value.descriptor());
+            output.writeEntry(value.descriptor());
             output.writeVarInt(value.tableId());
         }
     }

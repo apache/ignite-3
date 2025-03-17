@@ -40,9 +40,9 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads an object using a serializer of the version it was written with.
+     * Reads an entry using a serializer of the version it was written with.
      */
-    public MarshallableEntry readObject() throws IOException {
+    public MarshallableEntry readEntry() throws IOException {
         int typeId = readShort();
         int entryVersion = readVarIntAsInt();
 
@@ -50,11 +50,11 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads an object.
+     * Reads an entry.
      *
-     * @param type Object type.
+     * @param type Entry type.
      */
-    public <T extends MarshallableEntry> T readObject(Class<T> type) throws IOException {
+    public <T extends MarshallableEntry> T readEntry(Class<T> type) throws IOException {
         int typeId = readShort();
         int entryVersion = readVarIntAsInt();
         MarshallableEntry entry = serializers.get(entryVersion, typeId).readFrom(this);
@@ -62,11 +62,11 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads an object list.
+     * Reads an entry list.
      *
      * @param type Type.
      */
-    public <T extends MarshallableEntry> List<T> readObjects(Class<T> type) throws IOException {
+    public <T extends MarshallableEntry> List<T> readEntryList(Class<T> type) throws IOException {
         int size = readVarIntAsInt();
         List<T> list = new ArrayList<>(size);
 
@@ -82,11 +82,11 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads a compact object list.
+     * Reads a compact entry list.
      *
      * @param type Type.
      */
-    public <T extends MarshallableEntry> List<T> readObjectsCompact(Class<T> type) throws IOException {
+    public <T extends MarshallableEntry> List<T> readCompactEntryList(Class<T> type) throws IOException {
         int size = readVarIntAsInt();
         if (size == 0) {
             return Collections.emptyList();
@@ -106,15 +106,15 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads a list of elements.
-     * <b>NOTE: To read versioned elements use {@link #readObjects(Class)} or {@link #readObjectsCompact(Class)} instead.</b>
+     * Reads a list of non-versioned objects.
+     * <b>NOTE: To read versioned elements use {@link #readEntryList(Class)} or {@link #readCompactEntryList(Class)} instead.</b>
      *
      * @param reader Element reader.
      * @param <T> Element type.
      *
      * @return A list of elements.
      */
-    public <T> List<T> readList(ElementReader<T> reader) throws IOException {
+    public <T> List<T> readObjectList(ElementReader<T> reader) throws IOException {
         int size = readVarIntAsInt();
         List<T> list = new ArrayList<>(size);
 

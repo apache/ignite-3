@@ -100,8 +100,8 @@ public class SnapshotEntrySerializers {
             long activationTime = input.readLong();
             int objectIdGenState = input.readVarIntAsInt();
 
-            List<CatalogZoneDescriptor> zones = input.readObjectsCompact(CatalogZoneDescriptor.class);
-            List<CatalogSchemaDescriptor> schemas = input.readObjectsCompact(CatalogSchemaDescriptor.class);
+            List<CatalogZoneDescriptor> zones = input.readCompactEntryList(CatalogZoneDescriptor.class);
+            List<CatalogSchemaDescriptor> schemas = input.readCompactEntryList(CatalogSchemaDescriptor.class);
 
             Integer defaultZoneId = null;
             if (input.readBoolean()) {
@@ -124,8 +124,8 @@ public class SnapshotEntrySerializers {
             output.writeLong(entry.activationTime());
             output.writeVarInt(entry.objectIdGenState());
 
-            output.writeObjectsCompact(Arrays.asList(entry.zones()));
-            output.writeObjectsCompact(Arrays.asList(entry.schemas()));
+            output.writeCompactEntryList(Arrays.asList(entry.zones()));
+            output.writeCompactEntryList(Arrays.asList(entry.schemas()));
 
             Integer defaultZoneId = entry.defaultZoneId();
             output.writeBoolean(defaultZoneId != null);

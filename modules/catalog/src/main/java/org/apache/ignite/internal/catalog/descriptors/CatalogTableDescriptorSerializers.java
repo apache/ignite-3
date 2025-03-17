@@ -193,8 +193,8 @@ public class CatalogTableDescriptorSerializers {
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            CatalogTableSchemaVersions schemaVersions =  input.readObject(CatalogTableSchemaVersions.class);
-            List<CatalogTableColumnDescriptor> columns = input.readObjects(CatalogTableColumnDescriptor.class);
+            CatalogTableSchemaVersions schemaVersions =  input.readEntry(CatalogTableSchemaVersions.class);
+            List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
             String storageProfile = input.readUTF();
 
             int schemaId = input.readVarIntAsInt();
@@ -246,8 +246,8 @@ public class CatalogTableDescriptorSerializers {
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
 
-            output.writeObject(descriptor.schemaVersions());
-            output.writeObjects(descriptor.columns());
+            output.writeEntry(descriptor.schemaVersions());
+            output.writeEntryList(descriptor.columns());
             output.writeUTF(descriptor.storageProfile());
 
             output.writeVarInt(descriptor.schemaId());

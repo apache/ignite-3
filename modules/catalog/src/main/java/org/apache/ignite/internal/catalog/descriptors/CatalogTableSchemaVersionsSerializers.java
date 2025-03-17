@@ -75,7 +75,7 @@ public class CatalogTableSchemaVersionsSerializers {
 
         @Override
         public CatalogTableSchemaVersions readFrom(CatalogObjectDataInput input) throws IOException {
-            List<TableVersion> versions = input.readObjectsCompact(TableVersion.class);
+            List<TableVersion> versions = input.readCompactEntryList(TableVersion.class);
             int base = input.readVarIntAsInt();
 
             return new CatalogTableSchemaVersions(base, versions.toArray(new TableVersion[0]));
@@ -83,7 +83,7 @@ public class CatalogTableSchemaVersionsSerializers {
 
         @Override
         public void writeTo(CatalogTableSchemaVersions tabVersions, CatalogObjectDataOutput output) throws IOException {
-            output.writeObjectsCompact(Arrays.asList(tabVersions.versions()));
+            output.writeCompactEntryList(Arrays.asList(tabVersions.versions()));
             output.writeVarInt(tabVersions.earliestVersion());
         }
     }

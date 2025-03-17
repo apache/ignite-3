@@ -103,7 +103,7 @@ public class CatalogSortedIndexDescriptorSerializers {
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
             boolean isCreatedWithTable = input.readBoolean();
 
-            List<CatalogIndexColumnDescriptor> columns = input.readList(in -> {
+            List<CatalogIndexColumnDescriptor> columns = input.readObjectList(in -> {
                 String columnName = input.readUTF();
                 CatalogColumnCollation collation = CatalogColumnCollation.unpack(input.readByte());
                 return new CatalogIndexColumnDescriptor(columnName, collation);
@@ -122,7 +122,7 @@ public class CatalogSortedIndexDescriptorSerializers {
             output.writeByte(descriptor.status().id());
             output.writeBoolean(descriptor.isCreatedWithTable());
 
-            output.writeList((out, elem) -> {
+            output.writeObjectList((out, elem) -> {
                 output.writeUTF(elem.name());
                 output.writeByte(CatalogColumnCollation.pack(elem.collation()));
             }, descriptor.columns());

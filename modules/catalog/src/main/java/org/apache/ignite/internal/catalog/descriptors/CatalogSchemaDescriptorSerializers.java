@@ -92,9 +92,9 @@ public class CatalogSchemaDescriptorSerializers {
             String name = input.readUTF();
             long updateToken = input.readVarInt();
 
-            List<CatalogTableDescriptor> tables = input.readObjectsCompact(CatalogTableDescriptor.class);
-            List<CatalogIndexDescriptor> indexes = input.readObjects(CatalogIndexDescriptor.class);
-            List<CatalogSystemViewDescriptor> systemViews = input.readObjectsCompact(CatalogSystemViewDescriptor.class);
+            List<CatalogTableDescriptor> tables = input.readCompactEntryList(CatalogTableDescriptor.class);
+            List<CatalogIndexDescriptor> indexes = input.readEntryList(CatalogIndexDescriptor.class);
+            List<CatalogSystemViewDescriptor> systemViews = input.readCompactEntryList(CatalogSystemViewDescriptor.class);
 
             return new CatalogSchemaDescriptor(id, name,
                     tables.toArray(new CatalogTableDescriptor[0]),
@@ -110,9 +110,9 @@ public class CatalogSchemaDescriptorSerializers {
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateToken());
 
-            output.writeObjectsCompact(Arrays.asList(descriptor.tables()));
-            output.writeObjects(Arrays.asList(descriptor.indexes()));
-            output.writeObjectsCompact(Arrays.asList(descriptor.systemViews()));
+            output.writeCompactEntryList(Arrays.asList(descriptor.tables()));
+            output.writeEntryList(Arrays.asList(descriptor.indexes()));
+            output.writeCompactEntryList(Arrays.asList(descriptor.systemViews()));
         }
     }
 }

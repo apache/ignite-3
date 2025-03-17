@@ -64,14 +64,14 @@ public class NewSystemViewEntrySerializers {
     static class NewSystemViewEntrySerializerV2 implements CatalogObjectSerializer<NewSystemViewEntry> {
         @Override
         public NewSystemViewEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogSystemViewDescriptor descriptor = input.readObject(CatalogSystemViewDescriptor.class);
+            CatalogSystemViewDescriptor descriptor = input.readEntry(CatalogSystemViewDescriptor.class);
 
             return new NewSystemViewEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewSystemViewEntry entry, CatalogObjectDataOutput output) throws IOException {
-            output.writeObject(entry.descriptor());
+            output.writeEntry(entry.descriptor());
         }
     }
 }

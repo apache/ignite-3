@@ -40,18 +40,18 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
     private final Random random = new Random();
 
     @Test
-    public void testReadWriteObjects() throws IOException {
+    public void testReadWriteEntryList() throws IOException {
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
             TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
             TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
 
-            output.writeObject(entry1);
-            output.writeObject(entry2);
+            output.writeEntry(entry1);
+            output.writeEntry(entry2);
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                TestEntryVar1 actual1 = input.readObject(TestEntryVar1.class);
-                TestEntryVar2 actual2 = input.readObject(TestEntryVar2.class);
+                TestEntryVar1 actual1 = input.readEntry(TestEntryVar1.class);
+                TestEntryVar2 actual2 = input.readEntry(TestEntryVar2.class);
 
                 expectEntries(List.of(entry1, entry2), List.of(actual1, actual2));
             }
@@ -59,16 +59,16 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testReadWriteObjectsCompact() throws IOException {
+    public void testReadWriteCompactEntryList() throws IOException {
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
             TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
             TestEntryVar1 entry2 = new TestEntryVar1(random.nextInt());
 
-            output.writeObjectsCompact(List.of(entry1, entry2));
+            output.writeCompactEntryList(List.of(entry1, entry2));
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                List<BaseTestEntry> list = input.readObjectsCompact(BaseTestEntry.class);
+                List<BaseTestEntry> list = input.readCompactEntryList(BaseTestEntry.class);
 
                 expectEntries(List.of(entry1, entry2), list);
             }
@@ -87,20 +87,38 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testReadWriteLatest() throws Exception {
+    public void testReadWriteLatestEntry() throws Exception {
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
             TestEntryVar1 entry1 = new TestEntryVar1(random.nextInt());
             TestEntryVar2 entry2 = new TestEntryVar2(random.nextInt());
 
-            output.writeObject(entry1);
-            output.writeObject(entry2);
+            output.writeEntry(entry1);
+            output.writeEntry(entry2);
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                TestEntryVar1 actual1 = (TestEntryVar1) input.readObject();
-                TestEntryVar2 actual2 = (TestEntryVar2) input.readObject();
+                TestEntryVar1 actual1 = (TestEntryVar1) input.readEntry();
+                TestEntryVar2 actual2 = (TestEntryVar2) input.readEntry();
 
                 expectEntries(List.of(entry1, entry2), List.of(actual1, actual2));
+            }
+        }
+    }
+
+    @Test
+    public void testReadWriteObjectList() throws IOException {
+        try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
+            List<Map.Entry<Integer, String>> list = List.of(Map.entry(1, "42"), Map.entry(2, "109"));
+
+            output.writeObjectList((out, element) -> {
+                out.writeInt(element.getKey());
+                out.writeUTF(element.getValue());
+            }, list);
+
+            byte[] data = output.array();
+            try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
+                List<Map.Entry<Integer, String>> actual = input.readObjectList(in -> Map.entry(in.readInt(), in.readUTF()));
+                assertEquals(list, actual);
             }
         }
     }

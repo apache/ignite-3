@@ -61,14 +61,14 @@ public class NewIndexEntrySerializers {
     static class NewIndexEntrySerializerV2 implements CatalogObjectSerializer<NewIndexEntry> {
         @Override
         public NewIndexEntry readFrom(CatalogObjectDataInput input) throws IOException {
-            CatalogIndexDescriptor descriptor = input.readObject(CatalogIndexDescriptor.class);
+            CatalogIndexDescriptor descriptor = input.readEntry(CatalogIndexDescriptor.class);
 
             return new NewIndexEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewIndexEntry entry, CatalogObjectDataOutput output) throws IOException {
-            output.writeObject(entry.descriptor());
+            output.writeEntry(entry.descriptor());
         }
     }
 }

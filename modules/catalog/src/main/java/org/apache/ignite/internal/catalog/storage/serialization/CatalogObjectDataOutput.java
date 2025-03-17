@@ -45,70 +45,70 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
      *
      * @param entry Entry.
      */
-    public void writeObject(MarshallableEntry entry) throws IOException {
+    public void writeEntry(MarshallableEntry entry) throws IOException {
         int typeId = entry.typeId();
         int entryVersion = serializers.latestSerializerVersion(typeId);
 
-        writeObjectHeader(entry, entryVersion);
+        writeEntryHeader(entry, entryVersion);
         serializers.get(entryVersion, typeId).writeTo(entry, this);
     }
 
     /**
-     * Writes a list of object.
+     * Writes a list of entries.
      *
-     * @param objects Objects.
+     * @param entries Entries.
      */
-    public <T extends MarshallableEntry> void writeObjects(List<T> objects) throws IOException {
-        writeVarInt(objects.size());
+    public <T extends MarshallableEntry> void writeEntryList(List<T> entries) throws IOException {
+        writeVarInt(entries.size());
 
-        for (T object : objects) {
-            int typeId = object.typeId();
+        for (T entry : entries) {
+            int typeId = entry.typeId();
             int version = serializers.latestSerializerVersion(typeId);
 
-            writeObjectHeader(object, version);
-            serializers.get(version, typeId).writeTo(object, this);
+            writeEntryHeader(entry, version);
+            serializers.get(version, typeId).writeTo(entry, this);
         }
     }
 
     /**
-     * Writes a compact list of object.
+     * Writes a compact list of entries.
      *
-     * @param objects Objects.
+     * @param entries Entries.
      */
-    public <T extends MarshallableEntry> void writeObjectsCompact(List<T> objects) throws IOException {
-        if (objects.isEmpty()) {
+    public <T extends MarshallableEntry> void writeCompactEntryList(List<T> entries) throws IOException {
+        if (entries.isEmpty()) {
             writeVarInt(0);
             return;
         }
 
-        writeVarInt(objects.size());
+        writeVarInt(entries.size());
 
-        int typeId = objects.get(0).typeId();
+        int typeId = entries.get(0).typeId();
         int version = serializers.latestSerializerVersion(typeId);
-        writeObjectHeader(objects.get(0), version);
+        writeEntryHeader(entries.get(0), version);
 
         CatalogObjectSerializer<MarshallableEntry> serializer = serializers.get(version, typeId);
 
-        for (T object : objects) {
-            serializer.writeTo(object, this);
+        for (T entry : entries) {
+            serializer.writeTo(entry, this);
         }
     }
 
     /**
-     * Writes a list of elements.
-     * <b>NOTE: To write versioned elements use {@link #writeObjects(List)} instead.</b>
+     * Writes a list of non-versioned objects.
+     * <b>NOTE: To write versioned elements use {@link #writeEntryList(List)} or {@link #writeCompactEntryList(List)} instead.</b>
      *
      * @param writer Element writer.
      * @param <T> Element type.
      */
-    public <T> void writeList(ElementWriter<T> writer, List<T> list) throws IOException {
+    public <T> void writeObjectList(ElementWriter<T> writer, List<T> list) throws IOException {
         writeVarInt(list.size());
         for (T element : list) {
             writer.write(this, element);
         }
     }
 
-    private void writeObjectHeader(MarshallableEntry entry, int entryVersion) throws IOException {
+    private void writeEntryHeader(MarshallableEntry entry, int entryVersion) throws IOException {
         int typeId = entry.typeId();
         writeShort(typeId);
         writeVarInt(entryVersion);

@@ -85,7 +85,7 @@ public class VersionedUpdateSerializers {
             int ver = input.readVarIntAsInt();
             long delayDurationMs = input.readVarInt();
 
-            List<UpdateEntry> entries = input.readObjects(UpdateEntry.class);
+            List<UpdateEntry> entries = input.readEntryList(UpdateEntry.class);
 
             return new VersionedUpdate(ver, delayDurationMs, entries);
         }
@@ -94,7 +94,7 @@ public class VersionedUpdateSerializers {
         public void writeTo(VersionedUpdate value, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(value.version());
             output.writeVarInt(value.delayDurationMs());
-            output.writeObjects(value.entries());
+            output.writeEntryList(value.entries());
         }
     }
 }
