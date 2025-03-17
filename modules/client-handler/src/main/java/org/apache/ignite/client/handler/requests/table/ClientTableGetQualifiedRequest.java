@@ -19,32 +19,36 @@ package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 
 /**
- * Client tables retrieval request.
+ * Client table retrieval request.
  */
-public class ClientTablesGetRequestV2 {
+public class ClientTableGetQualifiedRequest {
     /**
      * Processes the request.
      *
-     * @param out          Packer.
-     * @param igniteTables Ignite tables.
+     * @param in     Unpacker.
+     * @param out    Packer.
+     * @param tables Ignite tables.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
+            ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTables igniteTables
+            IgniteTables tables
     ) {
-        return igniteTables.tablesAsync().thenAccept(tables -> {
-            out.packInt(tables.size());
+        QualifiedName qualifiedName = in.unpackQualifiedName();
 
-            for (var table : tables) {
-                var tableImpl = (TableViewInternal) table;
-
-                out.packInt(tableImpl.tableId());
-                out.packQualifiedName(tableImpl.qualifiedName());
+        return tables.tableAsync(qualifiedName).thenAccept(table -> {
+            if (table == null) {
+                out.packNil();
+            } else {
+                out.packInt(((TableViewInternal) table).tableId());
+                out.packQualifiedName(table.qualifiedName());
             }
         });
     }

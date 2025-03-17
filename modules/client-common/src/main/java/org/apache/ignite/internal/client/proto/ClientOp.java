@@ -189,6 +189,12 @@ public class ClientOp {
     /** Cancel execution of a SQL query previously initiated on the same connection. */
     public static final int SQL_CANCEL_EXEC = 70;
 
+    /** Get tables (returns Qualified names). */
+    public static final int TABLES_GET_QUALIFIED = 71;
+
+    /** Get table by qualified names (returns Qualified names). */
+    public static final int TABLE_GET_QUALIFIED = 72;
+
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;

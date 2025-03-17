@@ -75,10 +75,10 @@ import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerBatchSendRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerWithReceiverBatchSendRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTableGetRequestV2;
+import org.apache.ignite.client.handler.requests.table.ClientTableGetQualifiedRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequestV2;
+import org.apache.ignite.client.handler.requests.table.ClientTablesGetQualifiedRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsAllKeysRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -684,25 +684,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return null;
 
             case ClientOp.TABLES_GET:
-                if (clientContext.hasFeature(ServerProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME)) {
-                    return ClientTablesGetRequestV2.process(out, igniteTables).thenRun(() -> {
-                        out.meta(clockService.current());
-                    });
-                } else {
-                    return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> {
-                        out.meta(clockService.current());
-                    });
-                }
+                return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> {
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.SCHEMAS_GET:
                 return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
 
             case ClientOp.TABLE_GET:
-                if (clientContext.hasFeature(ServerProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME)) {
-                    return ClientTableGetRequestV2.process(in, out, igniteTables);
-                } else {
-                    return ClientTableGetRequest.process(in, out, igniteTables);
-                }
+                return ClientTableGetRequest.process(in, out, igniteTables);
+
             case ClientOp.TUPLE_UPSERT:
                 return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, txManager);
 
@@ -874,6 +865,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
                 return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables);
+
+            case ClientOp.TABLE_GET_QUALIFIED:
+                return ClientTableGetQualifiedRequest.process(in, out, igniteTables);
+
+            case ClientOp.TABLES_GET_QUALIFIED:
+                return ClientTablesGetQualifiedRequest.process(out, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
