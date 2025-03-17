@@ -19,8 +19,10 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -83,10 +85,11 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -148,6 +151,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     private static final int KEYS = 100;
 
     private static final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
+
+    private static final int ZONE_ID = 1;
 
     private static final int TABLE_ID = 2;
 
@@ -235,8 +240,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
-        int zoneId = 1;
-
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
 
@@ -260,7 +263,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(new TablePartitionId(TABLE_ID, i), r);
+            groupRafts.put(enabledColocation() ? new ZonePartitionId(ZONE_ID, i) : new TablePartitionId(TABLE_ID, i), r);
         }
 
         Answer<CompletableFuture<?>> clo = invocation -> {
@@ -268,7 +271,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             ClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
-            TablePartitionIdMessage commitPartId =
+            ReplicationGroupIdMessage commitPartId = enabledColocation() ?
+                    toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(ZONE_ID, 0)) :
                     toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(TABLE_ID, 0));
 
             RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
@@ -346,7 +350,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         intTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "TEST"),
-                zoneId, // zone id.
+                ZONE_ID, // zone id.
                 TABLE_ID, // table id.
                 PARTS, // number of partitions.
                 new SingleClusterNodeResolver(clusterNode),
