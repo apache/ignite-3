@@ -79,7 +79,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Supported server features. */
     private static final BitSet SUPPORTED_FEATURES = ServerProtocolBitmaskFeature.toBitSet(
-//            ServerProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
+            ServerProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
     );
 
     /** Connection id generator.
