@@ -29,7 +29,7 @@ public enum ProtocolBitmaskFeature {
     /** Feature for user attributes. */
     USER_ATTRIBUTES(0),
     /**
-     * TABLE_GET/TABLES_GET requests use {@link QualifiedName}.
+     * TABLE_GET/TABLES_GET requests with {@link QualifiedName}.
      */
     TABLE_GET_REQS_USE_QUALIFIED_NAME(1);
 
