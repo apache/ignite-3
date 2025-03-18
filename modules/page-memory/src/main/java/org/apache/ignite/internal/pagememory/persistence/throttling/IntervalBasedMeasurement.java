@@ -145,6 +145,10 @@ class IntervalBasedMeasurement {
 
                 nanosPassed += prevMeasurement.endNanoTime - prevMeasurement.startNanoTime;
                 opsDone += prevMeasurement.cntr.get();
+            } else {
+                SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info(
+                        "outdated interval encountered"
+                );
             }
         }
 
@@ -214,6 +218,8 @@ class IntervalBasedMeasurement {
      */
     private void pushToHistory(MeasurementInterval interval) {
         prevMeasurements.offer(interval);
+
+        SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info("pushToHistory(interval)");
 
         if (prevMeasurements.size() > maxMeasurements) {
             prevMeasurements.remove();
