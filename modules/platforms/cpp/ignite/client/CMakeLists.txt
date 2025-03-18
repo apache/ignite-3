@@ -20,6 +20,7 @@ project(ignite3-client)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
+    cancel_handle.cpp
     ignite_client.cpp
     compute/broadcast_job_target.cpp
     compute/compute.cpp

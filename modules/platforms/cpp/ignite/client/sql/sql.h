@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/cancel_handle.h"
 #include "ignite/client/sql/result_set.h"
 #include "ignite/client/sql/sql_statement.h"
 #include "ignite/client/transaction/transaction.h"
