@@ -117,8 +117,6 @@
       url: administrators-guide/data-partitions
     - title: Data Colocation
       url: administrators-guide/colocation
-    - title: Cluster Security
-      url: administrators-guide/security
     - title: Security and Authentication
       url: administrators-guide/security/ssl-tls
       items:
