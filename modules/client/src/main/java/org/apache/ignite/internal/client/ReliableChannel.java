@@ -59,7 +59,6 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
-import org.apache.ignite.internal.client.ClientFutureUtils.RetryContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -254,12 +253,10 @@ public final class ReliableChannel implements AutoCloseable {
             @Nullable RetryPolicy retryPolicyOverride,
             boolean expectNotifications
     ) {
-        RetryContext context = new RetryContext();
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(preferredNodeName)
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
                 null,
-                context,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
     }
 
@@ -279,7 +276,6 @@ public final class ReliableChannel implements AutoCloseable {
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader
     ) {
-        RetryContext retryContext = new RetryContext();
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(null)
                         .thenCompose(ch -> {
@@ -287,7 +283,6 @@ public final class ReliableChannel implements AutoCloseable {
                             return serviceAsyncInternal(opCode, payloadWriter, payloadReader, false, ch);
                         }),
                 null,
-                retryContext,
                 ctx -> shouldRetry(retryOpCode, ctx, null));
     }
 
@@ -618,7 +613,6 @@ public final class ReliableChannel implements AutoCloseable {
                     return hld.getOrCreateChannelAsync();
                 },
                 Objects::nonNull,
-                new RetryContext(),
                 ctx -> shouldRetry(ClientOperationType.CHANNEL_CONNECT, ctx, null));
     }
 

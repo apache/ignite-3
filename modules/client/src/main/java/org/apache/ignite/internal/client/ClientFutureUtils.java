@@ -38,11 +38,11 @@ class ClientFutureUtils {
     static <T> CompletableFuture<T> doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
             @Nullable Predicate<T> resultValidator,
-            RetryContext ctx,
             Predicate<RetryContext> retryPredicate) {
         CompletableFuture<T> resFut = new CompletableFuture<>();
+        RetryContext ctx = new RetryContext();
 
-        doWithRetryAsync(func, resultValidator, ctx, retryPredicate, resFut);
+        doWithRetryAsync(func, resultValidator, retryPredicate, resFut, ctx);
 
         return resFut;
     }
@@ -50,9 +50,9 @@ class ClientFutureUtils {
     private static <T> void doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
             @Nullable Predicate<T> validator,
-            RetryContext ctx,
             Predicate<RetryContext> retryPredicate,
-            CompletableFuture<T> resFut) {
+            CompletableFuture<T> resFut,
+            RetryContext ctx) {
         func.get().whenComplete((res, err) -> {
             try {
                 if (err == null && (validator == null || validator.test(res))) {
@@ -71,7 +71,7 @@ class ClientFutureUtils {
                 if (retryPredicate.test(ctx)) {
                     ctx.attempt++;
 
-                    doWithRetryAsync(func, validator, ctx, retryPredicate, resFut);
+                    doWithRetryAsync(func, validator, retryPredicate, resFut, ctx);
                 } else {
                     if (ctx.errors == null || ctx.errors.isEmpty()) {
                         // Should not happen.

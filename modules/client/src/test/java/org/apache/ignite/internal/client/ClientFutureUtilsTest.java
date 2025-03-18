@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.client.ClientFutureUtils.RetryContext;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -44,11 +43,9 @@ public class ClientFutureUtilsTest {
 
     @Test
     public void testDoWithRetryAsyncWithCompletedFutureReturnsResult() {
-        var retryContext = new RetryContext();
         var res = ClientFutureUtils.doWithRetryAsync(
                 () -> CompletableFuture.completedFuture("test"),
                 null,
-                retryContext,
                 ctx -> false
         ).join();
 
@@ -57,11 +54,9 @@ public class ClientFutureUtilsTest {
 
     @Test
     public void testDoWithRetryAsyncWithResultValidatorRejectsAllThrowsIllegalState() {
-        var retryContext = new RetryContext();
         var fut = ClientFutureUtils.doWithRetryAsync(
                 () -> CompletableFuture.completedFuture("test"),
                 x -> false,
-                retryContext,
                 ctx -> false
         );
 
@@ -72,12 +67,10 @@ public class ClientFutureUtilsTest {
     @Test
     public void testDoWithRetryAsyncWithFailedFutureReturnsExceptionWithSuppressedList() {
         var counter = new AtomicInteger();
-        var retryContext = new RetryContext();
 
         var fut = ClientFutureUtils.doWithRetryAsync(
                 () -> CompletableFuture.failedFuture(new Exception("fail_" + counter.get())),
                 null,
-                retryContext,
                 ctx -> counter.incrementAndGet() < 3
         );
 
@@ -94,14 +87,12 @@ public class ClientFutureUtilsTest {
     @Test
     public void testDoWithRetryAsyncSucceedsAfterRetries() {
         var counter = new AtomicInteger();
-        var retryContext = new RetryContext();
 
         var fut = ClientFutureUtils.doWithRetryAsync(
                 () -> counter.getAndIncrement() < 3
                         ? CompletableFuture.failedFuture(new Exception("fail"))
                         : CompletableFuture.completedFuture("test"),
                 null,
-                retryContext,
                 ctx -> {
                     assertNotNull(ctx.lastError());
 
@@ -118,7 +109,6 @@ public class ClientFutureUtilsTest {
     @Test
     public void testDoWithRetryAsyncWithExceptionInDelegateReturnsFailedFuture() {
         var counter = new AtomicInteger();
-        var retryContext = new RetryContext();
 
         var fut = ClientFutureUtils.doWithRetryAsync(
                 () -> {
@@ -129,7 +119,6 @@ public class ClientFutureUtilsTest {
                     }
                 },
                 null,
-                retryContext,
                 ctx -> true
         );
 
