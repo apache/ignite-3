@@ -18,22 +18,17 @@
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
-import static java.lang.Math.min;
-import static java.util.Comparator.comparingLong;
-import static org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
-import static org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -120,30 +115,66 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     private @Nullable SnapshotMeta createStartupSnapshotMeta() {
         // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
         // lowest applied index and thus no data loss occurs.
-        return partitionsByTableId.values().stream()
-                .min(comparingLong(PartitionMvStorageAccess::lastAppliedIndex))
-                .map(storageWithMinLastAppliedIndex -> {
-                    long minLastAppliedIndex = min(storageWithMinLastAppliedIndex.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+        PartitionMvStorageAccess storageWithMinLastAppliedIndex = null;
 
-                    if (minLastAppliedIndex == 0) {
-                        return null;
-                    }
+        long minLastAppliedIndex = Long.MAX_VALUE;
 
-                    int lastCatalogVersionAtStart = catalogService.latestCatalogVersion();
+        for (PartitionMvStorageAccess partitionStorage : partitionsByTableId.values()) {
+            long lastAppliedIndex = partitionStorage.lastAppliedIndex();
 
-                    return snapshotMetaAt(
-                            minLastAppliedIndex,
-                            min(storageWithMinLastAppliedIndex.lastAppliedTerm(), txStateStorage.lastAppliedTerm()),
-                            Objects.requireNonNull(storageWithMinLastAppliedIndex.committedGroupConfiguration()),
-                            lastCatalogVersionAtStart,
-                            collectNextRowIdToBuildIndexesAtStart(lastCatalogVersionAtStart),
-                            storageWithMinLastAppliedIndex.leaseInfo()
-                    );
-                })
-                .orElse(null);
+            assert lastAppliedIndex >= 0 : lastAppliedIndex;
+
+            if (lastAppliedIndex == 0) {
+                return null;
+            }
+
+            if (lastAppliedIndex < minLastAppliedIndex) {
+                minLastAppliedIndex = lastAppliedIndex;
+                storageWithMinLastAppliedIndex = partitionStorage;
+            }
+        }
+
+        if (txStateStorage.lastAppliedIndex() < minLastAppliedIndex) {
+            return startupSnapshotMetaFromTxStorage();
+        } else {
+            assert storageWithMinLastAppliedIndex != null;
+
+            return startupSnapshotMetaFromPartitionStorage(storageWithMinLastAppliedIndex);
+        }
     }
 
-    private Map<Integer, UUID> collectNextRowIdToBuildIndexesAtStart(int lastCatalogVersionAtStart) {
-        return collectNextRowIdToBuildIndexes(catalogService, partitionsByTableId.values(), lastCatalogVersionAtStart);
+    private @Nullable SnapshotMeta startupSnapshotMetaFromTxStorage() {
+        long lastAppliedIndex = txStateStorage.lastAppliedIndex();
+
+        if (lastAppliedIndex == 0) {
+            return null;
+        }
+
+        RaftGroupConfiguration configuration = txStateStorage.committedGroupConfiguration();
+
+        assert configuration != null : "Empty configuration in startup snapshot.";
+
+        return startupSnapshotMeta(lastAppliedIndex, txStateStorage.lastAppliedTerm(), configuration);
+    }
+
+    private static SnapshotMeta startupSnapshotMetaFromPartitionStorage(PartitionMvStorageAccess partitionStorage) {
+        RaftGroupConfiguration configuration = partitionStorage.committedGroupConfiguration();
+
+        assert configuration != null : "Empty configuration in startup snapshot.";
+
+        return startupSnapshotMeta(partitionStorage.lastAppliedIndex(), partitionStorage.lastAppliedTerm(), configuration);
+    }
+
+    private static SnapshotMeta startupSnapshotMeta(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration configuration) {
+        return new RaftMessagesFactory().snapshotMeta()
+                .lastIncludedIndex(lastAppliedIndex)
+                .lastIncludedTerm(lastAppliedTerm)
+                .cfgIndex(configuration.index())
+                .cfgTerm(configuration.term())
+                .peersList(configuration.peers())
+                .oldPeersList(configuration.oldPeers())
+                .learnersList(configuration.learners())
+                .oldLearnersList(configuration.oldLearners())
+                .build();
     }
 }
