@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import java.util.UUID;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,23 +26,17 @@ import org.jetbrains.annotations.Nullable;
 public class PrimitivePartitionMeta {
     private final long lastAppliedIndex;
     private final long lastAppliedTerm;
-    private final long leaseStartTime;
-    private final @Nullable UUID primaryReplicaNodeId;
-    private final @Nullable String primaryReplicaNodeName;
+    private final @Nullable LeaseInfo leaseInfo;
 
     /** Constructor. */
     public PrimitivePartitionMeta(
             long lastAppliedIndex,
             long lastAppliedTerm,
-            long leaseStartTime,
-            @Nullable UUID primaryReplicaNodeId,
-            @Nullable String primaryReplicaNodeName
+            @Nullable LeaseInfo leaseInfo
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-        this.leaseStartTime = leaseStartTime;
-        this.primaryReplicaNodeId = primaryReplicaNodeId;
-        this.primaryReplicaNodeName = primaryReplicaNodeName;
+        this.leaseInfo = leaseInfo;
     }
 
     public long lastAppliedIndex() {
@@ -53,17 +47,7 @@ public class PrimitivePartitionMeta {
         return lastAppliedTerm;
     }
 
-    public long leaseStartTime() {
-        return leaseStartTime;
-    }
-
-    /** Returns primary replica node ID (or {@code null} if no primary replica node is known). */
-    public @Nullable UUID primaryReplicaNodeId() {
-        return primaryReplicaNodeId;
-    }
-
-    /** Returns primary replica node name (or {@code null} if no primary replica node is known). */
-    public @Nullable String primaryReplicaNodeName() {
-        return primaryReplicaNodeName;
+    public @Nullable LeaseInfo leaseInfo() {
+        return leaseInfo;
     }
 }

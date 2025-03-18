@@ -407,13 +407,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         assertThat(storage.finishRebalance(partitionMeta), willCompleteSuccessfully());
 
         // Let's check the storage.
-        var leaseInfo = new LeaseInfo(
-                partitionMeta.leaseStartTime(),
-                partitionMeta.primaryReplicaNodeId(),
-                partitionMeta.primaryReplicaNodeName()
-        );
-
-        checkMeta(storage, 30, 50, partitionMeta.groupConfig(), leaseInfo);
+        checkMeta(storage, 30, 50, partitionMeta.groupConfig(), partitionMeta.leaseInfo());
 
         checkStorageContainsRows(storage, rowsOnRebalance);
     }
@@ -523,15 +517,9 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         assertThat(storage.lastAppliedIndex(), is(20L));
         assertThat(storage.lastAppliedTerm(), is(30L));
 
-        var leaseInfo = new LeaseInfo(
-                mvPartitionMeta.leaseStartTime(),
-                mvPartitionMeta.primaryReplicaNodeId(),
-                mvPartitionMeta.primaryReplicaNodeName()
-        );
+        storage.leaseInfo(mvPartitionMeta.leaseInfo(), 40, 50);
 
-        storage.leaseInfo(leaseInfo, 40, 50);
-
-        assertThat(storage.leaseInfo(), is(leaseInfo));
+        assertThat(storage.leaseInfo(), is(mvPartitionMeta.leaseInfo()));
         assertThat(storage.lastAppliedIndex(), is(40L));
         assertThat(storage.lastAppliedTerm(), is(50L));
     }
@@ -687,6 +675,11 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
     }
 
     private static MvPartitionMeta saneMvPartitionMeta(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
-        return new MvPartitionMeta(lastAppliedIndex, lastAppliedTerm, groupConfig, 333, new UUID(1, 2), "primary");
+        return new MvPartitionMeta(
+                lastAppliedIndex,
+                lastAppliedTerm,
+                groupConfig,
+                new LeaseInfo(333, new UUID(1, 2), "primary")
+        );
     }
 }

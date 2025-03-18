@@ -56,16 +56,19 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.RaftSnapshotPartitionMeta;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -486,7 +489,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 return abortRebalance().thenCompose(unused -> failedFuture(throwable));
             }
 
-            RaftGroupConfiguration raftGroupConfig = new RaftGroupConfiguration(
+            var raftGroupConfig = new RaftGroupConfiguration(
                     meta.cfgIndex(),
                     meta.cfgTerm(),
                     meta.peersList(),
@@ -503,10 +506,29 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     raftGroupConfig
             );
 
-            return finishRebalance(RaftSnapshotPartitionMeta.fromSnapshotMeta(meta, raftGroupConfig));
+            var snapshotMeta = new MvPartitionMeta(
+                    meta.lastIncludedIndex(),
+                    meta.lastIncludedTerm(),
+                    VersionedSerialization.toBytes(raftGroupConfig, RaftGroupConfigurationSerializer.INSTANCE),
+                    leaseInfo(meta)
+            );
+
+            return finishRebalance(snapshotMeta);
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private static @Nullable LeaseInfo leaseInfo(PartitionSnapshotMeta meta) {
+        if (meta.primaryReplicaNodeId() == null) {
+            return null;
+        }
+
+        return new LeaseInfo(
+                meta.leaseStartTime(),
+                meta.primaryReplicaNodeId(),
+                meta.primaryReplicaNodeName()
+        );
     }
 
     private int partId() {
@@ -610,7 +632,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         );
     }
 
-    private CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta meta) {
+    private CompletableFuture<Void> finishRebalance(MvPartitionMeta meta) {
         return allOf(
                 aggregateFutureFromPartitions(mvPartition -> mvPartition.finishRebalance(meta)),
                 partitionSnapshotStorage.txState().finishRebalance(meta)

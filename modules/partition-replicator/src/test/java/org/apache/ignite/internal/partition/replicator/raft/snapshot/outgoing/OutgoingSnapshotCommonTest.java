@@ -40,6 +40,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMv
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -117,9 +118,9 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
         when(catalogService.latestCatalogVersion()).thenReturn(REQUIRED_CATALOG_VERSION);
 
-        when(partitionAccess2.leaseStartTime()).thenReturn(333L);
-        when(partitionAccess2.primaryReplicaNodeId()).thenReturn(new UUID(1, 2));
-        when(partitionAccess2.primaryReplicaNodeName()).thenReturn("primary");
+        var leaseInfo = new LeaseInfo(333L, new UUID(1, 2), "primary");
+
+        when(partitionAccess2.leaseInfo()).thenReturn(leaseInfo);
 
         snapshot.freezeScopeUnderMvLock();
 
@@ -134,9 +135,9 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
         assertThat(response.meta().oldPeersList(), is(List.of("peer1:3000")));
         assertThat(response.meta().oldLearnersList(), is(List.of("learner1:3000")));
         assertThat(response.meta().requiredCatalogVersion(), is(REQUIRED_CATALOG_VERSION));
-        assertThat(response.meta().leaseStartTime(), is(333L));
-        assertThat(response.meta().primaryReplicaNodeId(), is(new UUID(1, 2)));
-        assertThat(response.meta().primaryReplicaNodeName(), is("primary"));
+        assertThat(response.meta().leaseStartTime(), is(leaseInfo.leaseStartTime()));
+        assertThat(response.meta().primaryReplicaNodeId(), is(leaseInfo.primaryReplicaNodeId()));
+        assertThat(response.meta().primaryReplicaNodeName(), is(leaseInfo.primaryReplicaNodeName()));
     }
 
     private SnapshotMetaResponse getSnapshotMetaResponse() {

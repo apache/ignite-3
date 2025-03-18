@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
@@ -79,7 +80,7 @@ public class PartitionTxStateAccessImpl implements PartitionTxStateAccess {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta) {
-        return storage.finishRebalance(partitionMeta.toMvPartitionMeta(partitionMeta.raftGroupConfig()));
+    public CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta) {
+        return storage.finishRebalance(partitionMeta);
     }
 }

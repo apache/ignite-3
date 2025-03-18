@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.systemviews;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,6 +26,8 @@ import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +38,9 @@ import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -115,6 +121,61 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
         }
     }
 
+    @Test
+    void testLocksViewWorksCorrectlyWhenTxConflict() {
+        Ignite ignite = CLUSTER.aliveNode();
+
+        ignite.sql().executeScript("CREATE TABLE testTable (accountNumber INT PRIMARY KEY, balance DOUBLE)");
+
+        Table test = ignite.tables().table("testTable");
+
+        test.recordView().upsert(null, makeValue(1, 100.0));
+
+        IgniteTransactions igniteTransactions = igniteTx();
+
+        InternalTransaction tx1 = unwrapInternalTransaction(igniteTransactions.begin());
+        InternalTransaction tx2 = unwrapInternalTransaction(igniteTransactions.begin());
+
+        var table = test.recordView();
+
+        table.upsert(tx2, makeValue(1, 1.0));
+
+        var fut = table.upsertAsync(tx1, makeValue(1, 2.0));
+
+        assertFalse(fut.isDone());
+
+        List<List<Object>> rows = sql("SELECT * FROM SYSTEM.LOCKS");
+
+        // pk lock, row lock, partition lock
+        assertThat(rows.size(), is(3));
+
+        verifyTxIdAndLockMode(rows, tx2.id().toString(), LockMode.X.name());
+        verifyTxIdAndLockMode(rows, tx2.id().toString(), LockMode.IX.name());
+
+        tx2.commit();
+
+        rows = sql("SELECT * FROM SYSTEM.LOCKS");
+
+        assertThat(rows.size(), is(3));
+
+        verifyTxIdAndLockMode(rows, tx1.id().toString(), LockMode.X.name());
+        verifyTxIdAndLockMode(rows, tx1.id().toString(), LockMode.IX.name());
+
+        tx1.commit();
+    }
+
+    /**
+     * Makes a tuple containing key and value.
+     *
+     * @param id The id.
+     * @param balance The balance.
+     * @return The value tuple.
+     */
+    private static Tuple makeValue(int id, double balance) {
+        return Tuple.create().set("accountNumber", id).set("balance", balance);
+    }
+
+
     private void verifyLockInfo(List<Object> row, String expectedTxId) {
         int idx = 0;
 
@@ -127,5 +188,31 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
         assertThat(txId, equalTo(expectedTxId));
         assertThat(objectId, not(emptyString()));
         assertThat(lockModes, hasItem(mode));
+    }
+
+    private static void verifyTxIdAndLockMode(List<List<Object>> rows, String expectedTxId, String expectedMode) {
+        boolean assertResult = false;
+
+        for (List<Object> row : rows) {
+            String txId = getTxId(row);
+            String mode = getLockMode(row);
+
+            if (txId.equals(expectedTxId)) {
+                if (mode.equals(expectedMode)) {
+                    assertResult = true;
+                    break;
+                }
+            }
+        }
+
+        assertTrue(assertResult);
+    }
+
+    private static String getTxId(List<Object> row) {
+        return (String) row.get(1);
+    }
+
+    private static String getLockMode(List<Object> row) {
+        return (String) row.get(3);
     }
 }
