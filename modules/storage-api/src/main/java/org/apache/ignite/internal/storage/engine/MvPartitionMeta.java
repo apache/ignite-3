@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import java.util.UUID;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,11 +31,9 @@ public class MvPartitionMeta extends PrimitivePartitionMeta {
             long lastAppliedIndex,
             long lastAppliedTerm,
             byte[] groupConfig,
-            long leaseStartTime,
-            @Nullable UUID primaryReplicaNodeId,
-            @Nullable String primaryReplicaNodeName
+            @Nullable LeaseInfo leaseInfo
     ) {
-        super(lastAppliedIndex, lastAppliedTerm, leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+        super(lastAppliedIndex, lastAppliedTerm, leaseInfo);
 
         this.groupConfig = groupConfig;
     }

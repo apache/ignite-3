@@ -80,6 +80,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -668,7 +669,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
     }
 
     private static MvPartitionMeta saneMvPartitionMeta(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
-        return new MvPartitionMeta(lastAppliedIndex, lastAppliedTerm, groupConfig, 333, new UUID(1, 2), "primary");
+        var leaseInfo = new LeaseInfo(333, new UUID(1, 2), "primary");
+
+        return new MvPartitionMeta(lastAppliedIndex, lastAppliedTerm, groupConfig, leaseInfo);
     }
 
     @Test

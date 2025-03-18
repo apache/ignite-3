@@ -498,12 +498,10 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
             metaStorage.updateConfiguration(writeBatch, partitionMeta.groupConfig());
 
-            if (partitionMeta.primaryReplicaNodeId() != null) {
-                metaStorage.updateLease(writeBatch, new LeaseInfo(
-                        partitionMeta.leaseStartTime(),
-                        partitionMeta.primaryReplicaNodeId(),
-                        partitionMeta.primaryReplicaNodeName()
-                ));
+            LeaseInfo leaseInfo = partitionMeta.leaseInfo();
+
+            if (leaseInfo != null) {
+                metaStorage.updateLease(writeBatch, leaseInfo);
             }
 
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);

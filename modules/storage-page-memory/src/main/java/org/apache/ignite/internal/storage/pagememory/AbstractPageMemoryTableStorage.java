@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -301,14 +302,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 mvPartitionStorage.lastAppliedOnRebalance(partitionMeta.lastAppliedIndex(), partitionMeta.lastAppliedTerm());
                 mvPartitionStorage.committedGroupConfigurationOnRebalance(partitionMeta.groupConfig());
 
-                if (partitionMeta.primaryReplicaNodeId() != null) {
-                    assert partitionMeta.primaryReplicaNodeName() != null;
+                LeaseInfo leaseInfo = partitionMeta.leaseInfo();
 
-                    mvPartitionStorage.updateLeaseOnRebalance(
-                            partitionMeta.leaseStartTime(),
-                            partitionMeta.primaryReplicaNodeId(),
-                            partitionMeta.primaryReplicaNodeName()
-                    );
+                if (leaseInfo != null) {
+                    mvPartitionStorage.updateLeaseOnRebalance(leaseInfo);
                 }
 
                 return null;
