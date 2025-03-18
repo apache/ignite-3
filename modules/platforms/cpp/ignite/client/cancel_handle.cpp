@@ -16,68 +16,10 @@
 */
 
 #include "ignite/client/cancel_handle.h"
-
-#include <allocators>
+#include "ignite/client/detail/cancellation_token_impl.h"
 
 namespace ignite
 {
-
-/**
- * A cancellation token implementation.
- */
-class cancellation_token_impl : public cancellation_token
-{
-public:
-    /**
-     * Destructor.
-     */
-    ~cancellation_token_impl() override = default;
-
-    /**
-     * Abruptly terminates an execution of an associated process.
-     *
-     * @param callback A callback that will be called after the process has been terminated and the resources associated
-     *                 with that process have been freed.
-     */
-    void cancel_async(ignite_callback<void> callback) {
-        std::lock_guard guard(m_mutex);
-
-        if (is_cancelled()) {
-            if (m_result) {
-                callback(ignite_result<void>{*m_result});
-            } else {
-                m_callbacks.push_back(std::move(callback));
-            }
-            return;
-        }
-
-        m_callbacks.push_back(std::move(callback));
-        // TODO: Implement me
-    }
-
-    /**
-     * Flag indicating whether cancellation was requested or not.
-     *
-     * This method will return true even if cancellation has not been completed yet.
-     *
-     * @return @c true if the cancellation was requested.
-     */
-    bool is_cancelled() const { return m_cancelled; }
-
-private:
-    /** Mutex. */
-    std::mutex m_mutex{};
-
-    /** Cancel flag. */
-    bool m_cancelled{false};
-
-    /** Result. */
-    std::optional<ignite_result<void>> m_result{std::nullopt};
-
-    /** Callbacks. */
-    std::vector<ignite_callback<void>> m_callbacks{};
-};
-
 
 /**
  * A cancel handle implementation.

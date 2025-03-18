@@ -15,38 +15,30 @@
 * limitations under the License.
 */
 
-/**
- * @file
- * Declares ignite::cancel_handle.
- */
-
 #pragma once
 
-#include "ignite/client/cancellation_token.h"
 #include "ignite/common/ignite_result.h"
-#include "ignite/common/detail/config.h"
+#include "ignite/client/cancellation_token.h"
 
-#include <memory>
+#include <optional>
+#include <mutex>
+#include <vector>
+#include <functional>
+#include <ignite/client/ignite_logger.h>
 
 namespace ignite
 {
 
 /**
- * A handle which may be used to request the cancellation of execution.
+ * A cancellation token implementation.
  */
-class cancel_handle
+class cancellation_token_impl : public cancellation_token, public std::enable_shared_from_this<cancellation_token_impl>
 {
 public:
     /**
      * Destructor.
      */
-    virtual ~cancel_handle() = default;
-
-    /**
-     * A factory method to create a handle.
-     * @return A new cancel handle.
-     */
-    [[nodiscard]] IGNITE_API static std::shared_ptr<cancel_handle> create();
+    ~cancellation_token_impl() override = default;
 
     /**
      * Abruptly terminates an execution of an associated process.
@@ -54,19 +46,15 @@ public:
      * @param callback A callback that will be called after the process has been terminated and the resources associated
      *                 with that process have been freed.
      */
-    IGNITE_API virtual void cancel_async(ignite_callback<void> callback) = 0;
+    void cancel_async(ignite_callback<void> callback);
 
     /**
-     * Abruptly terminates an execution of an associated process.
+     * Adds an action to perform on cancellation.
      *
-     * Control flow will return after the process has been terminated and the resources associated with that process
-     * have been freed.
+     * @param logger Logger to use if the operation was already canceled.
+     * @param action An action to perform on cancellation.
      */
-    IGNITE_API virtual void cancel() {
-        return sync<void>([this](auto callback) mutable {
-            cancel_async(std::move(callback));
-        });
-    }
+    void add_action(std::shared_ptr<ignite_logger> logger, std::function<void(ignite_callback<void>)> action);
 
     /**
      * Flag indicating whether cancellation was requested or not.
@@ -75,16 +63,23 @@ public:
      *
      * @return @c true if the cancellation was requested.
      */
-    IGNITE_API virtual bool is_cancelled() const = 0;
+    bool is_cancelled() const { return m_cancelled; }
 
-    /**
-     * Issue a token associated with this handle.
-     *
-     * Token is reusable, meaning the same token may be used to link several executions into a single cancellable.
-     *
-     * @return A token associated with this handle.
-     */
-    IGNITE_API virtual std::shared_ptr<cancellation_token> get_token() = 0;
+private:
+    /** Mutex. */
+    std::mutex m_mutex{};
+
+    /** Cancel flag. */
+    bool m_cancelled{false};
+
+    /** Result. */
+    std::optional<ignite_result<void>> m_result{std::nullopt};
+
+    /** Callbacks. */
+    std::vector<ignite_callback<void>> m_callbacks{};
+
+    /** Actions to take on cancel. */
+    std::vector<std::function<void(ignite_callback<void>)>> m_actions{};
 };
 
 } // namespace ignite

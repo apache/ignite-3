@@ -34,6 +34,7 @@ set(SOURCES
     table/tables.cpp
     transaction/transaction.cpp
     transaction/transactions.cpp
+    detail/cancellation_token_impl.cpp
     detail/cluster_connection.cpp
     detail/ignite_client_impl.cpp
     detail/utils.cpp
@@ -47,6 +48,8 @@ set(SOURCES
 
 set(PUBLIC_HEADERS
     basic_authenticator.h
+    cancel_handle.h
+    cancellation_token.h
     ignite_client.h
     ignite_client_authenticator.h
     ignite_client_configuration.h
