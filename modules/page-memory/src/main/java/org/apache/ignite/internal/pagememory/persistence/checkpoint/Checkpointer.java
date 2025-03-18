@@ -151,6 +151,8 @@ public class Checkpointer extends IgniteWorker {
     /** Current checkpoint progress. This field is updated only by checkpoint thread. */
     private volatile @Nullable CheckpointProgressImpl currentCheckpointProgress;
 
+    private volatile @Nullable CheckpointProgressImpl currentCheckpointProgressForThrottling;
+
     /** Checkpoint progress after releasing write lock. */
     private volatile @Nullable CheckpointProgressImpl afterReleaseWriteLockCheckpointProgress;
 
@@ -678,6 +680,10 @@ public class Checkpointer extends IgniteWorker {
             scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
             currentCheckpointProgress = curr;
+
+            curr.futureFor(LOCK_TAKEN).thenRun(() -> {
+                currentCheckpointProgressForThrottling = curr;
+            });
         }
     }
 
@@ -771,6 +777,10 @@ public class Checkpointer extends IgniteWorker {
 
     @Nullable CheckpointProgress currentCheckpointProgress() {
         return currentCheckpointProgress;
+    }
+
+    public @Nullable CheckpointProgress currentCheckpointProgressForThrottling() {
+        return currentCheckpointProgressForThrottling;
     }
 
     /**

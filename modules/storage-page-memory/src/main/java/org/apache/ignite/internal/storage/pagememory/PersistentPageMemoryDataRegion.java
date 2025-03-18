@@ -137,12 +137,12 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         pageMemory.initThrottling(speedBasedThrottling
                 ? new PagesWriteSpeedBasedThrottle(
                         pageMemory,
-                        checkpointManager::currentCheckpointProgress,
+                        checkpointManager::currentCheckpointProgressForThrottling,
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
                         metricSource
                 ) : new TargetRatioPagesWriteThrottle(
                         pageMemory,
-                        checkpointManager::currentCheckpointProgress,
+                        checkpointManager::currentCheckpointProgressForThrottling,
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
                         metricSource
                 )
