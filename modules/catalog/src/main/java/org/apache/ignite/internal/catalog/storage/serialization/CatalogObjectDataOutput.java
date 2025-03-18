@@ -72,7 +72,7 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
     }
 
     /**
-     * Writes a compact list of entries.
+     * Writes a list of entries of exactly the same type in a compact way.
      *
      * @param entries Entries.
      */
@@ -91,6 +91,7 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
         CatalogObjectSerializer<MarshallableEntry> serializer = serializers.get(version, typeId);
 
         for (T entry : entries) {
+            assert entry.typeId() == typeId : "Entry type do not match";
             serializer.writeTo(entry, this);
         }
     }
