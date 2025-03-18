@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
+import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
@@ -140,7 +142,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             SchemaRegistry schemaRegistry,
             IndexMetaStorage indexMetaStorage,
             UUID localNodeId,
-            MinimumRequiredTimeCollectorService minTimeCollectorService
+            MinimumRequiredTimeCollectorService minTimeCollectorService,
+            Executor partitionOperationsExecutor
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -151,7 +154,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.catalogService = catalogService;
         this.localNodeId = localNodeId;
 
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage);
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
@@ -573,11 +576,25 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+        onSnapshotSaveHandler.onSnapshotSave(snapshotInfo(), List.of(this))
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
+    }
+
+    private PartitionSnapshotInfo snapshotInfo() {
         long maxAppliedIndex = max(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
         long maxAppliedTerm = max(storage.lastAppliedTerm(), txStatePartitionStorage.lastAppliedTerm());
 
-        onSnapshotSaveHandler.onSnapshotSave(maxAppliedIndex, maxAppliedTerm, List.of(this))
-                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
+        byte[] configuration = storage.getStorage().committedGroupConfiguration();
+
+        assert configuration != null : "Trying to create a snapshot without Raft group configuration";
+
+        return new PartitionSnapshotInfo(
+                maxAppliedIndex,
+                maxAppliedTerm,
+                storage.leaseInfo(),
+                configuration,
+                Set.of(storage.tableId())
+        );
     }
 
     @Override
