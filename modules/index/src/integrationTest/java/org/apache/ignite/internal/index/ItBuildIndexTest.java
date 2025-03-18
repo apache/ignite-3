@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -160,7 +162,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         createAndPopulateTable(nodes, 1);
 
-        var tableGroupId = new TablePartitionId(tableId(TABLE_NAME), 0);
+        var tableGroupId = replicationGroupId(TABLE_NAME, 0);
 
         IgniteImpl primary = primaryReplica(tableGroupId);
 
@@ -173,6 +175,20 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         assertThat(sendBuildIndexCommandFuture, willBe(indexId(INDEX_NAME)));
 
         return primary;
+    }
+
+    private static ReplicationGroupId replicationGroupId(String tableName, int partitionIndex) {
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        HybridClock clock = node.clock();
+        CatalogManager catalogManager = node.catalogManager();
+
+        CatalogTableDescriptor tableDescriptor = catalogManager.activeCatalog(clock.nowLong()).table(SCHEMA_NAME, tableName);
+
+        assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
+
+        return enabledColocation() ? new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex)
+                : new TablePartitionId(tableDescriptor.id(), partitionIndex);
     }
 
     private static void changePrimaryReplica(IgniteImpl currentPrimary) throws InterruptedException {
@@ -189,7 +205,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         // Let's change the primary replica for partition 0.
         NodeUtils.transferPrimary(
                 CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
-                new TablePartitionId(tableId(TABLE_NAME), 0),
+                replicationGroupId(TABLE_NAME, 0),
                 nextPrimary.name()
         );
 
@@ -308,24 +324,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Returns the table ID from the catalog.
-     *
-     * @param tableName Table name.
-     */
-    private static int tableId(String tableName) {
-        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
-
-        HybridClock clock = node.clock();
-        CatalogManager catalogManager = node.catalogManager();
-
-        CatalogTableDescriptor tableDescriptor = catalogManager.activeCatalog(clock.nowLong()).table(SCHEMA_NAME, tableName);
-
-        assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
-
-        return tableDescriptor.id();
-    }
-
-    /**
      * Waits for the index to be built on all nodes.
      *
      * @param tableName Table name.
@@ -373,7 +371,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         HybridTimestamp now = node.clock().now();
 
         for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-            var tableGroupId = new TablePartitionId(internalTable.tableId(), partitionId);
+            var tableGroupId = replicationGroupId(tableName, partitionId);
 
             CompletableFuture<TokenizedAssignments> assignmentsFuture = placementDriver.getAssignments(tableGroupId, now);
 

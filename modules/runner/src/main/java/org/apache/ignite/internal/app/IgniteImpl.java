@@ -1125,7 +1125,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 logicalTopologyService,
                 clockService,
-                failureManager
+                failureManager,
+                lowWatermark
         );
 
         qryEngine = new SqlQueryProcessor(
