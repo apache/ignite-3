@@ -308,7 +308,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             }
 
             if (leaseInfo != null) {
-                storage.updateLease(leaseInfo.leaseStartTime(), leaseInfo.primaryReplicaNodeId(), leaseInfo.primaryReplicaNodeName());
+                storage.updateLease(leaseInfo);
             }
 
             storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -341,24 +341,29 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             return EMPTY_NOT_APPLIED_RESULT; // Update result is not needed.
         }
 
+        LeaseInfo storageLeaseInfo = storage.leaseInfo();
+
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = cmd.leaseStartTime();
 
-            long storageLeaseStartTime = storage.leaseStartTime();
+            if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
+                var updateCommandResult = new UpdateCommandResult(
+                        false,
+                        storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
+                        isPrimaryInGroupTopology(storageLeaseInfo),
+                        NULL_HYBRID_TIMESTAMP
+                );
 
-            if (leaseStartTime != storageLeaseStartTime) {
-                return new CommandResult(
-                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP),
-                        false);
+                return new CommandResult(updateCommandResult, false);
             }
         }
 
         UUID txId = cmd.txId();
 
-        assert storage.primaryReplicaNodeId() != null;
+        assert storageLeaseInfo != null;
         assert localNodeId != null;
 
-        if (cmd.full() || !localNodeId.equals(storage.primaryReplicaNodeId())) {
+        if (cmd.full() || !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId())) {
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
@@ -380,7 +385,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
 
-        return new CommandResult(new UpdateCommandResult(true, isPrimaryInGroupTopology(), safeTimestamp.longValue()), true);
+        return new CommandResult(
+                new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
+                true
+        );
     }
 
     /**
@@ -402,21 +410,26 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             return EMPTY_NOT_APPLIED_RESULT;
         }
 
+        LeaseInfo storageLeaseInfo = storage.leaseInfo();
+
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = cmd.leaseStartTime();
 
-            long storageLeaseStartTime = storage.leaseStartTime();
+            if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
+                var updateCommandResult = new UpdateCommandResult(
+                        false,
+                        storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
+                        isPrimaryInGroupTopology(storageLeaseInfo),
+                        NULL_HYBRID_TIMESTAMP
+                );
 
-            if (leaseStartTime != storageLeaseStartTime) {
-                return new CommandResult(
-                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP),
-                        false);
+                return new CommandResult(updateCommandResult, false);
             }
         }
 
         UUID txId = cmd.txId();
 
-        if (cmd.full() || !localNodeId.equals(storage.primaryReplicaNodeId())) {
+        if (cmd.full() || !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId())) {
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
@@ -436,7 +449,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
 
-        return new CommandResult(new UpdateCommandResult(true, isPrimaryInGroupTopology(), safeTimestamp.longValue()), true);
+        return new CommandResult(
+                new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
+                true
+        );
     }
 
     /**
@@ -623,7 +639,9 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
 
         storage.runConsistently(locker -> {
-            storage.updateLease(cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+            var leaseInfo = new LeaseInfo(cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+
+            storage.updateLease(leaseInfo);
 
             storage.lastApplied(commandIndex, commandTerm);
 
@@ -662,20 +680,14 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
      * primaryReplicaNodeName and leaseStartTime. In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand
      * processing, given information is used in order to detect whether primary belongs to the raft group topology (peers and learners).
      *
-     *
      * @return {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise.
      */
-    private boolean isPrimaryInGroupTopology() {
+    private boolean isPrimaryInGroupTopology(@Nullable LeaseInfo storageLeaseInfo) {
         assert currentGroupTopology != null : "Current group topology is null";
 
-        if (storage.primaryReplicaNodeName() == null) {
-            return true;
-        } else {
-            // Despite the fact that storage.primaryReplicaNodeName() may itself return null it's never expected to happen
-            // while calling isPrimaryInGroupTopology because of HB between handlePrimaryReplicaChangeCommand that will populate the storage
-            // with lease information and handleUpdate(All)Command that on it's turn calls isPrimaryReplicaInGroupTopology.
-            assert storage.primaryReplicaNodeName() != null : "Primary replica node name is null.";
-            return currentGroupTopology.contains(storage.primaryReplicaNodeName());
-        }
+        // Despite the fact that storage.leaseInfo() may itself return null it's never expected to happen
+        // while calling isPrimaryInGroupTopology because of HB between handlePrimaryReplicaChangeCommand that will populate the storage
+        // with lease information and handleUpdate(All)Command that on it's turn calls isPrimaryReplicaInGroupTopology.
+        return storageLeaseInfo == null || currentGroupTopology.contains(storageLeaseInfo.primaryReplicaNodeName());
     }
 }

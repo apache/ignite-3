@@ -193,7 +193,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage).lastApplied(2L, 3L);
         verify(mvPartitionStorage).committedGroupConfiguration(any());
-        verify(mvPartitionStorage).updateLease(123L, id, "foo");
+        verify(mvPartitionStorage).updateLease(new LeaseInfo(123L, id, "foo"));
     }
 
     @RepeatedTest(10)

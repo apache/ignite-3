@@ -208,9 +208,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         MvPartitionStorage partitionAtNode0 = mvPartitionAtNode(0);
         MvPartitionStorage partitionAtNode2 = mvPartitionAtNode(2);
 
-        assertThat(partitionAtNode2.leaseStartTime(), not(0L));
-        assertEquals(partitionAtNode0.primaryReplicaNodeId(), partitionAtNode2.primaryReplicaNodeId());
-        assertEquals(partitionAtNode0.primaryReplicaNodeName(), partitionAtNode2.primaryReplicaNodeName());
+        assertThat(partitionAtNode2.leaseInfo(), is(partitionAtNode0.leaseInfo()));
     }
 
     private @Nullable String getFromNode(int clusterNode, int key) {

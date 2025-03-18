@@ -91,7 +91,6 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
@@ -208,20 +207,6 @@ public final class Commons {
 
     private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
         return SqlTypeCoercionRule.instance(IgniteCustomAssignmentsRules.instance().getTypeMapping());
-    }
-
-    /**
-     * Gets appropriate field from two rows by offset.
-     *
-     * @param hnd RowHandler impl.
-     * @param offset Current offset.
-     * @param row1 row1.
-     * @param row2 row2.
-     * @return Returns field by offset.
-     */
-    public static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
-        return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
-            hnd.get(offset - hnd.columnCount(row1), row2);
     }
 
     /**

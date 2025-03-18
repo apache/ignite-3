@@ -58,7 +58,6 @@ import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.DeployMode;
-import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
@@ -151,7 +150,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void getClusterConfigurationByPathBadRequest() throws JsonProcessingException {
-        var thrown = assertThrows(
+        ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> clusterConfigurationApi.getClusterConfigurationByPath("no.such.path")
         );
@@ -185,7 +184,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void getNodeConfigurationByPathBadRequest() throws JsonProcessingException {
-        var thrown = assertThrows(
+        ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> nodeConfigurationApi.getNodeConfigurationByPath("no.such.path")
         );
@@ -228,20 +227,6 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void initCluster() {
-        assertDoesNotThrow(() -> {
-            // in fact, this is the second init that means nothing but just testing that the second init does not throw and exception
-            // the main init is done before the test
-            clusterManagementApi.init(
-                    new InitCommand()
-                            .clusterName("cluster")
-                            .metaStorageNodes(List.of(firstNodeName))
-                            .cmgNodes(List.of())
-            );
-        });
-    }
-
-    @Test
     void clusterState() {
         assertDoesNotThrow(() -> {
             ClusterState clusterState = clusterManagementApi.clusterState();
@@ -250,24 +235,6 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
             assertThat(clusterState.getClusterTag().getClusterName(), is(equalTo("cluster")));
             assertThat(clusterState.getCmgNodes(), contains(firstNodeName));
         });
-    }
-
-    @Test
-    void initClusterNoSuchNode() throws JsonProcessingException {
-        var thrown = assertThrows(
-                ApiException.class,
-                () -> clusterManagementApi.init(
-                        new InitCommand()
-                                .clusterName("cluster")
-                                .metaStorageNodes(List.of("no-such-node"))
-                                .cmgNodes(List.of()))
-        );
-
-        assertThat(thrown.getCode(), equalTo(400));
-
-        Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
-        assertThat(problem.getStatus(), equalTo(400));
-        assertThat(problem.getDetail(), containsString("Node \"no-such-node\" is not present in the physical topology"));
     }
 
     @Test
@@ -301,7 +268,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void enableInvalidNodeMetric() throws JsonProcessingException {
-        var thrown = assertThrows(
+        ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> nodeMetricApi.enableNodeMetric("no.such.metric")
         );

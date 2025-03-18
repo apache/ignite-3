@@ -22,17 +22,22 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.assertArg;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -49,6 +54,8 @@ import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -109,6 +116,60 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
 
         assertThat(initFuture, willBe(nullValue(Void.class)));
     }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4, 5, 9})  // Runs the test with 1 to 10 nodes
+    void testInitEmptyMsCmgNodes(int numNodes) {
+        // Create a list of nodes dynamically
+        List<ClusterNode> allNodes = IntStream.rangeClosed(1, numNodes)
+                .mapToObj(i -> (ClusterNode) new ClusterNodeImpl(
+                        randomUUID(),
+                        "node" + i,
+                        new NetworkAddress("foo" + i, 1230 + i)))
+                .collect(Collectors.toList());
+
+        // Mock topology service behavior
+        for (ClusterNode node : allNodes) {
+            when(topologyService.getByConsistentId(node.name())).thenReturn(node);
+        }
+        when(topologyService.allMembers()).thenReturn(allNodes);
+
+        when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
+                .thenReturn(initCompleteMessage());
+
+        // Initialize cluster
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
+                List.of(),
+                List.of(),
+                "cluster"
+        );
+
+        // Convert node names to a set for validation.
+        // See initCluster(...) Javadoc for details.
+        Set<String> cmgNodeNameSet = allNodes.stream().map(ClusterNode::name).sorted()
+                .limit(numNodes < 5 ? 3 : 5)
+                .collect(Collectors.toSet());
+
+        // Verify messaging service calls
+        for (int i = 1; i <= allNodes.size(); i++) {
+            ClusterNode node = allNodes.get(i - 1);
+
+            boolean shouldBeCmg = i <= 3 || (numNodes >= 5 && i <= 5);
+
+            if (shouldBeCmg) {
+                verify(messagingService).invoke(eq(node), assertArg((CmgInitMessage msg) -> {
+                    assertThat(msg.metaStorageNodes(), equalTo(cmgNodeNameSet));
+                    assertThat(msg.cmgNodes(), equalTo(cmgNodeNameSet));
+                }), anyLong());
+            } else {
+                verify(messagingService, never()).invoke(eq(node), any(CmgInitMessage.class), anyLong());
+            }
+        }
+
+        // Assert that initialization completed successfully
+        assertThat(initFuture, willBe(nullValue(Void.class)));
+    }
+
 
     /**
      * Tests the happy-case scenario of cluster initialization when only Meta Storage are provided.
@@ -215,8 +276,6 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testInitIllegalArguments() {
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of(), List.of(), "cluster"));
-
         assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of(" "), List.of("bar"), "cluster"));
 
         assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of("foo"), List.of(" "), "cluster"));

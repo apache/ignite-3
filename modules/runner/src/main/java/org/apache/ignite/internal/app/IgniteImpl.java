@@ -1126,7 +1126,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clusterSvc,
                 logicalTopologyService,
-                clockService
+                clockService,
+                failureManager
         );
 
         qryEngine = new SqlQueryProcessor(

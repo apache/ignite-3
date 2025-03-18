@@ -15,31 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.engine;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.storage.lease.LeaseInfo;
-import org.jetbrains.annotations.Nullable;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 
-/**
- * Partition metadata for {@link MvTableStorage#finishRebalancePartition(int, MvPartitionMeta)}.
- */
-public class MvPartitionMeta extends PrimitivePartitionMeta {
-    private final byte[] groupConfig;
+import org.junit.jupiter.api.Test;
 
-    /** Constructor. */
-    public MvPartitionMeta(
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig,
-            @Nullable LeaseInfo leaseInfo
-    ) {
-        super(lastAppliedIndex, lastAppliedTerm, leaseInfo);
+class DropIndexEntryTest {
+    @Test
+    void toStringContainsIndexId() {
+        var entry = new DropIndexEntry(42);
 
-        this.groupConfig = groupConfig;
-    }
-
-    /** Returns replication group config as bytes. */
-    public byte[] groupConfig() {
-        return groupConfig;
+        assertThat(entry.toString(), containsString("indexId=42"));
     }
 }

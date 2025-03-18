@@ -38,7 +38,6 @@ import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -151,14 +150,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 }
 
                 return newRow;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object[] concat(Object[] left, Object[] right) {
-                assert left.length + right.length == schemaLen;
-
-                return ArrayUtils.concat(left, right);
             }
         };
     }

@@ -21,6 +21,8 @@ import java.lang.reflect.Type;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
 import org.apache.calcite.linq4j.tree.Expression;
+import org.apache.calcite.linq4j.tree.Expressions;
+import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -45,17 +47,21 @@ abstract class CommonFieldGetter implements InputGetter {
     public Expression field(BlockBuilder list, int index, Type desiredType) {
         Expression fldExpression = fillExpressions(list, index);
 
-        Type fieldType = Commons.typeFactory().getJavaClass(rowType.getFieldList().get(index).getType());
-
-        if (desiredType == null) {
-            desiredType = fieldType;
-            fieldType = Object.class;
-        } else if (fieldType != java.sql.Date.class
-                && fieldType != java.sql.Time.class
-                && fieldType != java.sql.Timestamp.class) {
-            fieldType = Object.class;
+        if (desiredType != null) {
+            return EnumUtils.convert(fldExpression, Object.class, desiredType);
         }
 
-        return EnumUtils.convert(fldExpression, fieldType, desiredType);
+        Type fieldType = Commons.typeFactory().getJavaClass(rowType.getFieldList().get(index).getType());
+
+        Primitive p = Primitive.of(fieldType);
+        if (p == null) {
+            // In case of non-primitive types we can simply do casting like this: (RequiredType) fieldValue.
+            return Expressions.convert_(fldExpression, fieldType);
+        }
+
+        // For primitive types let's first cast to boxed counterpart and then derive primitive value.
+        fldExpression = Expressions.convert_(fldExpression, p.getBoxClass());
+
+        return EnumUtils.convert(fldExpression, p.getBoxClass(), fieldType);
     }
 }

@@ -23,7 +23,6 @@ import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
-import static org.apache.ignite.internal.sql.engine.util.Commons.getFieldFromBiRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -703,10 +702,6 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        RelDataType outType = (joinType == ANTI || joinType == SEMI)
-                ? leftType
-                : TypeUtils.combinedRowType(tf, leftType, rightType);
-
         if (joinAlgo() == JoinAlgo.NESTED_LOOP) {
             RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -714,9 +709,9 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                     ? nonEquiCondition
                     : (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2);
 
-            return (T) NestedLoopJoinNode.create(ctx, outType, leftType, rightType, joinType, condition);
+            return (T) NestedLoopJoinNode.create(ctx, createIdentityProjectionIfNeeded(joinType), leftType, rightType, joinType, condition);
         } else {
-            return (T) HashJoinNode.create(ctx, outType, leftType, rightType, joinType,
+            return (T) HashJoinNode.create(ctx, createIdentityProjectionIfNeeded(joinType), leftType, rightType, joinType,
                     JoinInfo.of(ImmutableIntList.of(2), ImmutableIntList.of(0)), nonEquiCondition);
         }
     }

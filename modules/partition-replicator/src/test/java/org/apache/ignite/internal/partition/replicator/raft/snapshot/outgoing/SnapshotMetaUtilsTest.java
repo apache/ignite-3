@@ -49,6 +49,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSna
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,15 +69,15 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         UUID nextRowIdToBuild = UUID.randomUUID();
         int indexId = 1;
 
+        var leaseInfo = new LeaseInfo(777L, new UUID(1, 2), "primary");
+
         PartitionSnapshotMeta meta = snapshotMetaAt(
                 100,
                 3,
                 config,
                 42,
                 Map.of(indexId, nextRowIdToBuild),
-                777L,
-                new UUID(1, 2),
-                "primary"
+                leaseInfo
         );
 
         assertThat(meta.cfgIndex(), is(13L));
@@ -102,8 +103,6 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
                 new RaftGroupConfiguration(13, 37, List.of(), List.of(), null, null),
                 42,
                 Map.of(),
-                777L,
-                null,
                 null
         );
 

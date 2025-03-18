@@ -26,13 +26,13 @@ import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMetaBuilder;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,9 +51,7 @@ public class SnapshotMetaUtils {
      * @param requiredCatalogVersion Catalog version that a follower/learner must have to have ability to accept this snapshot.
      * @param nextRowIdToBuildByIndexId Row ID for which the index needs to be built per building index ID at the time the snapshot meta was
      *      created.
-     * @param leaseStartTime Lease start time (as {@link HybridTimestamp#longValue()}).
-     * @param primaryReplicaNodeId Primary replica node ID.
-     * @param primaryReplicaNodeName Primary replica node name.
+     * @param leaseInfo Lease information.
      * @return SnapshotMeta corresponding to the given log index.
      */
     public static PartitionSnapshotMeta snapshotMetaAt(
@@ -62,9 +60,7 @@ public class SnapshotMetaUtils {
             RaftGroupConfiguration config,
             int requiredCatalogVersion,
             Map<Integer, UUID> nextRowIdToBuildByIndexId,
-            long leaseStartTime,
-            @Nullable UUID primaryReplicaNodeId,
-            @Nullable String primaryReplicaNodeName
+            @Nullable LeaseInfo leaseInfo
     ) {
         PartitionSnapshotMetaBuilder metaBuilder = MESSAGE_FACTORY.partitionSnapshotMeta()
                 .cfgIndex(config.index())
@@ -74,10 +70,14 @@ public class SnapshotMetaUtils {
                 .peersList(config.peers())
                 .learnersList(config.learners())
                 .requiredCatalogVersion(requiredCatalogVersion)
-                .nextRowIdToBuildByIndexId(nextRowIdToBuildByIndexId)
-                .leaseStartTime(leaseStartTime)
-                .primaryReplicaNodeId(primaryReplicaNodeId)
-                .primaryReplicaNodeName(primaryReplicaNodeName);
+                .nextRowIdToBuildByIndexId(nextRowIdToBuildByIndexId);
+
+        if (leaseInfo != null) {
+            metaBuilder
+                    .leaseStartTime(leaseInfo.leaseStartTime())
+                    .primaryReplicaNodeId(leaseInfo.primaryReplicaNodeId())
+                    .primaryReplicaNodeName(leaseInfo.primaryReplicaNodeName());
+        }
 
         if (!config.isStable()) {
             metaBuilder
