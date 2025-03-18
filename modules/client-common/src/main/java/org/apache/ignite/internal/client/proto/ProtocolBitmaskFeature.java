@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.client.proto;
 
 import java.util.BitSet;
 import java.util.Collection;
@@ -81,7 +81,7 @@ public enum ProtocolBitmaskFeature {
      * @param features Feature set.
      * @return Byte array representing all supported features.
      */
-    static BitSet featuresAsBitSet(Collection<ProtocolBitmaskFeature> features) {
+    public static BitSet featuresAsBitSet(Collection<ProtocolBitmaskFeature> features) {
         BitSet set = new BitSet();
 
         for (ProtocolBitmaskFeature f : features) {

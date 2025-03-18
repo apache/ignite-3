@@ -35,6 +35,7 @@ import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.BitSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +48,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -78,9 +80,9 @@ public class ClientHandlerModule implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
     /** Supported server features. */
-    private static final BitSet SUPPORTED_FEATURES = ServerProtocolBitmaskFeature.toBitSet(
-            ServerProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
-    );
+    private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(EnumSet.of(
+            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
+    ));
 
     /** Connection id generator.
      * The resulting connection id is local to the current node and is intended for logging, diagnostics, and management purposes. */

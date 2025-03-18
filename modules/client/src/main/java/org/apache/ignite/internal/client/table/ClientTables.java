@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientChannel;
-import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.QualifiedName;
@@ -60,34 +60,22 @@ public class ClientTables implements IgniteTables {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        return ch.serviceAsync((ch) -> {
-            if (useQualifiedNames(ch)) {
-                return ClientOp.TABLES_GET_QUALIFIED;
-            } else {
-                return ClientOp.TABLES_GET;
-            }
-        }, ClientOp.TABLES_GET, null, r -> {
-            var in = r.in();
-            var cnt = in.unpackInt();
-            var res = new ArrayList<Table>(cnt);
+        return ch.serviceAsync((ch) -> useQualifiedNames(ch) ? ClientOp.TABLES_GET_QUALIFIED : ClientOp.TABLES_GET, ClientOp.TABLES_GET,
+                null, r -> {
+                    var in = r.in();
+                    var cnt = in.unpackInt();
+                    var res = new ArrayList<Table>(cnt);
+                    boolean unpackQualifiedNames = useQualifiedNames(r.clientChannel());
 
-            for (int i = 0; i < cnt; i++) {
-                int tableId = in.unpackInt();
-                QualifiedName name;
+                    for (int i = 0; i < cnt; i++) {
+                        int tableId = in.unpackInt();
+                        QualifiedName name = unpackQualifiedNames ? in.unpackQualifiedName() : QualifiedName.parse(in.unpackString());
 
-                boolean b = useQualifiedNames(r.clientChannel());
+                        res.add(new ClientTable(ch, marshallers, tableId, name));
+                    }
 
-                if (b) {
-                    name = in.unpackQualifiedName();
-                } else {
-                    name = QualifiedName.parse(in.unpackString());
-                }
-
-                res.add(new ClientTable(ch, marshallers, tableId, name));
-            }
-
-            return res;
-        });
+                    return res;
+                });
     }
 
     /** {@inheritDoc} */
@@ -101,34 +89,24 @@ public class ClientTables implements IgniteTables {
     public CompletableFuture<Table> tableAsync(QualifiedName name) {
         Objects.requireNonNull(name);
 
-        return ch.serviceAsync((ch) -> {
-            if (useQualifiedNames(ch)) {
-                return ClientOp.TABLE_GET_QUALIFIED;
-            } else {
-                return ClientOp.TABLE_GET;
-            }
-        }, ClientOp.TABLE_GET, w -> {
-            if (useQualifiedNames(w.clientChannel())) {
-                w.out().packQualifiedName(name);
-            } else {
-                w.out().packString(name.toCanonicalForm());
-            }
-        }, r -> {
-            if (r.in().tryUnpackNil()) {
-                return null;
-            }
+        return ch.serviceAsync((ch) -> useQualifiedNames(ch) ? ClientOp.TABLES_GET_QUALIFIED : ClientOp.TABLES_GET, ClientOp.TABLE_GET,
+                w -> {
+                    if (useQualifiedNames(w.clientChannel())) {
+                        w.out().packQualifiedName(name);
+                    } else {
+                        w.out().packString(name.toCanonicalForm());
+                    }
+                }, r -> {
+                    if (r.in().tryUnpackNil()) {
+                        return null;
+                    }
 
-            int tableId = r.in().unpackInt();
-            QualifiedName qname;
+                    int tableId = r.in().unpackInt();
+                    boolean unpackQualifiedNames = useQualifiedNames(r.clientChannel());
+                    QualifiedName qname = unpackQualifiedNames ? r.in().unpackQualifiedName() : QualifiedName.parse(r.in().unpackString());
 
-            if (useQualifiedNames(r.clientChannel())) {
-                qname = r.in().unpackQualifiedName();
-            } else {
-                qname = QualifiedName.parse(r.in().unpackString());
-            }
-
-            return new ClientTable(ch, marshallers, tableId, qname);
-        });
+                    return new ClientTable(ch, marshallers, tableId, qname);
+                });
     }
 
     private static boolean useQualifiedNames(ClientChannel ch) {
