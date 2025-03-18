@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 
@@ -95,13 +96,13 @@ public class CatalogObjectDataOutput extends IgniteUnsafeDataOutput {
     }
 
     /**
-     * Writes a list of non-versioned objects.
+     * Writes a collection of non-versioned objects.
      * <b>NOTE: To write versioned elements use {@link #writeEntryList(List)} or {@link #writeCompactEntryList(List)} instead.</b>
      *
      * @param writer Element writer.
      * @param <T> Element type.
      */
-    public <T> void writeObjectList(ElementWriter<T> writer, List<T> list) throws IOException {
+    public <T> void writeObjectCollection(ElementWriter<T> writer, Collection<T> list) throws IOException {
         writeVarInt(list.size());
         for (T element : list) {
             writer.write(this, element);

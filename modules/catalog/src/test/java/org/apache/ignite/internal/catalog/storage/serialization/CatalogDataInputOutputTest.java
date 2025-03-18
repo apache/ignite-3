@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.storage.serialization;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,14 +111,15 @@ public class CatalogDataInputOutputTest extends BaseIgniteAbstractTest {
         try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(provider)) {
             List<Map.Entry<Integer, String>> list = List.of(Map.entry(1, "42"), Map.entry(2, "109"));
 
-            output.writeObjectList((out, element) -> {
+            output.writeObjectCollection((out, element) -> {
                 out.writeInt(element.getKey());
                 out.writeUTF(element.getValue());
             }, list);
 
             byte[] data = output.array();
             try (CatalogObjectDataInput input = new CatalogObjectDataInput(provider, data)) {
-                List<Map.Entry<Integer, String>> actual = input.readObjectList(in -> Map.entry(in.readInt(), in.readUTF()));
+                List<Map.Entry<Integer, String>> actual = input.readObjectCollection(
+                        in -> Map.entry(in.readInt(), in.readUTF()), ArrayList::new);
                 assertEquals(list, actual);
             }
         }

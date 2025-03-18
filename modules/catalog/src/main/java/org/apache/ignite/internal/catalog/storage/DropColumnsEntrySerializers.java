@@ -28,6 +28,8 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 
 /**
  * Serializers for {@link DropColumnsEntry}.
@@ -61,7 +63,7 @@ public class DropColumnsEntrySerializers {
         @Override
         public DropColumnsEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int tableId = input.readVarIntAsInt();
-            Set<String> columns = CatalogSerializationUtils.readStringCollection(input, size -> new HashSet<>(capacity(size)));
+            Set<String> columns = input.readObjectCollection(IgniteUnsafeDataInput::readUTF, size -> new HashSet<>(capacity(size)));
 
             return new DropColumnsEntry(tableId, columns);
         }
@@ -69,7 +71,7 @@ public class DropColumnsEntrySerializers {
         @Override
         public void writeTo(DropColumnsEntry object, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(object.tableId());
-            writeStringCollection(object.columns(), output);
+            output.writeObjectCollection(IgniteUnsafeDataOutput::writeUTF, object.columns());
         }
     }
 }

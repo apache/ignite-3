@@ -19,8 +19,10 @@ package org.apache.ignite.internal.catalog.storage.serialization;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.IntFunction;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 
 /**
@@ -106,24 +108,25 @@ public class CatalogObjectDataInput extends IgniteUnsafeDataInput {
     }
 
     /**
-     * Reads a list of non-versioned objects.
+     * Reads a collection of non-versioned objects.
      * <b>NOTE: To read versioned elements use {@link #readEntryList(Class)} or {@link #readCompactEntryList(Class)} instead.</b>
      *
      * @param reader Element reader.
+     * @param newCollection Collection factory.
      * @param <T> Element type.
      *
-     * @return A list of elements.
+     * @return A collection of objects.
      */
-    public <T> List<T> readObjectList(ElementReader<T> reader) throws IOException {
+    public <C extends Collection<T>, T> C readObjectCollection(ElementReader<T> reader, IntFunction<C> newCollection) throws IOException {
         int size = readVarIntAsInt();
-        List<T> list = new ArrayList<>(size);
+        C col = newCollection.apply(size);
 
         for (int i = 0; i < size; i++) {
             T element = reader.read(this);
-            list.add(element);
+            col.add(element);
         }
 
-        return list;
+        return col;
     }
 
     /**

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
@@ -103,11 +104,11 @@ public class CatalogSortedIndexDescriptorSerializers {
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
             boolean isCreatedWithTable = input.readBoolean();
 
-            List<CatalogIndexColumnDescriptor> columns = input.readObjectList(in -> {
+            List<CatalogIndexColumnDescriptor> columns = input.readObjectCollection(in -> {
                 String columnName = input.readUTF();
                 CatalogColumnCollation collation = CatalogColumnCollation.unpack(input.readByte());
                 return new CatalogIndexColumnDescriptor(columnName, collation);
-            });
+            }, ArrayList::new);
 
             return new CatalogSortedIndexDescriptor(id, name, tableId, unique, status, columns, updateToken, isCreatedWithTable);
         }
@@ -122,7 +123,7 @@ public class CatalogSortedIndexDescriptorSerializers {
             output.writeByte(descriptor.status().id());
             output.writeBoolean(descriptor.isCreatedWithTable());
 
-            output.writeObjectList((out, elem) -> {
+            output.writeObjectCollection((out, elem) -> {
                 output.writeUTF(elem.name());
                 output.writeByte(CatalogColumnCollation.pack(elem.collation()));
             }, descriptor.columns());

@@ -27,6 +27,8 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 
 /**
  * Serializers for {@link CatalogHashIndexDescriptor}.
@@ -75,7 +77,7 @@ public class CatalogHashIndexDescriptorSerializers {
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
             boolean isCreatedWithTable = input.readBoolean();
-            List<String> columns = readStringCollection(input, ArrayList::new);
+            List<String> columns = input.readObjectCollection(IgniteUnsafeDataInput::readUTF, ArrayList::new);
 
             return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateToken, isCreatedWithTable);
         }
@@ -89,7 +91,7 @@ public class CatalogHashIndexDescriptorSerializers {
             output.writeBoolean(value.unique());
             output.writeByte(value.status().id());
             output.writeBoolean(value.isCreatedWithTable());
-            writeStringCollection(value.columns(), output);
+            output.writeObjectCollection(IgniteUnsafeDataOutput::writeUTF, value.columns());
         }
     }
 }
