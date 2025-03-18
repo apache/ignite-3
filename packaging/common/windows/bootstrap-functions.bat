@@ -21,7 +21,7 @@ set COMMON_JAVA_OPTS=@ADD_OPENS@ ^
 -XX:+ExitOnOutOfMemoryError
 
 set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="%CONF_DIR%\ignite.java.util.logging.properties" ^
--XX:HeapDumpPath="%LOG_DIR" ^
+-XX:HeapDumpPath="%LOG_DIR%" ^
 -Xlog:gc=info:file="%LOG_DIR%\%JVM_GC_LOG_NAME%"::filecount=%JVM_GC_NUM_LOGS%,filesize=%JVM_GC_LOG_SIZE%
 
 set CLASSPATH=-classpath "%LIBS_DIR%\*" @MAIN_CLASS@
