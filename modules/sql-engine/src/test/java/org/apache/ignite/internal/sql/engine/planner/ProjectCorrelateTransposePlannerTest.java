@@ -17,8 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Join;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -27,39 +32,33 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /**
- * Set of tests to verify predicate push down optimization.
+ * Set of tests to verify project correlate transpose optimization.
  */
 @SuppressWarnings("ConcatenationWithEmptyString")
-public class PredicatePushDownPlannerTest extends AbstractPlannerTest {
+public class ProjectCorrelateTransposePlannerTest extends AbstractPlannerTest {
     @Test
-    protected void predicatePushedUnderCorrelate() throws Exception {
-        IgniteSchema schema = createSchema(
-                createTable("T")
-        );
+    public void testProjectCorrelateTranspose() throws Exception {
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableA("T0"),
+                tableA("T1"));
 
-        String sql = ""
-                + " SELECT * "
-                + "   FROM t ot"
-                + "  WHERE ot.c2 > 10"
-                + "    AND EXISTS ("
-                + "         SELECT *"
-                + "           FROM t it"
-                + "          WHERE ot.c1 = it.c1"
-                + "            AND it.c2 > it.c3)";
+        String sql = "select t0.id "
+                + "from t0 "
+                + "where exists (select * from t1 where t0.jid = t1.jid);";
 
-        assertPlan(sql, schema, isInstanceOf(Join.class)
-                .and(hasChildThat(isInstanceOf(ProjectableFilterableTableScan.class)
-                        .and(scan -> scan.condition().toString().contains(">($t1, 10)")))));
+        Predicate<RelNode> check =
+                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(0, isTableScan("T0").and(n -> n.requiredColumns() != null))));
 
+        assertPlan(sql, publicSchema, check);
     }
 
-    private static IgniteTable createTable(String tableName) {
-        return TestBuilders.table()
+    private static UnaryOperator<TableBuilder> tableA(String tableName) {
+        return tableBuilder -> tableBuilder
                 .name(tableName)
-                .addColumn("C1", NativeTypes.INT32)
-                .addColumn("C2", NativeTypes.INT32)
-                .addColumn("C3", NativeTypes.INT32)
-                .distribution(IgniteDistributions.single())
-                .build();
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("JID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .distribution(IgniteDistributions.broadcast());
     }
 }
