@@ -122,35 +122,35 @@ class IntervalBasedMeasurement {
         long opsDone = 0;
 
         if (!isOutdated(interval, curNanoTime)) {
-            if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
-                SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info(
-                        "calcSpeed 1 [curNanoTime=" + curNanoTime
-                                + ", interval.startNanoTime=" + interval.startNanoTime
-                                + ", interval.cntr=" + interval.cntr + "]"
-                );
-            }
+//            if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
+//                SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info(
+//                        "calcSpeed 1 [curNanoTime=" + curNanoTime
+//                                + ", interval.startNanoTime=" + interval.startNanoTime
+//                                + ", interval.cntr=" + interval.cntr + "]"
+//                );
+//            }
             nanosPassed += curNanoTime - interval.startNanoTime;
             opsDone += interval.cntr.get();
         }
 
         for (MeasurementInterval prevMeasurement : prevMeasurements) {
             if (!isOutdated(prevMeasurement, curNanoTime)) {
-                if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
-                    SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info(
-                            "calcSpeed 2 [prev.endNanoTime=" + prevMeasurement.endNanoTime
-                                    + ", prev.startNanoTime=" + prevMeasurement.startNanoTime
-                                    + ", prev.cntr=" + prevMeasurement.cntr + "]"
-                    );
-                }
+//                if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
+//                    SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info(
+//                            "calcSpeed 2 [prev.endNanoTime=" + prevMeasurement.endNanoTime
+//                                    + ", prev.startNanoTime=" + prevMeasurement.startNanoTime
+//                                    + ", prev.cntr=" + prevMeasurement.cntr + "]"
+//                    );
+//                }
 
                 nanosPassed += prevMeasurement.endNanoTime - prevMeasurement.startNanoTime;
                 opsDone += prevMeasurement.cntr.get();
             } else {
-                if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
-                    SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info(
-                            "outdated interval encountered"
-                    );
-                }
+//                if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
+//                    SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info(
+//                            "outdated interval encountered"
+//                    );
+//                }
             }
         }
 
@@ -221,9 +221,9 @@ class IntervalBasedMeasurement {
     private void pushToHistory(MeasurementInterval interval) {
         prevMeasurements.offer(interval);
 
-        if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
-            SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info("pushToHistory(interval)");
-        }
+//        if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
+//            SpeedBasedMemoryConsumptionThrottlingStrategy.LOG.info("pushToHistory(interval)");
+//        }
 
         if (prevMeasurements.size() > maxMeasurements) {
             prevMeasurements.remove();
