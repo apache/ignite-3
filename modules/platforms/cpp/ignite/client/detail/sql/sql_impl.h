@@ -61,7 +61,7 @@ public:
      * @param args Arguments for the statement.
      * @param callback A callback called on operation completion with SQL result set.
      */
-    void execute_async(transaction *tx, cancellation_token &token, const sql_statement &statement,
+    void execute_async(transaction *tx, cancellation_token *token, const sql_statement &statement,
         std::vector<primitive> &&args, ignite_callback<result_set> &&callback);
 
     /**
@@ -72,7 +72,7 @@ public:
      * @param args Arguments for the template (can be empty).
      * @param callback A callback called on operation completion with SQL result set.
      */
-    void execute_script_async(cancellation_token &token, const sql_statement &statement, std::vector<primitive> &&args,
+    void execute_script_async(cancellation_token *token, const sql_statement &statement, std::vector<primitive> &&args,
         ignite_callback<void> &&callback);
 
 private:

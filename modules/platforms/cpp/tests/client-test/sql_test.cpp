@@ -37,17 +37,17 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TEST"}, {});
-        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS execute_script_success"}, {});
-        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS execute_script_fail"}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DROP TABLE IF EXISTS TEST"}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DROP TABLE IF EXISTS execute_script_success"}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DROP TABLE IF EXISTS execute_script_fail"}, {});
 
-        client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+        client.get_sql().execute(nullptr, nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
         for (std::int32_t i = 0; i < 10; ++i) {
-            client.get_sql().execute(nullptr, {"INSERT INTO TEST VALUES (?, ?)"}, {i, "s-" + std::to_string(i)});
+            client.get_sql().execute(nullptr, nullptr, {"INSERT INTO TEST VALUES (?, ?)"}, {i, "s-" + std::to_string(i)});
         }
 
-        client.get_sql().execute(nullptr,
+        client.get_sql().execute(nullptr, nullptr,
             {"INSERT INTO TBL_ALL_COLUMNS_SQL VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"},
             {std::int64_t(42), std::string("test"), std::int8_t(1), std::int16_t(2), std::int32_t(3), std::int64_t(4),
                 .5f, .6, uuid(0x123e4567e89b12d3, 0x7456426614174000), ignite_date(2023, 2, 7),
@@ -63,9 +63,9 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        client.get_sql().execute(nullptr, {"DELETE FROM TBL_ALL_COLUMNS_SQL"}, {});
-        client.get_sql().execute(nullptr, {"DROP TABLE TEST"}, {});
-        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS execute_script_success"}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DELETE FROM TBL_ALL_COLUMNS_SQL"}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DROP TABLE TEST"}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DROP TABLE IF EXISTS execute_script_success"}, {});
     }
 
     void SetUp() override {
@@ -80,7 +80,7 @@ protected:
     }
 
     primitive execute_statement_one_result(const sql_statement &statement) {
-        auto result_set0 = m_client.get_sql().execute(nullptr, statement, {});
+        auto result_set0 = m_client.get_sql().execute(nullptr, nullptr, statement, {});
 
         EXPECT_TRUE(result_set0.has_rowset());
         return result_set0.current_page().front().get(0);
@@ -104,7 +104,7 @@ static void check_columns(
 }
 
 TEST_F(sql_test, sql_simple_select) {
-    auto result_set = m_client.get_sql().execute(nullptr, {"select 42, 'Lorem'"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, {"select 42, 'Lorem'"}, {});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_TRUE(result_set.has_rowset());
@@ -123,7 +123,7 @@ TEST_F(sql_test, sql_simple_select) {
 }
 
 TEST_F(sql_test, sql_table_select) {
-    auto result_set = m_client.get_sql().execute(nullptr, {"select id, val from TEST order by id"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, {"select id, val from TEST order by id"}, {});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_TRUE(result_set.has_rowset());
@@ -148,7 +148,7 @@ TEST_F(sql_test, sql_select_multiple_pages) {
     sql_statement statement{"select id, val from TEST order by id"};
     statement.page_size(1);
 
-    auto result_set = m_client.get_sql().execute(nullptr, statement, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, statement, {});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_TRUE(result_set.has_rowset());
@@ -176,7 +176,7 @@ TEST_F(sql_test, sql_close_non_empty_cursor) {
     sql_statement statement{"select id, val from TEST order by id"};
     statement.page_size(3);
 
-    auto result_set = m_client.get_sql().execute(nullptr, statement, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, statement, {});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_TRUE(result_set.has_rowset());
@@ -189,14 +189,14 @@ TEST_F(sql_test, sql_close_non_empty_cursor) {
 }
 
 TEST_F(sql_test, sql_ddl_dml) {
-    auto result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS SQL_DDL_DML_TEST"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, {"DROP TABLE IF EXISTS SQL_DDL_DML_TEST"}, {});
 
     EXPECT_FALSE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
     result_set =
-        m_client.get_sql().execute(nullptr, {"CREATE TABLE SQL_DDL_DML_TEST(ID BIGINT PRIMARY KEY, VAL VARCHAR)"}, {});
+        m_client.get_sql().execute(nullptr, nullptr, {"CREATE TABLE SQL_DDL_DML_TEST(ID BIGINT PRIMARY KEY, VAL VARCHAR)"}, {});
 
     EXPECT_TRUE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
@@ -204,7 +204,7 @@ TEST_F(sql_test, sql_ddl_dml) {
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
     result_set = m_client.get_sql().execute(
-        nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(13), std::string("Hello")});
+        nullptr, nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(13), std::string("Hello")});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
@@ -212,21 +212,21 @@ TEST_F(sql_test, sql_ddl_dml) {
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
     result_set = m_client.get_sql().execute(
-        nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(14), std::string("World")});
+        nullptr, nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(14), std::string("World")});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
     EXPECT_EQ(1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
-    result_set = m_client.get_sql().execute(nullptr, {"UPDATE SQL_DDL_DML_TEST SET VAL = ?"}, {std::string("Test")});
+    result_set = m_client.get_sql().execute(nullptr, nullptr, {"UPDATE SQL_DDL_DML_TEST SET VAL = ?"}, {std::string("Test")});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
     EXPECT_EQ(2, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
-    result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE SQL_DDL_DML_TEST"}, {});
+    result_set = m_client.get_sql().execute(nullptr, nullptr, {"DROP TABLE SQL_DDL_DML_TEST"}, {});
 
     EXPECT_TRUE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
@@ -235,20 +235,20 @@ TEST_F(sql_test, sql_ddl_dml) {
 }
 
 TEST_F(sql_test, sql_insert_null) {
-    auto result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS SQL_INSERT_NULL_TEST"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, {"DROP TABLE IF EXISTS SQL_INSERT_NULL_TEST"}, {});
     result_set =
-        m_client.get_sql().execute(nullptr, {"CREATE TABLE SQL_INSERT_NULL_TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+        m_client.get_sql().execute(nullptr, nullptr, {"CREATE TABLE SQL_INSERT_NULL_TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
     ASSERT_TRUE(result_set.was_applied());
 
-    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_INSERT_NULL_TEST VALUES (13, NULL)"}, {});
+    result_set = m_client.get_sql().execute(nullptr, nullptr, {"INSERT INTO SQL_INSERT_NULL_TEST VALUES (13, NULL)"}, {});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
     EXPECT_EQ(1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
-    result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE SQL_INSERT_NULL_TEST"}, {});
+    result_set = m_client.get_sql().execute(nullptr, nullptr, {"DROP TABLE SQL_INSERT_NULL_TEST"}, {});
     EXPECT_TRUE(result_set.was_applied());
 }
 
@@ -256,7 +256,7 @@ TEST_F(sql_test, sql_invalid_query) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_sql().execute(nullptr, {"not a query"}, {});
+                m_client.get_sql().execute(nullptr, nullptr, {"not a query"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Failed to parse query: Non-query expression"));
                 throw;
@@ -269,7 +269,7 @@ TEST_F(sql_test, sql_unknown_table) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_sql().execute(nullptr, {"select id from unknown_table"}, {});
+                m_client.get_sql().execute(nullptr, nullptr, {"select id from unknown_table"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Object 'UNKNOWN_TABLE' not found"));
                 throw;
@@ -282,7 +282,7 @@ TEST_F(sql_test, sql_unknown_column) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_sql().execute(nullptr, {"select unknown_column from test"}, {});
+                m_client.get_sql().execute(nullptr, nullptr, {"select unknown_column from test"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column 'UNKNOWN_COLUMN' not found in any table"));
                 throw;
@@ -295,7 +295,7 @@ TEST_F(sql_test, sql_create_existing_table) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+                m_client.get_sql().execute(nullptr, nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.TEST' already exists"));
                 // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
@@ -310,7 +310,7 @@ TEST_F(sql_test, sql_add_existing_column) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_sql().execute(nullptr, {"ALTER TABLE TEST ADD COLUMN ID INT"}, {});
+                m_client.get_sql().execute(nullptr, nullptr, {"ALTER TABLE TEST ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column with name 'ID' already exists"));
                 // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
@@ -325,7 +325,7 @@ TEST_F(sql_test, sql_alter_nonexisting_table) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_sql().execute(nullptr, {"ALTER TABLE UNKNOWN_TABLE ADD COLUMN ID INT"}, {});
+                m_client.get_sql().execute(nullptr, nullptr, {"ALTER TABLE UNKNOWN_TABLE ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.UNKNOWN_TABLE' not found"));
                 // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
@@ -345,7 +345,7 @@ TEST_F(sql_test, sql_statement_defaults) {
 }
 
 TEST_F(sql_test, decimal_literal) {
-    auto result_set = m_client.get_sql().execute(nullptr, {"SELECT CAST('12345.6789' AS DECIMAL(9, 4))"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, {"SELECT CAST('12345.6789' AS DECIMAL(9, 4))"}, {});
 
     EXPECT_TRUE(result_set.has_rowset());
 
@@ -362,7 +362,7 @@ TEST_F(sql_test, decimal_literal) {
 }
 
 TEST_F(sql_test, all_type_arguments) {
-    auto result_set = m_client.get_sql().execute(nullptr,
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr,
         {"select str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",time2,"
          "\"DATETIME\",datetime2,\"TIMESTAMP\",timestamp2,\"BLOB\",\"DECIMAL\",\"BOOLEAN\" from TBL_ALL_COLUMNS_SQL"},
         {});
@@ -396,7 +396,7 @@ TEST_F(sql_test, all_type_arguments) {
 
 TEST_F(sql_test, uuid_literal) {
     auto result_set =
-        m_client.get_sql().execute(nullptr, {"SELECT CAST('df6bbb13-f2d2-42b4-bef9-7ab8524a0704' AS UUID)"}, {});
+        m_client.get_sql().execute(nullptr, nullptr, {"SELECT CAST('df6bbb13-f2d2-42b4-bef9-7ab8524a0704' AS UUID)"}, {});
 
     EXPECT_TRUE(result_set.has_rowset());
 
@@ -412,7 +412,7 @@ TEST_F(sql_test, uuid_literal) {
 TEST_F(sql_test, uuid_argument) {
     uuid req{0x123e4567e89b12d3, 0x7456426614174000};
     auto result_set =
-        m_client.get_sql().execute(nullptr, {R"(select MAX("UUID") from TBL_ALL_COLUMNS_SQL WHERE "UUID" = ?)"}, {req});
+        m_client.get_sql().execute(nullptr, nullptr, {R"(select MAX("UUID") from TBL_ALL_COLUMNS_SQL WHERE "UUID" = ?)"}, {req});
 
     EXPECT_TRUE(result_set.has_rowset());
 
@@ -421,7 +421,7 @@ TEST_F(sql_test, uuid_argument) {
 }
 
 TEST_F(sql_test, null_column) {
-    auto result_set = m_client.get_sql().execute(nullptr, {"select NULL"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, {"select NULL"}, {});
 
     EXPECT_TRUE(result_set.has_rowset());
 
@@ -435,13 +435,14 @@ TEST_F(sql_test, null_column) {
 }
 
 TEST_F(sql_test, execute_script_success) {
-    m_client.get_sql().execute_script({"CREATE TABLE execute_script_success (id INT PRIMARY KEY, step INTEGER); "
-                                       "INSERT INTO execute_script_success VALUES(1, 0); "
-                                       "UPDATE execute_script_success SET step = 1; "
-                                       "UPDATE execute_script_success SET step = 2; "},
+    m_client.get_sql().execute_script(nullptr,
+        {"CREATE TABLE execute_script_success (id INT PRIMARY KEY, step INTEGER); "
+            "INSERT INTO execute_script_success VALUES(1, 0); "
+            "UPDATE execute_script_success SET step = 1; "
+            "UPDATE execute_script_success SET step = 2; "},
         {});
 
-    auto result_set = m_client.get_sql().execute(nullptr, {"SELECT step FROM execute_script_success"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, {"SELECT step FROM execute_script_success"}, {});
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_FALSE(result_set.has_more_pages());
 
@@ -459,7 +460,7 @@ TEST_F(sql_test, execute_script_fail) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_sql().execute_script(
+                m_client.get_sql().execute_script(nullptr,
                     {"CREATE TABLE execute_script_fail (id INT PRIMARY KEY, step INTEGER); "
                      "INSERT INTO execute_script_fail VALUES(1, 0); "
                      "UPDATE execute_script_fail SET step = 1; "
@@ -473,7 +474,7 @@ TEST_F(sql_test, execute_script_fail) {
         },
         ignite_error);
 
-    auto result_set = m_client.get_sql().execute(nullptr, {"SELECT step FROM execute_script_fail"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, nullptr, {"SELECT step FROM execute_script_fail"}, {});
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_FALSE(result_set.has_more_pages());
 

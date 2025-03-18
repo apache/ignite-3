@@ -96,12 +96,12 @@ void add_action(cancellation_token &token, node_connection &connection, std::int
 
     cancellation_token_impl &token_impl = static_cast<cancellation_token_impl&>(token);
     token_impl.add_action(connection.get_logger(), [&] (ignite_callback<void> callback) {
-        connection.perform_request<void>(
-            protocol::client_operation::SQL_CANCEL_EXEC, writer_func, [] (auto){}, std::move(callback));
+        connection.perform_request<void>(protocol::client_operation::SQL_CANCEL_EXEC,
+            writer_func, [] (protocol::reader&){}, std::move(callback));
     });
 }
 
-void sql_impl::execute_async(transaction *tx, cancellation_token &token, const sql_statement &statement,
+void sql_impl::execute_async(transaction *tx, cancellation_token *token, const sql_statement &statement,
     std::vector<primitive> &&args, ignite_callback<result_set> &&callback) {
     auto tx0 = tx ? tx->m_impl : nullptr;
 
@@ -125,10 +125,12 @@ void sql_impl::execute_async(transaction *tx, cancellation_token &token, const s
         protocol::client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func),
         std::move(callback));
 
-    add_action(token, *res.first, res.second);
+    if (token) {
+        add_action(*token, *res.first, res.second);
+    }
 }
 
-void sql_impl::execute_script_async(cancellation_token &token, const sql_statement &statement,
+void sql_impl::execute_script_async(cancellation_token *token, const sql_statement &statement,
     std::vector<primitive> &&args, ignite_callback<void> &&callback) {
 
     auto writer_func = [this, &statement, args = std::move(args)](protocol::writer &writer) {
@@ -140,7 +142,9 @@ void sql_impl::execute_script_async(cancellation_token &token, const sql_stateme
     auto res = m_connection->perform_request_wr<void>(
         protocol::client_operation::SQL_EXEC_SCRIPT, nullptr, writer_func, std::move(callback));
 
-    add_action(token, *res.first, res.second);
+    if (token) {
+        add_action(*token, *res.first, res.second);
+    }
 }
 
 } // namespace ignite::detail

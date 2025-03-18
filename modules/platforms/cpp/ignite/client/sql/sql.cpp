@@ -16,17 +16,16 @@
  */
 
 #include "ignite/client/sql/sql.h"
-#include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/sql/sql_impl.h"
 
 namespace ignite {
 
-void sql::execute_async(transaction *tx, cancellation_token &token, const sql_statement &statement,
+void sql::execute_async(transaction *tx, cancellation_token *token, const sql_statement &statement,
     std::vector<primitive> args, ignite_callback<result_set> callback) {
     m_impl->execute_async(tx, token, statement, std::move(args), std::move(callback));
 }
 
-void sql::execute_script_async(cancellation_token &token, const sql_statement &statement,
+void sql::execute_script_async(cancellation_token *token, const sql_statement &statement,
     std::vector<primitive> args, ignite_callback<void> callback) {
     m_impl->execute_script_async(token, statement, std::move(args), std::move(callback));
 }

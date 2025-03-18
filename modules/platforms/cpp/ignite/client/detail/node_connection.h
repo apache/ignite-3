@@ -144,8 +144,9 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    bool perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+    std::optional<std::int64_t> perform_request(protocol::client_operation op,
+        const std::function<void(protocol::writer &)> &wr, std::function<T(protocol::reader &)> rd,
+        ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         return perform_request(op, wr, std::move(handler));
     }

@@ -147,11 +147,11 @@ public:
      * @param callback Callback to call on a result.
      */
     template<typename T>
-    void perform_request(protocol::client_operation op, transaction_impl *tx,
-        const std::function<void(protocol::writer &)> &wr, std::function<T(protocol::reader &)> rd,
-        ignite_callback<T> callback) {
+    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request(protocol::client_operation op,
+        transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
-        perform_request_handler(op, tx, wr, std::move(handler));
+        return perform_request_handler(op, tx, wr, std::move(handler));
     }
 
     /**
