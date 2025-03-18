@@ -48,8 +48,11 @@ protected:
         }
 
         client.get_sql().execute(nullptr, nullptr,
-            {"INSERT INTO TBL_ALL_COLUMNS_SQL VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"},
-            {std::int64_t(42), std::string("test"), std::int8_t(1), std::int16_t(2), std::int32_t(3), std::int64_t(4),
+            {"INSERT INTO TBL_ALL_COLUMNS_SQL("
+             R"(STR, INT8, KEY, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, "DATE", "TIME", TIME2, "DATETIME", DATETIME2, )"
+             R"("TIMESTAMP", TIMESTAMP2, "BLOB", "DECIMAL", "BOOLEAN"))"
+             " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"},
+            {std::string("test"), std::int8_t(1), std::int64_t(42), std::int16_t(2), std::int32_t(3), std::int64_t(4),
                 .5f, .6, uuid(0x123e4567e89b12d3, 0x7456426614174000), ignite_date(2023, 2, 7),
                 ignite_time(17, 4, 12, 3543634), ignite_time(17, 4, 12, 3543634),
                 ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879}),
