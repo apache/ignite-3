@@ -1019,6 +1019,21 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         //    .check();
     }
 
+    @Test
+    public void testNonColocatedNaturalJoin() {
+        sqlScript("CREATE TABLE tbl1 (a INTEGER, b INTEGER,  PRIMARY KEY(b));"
+                + "CREATE TABLE tbl2 (a INTEGER, c INTEGER,  PRIMARY KEY(c));"
+                + "CREATE TABLE tbl3 (a INTEGER, b INTEGER, c INTEGER, PRIMARY KEY(a))");
+
+        sql("INSERT INTO tbl1 VALUES (1, 2)");
+        sql("INSERT INTO tbl2 VALUES (1, 3), (2, 4)");
+        sql("INSERT INTO tbl3 VALUES (1, 2, 3)");
+
+        gatherStatistics();
+
+        sql("SELECT * FROM tbl1 NATURAL JOIN tbl2 NATURAL JOIN tbl3");
+    }
+
     /** Check IS NOT DISTINCT execution correctness and IndexSpool presence. */
     @ParameterizedTest(name = "join algo : {0}, index present: {1}")
     @MethodSource("joinTypes")
@@ -1071,11 +1086,11 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @EnumSource(value = JoinType.class, names = {"NESTED_LOOP", "HASH"}, mode = Mode.INCLUDE)
     void partiallyEquiJoin(JoinType type) {
-        assertQuery("" 
-                + "SELECT t1.c1, t1.c2, t2.c1, t2.c2 FROM" 
-                + "  (SELECT x::integer AS c1, x % 2 AS c2 FROM system_range(1, 10)) AS t1" 
-                + " JOIN" 
-                + "  (SELECT x::integer AS c1, x % 3 AS c2 FROM system_range(1, 10)) t2" 
+        assertQuery(""
+                + "SELECT t1.c1, t1.c2, t2.c1, t2.c2 FROM"
+                + "  (SELECT x::integer AS c1, x % 2 AS c2 FROM system_range(1, 10)) AS t1"
+                + " JOIN"
+                + "  (SELECT x::integer AS c1, x % 3 AS c2 FROM system_range(1, 10)) t2"
                 + "   ON t1.c1 = t2.c1 AND t1.c2 < t2.c2", type
         )
                 .returns(2, 0, 2, 2)
@@ -1104,7 +1119,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
             sql("CREATE TABLE t1_ij (i INTEGER PRIMARY KEY, j INTEGER);");
             sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j BIGINT);");
 
-            var expectedMessage = "Column N#1 matched using NATURAL keyword or USING clause " 
+            var expectedMessage = "Column N#1 matched using NATURAL keyword or USING clause "
                     + "has incompatible types in this context: 'INTEGER' to 'BIGINT'";
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("SELECT * FROM t1_ij NATURAL JOIN t2_ij"));
