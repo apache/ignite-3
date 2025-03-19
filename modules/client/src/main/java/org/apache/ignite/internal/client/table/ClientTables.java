@@ -89,7 +89,7 @@ public class ClientTables implements IgniteTables {
     public CompletableFuture<Table> tableAsync(QualifiedName name) {
         Objects.requireNonNull(name);
 
-        return ch.serviceAsync((ch) -> useQualifiedNames(ch) ? ClientOp.TABLES_GET_QUALIFIED : ClientOp.TABLES_GET, ClientOp.TABLE_GET,
+        return ch.serviceAsync((ch) -> useQualifiedNames(ch) ? ClientOp.TABLE_GET_QUALIFIED : ClientOp.TABLE_GET, ClientOp.TABLE_GET,
                 w -> {
                     if (useQualifiedNames(w.clientChannel())) {
                         w.out().packQualifiedName(name);
