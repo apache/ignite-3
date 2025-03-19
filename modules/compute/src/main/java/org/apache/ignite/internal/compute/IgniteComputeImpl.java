@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -66,7 +67,9 @@ import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -204,6 +207,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                             entry.getValue(),
                                             entry.getKey(),
                                             table.tableId(),
+                                            table.zoneId(),
                                             descriptor,
                                             argHolder,
                                             cancellationToken
@@ -254,6 +258,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             ClusterNode node,
             Partition partition,
             int tableId,
+            int zoneId,
             JobDescriptor<T, R> descriptor,
             @Nullable ComputeJobDataHolder argHolder,
             @Nullable CancellationToken cancellationToken
@@ -266,7 +271,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
         PartitionNextWorkerSelector nextWorkerSelector = new PartitionNextWorkerSelector(
                 placementDriver, topologyService, clock,
-                tableId, partition
+                zoneId, tableId, partition
         );
         return submitForBroadcast(node, descriptor, options, nextWorkerSelector, argHolder, cancellationToken);
     }
@@ -467,7 +472,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return primaryReplicaForPartition(table, partitionId)
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
-                        new PartitionNextWorkerSelector(placementDriver, topologyService, clock, table.tableId(), partition),
+                        new PartitionNextWorkerSelector(
+                                placementDriver, topologyService, clock, table.zoneId(), table.tableId(), partition),
                         units, jobClassName, options, arg, cancellationToken
                 ));
     }
@@ -486,15 +492,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return primaryReplicaForPartition(table, table.partitionId(key));
     }
 
-    private <K> CompletableFuture<ClusterNode> primaryReplicaForPartitionByMappedKey(TableViewInternal table, K key,
-            Mapper<K> keyMapper) {
+    private <K> CompletableFuture<ClusterNode> primaryReplicaForPartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
         return primaryReplicaForPartition(table, table.partitionId(key, keyMapper));
     }
 
     private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
-        TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionIndex);
+        PartitionGroupId replicationGroupId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), partitionIndex)
+                : new TablePartitionId(table.tableId(), partitionIndex);
 
-        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), 30, TimeUnit.SECONDS)
+        return placementDriver.awaitPrimaryReplica(replicationGroupId, clock.now(), 30, TimeUnit.SECONDS)
                 .thenApply(replicaMeta -> {
                     if (replicaMeta != null && replicaMeta.getLeaseholderId() != null) {
                         return topologyService.getById(replicaMeta.getLeaseholderId());
