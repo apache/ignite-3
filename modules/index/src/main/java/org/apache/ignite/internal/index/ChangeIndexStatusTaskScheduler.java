@@ -102,7 +102,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
      * Schedules a task for that will transfer the given index to the {@link CatalogIndexStatus#BUILDING} state.
      */
     void scheduleStartBuildingTask(CatalogIndexDescriptor indexDescriptor) {
-        assert indexDescriptor.status() == CatalogIndexStatus.REGISTERED;
+        assert indexDescriptor.status() == CatalogIndexStatus.REGISTERED : "Index must be REGISTERED " + indexDescriptor;
 
         LOG.info("Scheduling starting of index building. Index: {}", indexDescriptor);
 
