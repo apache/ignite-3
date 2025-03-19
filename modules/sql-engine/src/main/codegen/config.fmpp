@@ -104,8 +104,18 @@ data: {
     # items in this list become non-reserved.
     nonReservedKeywordsToAdd: [
       # Keywords introduced by Ignite
+      "AUTO"
+      "DOWN"
       "PARTITIONS"
       "REPLICAS"
+      "DISTRIBUTION"
+      "ALGORITHM"
+      "NODES"
+      "ADJUST"
+      "CONSISTENCY"
+      "MODE"
+      "PROFILES"
+      "UP"
       "ENGINE"
       "STORAGE"
       "PROFILE"

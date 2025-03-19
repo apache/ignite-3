@@ -48,26 +48,26 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     @Test
     public void createZoneNoOptions() {
         // Simple name.
-        IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone");
+        IgniteSqlCreateZoneV2 createZone = parseCreateZoneV2("create zone test_zone storage profiles['p']");
 
         assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
         assertFalse(createZone.ifNotExists());
         assertNull(createZone.createOptionList());
-        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\"");
+        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" \"STORAGE PROFILES\"['p']");
 
         // Fully qualified name.
-        createZone = parseCreateZone("create zone public.test_zone");
+        createZone = parseCreateZoneV2("create zone public.test_zone storage profiles['p']");
         assertThat(createZone.name().names, is(List.of("PUBLIC", "TEST_ZONE")));
-        expectUnparsed(createZone, "CREATE ZONE \"PUBLIC\".\"TEST_ZONE\"");
+        expectUnparsed(createZone, "CREATE ZONE \"PUBLIC\".\"TEST_ZONE\" \"STORAGE PROFILES\"['p']");
 
         // Quoted identifier.
-        createZone = parseCreateZone("create zone \"public\".\"test_Zone\"");
+        createZone = parseCreateZoneV2("create zone \"public\".\"test_Zone\" storage profiles['p']");
         assertThat(createZone.name().names, is(List.of("public", "test_Zone")));
-        expectUnparsed(createZone, "CREATE ZONE \"public\".\"test_Zone\"");
+        expectUnparsed(createZone, "CREATE ZONE \"public\".\"test_Zone\" \"STORAGE PROFILES\"['p']");
 
-        createZone = parseCreateZone("create zone \"public-test_Zone\"");
+        createZone = parseCreateZoneV2("create zone \"public-test_Zone\" storage profiles['p']");
         assertThat(createZone.name().names, is(List.of("public-test_Zone")));
-        expectUnparsed(createZone, "CREATE ZONE \"public-test_Zone\"");
+        expectUnparsed(createZone, "CREATE ZONE \"public-test_Zone\" \"STORAGE PROFILES\"['p']");
     }
 
     /**
@@ -75,12 +75,12 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      */
     @Test
     public void createZoneIfNotExists() {
-        IgniteSqlCreateZone createZone = parseCreateZone("create zone if not exists test_zone");
+        IgniteSqlCreateZoneV2 createZone = parseCreateZoneV2("create zone if not exists test_zone storage profiles['p']");
 
         assertTrue(createZone.ifNotExists());
         assertNull(createZone.createOptionList());
 
-        expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\"");
+        expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\" \"STORAGE PROFILES\"['p']");
     }
 
     @Test
