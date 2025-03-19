@@ -206,8 +206,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                     .map(entry -> submitForBroadcast(
                                             entry.getValue(),
                                             entry.getKey(),
-                                            table.tableId(),
                                             table.zoneId(),
+                                            table.tableId(),
                                             descriptor,
                                             argHolder,
                                             cancellationToken
@@ -257,8 +257,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     private <T, R> CompletableFuture<JobExecution<R>> submitForBroadcast(
             ClusterNode node,
             Partition partition,
-            int tableId,
             int zoneId,
+            int tableId,
             JobDescriptor<T, R> descriptor,
             @Nullable ComputeJobDataHolder argHolder,
             @Nullable CancellationToken cancellationToken
