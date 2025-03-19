@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.partition.Partition;
 
@@ -29,22 +33,25 @@ import org.apache.ignite.table.partition.Partition;
  * node (we lost the majority, for example) the {@code CompletableFuture.completedFuture(null)} will be returned.
  */
 class PartitionNextWorkerSelector extends PrimaryReplicaNextWorkerSelector {
-    private final TablePartitionId tablePartitionId;
+    private final PartitionGroupId partitionGroupId;
 
     PartitionNextWorkerSelector(
             PlacementDriver placementDriver,
             TopologyService topologyService,
             HybridClock clock,
+            int zoneId,
             int tableId,
             Partition partition
     ) {
         super(placementDriver, topologyService, clock);
 
-        this.tablePartitionId = new TablePartitionId(tableId, ((HashPartition) partition).partitionId());
+        this.partitionGroupId = enabledColocation()
+                ? new ZonePartitionId(zoneId, ((HashPartition) partition).partitionId())
+                : new TablePartitionId(tableId, ((HashPartition) partition).partitionId());
     }
 
     @Override
-    protected TablePartitionId tablePartitionId() {
-        return tablePartitionId;
+    protected PartitionGroupId partitionGroupId() {
+        return partitionGroupId;
     }
 }

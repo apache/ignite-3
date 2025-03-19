@@ -35,6 +35,13 @@ public interface TableViewInternal extends Table {
      */
     int tableId();
 
+    /**
+     * Returns a zone id.
+     *
+     * @return Zone id.
+     */
+    int zoneId();
+
     /** Returns an ID of a primary index, {@code -1} if not set. */
     int pkId();
 
