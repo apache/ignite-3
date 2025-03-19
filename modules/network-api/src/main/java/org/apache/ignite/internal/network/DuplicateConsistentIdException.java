@@ -21,7 +21,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.Network;
 
 /**
- * Thrown when there's a duplicate consistent ID in the physical topology.
+ * Thrown when a send by consistent ID fails because there's a duplicate consistent ID in the physical topology.
  */
 public class DuplicateConsistentIdException extends IgniteInternalException {
     public DuplicateConsistentIdException(String msg) {

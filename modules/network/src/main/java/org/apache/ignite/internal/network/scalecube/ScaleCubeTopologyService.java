@@ -62,7 +62,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Topology members map from the consistent id to the map from the id to the cluster node. */
     private final ConcurrentMap<String, Map<UUID, ClusterNode>> membersByConsistentId = new ConcurrentHashMap<>();
 
-    /** Topology members map from the consistent id to the cluster node. Only contains nodes that are joined logical topology. */
+    /** Topology members map from the consistent id to the cluster node. Only contains nodes that joined logical topology. */
     private final ConcurrentMap<String, ClusterNode> membersByConsistentIdInLogicalTopology = new ConcurrentHashMap<>();
 
     /** Topology members map from the id to the cluster node. */
@@ -156,11 +156,11 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         ClusterNode node = fromMember(cluster.member(), metadata);
         members.put(node.address(), node);
         membersByConsistentId.computeIfAbsent(node.name(), k -> new ConcurrentHashMap<>()).put(node.id(), node);
-        membersByConsistentIdInLogicalTopology.compute(node.name(), (consId, clusterNode) -> {
-            if (clusterNode != null && clusterNode.id().equals(node.id())) {
+        membersByConsistentIdInLogicalTopology.compute(node.name(), (consId, prevNode) -> {
+            if (prevNode != null && prevNode.id().equals(node.id())) {
                 return node;
             }
-            return clusterNode;
+            return prevNode;
         });
         idToMemberMap.put(node.id(), node);
     }
@@ -215,8 +215,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     public @Nullable ClusterNode getByConsistentId(String consistentId) {
         ClusterNode nodeInLogicalTopology = membersByConsistentIdInLogicalTopology.get(consistentId);
         if (nodeInLogicalTopology != null) {
-            // Node is in the logical topology, check if it's in the physical topology. This could happen when topology is restored on
-            // node start, but the node is not present anymore
+            // Node is in the logical topology, check if it's present in the physical topology. The node could be in the logical topology
+            // when it was restored on node start, but the node is not present in the physical topology. In this case, fall through.
             ClusterNode node = idToMemberMap.get(nodeInLogicalTopology.id());
             if (node != null) {
                 return node;
@@ -229,7 +229,11 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             return null;
         }
         if (nodes.size() > 1) {
-            LOG.error("Node \"{}\" has duplicate in the physical topology", consistentId);
+            LOG.error(
+                    "Node \"{}\" has duplicate(s) in the physical topology: {}",
+                    consistentId,
+                    nodes.values().stream().map(ClusterNode::address).collect(Collectors.toList())
+            );
             throw new DuplicateConsistentIdException(consistentId);
         }
         return nodes.values().iterator().next();
@@ -275,13 +279,17 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     @Override
     public void onJoined(ClusterNode node) {
-        LOG.info("Node joined logical topology [node={}]", node);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Node joined logical topology [node={}]", node);
+        }
         membersByConsistentIdInLogicalTopology.put(node.name(), node);
     }
 
     @Override
     public void onLeft(ClusterNode node) {
-        LOG.info("Node left logical topology [node={}]", node);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Node left logical topology [node={}]", node);
+        }
         membersByConsistentIdInLogicalTopology.remove(node.name());
     }
 }
