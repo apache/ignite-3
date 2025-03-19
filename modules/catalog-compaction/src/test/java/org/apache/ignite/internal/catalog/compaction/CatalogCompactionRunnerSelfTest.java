@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -105,6 +106,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -855,13 +857,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         List<LogicalNode> assignments = List.of(NODE1, NODE2, NODE3);
         LogicalNode coordinator = NODE1;
 
+        int replicationGroupsMultiplier = enabledColocation() ? /* zones */1 : /* tables */ 3;
+
         {
             CatalogCompactionRunner compactor = createRunner(NODE1, coordinator, (n) -> catalog.time(), logicalTopology, assignments);
 
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
             // All invocations must be made locally.
-            verify(replicaService, times(/* tables */ 3 * /* partitions */ 9)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(replicationGroupsMultiplier * /* partitions */ 9)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
         }
@@ -872,7 +876,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
             verify(replicaService, times(0)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
-            verify(replicaService, times(3 * 8)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(replicationGroupsMultiplier * 8)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
         }
 
@@ -883,7 +887,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             verify(replicaService, times(0)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
-            verify(replicaService, times(3 * 8)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(replicationGroupsMultiplier * 8)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
         }
     }
 
@@ -907,8 +911,13 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
-            verify(replicaService, times(/* tables */ 3 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
-                    .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            if (enabledColocation()) {
+                verify(replicaService, times(/* zones */ 1 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
+                        .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            } else {
+                verify(replicaService, times(/* tables */ 3 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
+                        .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            }
         }
 
         {
@@ -1128,7 +1137,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(tableAssignments));
 
         when(placementDriver.getPrimaryReplica(any(), any())).thenAnswer(invocation -> {
-            TablePartitionId groupId = invocation.getArgument(0);
+            PartitionGroupId groupId = invocation.getArgument(0);
             LogicalNode node = primaryAffinity.apply(groupId.partitionId());
 
             return CompletableFuture.completedFuture(node == null ? null : new TestReplicaMeta(node.id()));
