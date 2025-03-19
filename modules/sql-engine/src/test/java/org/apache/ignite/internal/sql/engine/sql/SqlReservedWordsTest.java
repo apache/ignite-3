@@ -33,6 +33,8 @@ public class SqlReservedWordsTest extends AbstractParserTest {
     /** List of keywords reserved in Ignite SQL. */
     private static final Set<String> RESERVED_WORDS = Set.of(
             "ABS",
+            "ADJUST",
+            "ALGORITHM",
             "ALL", // UNION ALL
             "ALTER",
             "AND",
@@ -42,6 +44,7 @@ public class SqlReservedWordsTest extends AbstractParserTest {
             "AS",
             "ASOF",
             "ASYMMETRIC", // BETWEEN ASYMMETRIC .. AND ..
+            "AUTO",
             "AVG",
             "BETWEEN",
             "BOTH", // TRIM(BOTH .. FROM ..)
@@ -58,6 +61,7 @@ public class SqlReservedWordsTest extends AbstractParserTest {
             "COALESCE",
             "COLLECT",
             "COLUMN",
+            "CONSISTENCY",
             "CONSTRAINT",
             "CONVERT",
             "COUNT",
@@ -87,6 +91,8 @@ public class SqlReservedWordsTest extends AbstractParserTest {
             "DENSE_RANK",
             "DESCRIBE",
             "DISTINCT",
+            "DISTRIBUTION",
+            "DOWN",
             "DROP",
             "ELEMENT",
             "ELSE",
@@ -143,12 +149,14 @@ public class SqlReservedWordsTest extends AbstractParserTest {
             "MINUS",
             "MINUTE",
             "MOD",
+            "MODE",
             "MONDAY",
             "MONTH",
             "MULTISET",
             "NATURAL", // NATURAL JOIN
             "NEW",
             "NEXT",
+            "NODES",
             "NOT",
             "NTH_VALUE",
             "NTILE",
@@ -170,6 +178,7 @@ public class SqlReservedWordsTest extends AbstractParserTest {
             "POWER",
             "PRECISION",
             "PRIMARY",
+            "PROFILES",
             "QUALIFY",
             "RANK",
             "REGR_COUNT",
@@ -212,6 +221,7 @@ public class SqlReservedWordsTest extends AbstractParserTest {
             "UESCAPE",
             "UNION",
             "UNKNOWN",
+            "UP",
             "UPDATE",
             "UPPER",
             "UPSERT",
