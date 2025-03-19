@@ -554,6 +554,31 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
+    @Test
+    public void testReceiverWithTuples() {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<String>();
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            Tuple receiverArg = Tuple.create().set("arg1", "val1").set("arg2", 2);
+
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    Function.identity(),
+                    Function.identity(),
+                    ReceiverDescriptor.builder(TupleReceiver.class).build(),
+                    resultSubscriber,
+                    null,
+                    receiverArg
+            );
+
+            publisher.submit(tuple(1, "foo"));
+            publisher.submit(tuple(2, "bar"));
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+    }
+
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
@@ -674,6 +699,20 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         @Override
         public void onComplete() {
+        }
+    }
+
+    private static class TupleReceiver implements DataStreamerReceiver<Tuple, Tuple, Tuple> {
+        @Override
+        public @Nullable CompletableFuture<List<Tuple>> receive(List<Tuple> page, DataStreamerReceiverContext ctx, @Nullable Tuple arg) {
+            // Add all columns from arg to each tuple.
+            for (Tuple t : page) {
+                for (int colIdx = 0; colIdx < arg.columnCount(); colIdx++) {
+                    t.set(arg.columnName(colIdx), arg.value(colIdx));
+                }
+            }
+
+            return CompletableFuture.completedFuture(page);
         }
     }
 }
