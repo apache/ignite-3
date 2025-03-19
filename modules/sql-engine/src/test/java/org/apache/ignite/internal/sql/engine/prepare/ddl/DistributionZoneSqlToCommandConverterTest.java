@@ -260,8 +260,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             assertThrowsWithPos("CREATE ZONE test (replicas FALL)", "FALL", 28);
             assertThrowsWithPos("CREATE ZONE test (replicas 1, partitions -1)", "-", 42);
             assertThrowsWithPos("CREATE ZONE test storage_profiles ['']", "storage_profiles", 18);
-            assertThrowsParseException("CREATE ZONE test storage profiles ['']", "Validation Error: Empty profile is not allowed");
-            assertThrowsParseException("CREATE ZONE test storage profiles [' ']", "Validation Error: Empty profile is not allowed");
+            assertThrowsParseException("CREATE ZONE test (distribution algorithm '')", "Validation Error: Empty quotation is not allowed");
+            assertThrowsParseException("CREATE ZONE test storage profiles ['']", "Validation Error: Empty quotation is not allowed");
+            assertThrowsParseException("CREATE ZONE test storage profiles [' ']", "Validation Error: Empty quotation is not allowed");
         }
     }
 

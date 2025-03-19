@@ -587,10 +587,10 @@ SqlCharStringLiteral UnquotedLiteral() :
         String val = SqlParserUtil.parseString(token.image).trim();
         if (val.isEmpty()) {
             throw SqlUtil.newContextException(getPos(),
-                RESOURCE.validationError("Empty profile is not allowed."));
+                RESOURCE.validationError("Empty quotation is not allowed."));
         }
-        SqlCharStringLiteral profile = SqlLiteral.createCharString(val, getPos());
-        return profile;
+        SqlCharStringLiteral literal = SqlLiteral.createCharString(val, getPos());
+        return literal;
     }
 }
 
