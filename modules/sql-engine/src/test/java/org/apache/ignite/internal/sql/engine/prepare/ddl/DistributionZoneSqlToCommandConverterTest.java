@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionV2.OPTIONS_MAPPING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,9 +29,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlNode;
@@ -77,20 +76,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             ZoneOptionEnum.STORAGE_PROFILES,
             ZoneOptionEnum.CONSISTENCY_MODE
     );
-
-    private static final Map<ZoneOptionEnum, String> OPTIONS_MAPPING = new EnumMap<>(ZoneOptionEnum.class);
-
-    static {
-        OPTIONS_MAPPING.put(ZoneOptionEnum.PARTITIONS, "PARTITIONS");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.REPLICAS, "REPLICAS");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "DISTRIBUTION ALGORITHM");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DATA_NODES_FILTER, "NODES FILTER");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, "AUTO ADJUST");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, "AUTO SCALE UP");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "AUTO SCALE DOWN");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.CONSISTENCY_MODE, "CONSISTENCY MODE");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.STORAGE_PROFILES, "STORAGE PROFILES");
-    }
 
     @BeforeAll
     public static void setUp() throws Exception {
@@ -535,11 +520,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         } else {
             String option = OPTIONS_MAPPING.get(optionName);
             String prefix = "create zone test_zone (";
-            assertThrowsWithPos(format(sql, option, "'bar'"), "\\'bar\\'", prefix.length() + option.length() + 1 /*start pos*/
-                    + 1 /*first symbol after bracket*/);
+            assertThrowsWithPos(format(sql, option, "'bar'"), "\\'bar\\'", prefix.length() + option.length() + 1 /* start pos*/
+                    + 1 /* first symbol after bracket*/);
 
-            assertThrowsWithPos(format(sql, option, "-1"), "-", prefix.length() + option.length() + 1 /*start pos*/
-                    + 1 /*first symbol after bracket*/);
+            assertThrowsWithPos(format(sql, option, "-1"), "-", prefix.length() + option.length() + 1 /* start pos*/
+                    + 1 /* first symbol after bracket*/);
         }
     }
 
@@ -571,8 +556,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
             String option = OPTIONS_MAPPING.get(optionParam);
             String prefix = "create zone test_zone (";
-            assertThrowsWithPos(format(sql, option, "1"), "1", prefix.length() + option.length() + 1 /*start pos*/
-                    + 1 /*first symbol after bracket*/);
+            assertThrowsWithPos(format(sql, option, "1"), "1", prefix.length() + option.length() + 1 /* start pos*/
+                    + 1 /* first symbol after bracket*/);
         }
     }
 

@@ -90,16 +90,9 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         assertThat(catalog().createZoneAsync(zoneDefinition), willCompleteSuccessfully());
 
         // Then zone was created
-/*        assertThrows(
-                SqlException.class,
-                () -> sql("CREATE ZONE " + ZONE_NAME + " WITH STORAGE_PROFILES='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'"),
-                "Distribution zone with name '" + ZONE_NAME.toUpperCase() + "' already exists"
-        );*/
-
-        // Then zone was created
         assertThrows(
                 SqlException.class,
-                () -> sql("CREATE ZONE " + ZONE_NAME + " STORAGE PROFILES ['" + DEFAULT_AIPERSIST_PROFILE_NAME + "']"),
+                () -> sql("CREATE ZONE " + ZONE_NAME + " WITH STORAGE_PROFILES='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'"),
                 "Distribution zone with name '" + ZONE_NAME.toUpperCase() + "' already exists"
         );
 

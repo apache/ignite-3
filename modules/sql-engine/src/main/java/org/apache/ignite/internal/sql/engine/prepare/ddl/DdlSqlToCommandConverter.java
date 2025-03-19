@@ -723,10 +723,6 @@ public class DdlSqlToCommandConverter {
         builder.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         builder.ifNotExists(createZoneNode.ifNotExists());
 
-        if (createZoneNode.storageProfiles() == null) {
-            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
-        }
-
         Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
         if (createZoneNode.createOptionList() != null) {

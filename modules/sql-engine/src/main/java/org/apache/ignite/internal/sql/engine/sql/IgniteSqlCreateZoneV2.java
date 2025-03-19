@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
@@ -10,10 +27,14 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.SqlWriter.FrameTypeEnum;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Parse tree for {@code CREATE ZONE} statement with Ignite specific features.
+ */
 public class IgniteSqlCreateZoneV2 extends SqlCreate {
     /** CREATE ZONE operator. */
     protected static class Operator extends IgniteDdlOperator {
@@ -79,11 +100,12 @@ public class IgniteSqlCreateZoneV2 extends SqlCreate {
         name.unparse(writer, leftPrec, rightPrec);
 
         if (createOptionList != null) {
-            writer.keyword("(");
-
-            createOptionList.unparse(writer, 0, 0);
-
-            writer.keyword(")");
+            SqlWriter.Frame frame = writer.startList(FrameTypeEnum.PARENTHESES);
+            for (SqlNode c : createOptionList) {
+                writer.sep(",");
+                c.unparse(writer, 0, 0);
+            }
+            writer.endList(frame);
         }
 
         if (storageProfiles != null) {
@@ -106,7 +128,7 @@ public class IgniteSqlCreateZoneV2 extends SqlCreate {
     }
 
     /**
-     * Get list of the specified profiles to create distribution zone with.
+     * Get list of the specified storage profiles to create distribution zone with.
      */
     public @Nullable SqlNode storageProfiles() {
         return storageProfiles;

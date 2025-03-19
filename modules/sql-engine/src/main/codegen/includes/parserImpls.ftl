@@ -544,7 +544,7 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
                 [ zoneOptions = ZoneOptionsList() ]
 
                 <STORAGE> <PROFILES> {
-                  storageProfiles = StorageProfiles();
+                    storageProfiles = StorageProfiles();
                 }
             )
             {
@@ -586,8 +586,8 @@ SqlCharStringLiteral UnquotedLiteral() :
     <QUOTED_STRING> {
         String val = SqlParserUtil.parseString(token.image).trim();
         if (val.isEmpty()) {
-          throw SqlUtil.newContextException(getPos(),
-              RESOURCE.validationError("Empty profile is not allowed."));
+            throw SqlUtil.newContextException(getPos(),
+                RESOURCE.validationError("Empty profile is not allowed."));
         }
         SqlCharStringLiteral profile = SqlLiteral.createCharString(val, getPos());
         return profile;
@@ -617,7 +617,6 @@ void ZoneElement(List<SqlNode> zoneOptions) :
     final Span s;
     final SqlIdentifier key;
     final SqlNode option;
-    String valStr;
     final SqlParserPos pos;
 }
 {
@@ -629,14 +628,14 @@ void ZoneElement(List<SqlNode> zoneOptions) :
           (
               <UP> option = UnsignedIntegerLiteral()
               {
-                key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
-                zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+                  key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                  zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
               }
               |
               <DOWN> option = UnsignedIntegerLiteral()
               {
-                key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
-                zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+                  key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                  zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
               }
           )
           |
@@ -649,22 +648,22 @@ void ZoneElement(List<SqlNode> zoneOptions) :
       |
       <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
       {
-        key = new SqlIdentifier(ZoneOptionEnum.PARTITIONS.name(), pos);
-        zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+          key = new SqlIdentifier(ZoneOptionEnum.PARTITIONS.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
       }
       |
       <REPLICAS> { pos = getPos(); }
       (
           option = UnsignedIntegerLiteral()
           {
-            key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+              key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
+              zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
           }
           |
           <ALL>
           {
-            key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
+              key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
+              zoneOptions.add(new IgniteSqlZoneOptionV2(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
           }
       )
       |
