@@ -177,7 +177,17 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         assert cpLockStateChecker.checkpointLockIsHeldByThread();
 
         long startTimeNs = System.nanoTime();
-        long throttleParkTimeNs = computeThrottlingParkTime(isPageInCheckpoint, startTimeNs);
+        boolean cpBufferOverflowThresholdExceeded = isCpBufferOverflowThresholdExceeded();
+        long throttleParkTimeNs = computeThrottlingParkTime(isPageInCheckpoint, startTimeNs, cpBufferOverflowThresholdExceeded);
+        if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
+            if (throttleParkTimeNs >= 1_000_000_000) {
+                LOG.info("Very long throttling on a page [isPageInCheckpoint=" + isPageInCheckpoint
+                        + ", cpBufferOverflowThresholdExceeded=" + cpBufferOverflowThresholdExceeded
+                        + ", throttleParkTimeNs=" + throttleParkTimeNs
+                        + (isPageInCheckpoint && cpBufferOverflowThresholdExceeded ? ", exponentialBackoff!!!" : "")
+                        + "]");
+            }
+        }
 
         if (throttleParkTimeNs == NO_THROTTLING_MARKER) {
             return;
@@ -191,8 +201,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         markSpeedAndAvgParkTime.addMeasurementForAverageCalculation(throttleParkTimeNs);
     }
 
-    private long computeThrottlingParkTime(boolean isPageInCheckpoint, long curNanoTime) {
-        if (isPageInCheckpoint && isCpBufferOverflowThresholdExceeded()) {
+    private long computeThrottlingParkTime(boolean isPageInCheckpoint, long curNanoTime, boolean cpBufferOverflowThresholdExceeded) {
+        if (isPageInCheckpoint && cpBufferOverflowThresholdExceeded) {
             return cpBufferProtector.protectionParkTime();
         } else {
             if (isPageInCheckpoint) {
