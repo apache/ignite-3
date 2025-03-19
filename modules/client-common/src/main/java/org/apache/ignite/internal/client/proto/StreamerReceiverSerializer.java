@@ -77,9 +77,7 @@ public class StreamerReceiverSerializer {
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiverClassName);
 
-        // TODO: Use SharedComputeUtils for arg and items.
-        ClientBinaryTupleUtils.appendObject(builder, receiverArg);
-
+        appendArg(builder, receiverArg);
         appendCollectionToBinaryTuple(builder, items);
 
         w.packInt(binaryTupleSize);
@@ -102,9 +100,7 @@ public class StreamerReceiverSerializer {
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiver.receiverClassName());
 
-        // TODO: Use SharedComputeUtils for arg and items.
-        ClientBinaryTupleUtils.appendObject(builder, receiverArg);
-
+        appendArg(builder, receiverArg);
         appendCollectionToBinaryTuple(builder, items);
 
         ByteBuffer buf = builder.build();
@@ -134,7 +130,7 @@ public class StreamerReceiverSerializer {
             throw new IgniteException(PROTOCOL_ERR, "Receiver class name is null");
         }
 
-        Object receiverArg = ClientBinaryTupleUtils.readObject(reader, readerIndex);
+        Object receiverArg = readArg(reader, readerIndex);
 
         readerIndex += 3;
 
@@ -406,6 +402,16 @@ public class StreamerReceiverSerializer {
             default:
                 throw unsupportedTypeException(type.id());
         }
+    }
+
+    private static <T> void appendArg(BinaryTupleBuilder builder, @Nullable T arg) {
+        // TODO: Support Tuple
+        ClientBinaryTupleUtils.appendObject(builder, arg);
+    }
+
+    private static @Nullable Object readArg(BinaryTupleReader reader, int readerIndex) {
+        // TODO: Support Tuple
+        return ClientBinaryTupleUtils.readObject(reader, readerIndex);
     }
 
     /**
