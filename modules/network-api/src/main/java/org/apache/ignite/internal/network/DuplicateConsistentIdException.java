@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.handshake;
+package org.apache.ignite.internal.network;
 
-import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Network;
 
 /**
- * Exception that notifies of existence of a channel with a specific id during handshake.
+ * Thrown when a send by consistent ID fails because there's a duplicate consistent ID in the physical topology.
  */
-public class ChannelAlreadyExistsException extends RuntimeException {
-    private static final long serialVersionUID = 0L;
-
-    /** Id of a remote node. */
-    private final UUID nodeId;
-
-    public ChannelAlreadyExistsException(UUID nodeId) {
-        this.nodeId = nodeId;
-    }
-
-    public UUID nodeId() {
-        return nodeId;
+public class DuplicateConsistentIdException extends IgniteInternalException {
+    public DuplicateConsistentIdException(String msg) {
+        super(Network.DUPLICATE_CONSISTENT_ID_ERR, msg);
     }
 }
