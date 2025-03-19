@@ -529,44 +529,30 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
         SqlNodeList optionList = null;
         SqlNodeList storageProfiles = null;
         SqlNodeList zoneOptions = null;
-        final SqlParserPos pos;
 }
 {
     <ZONE> { s.add(this); }
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
-    (
         (
-          <WITH> {
-            optionList = CreateZoneOptionList();
-          }
-        )
-        {
-            return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
-        }
-        |
-        ((
-            zoneOptions = ZoneOptionsList()
-            <STORAGE> { pos = getPos(); } <PROFILES> {
-              s.add(this);
-              storageProfiles = StorageProfiles();
-              System.err.println("!!!!1 " + storageProfiles);
+            <WITH> { s.add(this); } optionList = CreateZoneOptionList()
+            {
+                return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
             }
-        )
-        |
-        (
-            <STORAGE> { pos = getPos(); } <PROFILES> {
-              s.add(this);
-              storageProfiles = StorageProfiles();
-              System.err.println("!!!!2 " + storageProfiles);
-            }
-        ))
-    )
-                {
-                    SqlIdentifier key = new SqlIdentifier(ZoneOptionEnum.STORAGE_PROFILES.name(), pos);
-                    IgniteSqlStorageProfile profiles = new IgniteSqlStorageProfile(key, storageProfiles, pos);
-                    return new IgniteSqlCreateZoneV2(s.end(this), ifNotExists, id, zoneOptions, profiles);
+            |
+            (
+                [ zoneOptions = ZoneOptionsList() ]
+
+                <STORAGE> <PROFILES> {
+                  storageProfiles = StorageProfiles();
                 }
+            )
+            {
+                SqlIdentifier key = new SqlIdentifier(ZoneOptionEnum.STORAGE_PROFILES.name(), getPos());
+                IgniteSqlStorageProfile profiles = new IgniteSqlStorageProfile(key, storageProfiles, getPos());
+                return new IgniteSqlCreateZoneV2(s.end(this), ifNotExists, id, zoneOptions, profiles);
+            }
+        )
 }
 
 SqlNodeList StorageProfiles() :
@@ -585,13 +571,20 @@ SqlNodeList StorageProfiles() :
     }
 }
 
+void StorageProfileOption(List<SqlNode> list) :
+{
+    final SqlCharStringLiteral val;
+}
+{
+    val = UnquotedLiteral() { list.add(val); }
+}
+
 SqlCharStringLiteral UnquotedLiteral() :
 {
-final String val;
 }
 {
     <QUOTED_STRING> {
-        val = SqlParserUtil.parseString(token.image).trim();
+        String val = SqlParserUtil.parseString(token.image).trim();
         if (val.isEmpty()) {
           throw SqlUtil.newContextException(getPos(),
               RESOURCE.validationError("Empty profile is not allowed."));
@@ -599,14 +592,6 @@ final String val;
         SqlCharStringLiteral profile = SqlLiteral.createCharString(val, getPos());
         return profile;
     }
-}
-
-void StorageProfileOption(List<SqlNode> list) :
-{
-    final SqlCharStringLiteral val;
-}
-{
-    val = UnquotedLiteral() { list.add(val); }
 }
 
 SqlNodeList ZoneOptionsList() :

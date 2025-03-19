@@ -187,6 +187,15 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
     }
 
+    @Test
+    public void testMixedOptions() {
+        String passed = "CREATE ZONE test with partitions=2, replicas=3 S";
+        assertThrowsWithPos("CREATE ZONE test with partitions=2, replicas=3 STORAGE PROFILES ['profile']", "STORAGE", passed.length());
+
+        passed = "CREATE ZONE test with (";
+        assertThrowsWithPos("CREATE ZONE test with (partitions 2, replicas 3) STORAGE PROFILES ['profile']", "(", passed.length());
+    }
+
     @ParameterizedTest(name = "with syntax = {0}")
     @ValueSource(booleans = {true, false})
     public void testCreateZoneWithOptions(boolean withPresent) throws SqlParseException {
