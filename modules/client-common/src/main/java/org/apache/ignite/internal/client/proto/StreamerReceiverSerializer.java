@@ -38,10 +38,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,6 +56,8 @@ import org.jetbrains.annotations.Nullable;
  * No intermediate steps, trivial serialize/deserialize.
  */
 public class StreamerReceiverSerializer {
+    private static final int TYPE_ID_TUPLE = -64;
+
     /**
      * Serializes streamer receiver info.
      *
@@ -258,8 +262,7 @@ public class StreamerReceiverSerializer {
 
     private static <R> List<R> readCollectionFromBinaryTuple(BinaryTupleReader reader, int readerIndex) {
         int typeId = reader.intValue(readerIndex++);
-        ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
-        Function<Integer, Object> itemReader = readerForType(reader, type);
+        Function<Integer, Object> itemReader = readerForType(reader, typeId);
         int itemsCount = reader.intValue(readerIndex++);
 
         List<R> items = new ArrayList<>(itemsCount);
@@ -330,12 +333,24 @@ public class StreamerReceiverSerializer {
         } else if (obj instanceof Period) {
             builder.appendInt(ColumnType.PERIOD.id());
             return (T v) -> builder.appendPeriod((Period) v);
+        } else if (obj instanceof Tuple) {
+            builder.appendInt(TYPE_ID_TUPLE);
+            return (T v) -> builder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) v));
         } else {
             throw unsupportedTypeException(obj.getClass());
         }
     }
 
-    private static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
+    private static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, int typeId) {
+        if (typeId == TYPE_ID_TUPLE) {
+            return idx -> {
+                byte[] bytes = binTuple.bytesValue(idx);
+                return bytes == null ? null : TupleWithSchemaMarshalling.unmarshal(bytes);
+            };
+        }
+
+        ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
+
         switch (type) {
             case INT8:
                 return binTuple::byteValue;
