@@ -300,7 +300,7 @@ public class DistributionZoneManager extends
 
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
+        return dataNodesManager.dataNodes(zoneId, timestamp);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
