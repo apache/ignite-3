@@ -182,6 +182,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
 
         boolean parkingHappened = false;
         if (isPageInCheckpoint && cpBufferOverflowThresholdExceeded) {
+            parkingHappened = true;
+
             doPark(cpBufferProtector.protectionParkTime());
         } else {
             if (isPageInCheckpoint) {
