@@ -18,6 +18,7 @@
 package org.apache.ignite;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
@@ -45,17 +46,15 @@ public class InitParameters {
      * @param clusterConfiguration Cluster configuration.
      */
     InitParameters(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
+            @Nullable Collection<String> metaStorageNodeNames,
+            @Nullable Collection<String> cmgNodeNames,
             String clusterName,
             @Nullable String clusterConfiguration
     ) {
-        Objects.requireNonNull(metaStorageNodeNames);
-        Objects.requireNonNull(cmgNodeNames);
         Objects.requireNonNull(clusterName);
 
-        this.metaStorageNodeNames = List.copyOf(metaStorageNodeNames);
-        this.cmgNodeNames = List.copyOf(cmgNodeNames);
+        this.metaStorageNodeNames = metaStorageNodeNames != null ? List.copyOf(metaStorageNodeNames) : Collections.emptyList();
+        this.cmgNodeNames = cmgNodeNames != null ? List.copyOf(cmgNodeNames) : Collections.emptyList();
         this.clusterName = clusterName;
         this.clusterConfiguration = clusterConfiguration;
     }
