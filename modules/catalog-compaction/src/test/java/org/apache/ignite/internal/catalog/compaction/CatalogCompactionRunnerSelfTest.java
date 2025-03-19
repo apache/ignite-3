@@ -865,7 +865,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
             // All invocations must be made locally.
-            verify(replicaService, times(replicationGroupsMultiplier * /* partitions */ 9)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(replicationGroupsMultiplier * /* partitions */ 9))
+                    .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
         }
@@ -1112,16 +1113,14 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         );
 
         when(messagingService.invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    return CompletableFuture.supplyAsync(() -> {
-                        String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
+                .thenAnswer(invocation -> CompletableFuture.supplyAsync(() -> {
+                    String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
 
-                        assertThat("Coordinator shouldn't send messages to himself",
-                                nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
+                    assertThat("Coordinator shouldn't send messages to himself",
+                            nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
 
-                        return minTimeCollector.reply(nodeName);
-                    });
-                });
+                    return minTimeCollector.reply(nodeName);
+                }));
 
         when(messagingService.send(any(ClusterNode.class), any(NetworkMessage.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
@@ -1308,7 +1307,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         }
     }
 
-    @SuppressWarnings("serial")
     private static class TestReplicaMeta implements ReplicaMeta {
         private final UUID leaseHolder;
 
