@@ -25,17 +25,23 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -50,6 +56,8 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -142,6 +150,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -377,37 +386,56 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, rel.getRowType(), leftType.getFieldCount());
 
-        int pairsCnt = rel.analyzeCondition().pairs().size();
+        ImmutableBitSet nullCompAsEqual = evaluateNumCompAsEquals(rel, rel.analyzeCondition().leftSet());
 
-        ImmutableBitSet leftKeys = rel.analyzeCondition().leftSet();
+        ImmutableIntList leftKeys = rel.leftCollation().getKeys();
+        ImmutableIntList rightKeys = rel.rightCollation().getKeys();
 
-        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.getCondition());
+        // Convert conditions to using collation indexes instead of field indexes.
+        // This is required for dynamic programming algorithm to track already processed collation fields easily.
+        List<IntPair> condIndexes = rel.analyzeCondition().pairs().stream()
+                .map(p -> IntPair.of(leftKeys.indexOf(p.source), rightKeys.indexOf(p.target)))
+                .collect(Collectors.toList());
 
-        ImmutableBitSet.Builder nullCompAsEqualBuilder = ImmutableBitSet.builder();
-
-        ImmutableBitSet nullCompAsEqual;
-        RexShuttle shuttle = new RexShuttle() {
-            @Override
-            public RexNode visitInputRef(RexInputRef ref) {
-                int idx = ref.getIndex();
-                if (leftKeys.get(idx)) {
-                    nullCompAsEqualBuilder.set(idx);
+        int conditions = condIndexes.size();
+        List<RelFieldCollation> leftCollation = new ArrayList<>(conditions);
+        List<RelFieldCollation> rightCollation = new ArrayList<>(conditions);
+        // Restore comparator collations from condition pairs.
+        // At each iteration emit collations for all non-processed condition pairs that are respect sources' collations.
+        for (int i = 0; i < conditions; i++) {
+            Iterator<IntPair> it = condIndexes.iterator();
+            while (it.hasNext()) {
+                IntPair pair = it.next();
+                // A reference to any previously processed field doesn't change the effective collation.
+                // So, the condition can be applied with keeping matching with source collation.
+                if (pair.source <= i && pair.target <= i) {
+                    leftCollation.add(rel.leftCollation().getFieldCollations().get(pair.source));
+                    rightCollation.add(rel.rightCollation().getFieldCollations().get(pair.target));
+                    it.remove();
                 }
-                return ref;
-            }
-        };
-
-        for (RexNode expr : conjunctions) {
-            if (expr.getKind() == SqlKind.IS_NOT_DISTINCT_FROM) {
-                shuttle.apply(expr);
             }
         }
 
-        nullCompAsEqual = nullCompAsEqualBuilder.build();
+        if (IgniteUtils.assertionsEnabled()) {
+            assert leftCollation.size() == conditions : "Left collation mismatch condition size.";
+            assert rightCollation.size() == conditions : "Right collation mismatch condition size.";
+
+            ensureComparatorCollationSatisfiesSourceCollation(leftCollation, leftKeys, "Left");
+            ensureComparatorCollationSatisfiesSourceCollation(rightCollation, rightKeys, "Right");
+
+            // Ensure we just resort the conditions.
+            assert Arrays.equals(
+                    rel.analyzeCondition().pairs().stream().sorted(IntPair.ORDERING).toArray(IntPair[]::new),
+                    IntStream.range(0, conditions)
+                            .mapToObj(i -> IntPair.of(leftCollation.get(i).getFieldIndex(), rightCollation.get(i).getFieldIndex()))
+                            .sorted(IntPair.ORDERING)
+                            .toArray(IntPair[]::new)) : "Condition pairs mismatch collation.";
+
+        }
 
         SqlComparator<RowT> sqlComparator = expressionFactory.comparator(
-                rel.leftCollation().getFieldCollations().subList(0, pairsCnt),
-                rel.rightCollation().getFieldCollations().subList(0, pairsCnt),
+                leftCollation,
+                rightCollation,
                 nullCompAsEqual
         );
         Comparator<RowT> comp = (r1, r2) -> sqlComparator.compare(ctx, r1, r2);
@@ -421,6 +449,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         return node;
     }
+
 
     /** {@inheritDoc} */
     @Override
@@ -466,7 +495,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         assert group != null;
 
-
         Comparator<RowT> comp = null;
         if (idx.type() == Type.SORTED && collation != null && !nullOrEmpty(collation.getFieldCollations())) {
             // Collation returned by rel is mapped according to projection merged into the rel. But we need
@@ -493,7 +521,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
             SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(partitionStreamCollation);
 
-            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2); 
+            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2);
 
         }
 
@@ -1157,5 +1185,43 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         return joinProjection;
+    }
+
+    private static ImmutableBitSet evaluateNumCompAsEquals(IgniteMergeJoin rel, ImmutableBitSet leftKeys) {
+        ImmutableBitSet.Builder nullCompAsEqualBuilder = ImmutableBitSet.builder();
+
+        RexShuttle shuttle = new RexShuttle() {
+            @Override
+            public RexNode visitInputRef(RexInputRef ref) {
+                int idx = ref.getIndex();
+                if (leftKeys.get(idx)) {
+                    nullCompAsEqualBuilder.set(idx);
+                }
+                return ref;
+            }
+        };
+
+        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.getCondition());
+        for (RexNode expr : conjunctions) {
+            if (expr.getKind() == SqlKind.IS_NOT_DISTINCT_FROM) {
+                shuttle.apply(expr);
+            }
+        }
+
+        return nullCompAsEqualBuilder.build();
+    }
+
+    private static void ensureComparatorCollationSatisfiesSourceCollation(
+            List<RelFieldCollation> compCollation,
+            ImmutableIntList collationKeys,
+            String name
+    ) {
+        int[] effectiveCollation = compCollation.stream().mapToInt(RelFieldCollation::getFieldIndex).distinct().toArray();
+
+        assert effectiveCollation.length <= collationKeys.size() : name + " effective collation size mismatch";
+
+        int[] keysPrefix = collationKeys.stream().mapToInt(Integer::intValue).limit(effectiveCollation.length).toArray();
+
+        assert Arrays.equals(effectiveCollation, keysPrefix) : name + " collation mismatch the source collation";
     }
 }
