@@ -25,9 +25,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -38,7 +35,6 @@ import static org.mockito.Mockito.verify;
 
 import java.io.Serializable;
 import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -177,41 +173,6 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         assertTrue(listener.onSnapshotLoad(Paths.get("/unused")));
 
         verify(logicalTopology).fireTopologyLeap();
-    }
-
-    @Test
-    void absentClusterConfigUpdateErasesClusterConfig() {
-        ClusterState clusterState = msgFactory.clusterState()
-                .cmgNodes(Set.of("foo"))
-                .metaStorageNodes(Set.of("bar"))
-                .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(clusterTag)
-                .initialClusterConfiguration("config")
-                .build();
-
-        listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(clusterState).build()));
-
-        Collection<String> cmgNodes = clusterState.cmgNodes();
-        Collection<String> msNodes = clusterState.metaStorageNodes();
-        IgniteProductVersion igniteVersion = clusterState.igniteVersion();
-        ClusterTag clusterTag1 = clusterState.clusterTag();
-        ClusterState clusterStateToUpdate = msgFactory.clusterState()
-                .cmgNodes(Set.copyOf(cmgNodes))
-                .metaStorageNodes(Set.copyOf(msNodes))
-                .version(igniteVersion.toString())
-                .clusterTag(clusterTag1)
-                .build();
-
-        listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
-        ClusterState updatedClusterState = listener.storageManager().getClusterState();
-        assertAll(
-                () -> assertNull(updatedClusterState.initialClusterConfiguration()),
-                () -> assertEquals(updatedClusterState.cmgNodes(), clusterState.cmgNodes()),
-                () -> assertEquals(updatedClusterState.metaStorageNodes(), clusterState.metaStorageNodes()),
-                () -> assertEquals(updatedClusterState.version(), clusterState.version()),
-                () -> assertEquals(updatedClusterState.igniteVersion(), clusterState.igniteVersion()),
-                () -> assertEquals(updatedClusterState.clusterTag(), clusterState.clusterTag())
-        );
     }
 
     @Test

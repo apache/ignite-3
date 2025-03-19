@@ -58,6 +58,7 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageCollectionItemType;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
 import org.apache.ignite.internal.network.serialization.MessageReader;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
 /**

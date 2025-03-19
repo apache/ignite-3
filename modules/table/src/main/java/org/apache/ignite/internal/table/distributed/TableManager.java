@@ -693,11 +693,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     Set<TableImpl> zoneTables = zoneTables(zonePartitionId.zoneId());
 
-                    PartitionSet singlePartitionIdSet = PartitionSet.of(zonePartitionId.partitionId());
+                    int partitionIndex = zonePartitionId.partitionId();
+                    PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
 
                     CompletableFuture<?>[] futures = zoneTables.stream()
                             .map(tbl -> inBusyLockAsync(busyLock, () -> {
                                 return getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
+                                        .thenRun(() -> {
+                                            localPartsByTableId.compute(
+                                                    tbl.tableId(),
+                                                    (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
+                                            );
+                                        })
                                         .thenRunAsync(() -> inBusyLock(busyLock, () -> {
                                             lowWatermark.getLowWatermarkSafe(lwm ->
                                                     registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)

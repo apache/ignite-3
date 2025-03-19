@@ -32,8 +32,8 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.processor.ProcessingException;
+import org.apache.ignite.internal.network.serialization.MessageCollectionItemType;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
-import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**
  * Class for resolving {@link MessageWriter} "write*" methods for the corresponding message field type.

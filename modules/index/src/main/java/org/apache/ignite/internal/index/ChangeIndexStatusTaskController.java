@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntPredicate;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,10 +35,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -46,6 +52,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -78,10 +85,18 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private final ClusterService clusterService;
 
+    private final LowWatermark lowWatermark;
+
     private final ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
 
     /** Tables IDs for which the local node is the primary replica for the partition with ID {@code 0}. */
     private final Set<Integer> localNodeIsPrimaryReplicaForTableIds = ConcurrentHashMap.newKeySet();
+
+    /** Zone IDs for which the local node is the primary replica for the partition with ID {@code 0}. */
+    private final Set<Integer> localNodeIsPrimaryReplicaForZoneIds = ConcurrentHashMap.newKeySet();
+
+    /** A queue for deferred table destruction events. */
+    private final LongPriorityQueue<DestroyTableEvent> destructionEventsQueue = new LongPriorityQueue<>(DestroyTableEvent::catalogVersion);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -91,11 +106,13 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
             CatalogManager catalogManager,
             PlacementDriver placementDriver,
             ClusterService clusterService,
+            LowWatermark lowWatermark,
             ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler
     ) {
         this.catalogService = catalogManager;
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
+        this.lowWatermark = lowWatermark;
         this.changeIndexStatusTaskScheduler = changeIndexStatusTaskScheduler;
     }
 
@@ -122,12 +139,25 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
         catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
+        if (enabledColocation()) {
+            catalogService.listen(CatalogEvent.TABLE_CREATE, EventListener.fromConsumer(this::onTableCreated));
+            catalogService.listen(CatalogEvent.TABLE_DROP, EventListener.fromConsumer(this::onTableDropped));
+
+            lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, EventListener.fromConsumer(this::onLwmChanged));
+        }
+
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, EventListener.fromConsumer(this::onPrimaryReplicaElected));
     }
 
     private void onIndexCreated(CreateIndexEventParameters parameters) {
         inBusyLock(busyLock, () -> {
             CatalogIndexDescriptor indexDescriptor = parameters.indexDescriptor();
+
+            if (indexDescriptor.isCreatedWithTable()) {
+                // No need to build an index that was created together with its table as its state (empty) already corresponds
+                // to the table's state (which is also empty).
+                return;
+            }
 
             if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
                 // Schedule building the index only if the local node is the primary replica for the 0 partition of the table for which the
@@ -157,6 +187,22 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         inBusyLock(busyLock, () -> changeIndexStatusTaskScheduler.stopStartBuildingTask(parameters.indexId()));
     }
 
+    private void onTableCreated(CreateTableEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            CatalogTableDescriptor tableDescriptor = parameters.tableDescriptor();
+
+            if (localNodeIsPrimaryReplicaForZoneIds.contains(tableDescriptor.zoneId())) {
+                localNodeIsPrimaryReplicaForTableIds.add(tableDescriptor.id());
+            }
+        });
+    }
+
+    private void onTableDropped(DropTableEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
+        });
+    }
+
     private void onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         inBusyLock(busyLock, () -> {
 
@@ -170,8 +216,19 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
                 scheduleTasksOnPrimaryReplicaElectedBusy(primaryReplicaId);
             } else {
-                scheduleStopTasksOnPrimaryReplicaElected(primaryReplicaId);
+                handlePrimacyLoss(primaryReplicaId);
             }
+        });
+    }
+
+    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
+        List<DestroyTableEvent> tablesToDestroy = destructionEventsQueue.drainUpTo(earliestVersion);
+
+        tablesToDestroy.forEach(event -> {
+            localNodeIsPrimaryReplicaForTableIds.remove(event.tableId());
+
+            changeIndexStatusTaskScheduler.stopTasksForTable(event.tableId());
         });
     }
 
@@ -181,8 +238,10 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
         IntArrayList tableIds =
                 getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, id -> !localNodeIsPrimaryReplicaForTableIds.contains(id));
-
         localNodeIsPrimaryReplicaForTableIds.addAll(tableIds);
+
+        List<Integer> zoneIds = getZoneIdsForPrimaryReplicaElected(partitionGroupId);
+        localNodeIsPrimaryReplicaForZoneIds.addAll(zoneIds);
 
         tableIds.forEach(tableId -> {
             for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableId)) {
@@ -204,7 +263,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         });
     }
 
-    private void scheduleStopTasksOnPrimaryReplicaElected(PartitionGroupId partitionGroupId) {
+    private void handlePrimacyLoss(PartitionGroupId partitionGroupId) {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
         Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
@@ -212,6 +271,9 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
                 getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, localNodeIsPrimaryReplicaForTableIds::contains);
 
         localNodeIsPrimaryReplicaForTableIds.removeAll(tableIds);
+        if (enabledColocation()) {
+            localNodeIsPrimaryReplicaForZoneIds.remove(((ZonePartitionId) partitionGroupId).zoneId());
+        }
 
         tableIds.forEach(changeIndexStatusTaskScheduler::stopTasksForTable);
     }
@@ -240,5 +302,37 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         }
 
         return tableIds;
+    }
+
+    private List<Integer> getZoneIdsForPrimaryReplicaElected(PartitionGroupId partitionGroupId) {
+        if (enabledColocation()) {
+            ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
+
+            if (!localNodeIsPrimaryReplicaForZoneIds.contains(zonePartitionId.zoneId())) {
+                return List.of(zonePartitionId.zoneId());
+            } else {
+                return List.of();
+            }
+        } else {
+            return List.of();
+        }
+    }
+
+    private static class DestroyTableEvent {
+        final int catalogVersion;
+        final int tableId;
+
+        private DestroyTableEvent(int catalogVersion, int tableId) {
+            this.catalogVersion = catalogVersion;
+            this.tableId = tableId;
+        }
+
+        int catalogVersion() {
+            return catalogVersion;
+        }
+
+        int tableId() {
+            return tableId;
+        }
     }
 }

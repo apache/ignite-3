@@ -30,7 +30,6 @@ import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTo
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadValidatedNodesCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.UpdateClusterStateCommand;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
@@ -133,7 +132,7 @@ public class CmgMessageGroup {
         int CLUSTER_TAG = 62;
 
         /**
-         * Message type of {@link UpdateClusterStateCommand}.
+         * Do not delete this code for compatibility.
          */
         int UPDATE_CMG_STATE = 65;
 

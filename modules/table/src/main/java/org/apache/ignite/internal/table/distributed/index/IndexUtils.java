@@ -51,7 +51,7 @@ public class IndexUtils {
             PartitionSet partitionSet,
             SchemaRegistry schemaRegistry
     ) {
-        var storageIndexDescriptor = StorageIndexDescriptor.create(tableDescriptor, indexDescriptor);
+        StorageIndexDescriptor storageIndexDescriptor = StorageIndexDescriptor.create(tableDescriptor, indexDescriptor);
 
         var tableRowConverter = new TableRowToIndexKeyConverter(
                 schemaRegistry,
