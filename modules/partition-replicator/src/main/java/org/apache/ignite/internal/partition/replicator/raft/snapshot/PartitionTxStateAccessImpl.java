@@ -81,6 +81,6 @@ public class PartitionTxStateAccessImpl implements PartitionTxStateAccess {
 
     @Override
     public CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta) {
-        return storage.finishRebalance(partitionMeta);
+        return storage.finishRebalance(partitionMeta).thenCompose(v -> storage.flush());
     }
 }
