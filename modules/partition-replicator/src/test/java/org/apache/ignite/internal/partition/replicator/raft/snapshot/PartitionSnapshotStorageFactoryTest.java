@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.lenient;
@@ -107,6 +108,54 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
 
         assertEquals(3L, snapshotStorage.startupSnapshotMeta().lastIncludedIndex());
         assertEquals(2L, snapshotStorage.startupSnapshotMeta().lastIncludedTerm());
+    }
+
+    @Test
+    void returnsNullForEmptyPartitionStorage(
+            @Mock PartitionMvStorageAccess partitionAccess,
+            @Mock PartitionTxStateAccess txStateAccess
+    ) {
+        when(partitionAccess.lastAppliedIndex()).thenReturn(0L);
+        lenient().when(txStateAccess.lastAppliedIndex()).thenReturn(5L);
+
+        PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
+                new ZonePartitionKey(0, 0),
+                mock(TopologyService.class),
+                mock(OutgoingSnapshotsManager.class),
+                txStateAccess,
+                mock(CatalogService.class),
+                mock(Executor.class)
+        );
+
+        partitionSnapshotStorageFactory.addMvPartition(TABLE_ID_1, partitionAccess);
+
+        PartitionSnapshotStorage snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
+
+        assertThat(snapshotStorage.open(), is(nullValue()));
+    }
+
+    @Test
+    void returnsNullForEmptyTxStorage(
+            @Mock PartitionMvStorageAccess partitionAccess,
+            @Mock PartitionTxStateAccess txStateAccess
+    ) {
+        when(partitionAccess.lastAppliedIndex()).thenReturn(5L);
+        when(txStateAccess.lastAppliedIndex()).thenReturn(0L);
+
+        PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
+                new ZonePartitionKey(0, 0),
+                mock(TopologyService.class),
+                mock(OutgoingSnapshotsManager.class),
+                txStateAccess,
+                mock(CatalogService.class),
+                mock(Executor.class)
+        );
+
+        partitionSnapshotStorageFactory.addMvPartition(TABLE_ID_1, partitionAccess);
+
+        PartitionSnapshotStorage snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
+
+        assertThat(snapshotStorage.open(), is(nullValue()));
     }
 
     @Test

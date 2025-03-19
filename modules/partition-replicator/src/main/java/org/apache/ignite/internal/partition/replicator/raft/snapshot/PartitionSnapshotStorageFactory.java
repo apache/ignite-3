@@ -97,7 +97,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     }
 
     @Override
-    public @Nullable PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         return new PartitionSnapshotStorage(
                 partitionKey,
                 topologyService,
@@ -122,7 +122,12 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         for (PartitionMvStorageAccess partitionStorage : partitionsByTableId.values()) {
             long lastAppliedIndex = partitionStorage.lastAppliedIndex();
 
-            assert lastAppliedIndex >= 0 : lastAppliedIndex;
+            assert lastAppliedIndex >= 0 :
+                    String.format("Partition storage [tableId=%d, partitionId=%d] contains an unexpected applied index value: %d.",
+                            partitionStorage.tableId(),
+                            partitionStorage.partitionId(),
+                            lastAppliedIndex
+                    );
 
             if (lastAppliedIndex == 0) {
                 return null;
