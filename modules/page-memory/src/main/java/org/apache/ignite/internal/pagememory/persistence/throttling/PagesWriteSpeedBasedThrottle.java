@@ -42,6 +42,7 @@ import org.jetbrains.annotations.TestOnly;
  * Otherwise, uses average checkpoint write speed and instant speed of marking pages as dirty.<br>
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
+    private static final int PARKING_QUANTUM = 10_000;
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
     /**
@@ -189,28 +190,26 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
                 cpBufferProtector.resetBackoff();
             }
 
-            long endNs = startTimeNs - Long.MAX_VALUE;
+            long sum = 0L;
 
             while (true) {
                 long nanos = System.nanoTime();
                 long throttleParkTimeNs = cleanPagesProtector.protectionParkTime(nanos);
 
-                if (throttleParkTimeNs > 0) {
-                    if (nanos + throttleParkTimeNs - endNs < 0) {
-                        endNs = nanos + throttleParkTimeNs;
-                    } else {
-                        break;
-                    }
-
-                    parkingHappened = true;
-                    doPark(Math.min(throttleParkTimeNs, 10_000));
-
-                    if (throttleParkTimeNs <= 10_000) {
-                        break;
-                    }
-                } else {
-                    assert throttleParkTimeNs == 0 || throttleParkTimeNs == NO_THROTTLING_MARKER : throttleParkTimeNs;
+                if (throttleParkTimeNs <= sum) {
                     break;
+                }
+
+                if (throttleParkTimeNs > 0) {
+                    parkingHappened = true;
+
+                    doPark(Math.min(throttleParkTimeNs, PARKING_QUANTUM));
+
+                    if (throttleParkTimeNs <= PARKING_QUANTUM) {
+                        break;
+                    }
+
+                    sum += throttleParkTimeNs;
                 }
             }
         }
@@ -220,15 +219,15 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         }
 
         long realThrottlingNanos = System.nanoTime() - startTimeNs;
-        if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
-            if (realThrottlingNanos >= 100) {
-                LOG.info("Very long throttling on a page [isPageInCheckpoint=" + isPageInCheckpoint
-                        + ", cpBufferOverflowThresholdExceeded=" + cpBufferOverflowThresholdExceeded
-                        + ", realThrottlingNanos=" + realThrottlingNanos
-                        + (isPageInCheckpoint && cpBufferOverflowThresholdExceeded ? ", exponentialBackoff!!!" : "")
-                        + "]");
-            }
-        }
+//        if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
+//            if (realThrottlingNanos >= 1_000_000) {
+//                LOG.info("Very long throttling on a page [isPageInCheckpoint=" + isPageInCheckpoint
+//                        + ", cpBufferOverflowThresholdExceeded=" + cpBufferOverflowThresholdExceeded
+//                        + ", realThrottlingNanos=" + realThrottlingNanos
+//                        + (isPageInCheckpoint && cpBufferOverflowThresholdExceeded ? ", exponentialBackoff!!!" : "")
+//                        + "]");
+//            }
+//        }
 
         totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(realThrottlingNanos));
 
