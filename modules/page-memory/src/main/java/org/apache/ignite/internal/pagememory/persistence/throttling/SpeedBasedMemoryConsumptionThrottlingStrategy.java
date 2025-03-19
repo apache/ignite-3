@@ -193,14 +193,16 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         } else {
             return getParkTime(dirtyPagesRatio,
                     donePages,
-                    notEvictedPagesTotal(cpTotalPages),
+                    cpTotalPages,
                     threadIds.size(),
                     instantaneousMarkDirtySpeed,
                     avgCpWriteSpeed);
         }
     }
 
+    // TODO add Jira link
     private int notEvictedPagesTotal(int cpTotalPages) {
+        // I'm not sure about these evicted pages. Smells like bullshit. We need another Jira to figure this out.
         return Math.max(cpTotalPages - cpEvictedPages(), 0);
     }
 
@@ -300,11 +302,11 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             return 0;
         }
 
-        if (CNTR.get() < NUM_LOGS && CNTR.getAndIncrement() < NUM_LOGS) {
-            LOG.info("<$> calcSpeedToMarkAllSpaceTillEndOfCp ["
-                    + "dirtyPagesRatio=" + dirtyPagesRatio + ", donePages=" + donePages + ", "
-                    + "avgCpWriteSpeed=" + avgCpWriteSpeed + ", cpTotalPages=" + cpTotalPages + "]");
-        }
+//        if (CNTR.get() < NUM_LOGS && CNTR.getAndIncrement() < NUM_LOGS) {
+//            LOG.info("<$> calcSpeedToMarkAllSpaceTillEndOfCp ["
+//                    + "dirtyPagesRatio=" + dirtyPagesRatio + ", donePages=" + donePages + ", "
+//                    + "avgCpWriteSpeed=" + avgCpWriteSpeed + ", cpTotalPages=" + cpTotalPages + "]");
+//        }
 
         // IDEA: here, when calculating the count of clean pages, it includes the pages under checkpoint. It is kinda
         // legal because they can be written (using the Checkpoint Buffer to make a copy of the value to be
@@ -314,6 +316,14 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         double remainedCleanPages = (MAX_DIRTY_PAGES - dirtyPagesRatio) * pageMemTotalPages();
 
         double secondsTillCpEnd = 1.0 * (cpTotalPages - donePages) / avgCpWriteSpeed;
+
+        if (secondsTillCpEnd < 0) {
+            System.out.println("foo");
+        }
+
+        if (remainedCleanPages < 0) {
+            System.out.println("bar");
+        }
 
         return (long) (remainedCleanPages / secondsTillCpEnd);
     }

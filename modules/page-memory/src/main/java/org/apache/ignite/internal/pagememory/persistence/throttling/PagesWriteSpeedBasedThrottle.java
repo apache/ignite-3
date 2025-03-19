@@ -42,7 +42,7 @@ import org.jetbrains.annotations.TestOnly;
  * Otherwise, uses average checkpoint write speed and instant speed of marking pages as dirty.<br>
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
-    private static final int PARKING_QUANTUM = 50_000;
+    private static final int PARKING_QUANTUM = 10_000;
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
     /**
