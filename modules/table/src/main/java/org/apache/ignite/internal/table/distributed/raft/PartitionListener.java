@@ -58,6 +58,7 @@ import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxSta
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -81,6 +82,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -548,6 +550,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
                 return null;
             });
+
+            byte[] configBytes = VersionedSerialization.toBytes(config, RaftGroupConfigurationSerializer.INSTANCE);
+
+            txStatePartitionStorage.committedGroupConfiguration(configBytes, lastAppliedIndex, lastAppliedTerm);
         } finally {
             storage.releasePartitionSnapshotsReadLock();
         }
