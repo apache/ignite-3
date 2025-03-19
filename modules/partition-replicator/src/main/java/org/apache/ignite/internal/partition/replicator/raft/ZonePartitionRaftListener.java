@@ -21,10 +21,10 @@ import static java.lang.Math.max;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
 import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -78,7 +78,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      *
      * <p>Concurrent access is guarded by {@link #tableProcessorsStateLock}.
      */
-    private final Map<Integer, RaftTableProcessor> tableProcessors = new HashMap<>();
+    private final Int2ObjectMap<RaftTableProcessor> tableProcessors = new Int2ObjectOpenHashMap<>();
 
     private final TxStatePartitionStorage txStateStorage;
 
@@ -388,9 +388,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         }
     }
 
+    /** Returns the table processor associated with the given table ID. */
     @TestOnly
     public RaftTableProcessor tableProcessor(int tableId) {
-        return tableProcessors.get(tableId);
+        synchronized (tableProcessorsStateLock) {
+            return tableProcessors.get(tableId);
+        }
     }
 
     /**
