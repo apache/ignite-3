@@ -28,6 +28,7 @@ import org.apache.ignite.table.QualifiedName;
 public enum ProtocolBitmaskFeature {
     /** Feature for user attributes. */
     USER_ATTRIBUTES(0),
+
     /**
      * TABLE_GET/TABLES_GET requests with {@link QualifiedName}.
      */
