@@ -67,19 +67,19 @@ public class StreamerReceiverSerializer {
      * Serializes streamer receiver info.
      *
      * @param receiver Receiver descriptor.
-     * @param receiverArgs Receiver arguments.
+     * @param receiverArg Receiver arguments.
      * @param items Items.
      */
     public static <A> byte[] serializeReceiverInfoWithElementCount(
             ReceiverDescriptor<A> receiver,
-            @Nullable A receiverArgs,
+            @Nullable A receiverArg,
             Collection<?> items) {
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiver.receiverClassName());
 
-        ClientBinaryTupleUtils.appendObject(builder, receiverArgs);
+        ClientBinaryTupleUtils.appendObject(builder, receiverArg);
 
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
 
