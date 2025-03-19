@@ -15,24 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.handshake;
+package org.apache.ignite.internal.network;
 
-import java.util.UUID;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Exception that notifies of existence of a channel with a specific id during handshake.
+ * Allows reacting to logical topology changes.
  */
-public class ChannelAlreadyExistsException extends RuntimeException {
-    private static final long serialVersionUID = 0L;
+public interface JoinedNodes {
 
-    /** Id of a remote node. */
-    private final UUID nodeId;
+    /**
+     * Called when the node joins logical topology.
+     *
+     * @param node Node.
+     */
+    void onJoined(ClusterNode node);
 
-    public ChannelAlreadyExistsException(UUID nodeId) {
-        this.nodeId = nodeId;
-    }
-
-    public UUID nodeId() {
-        return nodeId;
-    }
+    /**
+     * Called when the node leaves logical topology.
+     *
+     * @param node Node.
+     */
+    void onLeft(ClusterNode node);
 }

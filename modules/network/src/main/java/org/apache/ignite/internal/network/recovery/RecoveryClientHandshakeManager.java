@@ -417,7 +417,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         } else {
             // The competitor is not at the lock yet. Maybe it will arrive soon, maybe it will never arrive.
             // The safest thing is to just retry the whole handshake procedure.
-            localHandshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteNode.name()));
+            localHandshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteNode.id()));
         }
     }
 

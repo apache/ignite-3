@@ -52,7 +52,8 @@ enum class group : underlying_t {
     WORKERS = 0x13,
     RECOVERY = 0x14,
     EMBEDDED = 0x15,
-    MARSHALLING = 0x16
+    MARSHALLING = 0x16,
+    REST = 0x17
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -156,6 +157,7 @@ enum class code : underlying_t {
     FILE_VALIDATION = 0xb0004,
     RECIPIENT_LEFT = 0xb0005,
     ADDRESS_UNRESOLVED = 0xb0006,
+    DUPLICATE_CONSISTENT_ID = 0xb0007,
 
     // NodeConfiguration group. Group code: 12
     CONFIG_READ = 0xc0001,
@@ -220,7 +222,7 @@ enum class code : underlying_t {
     UNSUPPORTED_OBJECT_TYPE = 0x160002,
     UNMARSHALLING = 0x160003,
 
-    // REST service group. Group code: 23
+    // Rest group. Group code: 23
     CLUSTER_NOT_INIT = 0x170001
 };
 
