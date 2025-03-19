@@ -625,41 +625,34 @@ void ZoneElement(List<SqlNode> zoneOptions) :
   (
       <AUTO> { pos = getPos(); }
       (
-        <SCALE>
-        (
-          <UP>
-          {
-            option = UnsignedNumericLiteral();
-            key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
-          }
+          <SCALE>
+          (
+              <UP> option = UnsignedIntegerLiteral()
+              {
+                key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+              }
+              |
+              <DOWN> option = UnsignedIntegerLiteral()
+              {
+                key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+              }
+          )
           |
-          <DOWN>
+          <ADJUST> option = UnsignedIntegerLiteral()
           {
-            option = UnsignedNumericLiteral();
-            key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+              key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.name(), pos);
+              zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
           }
-        )
-        |
-        (
-        <ADJUST>
-        {
-            option = UnsignedNumericLiteral();
-            key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
-        }
-        )
       )
       |
       (
-        <PARTITIONS> { pos = getPos(); } <UNSIGNED_INTEGER_LITERAL>
-        {
-          option = SqlLiteral.createExactNumeric(token.image, getPos());
-          //option = UnsignedNumericLiteral();
-          key = new SqlIdentifier(ZoneOptionEnum.PARTITIONS.name(), pos);
-          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
-        }
+          <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
+          {
+            key = new SqlIdentifier(ZoneOptionEnum.PARTITIONS.name(), pos);
+            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+          }
       )
       |
       (
@@ -716,6 +709,15 @@ void ZoneElement(List<SqlNode> zoneOptions) :
         )
       )
   )
+}
+
+SqlNumericLiteral UnsignedIntegerLiteral() :
+{
+}
+{
+    <UNSIGNED_INTEGER_LITERAL> {
+        return SqlLiteral.createExactNumeric(token.image, getPos());
+    }
 }
 
 SqlNodeList CreateZoneOptionList() :
