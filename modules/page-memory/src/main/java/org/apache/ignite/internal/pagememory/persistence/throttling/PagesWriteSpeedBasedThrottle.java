@@ -42,7 +42,7 @@ import org.jetbrains.annotations.TestOnly;
  * Otherwise, uses average checkpoint write speed and instant speed of marking pages as dirty.<br>
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
-    private static final int PARKING_QUANTUM = 10_000;
+    private static final int PARKING_QUANTUM = 50_000;
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
     /**
@@ -180,11 +180,15 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         long startTimeNs = System.nanoTime();
         boolean cpBufferOverflowThresholdExceeded = isCpBufferOverflowThresholdExceeded();
 
+        long throttleParkTimeNs = 0;
+
         boolean parkingHappened = false;
         if (isPageInCheckpoint && cpBufferOverflowThresholdExceeded) {
             parkingHappened = true;
 
-            doPark(cpBufferProtector.protectionParkTime());
+            throttleParkTimeNs = cpBufferProtector.protectionParkTime();
+
+            doPark(throttleParkTimeNs);
         } else {
             if (isPageInCheckpoint) {
                 // The fact that we are here means that we checked whether CP Buffer is in danger zone and found that
@@ -192,31 +196,34 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
                 cpBufferProtector.resetBackoff();
             }
 
-            long sum = 0L;
-
             while (true) {
                 long nanos = System.nanoTime();
-                long throttleParkTimeNs = cleanPagesProtector.protectionParkTime(nanos);
 
-                if (throttleParkTimeNs <= sum) {
+                long currentParkTime = cleanPagesProtector.protectionParkTime(nanos);
+
+                if (currentParkTime < throttleParkTimeNs) {
                     break;
                 }
 
-                if (throttleParkTimeNs > 0) {
-                    parkingHappened = true;
+                parkingHappened = true;
 
-                    doPark(Math.min(throttleParkTimeNs, PARKING_QUANTUM));
+                if (currentParkTime > 0) {
+                    long park = Math.min(currentParkTime, PARKING_QUANTUM);
+                    throttleParkTimeNs += park;
 
-                    if (throttleParkTimeNs <= PARKING_QUANTUM) {
+                    doPark(park);
+
+                    if (currentParkTime <= PARKING_QUANTUM) {
                         break;
                     }
-
-                    sum += throttleParkTimeNs;
+                } else {
+                    break;
                 }
             }
         }
 
         if (!parkingHappened) {
+//            assert throttleParkTimeNs == 0;
             return;
         }
 
@@ -233,7 +240,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
 
         totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(realThrottlingNanos));
 
-        markSpeedAndAvgParkTime.addMeasurementForAverageCalculation(realThrottlingNanos);
+        markSpeedAndAvgParkTime.addMeasurementForAverageCalculation(throttleParkTimeNs);
     }
 
     /**
