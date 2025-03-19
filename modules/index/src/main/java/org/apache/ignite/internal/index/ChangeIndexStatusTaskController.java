@@ -240,8 +240,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
                 getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, id -> !localNodeIsPrimaryReplicaForTableIds.contains(id));
         localNodeIsPrimaryReplicaForTableIds.addAll(tableIds);
 
-        List<Integer> zoneIds =
-                getZoneIdsForPrimaryReplicaElected(partitionGroupId, id -> !localNodeIsPrimaryReplicaForZoneIds.contains(id));
+        List<Integer> zoneIds = getZoneIdsForPrimaryReplicaElected(partitionGroupId);
         localNodeIsPrimaryReplicaForZoneIds.addAll(zoneIds);
 
         tableIds.forEach(tableId -> {
@@ -305,14 +304,11 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         return tableIds;
     }
 
-    private static List<Integer> getZoneIdsForPrimaryReplicaElected(
-            PartitionGroupId partitionGroupId,
-            IntPredicate predicate
-    ) {
+    private List<Integer> getZoneIdsForPrimaryReplicaElected(PartitionGroupId partitionGroupId) {
         if (enabledColocation()) {
             ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
-            if (predicate.test(zonePartitionId.zoneId())) {
+            if (!localNodeIsPrimaryReplicaForZoneIds.contains(zonePartitionId.zoneId())) {
                 return List.of(zonePartitionId.zoneId());
             } else {
                 return List.of();
@@ -331,11 +327,11 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
             this.tableId = tableId;
         }
 
-        public int catalogVersion() {
+        int catalogVersion() {
             return catalogVersion;
         }
 
-        public int tableId() {
+        int tableId() {
             return tableId;
         }
     }
