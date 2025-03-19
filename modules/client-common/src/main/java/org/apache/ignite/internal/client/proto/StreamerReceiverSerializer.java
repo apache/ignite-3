@@ -45,17 +45,22 @@ public class StreamerReceiverSerializer {
      *
      * @param w Writer.
      * @param receiverClassName Receiver class name.
-     * @param receiverArgs Receiver arguments.
+     * @param receiverArg Receiver arguments.
      * @param items Items.
      */
-    public static <A> void serializeReceiverInfoOnClient(ClientMessagePacker w, String receiverClassName, A receiverArgs,
-            @Nullable Marshaller<A, byte[]> receiverArgsMarshaller, Collection<?> items) {
+    public static <A> void serializeReceiverInfoOnClient(
+            ClientMessagePacker w,
+            String receiverClassName,
+            A receiverArg,
+            @Nullable Marshaller<A, byte[]> receiverArgsMarshaller,
+            Collection<?> items) {
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiverClassName);
 
-        ClientBinaryTupleUtils.appendObject(builder, receiverArgs);
+        // TODO: Use SharedComputeUtils for arg and items.
+        ClientBinaryTupleUtils.appendObject(builder, receiverArg);
 
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
 
@@ -79,6 +84,7 @@ public class StreamerReceiverSerializer {
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiver.receiverClassName());
 
+        // TODO: Use SharedComputeUtils for arg and items.
         ClientBinaryTupleUtils.appendObject(builder, receiverArg);
 
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
@@ -164,6 +170,7 @@ public class StreamerReceiverSerializer {
 
         var reader = new BinaryTupleReader(numElements, buf.slice().order(ByteOrder.LITTLE_ENDIAN));
 
+        // TODO: Use SharedComputeUtils for results.
         return ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, 0);
     }
 
@@ -204,6 +211,7 @@ public class StreamerReceiverSerializer {
         byte[] bytes = r.readBinary();
         var reader = new BinaryTupleReader(numElements, bytes);
 
+        // TODO: Use SharedComputeUtils for results.
         return ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, 0);
     }
 
