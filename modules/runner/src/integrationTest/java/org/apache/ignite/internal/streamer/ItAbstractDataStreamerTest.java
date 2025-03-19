@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -557,7 +556,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @Test
     public void testReceiverWithTuples() {
         CompletableFuture<Void> streamerFut;
-        var resultSubscriber = new TestSubscriber<String>();
+        var resultSubscriber = new TestSubscriber<Tuple>();
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             Tuple receiverArg = Tuple.create().set("arg1", "val1").set("arg2", 2);
@@ -572,11 +571,18 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     receiverArg
             );
 
-            publisher.submit(tuple(1, "foo"));
-            publisher.submit(tuple(2, "bar"));
+            publisher.submit(tuple(1, "foo1"));
+            publisher.submit(tuple(2, "foo2"));
         }
 
         assertThat(streamerFut, willCompleteSuccessfully());
+        assertEquals(2, resultSubscriber.items.size());
+
+        for (Tuple item : resultSubscriber.items) {
+            assertEquals("foo" + item.intValue(0), item.stringValue(1));
+            assertEquals("val1", item.stringValue("arg1"));
+            assertEquals(2, item.intValue("arg2"));
+        }
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
@@ -681,7 +687,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     private static class TestSubscriber<T> implements Subscriber<T> {
-        Set<T> items = Collections.synchronizedSet(new HashSet<>());
+        List<T> items = Collections.synchronizedList(new ArrayList<>());
 
         @Override
         public void onSubscribe(Subscription subscription) {
