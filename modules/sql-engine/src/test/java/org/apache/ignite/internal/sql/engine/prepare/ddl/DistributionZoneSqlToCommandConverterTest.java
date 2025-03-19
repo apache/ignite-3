@@ -526,6 +526,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             String prefix = "create zone test_zone (";
             assertThrowsWithPos(format(sql, option, "'bar'"), "\\'bar\\'", prefix.length() + option.length() + 1 /*start pos*/
                     + 1 /*first symbol after bracket*/);
+
+            assertThrowsWithPos(format(sql, option, "-1"), "-", prefix.length() + option.length() + 1 /*start pos*/
+                    + 1 /*first symbol after bracket*/);
         }
     }
 

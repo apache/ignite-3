@@ -585,29 +585,28 @@ SqlNodeList StorageProfiles() :
     }
 }
 
-void StorageProfileOption(List<SqlNode> list, SqlParserPos pos) :
+SqlCharStringLiteral UnquotedLiteral() :
 {
-    final Span s = Span.of();
-    final String val;
+final String val;
 }
 {
-  <QUOTED_STRING> {
-    s.add(this);
-    //val = SqlParserUtil.trim(token.image, "'");
-    String val0 = token.image.trim();
-    if (val0.startsWith("'") && val0.endsWith("'")) {
-      val = val0.substring(1, val0.length() - 1).trim();
-    } else {
-      val = val0;
-    }
-    //val = SqlParserUtil.stripQuotes(token.image, "'", "'", "", Casing.UNCHANGED).trim();
+    <QUOTED_STRING> {
+        val = SqlParserUtil.parseString(token.image).trim();
         if (val.isEmpty()) {
           throw SqlUtil.newContextException(getPos(),
               RESOURCE.validationError("Empty profile is not allowed."));
         }
-    SqlNode profile = SqlLiteral.createCharString(val, getPos());
-    list.add(profile);
-  }
+        SqlCharStringLiteral profile = SqlLiteral.createCharString(val, getPos());
+        return profile;
+    }
+}
+
+void StorageProfileOption(List<SqlNode> list, SqlParserPos pos) :
+{
+    final SqlCharStringLiteral val;
+}
+{
+    val = UnquotedLiteral() { list.add(val); }
 }
 
 SqlNodeList ZoneOptionsList() :
