@@ -31,6 +31,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -223,9 +224,15 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void functionalDefaultIsNotSupportedForNonPkColumns() {
         sql("CREATE TABLE t (id UUID PRIMARY KEY, val VARCHAR)");
+
+        // Non-pk column
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
+                () -> sql("ALTER TABLE t ALTER COLUMN val SET DEFAULT a.b.c")
+        );
 
         // PK column
         assertThrowsSqlException(
@@ -236,10 +243,144 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
 
         // Non-pk column
         assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"rand_uuid\"",
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
                 () -> sql("ALTER TABLE t ALTER COLUMN val SET DEFAULT rand_uuid")
         );
+    }
+
+    @Test
+    public void functionalDefaultAreNotSupportedInSetDefault() {
+        sql("CREATE TABLE t (id int PRIMARY KEY, val int)");
+
+        for (String col : Arrays.asList("id", "col")) {
+            // Compound id
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: A.B.C",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT a.b.c", col))
+            );
+
+            // Expression
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (1/0)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Failed to parse query: Encountered \"/\"",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT 1/0, primary key (id) )", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: `RAND_UUID`()",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid()", col))
+            );
+
+            // SELECT
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: SELECT",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (SELECT 1000)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: SELECT",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (SELECT count(*) FROM xyz)", col))
+            );
+
+            // DML
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Incorrect syntax near the keyword 'UPDATE'",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (UPDATE t SET col=1)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Incorrect syntax near the keyword 'INSERT'",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (INSERT INTO t VALUES(1))", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Incorrect syntax near the keyword 'DELETE'",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (DELETE FROM t WHERE col = 1)", col))
+            );
+        }
+    }
+
+    @Test
+    public void functionalDefaultAreNotSupportedInSetDataType() {
+        sql("CREATE TABLE t (id int PRIMARY KEY, val int)");
+
+        for (String col : Arrays.asList("id", "col")) {
+            // Compound id
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: A.B.C",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT a.b.c", col))
+            );
+
+            // Expression
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (1/0)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Failed to parse query: Encountered \"/\"",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT 1/0, primary key (id) )", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: `RAND_UUID`()",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT rand_uuid()", col))
+            );
+
+            // SELECT
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: SELECT",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (SELECT 1000)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: SELECT",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (SELECT count(*) FROM xyz)", col))
+            );
+
+            // DML
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Incorrect syntax near the keyword 'UPDATE'",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (UPDATE t SET col=1)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Incorrect syntax near the keyword 'INSERT'",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (INSERT INTO t VALUES(1))", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Incorrect syntax near the keyword 'DELETE'",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (DELETE FROM t WHERE col = 1)", col))
+            );
+        }
     }
 
     @Override

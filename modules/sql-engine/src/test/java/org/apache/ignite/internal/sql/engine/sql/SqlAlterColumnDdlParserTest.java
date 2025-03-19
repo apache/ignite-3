@@ -17,17 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -83,10 +85,27 @@ public class SqlAlterColumnDdlParserTest extends AbstractParserTest {
         assertThat(((SqlLiteral) dflt).getValueAs(Integer.class), equalTo(10));
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT 10");
 
-        assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"FUNC\"",
-                () -> parse("ALTER TABLE t ALTER COLUMN a SET DEFAULT FUNC"));
+        // Identifier
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT FUNC");
+        checkDefaultExpr(alterColumn.expression(), SqlIdentifier.class, "\"FUNC\"");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"FUNC\"");
+
+        // Expression
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT (1+2)");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "1 + 2");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT 1 + 2");
+
+        // Function call
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT LENGTH('abcd')");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"LENGTH\"('abcd')");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"LENGTH\"('abcd')");
+
+        // Select
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT (SELECT count(col) FROM t)");
+        checkDefaultExpr(alterColumn.expression(), SqlSelect.class, "SELECT COUNT(\"COL\")\n"
+                + "FROM \"T\"");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT SELECT COUNT(\"COL\")\n"
+                + "FROM \"T\"");
     }
 
     /**
@@ -129,10 +148,27 @@ public class SqlAlterColumnDdlParserTest extends AbstractParserTest {
         expectDataType(alterColumn, "INTEGER", false, null);
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"C\" SET DATA TYPE INTEGER NULL DEFAULT NULL");
 
-        assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"FUNC\"",
-                () -> parse("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT FUNC"));
+        // Identifier
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT FUNC");
+        checkDefaultExpr(alterColumn.expression(), SqlIdentifier.class, "\"FUNC\"");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"FUNC\"");
+
+        // Expression
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT (1 + 2)");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "1 + 2");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT 1 + 2");
+
+        // Function call
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT \"LENGTH\"('abcd')");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"LENGTH\"('abcd')");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT \"LENGTH\"('abcd')");
+
+        // Select
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT (SELECT count(col) FROM t)");
+        checkDefaultExpr(alterColumn.expression(), SqlSelect.class, "SELECT COUNT(\"COL\")\n"
+                + "FROM \"T\"");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT SELECT COUNT(\"COL\")\n"
+                + "FROM \"T\"");
     }
 
     private void expectDataType(IgniteSqlAlterColumn alterColumn,
@@ -156,6 +192,12 @@ public class SqlAlterColumnDdlParserTest extends AbstractParserTest {
         assertNotNull(dflt);
         assertThat(dflt, instanceOf(SqlLiteral.class));
         assertThat(((SqlLiteral) dflt).getTypeName(), equalTo(SqlTypeName.NULL));
+    }
+
+    private <T extends SqlNode> void checkDefaultExpr(@Nullable SqlNode dflt, Class<T> type, String stringRepr) {
+        assertNotNull(dflt);
+        assertThat(dflt, instanceOf(type));
+        assertEquals(stringRepr, unparse(dflt));
     }
 
     private IgniteSqlAlterColumn parseAlterColumn(String querySuffix) {

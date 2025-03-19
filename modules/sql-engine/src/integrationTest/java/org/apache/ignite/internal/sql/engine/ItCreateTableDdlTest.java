@@ -692,6 +692,69 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    public void testRejectNotSupportedDefaults() {
+        // Compound id
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: A.B.C",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT a.b.c, primary key (id) )")
+        );
+
+        // Expression
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: 1 / 0",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT (1/0), primary key (id) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"/\"",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT 1/0, primary key (id) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: `RAND_UUID`()",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT rand_uuid(), primary key (id) )")
+        );
+
+        // SELECT
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: SELECT",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT (SELECT 1000), primary key (id) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: SELECT",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT (SELECT count(*) FROM xyz), primary key (id) )")
+        );
+
+        // DML
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Incorrect syntax near the keyword 'UPDATE'",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT (UPDATE t SET col=1), primary key (id) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Incorrect syntax near the keyword 'INSERT'",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT (INSERT INTO t VALUES(1)), primary key (id) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Incorrect syntax near the keyword 'DELETE'",
+                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT (DELETE FROM t WHERE col = 1), primary key (id) )")
+        );
+    }
+
     private static @Nullable CatalogTableDescriptor getTable(IgniteImpl node, String tableName) {
         CatalogManager catalogManager = node.catalogManager();
         HybridClock clock = node.clock();
