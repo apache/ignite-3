@@ -61,6 +61,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.ColumnStrategy;
+import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDdl;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.commands.DeferredDefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
@@ -140,6 +142,8 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -476,18 +480,9 @@ public class DdlSqlToCommandConverter {
             return DefaultValue.constant(null);
         }
 
-        if (expression instanceof SqlIdentifier) {
-            return DefaultValue.functionCall(((SqlIdentifier) expression).getSimple());
-        }
-
-        if (expression instanceof SqlLiteral) {
-            ColumnType columnType = columnType(relType);
-
-            Object val = fromLiteral(columnType, name, (SqlLiteral) expression, relType.getPrecision(), relType.getScale());
-            return DefaultValue.constant(val);
-        }
-
-        throw new IllegalArgumentException("Unsupported default expression: " + expression.getKind());
+        DeferredDefaultValue deferredDefaultValue = convertDefaultExpression(expression, name, relType).getSecond();
+        ColumnType columnType = columnType(relType);
+        return deferredDefaultValue.derive(columnType);
     }
 
     /**
@@ -562,25 +557,40 @@ public class DdlSqlToCommandConverter {
             builder.nullable(!notNull);
         }
 
-        if (alterColumnNode.expression() != null) {
-            SqlNode expr = alterColumnNode.expression();
+        SqlNode defaultExpr = alterColumnNode.expression();
+        if (defaultExpr != null) {
+            String columnName = alterColumnNode.name().getSimple();
+            Pair<DefaultValue.Type, DeferredDefaultValue> resolveDfltFunc = convertDefaultExpression(defaultExpr, columnName, relType);
 
-            DeferredDefaultValue resolveDfltFunc;
-
-            int precision = relType == null ? PRECISION_NOT_SPECIFIED : relType.getPrecision();
-            int scale = relType == null ? SCALE_NOT_SPECIFIED : relType.getScale();
-            String name = alterColumnNode.columnName().getSimple();
-
-            if (expr instanceof SqlLiteral) {
-                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, name, (SqlLiteral) expr, precision, scale));
-            } else {
-                throw new IllegalStateException("Invalid expression type " + expr.getKind());
+            if (resolveDfltFunc.getFirst() != Type.CONSTANT) {
+                throw new SqlException(STMT_VALIDATION_ERR, "Cannot set functional default: " + defaultExpr);
             }
 
-            builder.deferredDefaultValue(resolveDfltFunc);
+            builder.deferredDefaultValue(resolveDfltFunc.getSecond());
         }
 
         return builder.build();
+    }
+
+    private static Pair<DefaultValue.Type, DeferredDefaultValue> convertDefaultExpression(
+            SqlNode expr,
+            String name,
+            @Nullable RelDataType relType
+    ) {
+        if (expr instanceof SqlLiteral) {
+            int precision = relType == null ? PRECISION_NOT_SPECIFIED : relType.getPrecision();
+            int scale = relType == null ? SCALE_NOT_SPECIFIED : relType.getScale();
+            DeferredDefaultValue func = type -> DefaultValue.constant(fromLiteral(type, name, (SqlLiteral) expr, precision, scale));
+
+            return new Pair<>(Type.CONSTANT, func);
+        } else if (expr instanceof SqlIdentifier && ((SqlIdentifier) expr).isSimple()) {
+            DeferredDefaultValue func = type -> DefaultValue.functionCall(((SqlIdentifier) expr).getSimple());
+
+            return new Pair<>(Type.FUNCTION_CALL, func);
+        } else {
+            // Report compound ids and expressions as their SQL string representation.
+            throw new SqlException(STMT_VALIDATION_ERR, "Unsupported default expression: " + expr);
+        }
     }
 
     /**

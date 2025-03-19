@@ -31,6 +31,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -223,23 +224,97 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
-    public void functionalDefaultIsNotSupportedForNonPkColumns() {
-        sql("CREATE TABLE t (id UUID PRIMARY KEY, val VARCHAR)");
+    public void setDefault() {
+        sql("CREATE TABLE t (id int PRIMARY KEY, val int)");
 
-        // PK column
-        assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"rand_uuid\"",
-                () -> sql("ALTER TABLE t ALTER COLUMN id SET DEFAULT rand_uuid")
-        );
+        for (String col : Arrays.asList("id", "val")) {
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Cannot set functional default: RAND_UUID",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid", col))
+            );
 
-        // Non-pk column
-        assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"rand_uuid\"",
-                () -> sql("ALTER TABLE t ALTER COLUMN val SET DEFAULT rand_uuid")
-        );
+            // Compound id
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: A.B.C",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT a.b.c", col))
+            );
+
+            // Expression
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (1/0)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Failed to parse query: Encountered \"/\"",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT 1/0, primary key (id) )", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: `RAND_UUID`()",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid()", col))
+            );
+
+            // SELECT
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Query expression encountered in illegal context",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (SELECT 1000)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Query expression encountered in illegal context",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (SELECT count(*) FROM xyz)", col))
+            );
+        }
+    }
+
+    @Test
+    public void setDataTypeSetDefault() {
+        sql("CREATE TABLE t (id int PRIMARY KEY, val int)");
+
+        for (String col : Arrays.asList("id", "val")) {
+            // Compound id
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: A.B.C",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT a.b.c", col))
+            );
+
+            // Expression
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (1/0)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Failed to parse query: Encountered \"/\"",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT 1/0, primary key (id) )", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: `RAND_UUID`()",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT rand_uuid()", col))
+            );
+
+            // SELECT
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Query expression encountered in illegal context",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (SELECT 1000)", col))
+            );
+        }
     }
 
     @Override

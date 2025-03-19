@@ -763,6 +763,72 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         }
     }
 
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "rand_int(); Unsupported default expression: `RAND_INT`()",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testCreateTableRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("create table t(id int default {}, val varchar, primary key (id))", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "rand_int(); Unsupported default expression: `RAND_INT`()",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAddColumnRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t add column val int default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "rand_int; Cannot set functional default: RAND_INT",
+            "a.b.c; Unsupported default expression: A.B.C",
+            "rand_int(); Unsupported default expression: `RAND_INT`()",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAlterColumnSetDataTypeRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t alter column val set data type int default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "rand_int; Cannot set functional default: RAND_INT",
+            "a.b.c; Unsupported default expression: A.B.C",
+            "rand_int(); Unsupported default expression: `RAND_INT`()",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAlterColumnSetDefaultRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t alter column val set default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
     private static Set<SqlTypeName> intervalTypeNames() {
         return INTERVAL_TYPES;
     }

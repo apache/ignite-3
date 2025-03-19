@@ -87,9 +87,7 @@ void TableElement(List<SqlNode> list) :
     (
         <DEFAULT_> { s.add(this); }
         (
-            dflt = Literal()
-        |
-            dflt = SimpleIdentifier()
+            dflt = DefaultLiteralOrExpression()
         )  {
             strategy = ColumnStrategy.DEFAULT;
         }
@@ -414,7 +412,7 @@ SqlNode ColumnWithType() :
         }
     ]
     (
-        <DEFAULT_> { s.add(this); } dflt = Literal() {
+        <DEFAULT_> { s.add(this); } dflt = DefaultLiteralOrExpression() {
             strategy = ColumnStrategy.DEFAULT;
         }
     |
@@ -427,6 +425,15 @@ SqlNode ColumnWithType() :
     {
         return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
+}
+
+SqlNode DefaultLiteralOrExpression():
+{
+   SqlNode node;
+} {
+   node = Literal() { return node; }
+|
+   node = Expression(ExprContext.ACCEPT_NON_QUERY) { return node; }
 }
 
 SqlNodeList ColumnWithTypeOrList() :
@@ -492,7 +499,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, null, false);
         }
     |
-        <SET> <DEFAULT_> { s.add(this); } dflt = Literal()
+        <SET> <DEFAULT_> { s.add(this); } dflt = DefaultLiteralOrExpression()
         {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, dflt, null);
         }
@@ -508,7 +515,7 @@ SqlNode DefaultLiteralOrNull() :
     SqlNode dflt;
 }
 {
-    <DEFAULT_> dflt = Literal()
+    <DEFAULT_> dflt = DefaultLiteralOrExpression()
     {
         return dflt;
     }

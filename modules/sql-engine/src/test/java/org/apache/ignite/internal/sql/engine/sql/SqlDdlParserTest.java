@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
@@ -49,6 +50,7 @@ import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -116,6 +118,86 @@ public class SqlDdlParserTest extends AbstractParserTest {
         );
     }
 
+    @Test
+    public void createTableDefaultExpressionsPrimaryKey() {
+        // Expression
+        {
+            SqlNode node = parse("create table t(id int default (1 + 2) primary key, val int)");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("ID", SqlBasicCall.class, (expr) -> "1 + 2".equals(unparse(expr))));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER DEFAULT (1 + 2), "
+                    + "\"VAL\" INTEGER"
+                    + ")"
+            );
+        }
+
+        // Function call
+        {
+            SqlNode node = parse("create table t(id int default length('abcd') primary key, val int)");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("ID", SqlBasicCall.class,
+                    (expr) -> "\"LENGTH\"('abcd')".equals(unparse(expr))));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER DEFAULT (\"LENGTH\"('abcd')), "
+                    + "\"VAL\" INTEGER"
+                    + ")"
+            );
+        }
+
+        // Query
+        {
+            assertThrowsSqlException(
+                    Sql.STMT_PARSE_ERR,
+                    "Query expression encountered in illegal context",
+                    () -> parse("create table t(id int default (SELECT count(col) FROM t) primary key, val int)"));
+        }
+    }
+
+    @Test
+    public void createTableDefaultExpressions() {
+        // Expression
+        {
+            SqlNode node = parse("create table t(id int primary key, val int default (1 + 2))");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("VAL", SqlBasicCall.class, (expr) -> "1 + 2".equals(unparse(expr))));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER, "
+                    + "\"VAL\" INTEGER DEFAULT (1 + 2)"
+                    + ")"
+            );
+        }
+
+        // Function call
+        {
+            SqlNode node = parse("create table t(id int primary key, val int default length('abcd'))");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("VAL", SqlBasicCall.class,
+                    (expr) -> "\"LENGTH\"('abcd')".equals(unparse(expr))));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER, "
+                    + "\"VAL\" INTEGER DEFAULT (\"LENGTH\"('abcd'))"
+                    + ")"
+            );
+        }
+    }
+
     /**
      * Parsing of CREATE TABLE with a literal as a default expression.
      */
@@ -165,17 +247,51 @@ public class SqlDdlParserTest extends AbstractParserTest {
         );
     }
 
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "CREATE TABLE t(id int DEFAULT (SELECT count(col) FROM t), val int); Query expression encountered in illegal context",
+            "CREATE TABLE t(id int DEFAULT (SELECT 100), val int); Query expression encountered in illegal context",
+            "CREATE TABLE t(id int DEFAULT (UPDATE t SET col=1) PRIMARY KEY, val int); Incorrect syntax near the keyword 'UPDATE'",
+            "CREATE TABLE t(id int DEFAULT (INSERT INTO t VALUES(1)), val int); Incorrect syntax near the keyword 'INSERT'",
+            "CREATE TABLE t(id int DEFAULT (DELETE FROM t WHERE col = 1), val int); Incorrect syntax near the keyword 'DELETE'",
+
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (SELECT count(*) FROM xyz); Query expression encountered in illegal context",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (UPDATE t SET col=1); Incorrect syntax near the keyword 'UPDATE'",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (INSERT INTO t VALUES(1)); Incorrect syntax near the keyword 'INSERT",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (DELETE FROM t WHERE col = 1); Incorrect syntax near the keyword 'DELETE'",
+
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (SELECT count(*) FROM xyz); Query expression encountered in illegal context",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (SELECT 100); Query expression encountered in illegal context",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (UPDATE t SET col=1); Incorrect syntax near the keyword 'UPDATE'",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (INSERT INTO t VALUES(1)); Incorrect syntax near the keyword 'INSERT",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (DELETE FROM t WHERE col = 1); Incorrect syntax near the keyword 'DELETE'",
+    })
+    public void rejectNonExpressionsInDefault(String stmt, String error) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                error,
+                () -> parse(stmt));
+    }
+
     private Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
             String columnName,
             Class<? extends SqlLiteral> literalType,
             String literalValue
     ) {
+        return hasColumnWithDefault(columnName, literalType, (lit) -> literalValue.equals(lit.toValue()));
+    }
+
+    private <T extends SqlNode> Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
+            String columnName,
+            Class<T> nodeType,
+            Predicate<T> valCheck
+    ) {
         return hasItem(ofTypeMatching(
                 "Column with literal as default: columnName=" + columnName,
                 SqlColumnDeclaration.class,
                 col -> columnName.equals(col.name.getSimple())
-                        && literalType.isInstance(col.expression)
-                        && literalValue.equals(((SqlLiteral) col.expression).toValue())
+                        && nodeType.isInstance(col.expression)
+                        && valCheck.test(nodeType.cast(col.expression))
         ));
     }
 
