@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler;
 
 import java.util.BitSet;
-import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.tostring.S;
