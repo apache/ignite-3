@@ -576,9 +576,9 @@ SqlNodeList StorageProfiles() :
 }
 {
     <LBRACKET>
-    StorageProfileOption(list, getPos())
+    StorageProfileOption(list)
     (
-        <COMMA> { s.add(this); } StorageProfileOption(list, getPos())
+        <COMMA> { s.add(this); } StorageProfileOption(list)
     )*
     <RBRACKET> {
         return new SqlNodeList(list, s.end(this));
@@ -601,7 +601,7 @@ final String val;
     }
 }
 
-void StorageProfileOption(List<SqlNode> list, SqlParserPos pos) :
+void StorageProfileOption(List<SqlNode> list) :
 {
     final SqlCharStringLiteral val;
 }
