@@ -40,7 +40,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class FailureProcessorLoggingTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock: { "
-            + "oomBufferSizeBites=0, "
+            + "oomBufferSizeBytes=0, "
             + "dumpThreadsOnFailure=true,"
             + "handler {type=noop} }")
     private static FailureProcessorConfiguration enabledThreadDumpConfiguration;
