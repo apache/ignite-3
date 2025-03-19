@@ -89,7 +89,7 @@ public class UpdateLogImpl implements UpdateLog {
      */
     public UpdateLogImpl(MetaStorageManager metastore) {
         this.metastore = metastore;
-        this.marshaller = new UpdateLogMarshallerImpl();
+        this.marshaller = new UpdateLogMarshallerImpl(2);
     }
 
     @TestOnly
