@@ -79,7 +79,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 + "DISTRIBUTION ALGORITHM 'partitionDistribution') "
                 + "STORAGE PROFILES ['default2', 'new']");
         sql("CREATE ZONE zone2 STORAGE PROFILES ['default2', 'new']");
-        sql("CREATE ZONE zone3 (AUTO SCALE UP 100, AUTO SCALE UP 100) STORAGE PROFILES ['default2', 'new']");
+        sql("CREATE ZONE zone3 (AUTO SCALE UP 100) STORAGE PROFILES ['default2', 'new']");
  /*       sql("CREATE ZONE zone1 STORAGE PROFILES 'default1'");
         //sql("CREATE ZONE zone1 STORAGE PROFILES 'default, new'");
         sql("CREATE ZONE 'zone 2' STORAGE PROFILES 'default, new'");*/

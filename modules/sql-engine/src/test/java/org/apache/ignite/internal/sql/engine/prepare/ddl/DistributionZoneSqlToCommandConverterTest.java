@@ -28,7 +28,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -65,11 +64,14 @@ import org.mockito.Mockito;
 @SuppressWarnings("ThrowableNotThrown")
 public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
 
-    private static final List<ZoneOptionEnum> NUMERIC_OPTIONS =
-            Arrays.asList(ZoneOptionEnum.PARTITIONS, ZoneOptionEnum.REPLICAS, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST,
-                    ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN);
+    private static final List<ZoneOptionEnum> NUMERIC_OPTIONS = List.of(
+            ZoneOptionEnum.PARTITIONS,
+            ZoneOptionEnum.REPLICAS,
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST,
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP,
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN);
 
-    private static final List<ZoneOptionEnum> STRING_OPTIONS = Arrays.asList(
+    private static final List<ZoneOptionEnum> STRING_OPTIONS = List.of(
             ZoneOptionEnum.DISTRIBUTION_ALGORITHM,
             ZoneOptionEnum.DATA_NODES_FILTER,
             ZoneOptionEnum.STORAGE_PROFILES,

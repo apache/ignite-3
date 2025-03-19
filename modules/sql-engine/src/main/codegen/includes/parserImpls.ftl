@@ -647,20 +647,16 @@ void ZoneElement(List<SqlNode> zoneOptions) :
           }
       )
       |
-      (
-          <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
-          {
-            key = new SqlIdentifier(ZoneOptionEnum.PARTITIONS.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
-          }
-      )
+      <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
+      {
+        key = new SqlIdentifier(ZoneOptionEnum.PARTITIONS.name(), pos);
+        zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+      }
       |
+      <REPLICAS> { pos = getPos(); }
       (
-        <REPLICAS> { pos = getPos(); }
-        (
-          <UNSIGNED_INTEGER_LITERAL>
+          option = UnsignedIntegerLiteral()
           {
-            option = SqlLiteral.createExactNumeric(token.image, getPos());
             key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
             zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
           }
@@ -670,44 +666,25 @@ void ZoneElement(List<SqlNode> zoneOptions) :
             key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
             zoneOptions.add(new IgniteSqlZoneOptionV2(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
           }
-        )
       )
       |
-      (
-        <DISTRIBUTION> { pos = getPos(); } <ALGORITHM>
-        (
-          <QUOTED_STRING> {
-            valStr = SqlParserUtil.trim(token.image, "'");
-            option = SqlLiteral.createCharString(valStr, getPos());
-            key = new SqlIdentifier(ZoneOptionEnum.DISTRIBUTION_ALGORITHM.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
-          }
-        )
-      )
+      <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = UnquotedLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.DISTRIBUTION_ALGORITHM.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+      }
       |
-      (
-        <NODES> { pos = getPos(); } <FILTER>
-        (
-          <QUOTED_STRING> {
-            valStr = SqlParserUtil.trim(token.image, "'");
-            option = SqlLiteral.createCharString(valStr, getPos());
-            key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_FILTER.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
-          }
-        )
-      )
+      <NODES> { pos = getPos(); } <FILTER> option = UnquotedLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_FILTER.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+      }
       |
-      (
-        <CONSISTENCY> { pos = getPos(); } <MODE>
-        (
-          <QUOTED_STRING> {
-            valStr = SqlParserUtil.trim(token.image, "'");
-            option = SqlLiteral.createCharString(valStr, getPos());
-            key = new SqlIdentifier(ZoneOptionEnum.CONSISTENCY_MODE.name(), pos);
-            zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
-          }
-        )
-      )
+      <CONSISTENCY> { pos = getPos(); } <MODE> option = UnquotedLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.CONSISTENCY_MODE.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+      }
   )
 }
 
