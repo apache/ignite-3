@@ -95,6 +95,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.table.DataStreamerReceiver;
@@ -889,7 +890,6 @@ public class PlatformTestNodeRunner {
         }
     }
 
-
     private static class Nested {
         public UUID id;
         public BigDecimal price;
@@ -979,6 +979,15 @@ public class PlatformTestNodeRunner {
             res.price = new BigDecimal(parts[1]);
 
             return res;
+        }
+    }
+
+    private static class ErrorCodeAsStringJob implements ComputeJob<Integer, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer arg) {
+            var ex = new IgniteException(arg);
+
+            return completedFuture(ex.codeAsString());
         }
     }
 }
