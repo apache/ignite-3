@@ -492,6 +492,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     @Override
     public CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
+        if (request instanceof BuildIndexReplicaRequest) {
+            System.out.println(">>> 3");
+        }
         return processRequestInContext(request, replicaPrimacy, senderId);
     }
 
@@ -564,41 +567,48 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
         }
 
-        @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
-        @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
-        @Nullable HybridTimestamp txTs = getTxStartTimestamp(request);
-        if (txTs == null) {
-            txTs = opTsIfDirectRo;
-        }
 
-        assert opTs == null || txTs == null || opTs.compareTo(txTs) >= 0 : "Tx started at " + txTs + ", but opTs precedes it: " + opTs
-                + "; request " + request;
 
-        // Don't need to validate schema.
-        if (opTs == null) {
-            assert opTsIfDirectRo == null;
+        if (enabledColocation()) {
+            // TODO sanpwc 22522 always null as opStartTsDirectRo adjust.
             return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, null);
-        }
-
-        assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
-
-        @Nullable HybridTimestamp finalTxTs = txTs;
-        Runnable validateClo = () -> {
-            schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId());
-
-            if (hasSchemaVersion) {
-                SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
-
-                schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
-                        finalTxTs,
-                        versionAwareRequest.schemaVersion(),
-                        tableId()
-                );
+        } else {
+            @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
+            @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
+            @Nullable HybridTimestamp txTs = getTxStartTimestamp(request);
+            if (txTs == null) {
+                txTs = opTsIfDirectRo;
             }
-        };
 
-        return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo).thenCompose(ignored ->
-                processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo));
+            assert opTs == null || txTs == null || opTs.compareTo(txTs) >= 0 : "Tx started at " + txTs + ", but opTs precedes it: " + opTs
+                    + "; request " + request;
+
+            // Don't need to validate schema.
+            if (opTs == null) {
+                assert opTsIfDirectRo == null;
+                return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, null);
+            }
+
+            assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
+
+            @Nullable HybridTimestamp finalTxTs = txTs;
+            Runnable validateClo = () -> {
+                schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId());
+
+                if (hasSchemaVersion) {
+                    SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
+
+                    schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
+                            finalTxTs,
+                            versionAwareRequest.schemaVersion(),
+                            tableId()
+                    );
+                }
+            };
+
+            return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo).thenCompose(ignored ->
+                    processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo));
+        }
     }
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
