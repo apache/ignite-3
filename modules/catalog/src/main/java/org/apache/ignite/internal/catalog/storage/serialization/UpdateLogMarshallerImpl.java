@@ -20,8 +20,6 @@ package org.apache.ignite.internal.catalog.storage.serialization;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
-import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
-import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -58,32 +56,37 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     /** Current data format version. */
-    private static final int PROTOCOL_VERSION = 1;
-
-    /** Initial capacity (in bytes) of the buffer used for data output. */
-    private static final int INITIAL_BUFFER_CAPACITY = 256;
+    private static final int PROTOCOL_VERSION = 2;
 
     /** Serializers provider. */
     private final CatalogEntrySerializerProvider serializers;
 
-    public UpdateLogMarshallerImpl() {
-        this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
-    }
+    private final int protocolVersion;
 
     @TestOnly
     public UpdateLogMarshallerImpl(CatalogEntrySerializerProvider serializers) {
+        this(serializers, PROTOCOL_VERSION);
+    }
+
+    public UpdateLogMarshallerImpl(int protocolVersion) {
+        this(CatalogEntrySerializerProvider.DEFAULT_PROVIDER, protocolVersion);
+    }
+
+    public UpdateLogMarshallerImpl(CatalogEntrySerializerProvider serializers, int protocolVersion) {
         this.serializers = serializers;
+        this.protocolVersion = protocolVersion;
     }
 
     @Override
     public byte[] marshall(UpdateLogEvent update) {
-        try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(INITIAL_BUFFER_CAPACITY)) {
-            output.writeShort(PROTOCOL_VERSION);
-
-            output.writeShort(update.typeId());
-
-            serializers.get(1, update.typeId()).writeTo(update, output);
-
+        try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(serializers)) {
+            output.writeShort(protocolVersion);
+            if (protocolVersion == 1) {
+                output.writeShort(update.typeId());
+                serializers.get(1, update.typeId()).writeTo(update, output);
+            } else {
+                output.writeEntry(update);
+            }
             return output.array();
         } catch (Throwable t) {
             throw new CatalogMarshallerException(t);
@@ -92,18 +95,20 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
     @Override
     public UpdateLogEvent unmarshall(byte[] bytes) {
-        try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
+        try (CatalogObjectDataInput input = new CatalogObjectDataInput(serializers, bytes)) {
             int protoVersion = input.readShort();
 
             switch (protoVersion) {
-                case 1:
+                case 1: {
                     int typeId = input.readShort();
-
                     return (UpdateLogEvent) serializers.get(1, typeId).readFrom(input);
-
+                }
+                case 2: {
+                    return (UpdateLogEvent) input.readEntry();
+                }
                 default:
                     throw new IllegalStateException(format("An object could not be deserialized because it was using a newer"
-                            + " version of the serialization protocol [supported={}, actual={}].", PROTOCOL_VERSION, protoVersion));
+                            + " version of the serialization protocol [supported={}, actual={}].", protocolVersion, protoVersion));
             }
         } catch (Throwable t) {
             throw new CatalogMarshallerException(t);

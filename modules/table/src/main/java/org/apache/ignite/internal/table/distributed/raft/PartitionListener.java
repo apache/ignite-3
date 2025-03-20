@@ -115,7 +115,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final UUID localNodeId;
 
-    private Set<String> currentGroupTopology;
+    private final Set<String> currentGroupTopology = new HashSet<>();
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
@@ -183,6 +183,12 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
 
         this.commandHandlers = commandHandlersBuilder.build();
+
+        RaftGroupConfiguration committedGroupConfiguration = storage.committedGroupConfiguration();
+
+        if (committedGroupConfiguration != null) {
+            setCurrentGroupTopology(committedGroupConfiguration);
+        }
     }
 
     @Override
@@ -527,12 +533,12 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {
-        setCurrentGroupTopology(config);
-
         // Skips the update because the storage has already recorded it.
         if (config.index() <= storage.lastAppliedIndex()) {
             return;
         }
+
+        setCurrentGroupTopology(config);
 
         // Do the update under lock to make sure no snapshot is started concurrently with this update.
         // Note that we do not need to protect from a concurrent command execution by this listener because
@@ -544,23 +550,24 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 storage.committedGroupConfiguration(config);
                 storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-                if (!enabledColocation()) {
-                    updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
-                }
-
                 return null;
             });
 
-            byte[] configBytes = VersionedSerialization.toBytes(config, RaftGroupConfigurationSerializer.INSTANCE);
+            if (!enabledColocation()) {
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 
-            txStatePartitionStorage.committedGroupConfiguration(configBytes, lastAppliedIndex, lastAppliedTerm);
+                byte[] configBytes = VersionedSerialization.toBytes(config, RaftGroupConfigurationSerializer.INSTANCE);
+
+                txStatePartitionStorage.committedGroupConfiguration(configBytes, lastAppliedIndex, lastAppliedTerm);
+            }
         } finally {
             storage.releasePartitionSnapshotsReadLock();
         }
     }
 
     private void setCurrentGroupTopology(RaftGroupConfiguration config) {
-        currentGroupTopology = new HashSet<>(config.peers());
+        currentGroupTopology.clear();
+        currentGroupTopology.addAll(config.peers());
         currentGroupTopology.addAll(config.learners());
     }
 
@@ -689,8 +696,6 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
      * @return {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise.
      */
     private boolean isPrimaryInGroupTopology(@Nullable LeaseInfo storageLeaseInfo) {
-        assert currentGroupTopology != null : "Current group topology is null";
-
         // Despite the fact that storage.leaseInfo() may itself return null it's never expected to happen
         // while calling isPrimaryInGroupTopology because of HB between handlePrimaryReplicaChangeCommand that will populate the storage
         // with lease information and handleUpdate(All)Command that on it's turn calls isPrimaryReplicaInGroupTopology.

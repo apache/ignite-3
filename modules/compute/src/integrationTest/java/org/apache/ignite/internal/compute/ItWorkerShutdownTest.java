@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -58,7 +59,9 @@ import org.apache.ignite.internal.compute.utils.InteractiveJobs.AllInteractiveJo
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
@@ -74,9 +77,7 @@ import org.junit.jupiter.api.Test;
  * another node. This is not true for broadcast and local jobs. They should not be restarted.
  */
 public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
-    /**
-     * Map from node name to node index in {@link super#cluster}.
-     */
+    /** Map from node name to node index in {@link super#cluster}. */
     private static final Map<String, Integer> NODES_NAMES_TO_INDEXES = new HashMap<>();
 
     private static final String TABLE_NAME = "test";
@@ -409,10 +410,12 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         HybridClock clock = igniteImpl.clock();
         TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-        TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partitionId(Tuple.create(1).set("K", 1)));
+        PartitionGroupId replicationGroupId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), table.partitionId(Tuple.create(1).set("K", 1)))
+                : new TablePartitionId(table.tableId(), table.partitionId(Tuple.create(1).set("K", 1)));
 
         CompletableFuture<ReplicaMeta> replicaFuture = igniteImpl.placementDriver()
-                .awaitPrimaryReplica(tablePartitionId, clock.now(), 30, TimeUnit.SECONDS);
+                .awaitPrimaryReplica(replicationGroupId, clock.now(), 30, TimeUnit.SECONDS);
 
         assertThat(replicaFuture, willCompleteSuccessfully());
         ReplicaMeta replicaMeta = replicaFuture.join();

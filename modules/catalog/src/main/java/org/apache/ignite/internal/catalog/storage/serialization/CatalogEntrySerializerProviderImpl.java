@@ -170,6 +170,9 @@ class CatalogEntrySerializerProviderImpl implements CatalogEntrySerializerProvid
                     return (CatalogObjectSerializer<? extends MarshallableEntry>) constructor.newInstance();
                 }
 
+                // This constructor is only needed for serialization protocol V1,
+                // because there is no object version in that protocol, so we assigned them version 1
+                // to make CatalogEntrySerializerProvider API work for both protocol versions.
                 if (constructor.getParameterCount() == 1 && CatalogEntrySerializerProvider.class.isAssignableFrom(
                         constructor.getParameterTypes()[0])) {
                     return (CatalogObjectSerializer<? extends MarshallableEntry>) constructor.newInstance(provider);
