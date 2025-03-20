@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
 import java.util.BitSet;
@@ -30,12 +47,11 @@ import org.apache.ignite.internal.sql.engine.rule.logical.IgniteProjectCorrelate
 import org.immutables.value.Value;
 
 /**
- * Planner rule that pushes a {@link Project} under {@link Correlate} to apply
- * on Correlate's left and right inputs.
+ * Planner rule that pushes a {@link Project} under {@link Correlate} to apply on Correlate's left and right inputs.
  *
  * <p>There are two differences between this rule and {@link ProjectCorrelateTransposeRule}:
- * 1. is that former take into account RexCall parameters for functions in LogicalTableFunctionScan like a SYSTEM_RANGE.
- * 2. For some reasons for rewritten node can try be rewritten again, so for that case we just skip the rewrite.
+ * 1. is that former take into account RexCall parameters for functions in LogicalTableFunctionScan like a SYSTEM_RANGE. 2. For some reasons
+ * for rewritten node can try be rewritten again, so for that case we just skip the rewrite.
  *
  * @see CoreRules#PROJECT_CORRELATE_TRANSPOSE
  */
@@ -50,9 +66,9 @@ public class IgniteProjectCorrelateTransposeRule
     protected IgniteProjectCorrelateTransposeRule(IgniteProjectCorrelateTransposeRuleConfig config) {
         super(config);
     }
-    //~ Methods ----------------------------------------------------------------
 
-    @Override public void onMatch(RelOptRuleCall call) {
+    @Override
+    public void onMatch(RelOptRuleCall call) {
         Project origProject = call.rel(0);
         Correlate correlate = call.rel(1);
 
@@ -133,6 +149,9 @@ public class IgniteProjectCorrelateTransposeRule
         private final RexCorrelVariable rexCorrelVariable;
         private final Map<Integer, Integer> requiredColsMap;
 
+        /**
+         * Constructor.
+         */
         public RexFieldAccessReplacer(
                 CorrelationId rexCorrelVariableToReplace,
                 RexCorrelVariable rexCorrelVariable,
@@ -144,26 +163,29 @@ public class IgniteProjectCorrelateTransposeRule
             this.requiredColsMap = requiredColsMap;
         }
 
-        @Override public RexNode visitCorrelVariable(RexCorrelVariable variable) {
+        @Override
+        public RexNode visitCorrelVariable(RexCorrelVariable variable) {
             if (variable.id.equals(rexCorrelVariableToReplace)) {
                 return rexCorrelVariable;
             }
             return variable;
         }
 
-        @Override public RexNode visitCall(RexCall call) {
+        @Override
+        public RexNode visitCall(RexCall call) {
             // Over expression should not be pushed.
             return super.visitCall(call);
         }
 
-        @Override public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
+        @Override
+        public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
             RexNode refExpr = fieldAccess.getReferenceExpr().accept(this);
             // creates new RexFieldAccess instance for the case when referenceExpr was replaced.
             // Otherwise calls super method.
             if (refExpr == rexCorrelVariable) {
                 int fieldIndex = fieldAccess.getField().getIndex();
                 Integer idx = requiredColsMap.get(fieldIndex);
-                if(idx == null){
+                if (idx == null) {
                     // "no entry for field in requiredColsMap
                     // Seems we got already rewritten node, so just skip it.
                     return super.visitFieldAccess(fieldAccess);
@@ -175,8 +197,7 @@ public class IgniteProjectCorrelateTransposeRule
     }
 
     /**
-     * Visitor for RelNodes which applies specified {@link RexShuttle} visitor
-     * for every node in the tree.
+     * Visitor for RelNodes which applies specified {@link RexShuttle} visitor for every node in the tree.
      */
     public static class RelNodesExprsHandler extends RelShuttleImpl {
         private final RexShuttle rexVisitor;
@@ -185,7 +206,8 @@ public class IgniteProjectCorrelateTransposeRule
             this.rexVisitor = rexVisitor;
         }
 
-        @Override protected RelNode visitChild(RelNode parent, int i,
+        @Override
+        protected RelNode visitChild(RelNode parent, int i,
                 RelNode input) {
             return super.visitChild(parent, i, input.stripped())
                     .accept(rexVisitor);
@@ -212,7 +234,8 @@ public class IgniteProjectCorrelateTransposeRule
                 .build()
                 .withOperandFor(Project.class, Correlate.class);
 
-        @Override default IgniteProjectCorrelateTransposeRule toRule() {
+        @Override
+        default IgniteProjectCorrelateTransposeRule toRule() {
             return new IgniteProjectCorrelateTransposeRule(this);
         }
 

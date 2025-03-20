@@ -68,7 +68,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
                 + "    OR c>d\n"
                 + " ORDER BY 1;";
 
-        IgniteRel rel = physicalPlan(sql, schema, "FilterTableScanMergeRule", "ProjectCorrelateTransposeRule");
+        IgniteRel rel = physicalPlan(sql, schema, "FilterTableScanMergeRule", "IgniteProjectCorrelateTransposeRule");
 
         IgniteFilter filter = findFirstNode(rel, byClass(IgniteFilter.class)
                 .and(f -> RexUtils.hasCorrelation(((Filter) f).getCondition())));
