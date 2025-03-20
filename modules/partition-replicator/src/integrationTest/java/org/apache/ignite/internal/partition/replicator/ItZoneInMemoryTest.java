@@ -50,8 +50,10 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Set of tests that are checking how in-memory scenarios are working under zone colocation.
+ */
 public class ItZoneInMemoryTest extends ItAbstractColocationTest {
-
     @Test
     void testMixedStorageProfilesZone() throws Exception {
         startCluster(1);
