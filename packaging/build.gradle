@@ -82,7 +82,7 @@ def replaceVars = tasks.register('replaceVars', Copy) {
 }
 
 docker {
-    name 'apacheignite/ignite3'
+    name 'apacheignite/ignite'
     dockerfile file('docker/Dockerfile')
 
     copySpec.into 'dist', {
