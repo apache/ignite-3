@@ -18,6 +18,9 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
@@ -31,11 +34,17 @@ public class ExceptionCodeAsStringTests : IgniteTestsBase
     [Test]
     public async Task TestCodeAsStringIsConsistentWithJava()
     {
-        var errorCode = ErrorGroups.Common.Internal;
-        var dotNetCodeStr = GetCodeAsString(errorCode);
-        var javaCodeStr = await GetCodeAsStringJava(errorCode);
+        var allErrorCodes = GetAllErrorCodes().ToList();
+        Assert.That(allErrorCodes.Count, Is.GreaterThan(110));
 
-        Assert.AreEqual(javaCodeStr, dotNetCodeStr);
+        foreach (var errorCode in allErrorCodes)
+        {
+            var dotNetCodeStr = GetCodeAsString(errorCode);
+            var javaCodeStr = await GetCodeAsStringJava(errorCode);
+
+            Assert.AreEqual(javaCodeStr, dotNetCodeStr);
+            Console.WriteLine(dotNetCodeStr);
+        }
     }
 
     private static string GetCodeAsString(int errorCode)
@@ -43,6 +52,21 @@ public class ExceptionCodeAsStringTests : IgniteTestsBase
         var ex = new IgniteException(Guid.Empty, errorCode, null);
 
         return ex.CodeAsString;
+    }
+
+    private static IEnumerable<int> GetAllErrorCodes()
+    {
+        foreach (var errorGroup in typeof(ErrorGroups).GetNestedTypes())
+        {
+            // Get all int constants.
+            foreach (var field in errorGroup.GetFields(BindingFlags.Public | BindingFlags.Static))
+            {
+                if (field.FieldType == typeof(int) && field.IsLiteral)
+                {
+                    yield return (int)field.GetValue(null)!;
+                }
+            }
+        }
     }
 
     private async Task<string> GetCodeAsStringJava(int errorCode)
