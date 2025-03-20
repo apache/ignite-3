@@ -27,6 +27,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.tx.InternalTransaction.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -358,21 +359,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
     }
 
-    // TODO: IGNITE-24363 - change action argument type to ReplicaGroupId.
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
-            Consumer<TablePartitionId> action
+            Consumer<ReplicationGroupId> action
     ) {
         return inBusyLock(busyLock, () -> {
             assertReplicationGroupType(eventParameters.groupId());
 
-            if (!(eventParameters.groupId() instanceof TablePartitionId)) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove check for TablePartitionId.
+            if (!(eventParameters.groupId() instanceof TablePartitionId) && !(eventParameters.groupId() instanceof ZonePartitionId)) {
                 return falseCompletedFuture();
             }
 
-            TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
-
-            action.accept(groupId);
+            action.accept(eventParameters.groupId());
 
             return falseCompletedFuture();
         });
@@ -423,20 +422,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         if (readOnly) {
             HybridTimestamp beginTimestamp = clockService.now();
-
-            UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
-
-            tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, txId, implicit, options);
+            tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, implicit, options);
         } else {
             HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-
-            UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
-
-            // TODO: RW timeouts will be supported in https://issues.apache.org/jira/browse/IGNITE-24244
-            //  long timeout = options.timeoutMillis() == 0 ? txConfig.readWriteTimeout().value() : options.timeoutMillis();
-            long timeout = 3_000;
-
-            tx = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
+            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, implicit, options);
         }
 
         txStateVolatileStorage.initialize(tx);
@@ -444,13 +433,42 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return tx;
     }
 
+    private ReadWriteTransactionImpl beginReadWriteTransaction(
+            HybridTimestampTracker timestampTracker,
+            HybridTimestamp beginTimestamp,
+            boolean implicit,
+            InternalTxOptions options) {
+
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
+
+        long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeout().value());
+
+        var transaction = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
+
+        // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
+        // no need to register them.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
+        boolean scheduleExpiration = !implicit;
+
+        if (scheduleExpiration) {
+            transactionExpirationRegistry.register(transaction, physicalExpirationTimeMillis(beginTimestamp, timeout));
+        }
+
+        return transaction;
+    }
+
+    private static long getTimeoutOrDefault(InternalTxOptions options, long defaultValue) {
+        return options.timeoutMillis() == USE_CONFIGURED_TIMEOUT_DEFAULT ? defaultValue : options.timeoutMillis();
+    }
+
     private ReadOnlyTransactionImpl beginReadOnlyTransaction(
             HybridTimestampTracker timestampTracker,
             HybridTimestamp beginTimestamp,
-            UUID txId,
             boolean implicit,
             InternalTxOptions options
     ) {
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
+
         HybridTimestamp observableTimestamp = timestampTracker.get();
 
         HybridTimestamp readTimestamp = observableTimestamp != null
@@ -469,7 +487,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            long timeout = options.timeoutMillis() == 0 ? defaultReadOnlyTransactionTimeoutMillis() : options.timeoutMillis();
+            long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeout().value());
 
             var transaction = new ReadOnlyTransactionImpl(
                     this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture
@@ -481,7 +499,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean scheduleExpiration = !implicit;
 
             if (scheduleExpiration) {
-                transactionExpirationRegistry.register(transaction, roExpirationPhysicalTimeFor(beginTimestamp, options));
+                transactionExpirationRegistry.register(transaction, physicalExpirationTimeMillis(beginTimestamp, timeout));
             }
 
             txFuture.whenComplete((unused, throwable) -> {
@@ -500,8 +518,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
     }
 
-    private long roExpirationPhysicalTimeFor(HybridTimestamp beginTimestamp, InternalTxOptions options) {
-        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultReadOnlyTransactionTimeoutMillis() : options.timeoutMillis();
+    private static long physicalExpirationTimeMillis(HybridTimestamp beginTimestamp, long effectiveTimeoutMillis) {
         return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
     }
 
@@ -517,10 +534,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         } else {
             return sum;
         }
-    }
-
-    private long defaultReadOnlyTransactionTimeoutMillis() {
-        return txConfig.readOnlyTimeout().value();
     }
 
     /**
@@ -551,7 +564,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit) {
+    public void finishFull(
+            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    ) {
         TxState finalState;
 
         finishedTxs.add(1);
@@ -572,7 +587,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         old == null ? null : old.txCoordinatorId(),
                         old == null ? null : old.commitPartitionId(),
                         ts,
-                        old == null ? null : old.tx()
+                        old == null ? null : old.tx(),
+                        timeoutExceeded
                 ));
 
         decrementRwTxCount(txId);
@@ -587,6 +603,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             @Nullable ReplicationGroupId commitPartition,
             boolean commitIntent,
+            boolean timeout,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
@@ -610,7 +627,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     localNodeId,
                     commitPartition,
                     commitTimestamp(commitIntent),
-                    old == null ? null : old.tx()
+                    old == null ? null : old.tx(),
+                    timeout
             ));
 
             decrementRwTxCount(txId);
@@ -630,8 +648,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         TxStateMetaFinishing finishingStateMeta =
                 txMeta == null
-                        ? new TxStateMetaFinishing(null, commitPartition)
-                        : txMeta.finishing();
+                        ? new TxStateMetaFinishing(null, commitPartition, timeout)
+                        : txMeta.finishing(timeout);
 
         TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finishingStateMeta);
 
@@ -761,7 +779,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                             result.commitTimestamp(),
                                             old == null ? null : old.tx(),
                                             old == null ? null : old.initialVacuumObservationTimestamp(),
-                                            old == null ? null : old.cleanupCompletionTimestamp()
+                                            old == null ? null : old.cleanupCompletionTimestamp(),
+                                            old == null ? null : old.isFinishedDueToTimeout()
                                     )
                             );
 
@@ -828,7 +847,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     txResult.commitTimestamp(),
                                     old == null ? null : old.tx(),
                                     old == null ? null : old.initialVacuumObservationTimestamp(),
-                                    old == null ? null : old.cleanupCompletionTimestamp()
+                                    old == null ? null : old.cleanupCompletionTimestamp(),
+                                    old == null ? null : old.isFinishedDueToTimeout()
                             ));
 
                     assert isFinalState(updatedMeta.txState()) :
@@ -973,7 +993,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -1024,12 +1044,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
-    void completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
+    void completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp, boolean timeoutExceeded) {
         finishedTxs.add(1);
 
         UUID txId = txIdAndTimestamp.getTxId();
 
-        transactionInflights.markReadOnlyTxFinished(txId);
+        transactionInflights.markReadOnlyTxFinished(txId, timeoutExceeded);
     }
 
     @Override

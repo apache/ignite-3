@@ -68,9 +68,9 @@ public class TxRecoveryEngine {
                         // Tx recovery is executed on the commit partition.
                         replicationGroupId,
                         false,
+                        false,
                         Map.of(
                                 replicationGroupId,
-                                // Enlistment consistency token is not required for the rollback, so it is 0L.
                                 abandonedTxRecoveryEnlistmentFactory.apply(clusterNodeResolver.getById(senderId))
                         ),
                         txId

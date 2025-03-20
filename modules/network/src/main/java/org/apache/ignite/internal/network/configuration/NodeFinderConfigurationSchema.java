@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 
 /** Node finder configuration. */
@@ -30,4 +31,8 @@ public class NodeFinderConfigurationSchema {
     /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
     @Value(hasDefault = true)
     public final String[] netClusterNodes = new String[0];
+
+    /** Configuration specific to multicast node finder. */
+    @ConfigValue
+    public MulticastConfigurationSchema multicast;
 }

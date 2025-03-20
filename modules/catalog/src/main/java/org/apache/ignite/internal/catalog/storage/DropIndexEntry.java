@@ -60,6 +60,6 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(DropIndexEntry.class, this, super.toString());
     }
 }

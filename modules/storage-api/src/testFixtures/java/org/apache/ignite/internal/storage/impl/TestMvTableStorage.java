@@ -44,6 +44,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.impl.AbstractTestIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -319,14 +320,10 @@ public class TestMvTableStorage implements MvTableStorage {
         return mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.finishRebalance(partitionMeta);
 
-            if (partitionMeta.primaryReplicaNodeId() != null) {
-                assert partitionMeta.primaryReplicaNodeId() != null;
+            LeaseInfo leaseInfo = partitionMeta.leaseInfo();
 
-                mvPartitionStorage.updateLease(
-                        partitionMeta.leaseStartTime(),
-                        partitionMeta.primaryReplicaNodeId(),
-                        partitionMeta.primaryReplicaNodeName()
-                );
+            if (leaseInfo != null) {
+                mvPartitionStorage.updateLease(leaseInfo);
             }
 
             testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishRebalance);

@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Random;
@@ -58,6 +59,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
@@ -74,8 +77,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -86,16 +87,24 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
     private static final Random RND = new Random(SEED);
 
-    private final UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
+    private UpdateLogMarshallerImpl marshaller;
 
     @BeforeEach
     public void setup() {
         log.info("Seed: {}", SEED);
     }
 
+    private static Stream<Arguments> marshallableEntryTypes() {
+        return Arrays.stream(MarshallableEntryType.values())
+                .filter(t -> t != MarshallableEntryType.VERSIONED_UPDATE)
+                .flatMap(t -> Stream.of(Arguments.of(t, 1), Arguments.of(t, 2)));
+    }
+
     @ParameterizedTest
-    @EnumSource(value = MarshallableEntryType.class, names = "VERSIONED_UPDATE", mode = Mode.EXCLUDE)
-    void test(MarshallableEntryType type) {
+    @MethodSource("marshallableEntryTypes")
+    void test(MarshallableEntryType type, int version) {
+        marshaller = new UpdateLogMarshallerImpl(version);
+
         switch (type) {
             case ALTER_COLUMN:
                 checkAlterColumnEntry();
@@ -474,13 +483,13 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
             for (int v = 1; v <= serializers.latestSerializerVersion(entry.typeId()); v++) {
                 byte[] bytes;
 
-                try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(64)) {
+                try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(serializers)) {
                     serializers.get(v, entry.typeId()).writeTo(entry, output);
 
                     bytes = output.array();
                 }
 
-                try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
+                try (CatalogObjectDataInput input = new CatalogObjectDataInput(serializers, bytes)) {
                     MarshallableEntry deserialized = serializers.get(v, entry.typeId()).readFrom(input);
 
                     BDDAssertions.assertThat(entry)

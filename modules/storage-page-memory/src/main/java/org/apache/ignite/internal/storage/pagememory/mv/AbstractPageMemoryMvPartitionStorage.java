@@ -55,6 +55,7 @@ import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -740,17 +741,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public abstract void committedGroupConfigurationOnRebalance(byte[] config);
 
     /**
-     * Updates the current lease start time in the storage on rebalance.
-     *
-     * @param leaseStartTime Lease start time.
-     * @param primaryReplicaNodeId Primary replica node id.
-     * @param primaryReplicaNodeName Primary replica node name.
+     * Updates the current lease information in the storage on rebalance.
      */
-    public abstract void updateLeaseOnRebalance(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    );
+    public abstract void updateLeaseOnRebalance(LeaseInfo leaseInfo);
 
     /**
      * Prepares the storage and its indexes for cleanup.

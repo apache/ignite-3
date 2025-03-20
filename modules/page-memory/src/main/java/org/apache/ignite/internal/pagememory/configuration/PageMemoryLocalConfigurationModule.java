@@ -28,6 +28,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-page-memory.
  */
+// TODO IGNITE-24764 This class does not belong to this module, we should fix our dependencies.
 @AutoService(ConfigurationModule.class)
 public class PageMemoryLocalConfigurationModule implements ConfigurationModule {
     @Override

@@ -44,6 +44,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.framework;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -84,6 +86,7 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
@@ -116,6 +119,7 @@ import org.mockito.verification.VerificationMode;
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class TxManagerTest extends IgniteAbstractTest {
     private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2004), null);
 
@@ -770,6 +774,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         }).when(localRwTxCounter).inUpdateRwTxCountLock(any());
 
         txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
+
+        doReturn(null).when(localRwTxCounter).inUpdateRwTxCountLock(any());
     }
 
     private InternalTransaction prepareTransaction() {

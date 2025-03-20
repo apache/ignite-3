@@ -206,7 +206,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             }
         }
 
-        reserveBuf = new byte[configuration.oomBufferSizeBites().value()];
+        reserveBuf = new byte[configuration.oomBufferSizeBytes().value()];
 
         AbstractFailureHandler hnd;
 

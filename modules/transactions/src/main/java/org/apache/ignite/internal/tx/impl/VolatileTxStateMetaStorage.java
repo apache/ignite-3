@@ -71,7 +71,8 @@ public class VolatileTxStateMetaStorage {
      * @param tx Transaction object.
      */
     public void initialize(InternalTransaction tx) {
-        TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx));
+        TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx, null));
+
 
         assert previous == null : "Transaction state has already defined [txId=" + tx.id() + ", state=" + previous.txState() + ']';
     }

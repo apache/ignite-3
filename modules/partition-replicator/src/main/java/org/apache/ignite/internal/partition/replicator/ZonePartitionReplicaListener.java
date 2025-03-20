@@ -31,7 +31,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.ReplicaSafeTimeSyncRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.TxCleanupRecoveryRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.TxRecoveryMessageHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.WriteIntentSwitchRequestHandler;
@@ -48,7 +50,9 @@ import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
@@ -73,14 +77,14 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     private final ReplicaPrimacyEngine replicaPrimacyEngine;
 
-    private final ReplicationRaftCommandApplicator raftCommandApplicator;
-
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
     private final WriteIntentSwitchRequestHandler writeIntentSwitchRequestHandler;
+    private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
+    private final TxRecoveryMessageHandler txRecoveryMessageHandler;
+    private final TxCleanupRecoveryRequestHandler txCleanupRecoveryRequestHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
     private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
-    private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
     private final ReplicaSafeTimeSyncRequestHandler replicaSafeTimeSyncRequestHandler;
 
     /**
@@ -114,7 +118,14 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 localNode
         );
 
-        this.raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
+        ReplicationRaftCommandApplicator raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
+
+        TxRecoveryEngine txRecoveryEngine = new TxRecoveryEngine(
+                txManager,
+                clusterNodeResolver,
+                replicationGroupId,
+                ZonePartitionReplicaListener::createAbandonedTxRecoveryEnlistment
+        );
 
         // Request handlers initialization.
 
@@ -138,25 +149,24 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 replicationGroupId
         );
 
+        txStateCommitPartitionReplicaRequestHandler = new TxStateCommitPartitionReplicaRequestHandler(
+                txStatePartitionStorage,
+                txManager,
+                clusterNodeResolver,
+                localNode,
+                txRecoveryEngine
+        );
+
+        txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine);
+
+        txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(txStatePartitionStorage, txManager, replicationGroupId);
+
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,
                 raftCommandApplicator
         );
 
         vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
-
-        txStateCommitPartitionReplicaRequestHandler = new TxStateCommitPartitionReplicaRequestHandler(
-                txStatePartitionStorage,
-                txManager,
-                clusterNodeResolver,
-                localNode,
-                new TxRecoveryEngine(
-                        txManager,
-                        clusterNodeResolver,
-                        replicationGroupId,
-                        ZonePartitionReplicaListener::createAbandonedTxRecoveryEnlistment
-                )
-        );
 
         replicaSafeTimeSyncRequestHandler = new ReplicaSafeTimeSyncRequestHandler(clockService, raftCommandApplicator);
     }
@@ -198,9 +208,13 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             return writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
         } else if (request instanceof TxStateCommitPartitionRequest) {
             return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request);
+        } else if (request instanceof TxRecoveryMessage) {
+            return txRecoveryMessageHandler.handle((TxRecoveryMessage) request, senderId);
+        } else if (request instanceof TxCleanupRecoveryRequest) {
+            return txCleanupRecoveryRequestHandler.handle((TxCleanupRecoveryRequest) request);
         }
 
-        return processZoneReplicaRequest(request, replicaPrimacy, senderId);
+        return processZoneReplicaRequest(request, replicaPrimacy);
     }
 
     /**
@@ -227,23 +241,15 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      *
      * @param request Request to be processed.
      * @param replicaPrimacy Replica primacy information.
-     * @param senderId Node sender id.
      * @return Future with the result of the processing.
      */
-    private CompletableFuture<?> processZoneReplicaRequest(
-            ReplicaRequest request,
-            ReplicaPrimacy replicaPrimacy,
-            UUID senderId
-    ) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24526
-        // Need to move the necessary part of PartitionReplicaListener#processRequest request processing here
-
+    private CompletableFuture<?> processZoneReplicaRequest(ReplicaRequest request, ReplicaPrimacy replicaPrimacy) {
         if (request instanceof VacuumTxStateReplicaRequest) {
             return vacuumTxStateReplicaRequestHandler.handle((VacuumTxStateReplicaRequest) request);
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            return replicaSafeTimeSyncRequestHandler.handle((ReplicaSafeTimeSyncRequest) request);
+            return replicaSafeTimeSyncRequestHandler.handle((ReplicaSafeTimeSyncRequest) request, replicaPrimacy.isPrimary());
         } else {
             LOG.warn("Non table request is not supported by the zone partition yet " + request);
         }

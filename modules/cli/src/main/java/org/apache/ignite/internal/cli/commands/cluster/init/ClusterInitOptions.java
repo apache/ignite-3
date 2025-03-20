@@ -66,17 +66,17 @@ public class ClusterInitOptions {
      * "--cluster-management-group" parameter is omitted, the same nodes will also host the Cluster Management Group.
      */
     @Option(names = META_STORAGE_NODE_NAME_OPTION,
-            required = true,
             description = META_STORAGE_NODE_NAME_OPTION_DESC,
             split = ",",
             paramLabel = META_STORAGE_NODE_NAME_PARAM_LABEL,
             order = 1,
             preprocessor = SingleOccurrenceMetastorageConsumer.class
     )
-    private List<String> metaStorageNodes;
+    private List<String> metaStorageNodes = new ArrayList<>();
 
     /**
-     * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group.
+     * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group. If the
+     * "--metastorage-group" parameter is omitted, the same nodes will also host the Meta Storage.
      */
     @Option(names = CMG_NODE_NAME_OPTION,
             description = CMG_NODE_NAME_OPTION_DESC,
@@ -215,9 +215,9 @@ public class ClusterInitOptions {
             this.optionToCheck = optionToCheck;
         }
 
-        private boolean hasDuplicate(Stack<String> args) {
-            var arr = args.toArray(String[]::new);
-            for (var str : arr) {
+        private boolean hasDuplicate(List<String> args) {
+            String[] arr = args.toArray(String[]::new);
+            for (String str : arr) {
                 if (optionToCheck.equals(str.trim())) {
                     return true;
                 }

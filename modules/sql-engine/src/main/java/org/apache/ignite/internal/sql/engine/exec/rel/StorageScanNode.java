@@ -33,9 +33,6 @@ import org.jetbrains.annotations.Nullable;
  * cases to realize concrete implementation require to implement {@code scan()} method and override {@code rewindInternal()} one.
  */
 public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    private static final int NOT_WAITING = -1;
-
     private Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
 
     private final @Nullable Predicate<RowT> filters;
@@ -77,8 +74,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     @Override
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0 : "rowsCnt=" + rowsCnt + ", requested=" + requested;
-
-        checkState();
 
         requested = rowsCnt;
 
@@ -125,17 +120,17 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     protected abstract Publisher<RowT> scan();
 
     private void push() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
         if (requested > 0 && !inBuff.isEmpty()) {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && !inBuff.isEmpty()) {
-                    checkState();
+                    if (processed++ >= inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::push);
+
+                        return;
+                    }
 
                     RowT row = inBuff.poll();
 
@@ -173,6 +168,9 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
     private void requestNextBatch() {
         if (waiting == NOT_WAITING) {
+            return;
+        }
+        if (isClosed()) {
             return;
         }
 

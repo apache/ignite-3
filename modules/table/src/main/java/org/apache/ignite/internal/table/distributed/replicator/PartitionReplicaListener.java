@@ -35,11 +35,8 @@ import static org.apache.ignite.internal.partitiondistribution.Assignments.fromB
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
-import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
-import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -50,10 +47,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
@@ -62,6 +57,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -86,12 +82,8 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -111,7 +103,9 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.TxCleanupRecoveryRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxFinishReplicaRequestHandler;
+import org.apache.ignite.internal.partition.replicator.handlers.TxRecoveryMessageHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -194,9 +188,7 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableUtils;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
@@ -205,7 +197,6 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
@@ -234,6 +225,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener, ReplicaTableProcessor {
@@ -304,9 +296,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     /** Resources registry. */
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
-    /** Tx state storage. */
-    private final TxStatePartitionStorage txStatePartitionStorage;
-
     /** Clock service. */
     private final ClockService clockService;
 
@@ -338,15 +327,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     /** Prevents double stopping. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Read-write transaction operation tracker for building indexes. */
-    private final IndexBuilderTxRwOperationTracker txRwOperationTracker = new IndexBuilderTxRwOperationTracker();
-
-    /** Listener for {@link CatalogEvent#INDEX_BUILDING}. */
-    private final EventListener<CatalogEventParameters> indexBuildingCatalogEventListener = this::onIndexBuilding;
+    /**
+     * Processor that handles catalog events {@link CatalogEvent#INDEX_BUILDING} and
+     * tracks read-write transaction operations for building indexes.
+     */
+    private final PartitionReplicaBuildIndexProcessor indexBuildingProcessor;
 
     private final SchemaRegistry schemaRegistry;
-
-    private final IndexMetaStorage indexMetaStorage;
 
     private final LowWatermark lowWatermark;
 
@@ -356,13 +343,14 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinishMarker replicaTxFinishMarker;
-    private final TxRecoveryEngine txRecoveryEngine;
 
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
+    private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
+    private final TxRecoveryMessageHandler txRecoveryMessageHandler;
+    private final TxCleanupRecoveryRequestHandler txCleanupRecoveryRequestHandler;
     private final MinimumActiveTxTimeReplicaRequestHandler minimumActiveTxTimeReplicaRequestHandler;
     private final VacuumTxStateReplicaRequestHandler vacuumTxStateReplicaRequestHandler;
-    private final TxStateCommitPartitionReplicaRequestHandler txStateCommitPartitionReplicaRequestHandler;
     private final BuildIndexReplicaRequestHandler buildIndexReplicaRequestHandler;
 
     /**
@@ -426,14 +414,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         this.secondaryIndexStorages = secondaryIndexStorages;
         this.clockService = clockService;
         this.safeTime = safeTime;
-        this.txStatePartitionStorage = txStatePartitionStorage;
         this.transactionStateResolver = transactionStateResolver;
         this.storageUpdateHandler = storageUpdateHandler;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.schemaRegistry = schemaRegistry;
-        this.indexMetaStorage = indexMetaStorage;
         this.lowWatermark = lowWatermark;
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
@@ -441,11 +427,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
+        indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService);
+
         replicaPrimacyEngine = new ReplicaPrimacyEngine(placementDriver, clockService, replicationGroupId, localNode);
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
         replicaTxFinishMarker = new ReplicaTxFinishMarker(txManager);
-        txRecoveryEngine = new TxRecoveryEngine(
+        TxRecoveryEngine txRecoveryEngine = new TxRecoveryEngine(
                 txManager,
                 clusterNodeResolver,
                 replicationGroupId,
@@ -463,77 +451,37 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 replicationGroupId
         );
 
+        txStateCommitPartitionReplicaRequestHandler = new TxStateCommitPartitionReplicaRequestHandler(
+                txStatePartitionStorage,
+                txManager,
+                clusterNodeResolver,
+                localNode,
+                txRecoveryEngine
+        );
+
+        txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine);
+
+        txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(txStatePartitionStorage, txManager, replicationGroupId);
+
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,
                 raftCommandApplicator);
 
         vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
 
-        txStateCommitPartitionReplicaRequestHandler = new TxStateCommitPartitionReplicaRequestHandler(
-                txStatePartitionStorage,
-                txManager,
-                clusterNodeResolver,
-                localNode,
-                txRecoveryEngine);
-
         buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
                 indexMetaStorage,
-                txRwOperationTracker,
+                indexBuildingProcessor.tracker(),
                 safeTime,
                 raftCommandApplicator);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24665
-        // Consider extracting the following code to a separate class BuildIndexEventListener.
-        prepareIndexBuilderTxRwOperationTracker();
     }
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
     private PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
-        // Enlistment consistency token is not required for the rollback, so it is 0L.
         assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+        // Enlistment consistency token is not required for the rollback, so it is 0L.
         // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId.
         return new PendingTxPartitionEnlistment(node.name(), 0L, ((TablePartitionId) replicationGroupId).tableId());
-    }
-
-    private void runPersistentStorageScan() {
-        int committedCount = 0;
-        int abortedCount = 0;
-
-        try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStatePartitionStorage.scan()) {
-            for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
-                UUID txId = tx.getKey();
-                TxMeta txMeta = tx.getValue();
-
-                assert !txMeta.enlistedPartitions().isEmpty();
-
-                assert isFinalState(txMeta.txState()) : "Unexpected state [txId=" + txId + ", state=" + txMeta.txState() + "].";
-
-                if (txMeta.txState() == COMMITTED) {
-                    committedCount++;
-                } else {
-                    abortedCount++;
-                }
-
-                assert !enabledColocation() : "Unexpected method call within colocation enabled.";
-
-                txManager.cleanup(
-                        // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId
-                        (TablePartitionId) replicationGroupId,
-                        txMeta.enlistedPartitions(),
-                        txMeta.txState() == COMMITTED,
-                        txMeta.commitTimestamp(),
-                        txId
-                ).exceptionally(throwable -> {
-                    LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
-
-                    return null;
-                });
-            }
-        } catch (IgniteInternalException e) {
-            LOG.warn("Failed to scan transaction state storage [commitPartition={}].", e, replicationGroupId);
-        }
-
-        LOG.debug("Persistent storage scan finished [committed={}, aborted={}].", committedCount, abortedCount);
     }
 
     @Override
@@ -574,9 +522,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24526
-        // Need to move the necessary part of request processing to ZonePartitionReplicaListener
-
         boolean hasSchemaVersion = request instanceof SchemaVersionAwareReplicaRequest;
 
         if (hasSchemaVersion) {
@@ -593,17 +538,22 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         req.coordinatorId(),
                         req.commitPartitionId().asReplicationGroupId(),
                         null,
-                        old == null ? null : old.tx()
+                        old == null ? null : old.tx(),
+                        old == null ? null : old.isFinishedDueToTimeout()
                 ));
             }
         }
 
         if (request instanceof TxRecoveryMessage) {
-            return processTxRecoveryMessage((TxRecoveryMessage) request, senderId);
+            assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+
+            return txRecoveryMessageHandler.handle((TxRecoveryMessage) request, senderId);
         }
 
         if (request instanceof TxCleanupRecoveryRequest) {
-            return processCleanupRecoveryMessage((TxCleanupRecoveryRequest) request);
+            assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+
+            return txCleanupRecoveryRequestHandler.handle((TxCleanupRecoveryRequest) request);
         }
 
         if (request instanceof GetEstimatedSizeRequest) {
@@ -653,34 +603,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
         return completedFuture(mvDataStorage.estimatedSize());
-    }
-
-    private CompletableFuture<Void> processCleanupRecoveryMessage(TxCleanupRecoveryRequest request) {
-        runPersistentStorageScan();
-
-        return nullCompletedFuture();
-    }
-
-    /**
-     * Processes transaction recovery request on a commit partition.
-     *
-     * @param request Tx recovery request.
-     * @return The future is complete when the transaction state is finalized.
-     */
-    private CompletableFuture<Void> processTxRecoveryMessage(TxRecoveryMessage request, UUID senderId) {
-        UUID txId = request.txId();
-
-        TxMeta txMeta = txStatePartitionStorage.get(txId);
-
-        // Check whether a transaction has already been finished.
-        if (txMeta != null && isFinalState(txMeta.txState())) {
-            // Tx recovery message is processed on the commit partition.
-            return txRecoveryEngine.runCleanupOnNode(replicationGroupId, txId, senderId);
-        }
-
-        LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
-
-        return txRecoveryEngine.triggerTxRecovery(txId, senderId);
     }
 
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {
@@ -869,7 +791,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     req.coordinatorId(),
                     req.commitPartitionId().asReplicationGroupId(),
                     null,
-                    old == null ? null : old.tx()
+                    old == null ? null : old.tx(),
+                    old == null ? null : old.isFinishedDueToTimeout()
             ));
 
             var opId = new OperationId(senderId, req.timestamp().longValue());
@@ -1890,9 +1813,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
+            boolean isFinishedDueToTimeout = txStateMeta != null
+                    && txStateMeta.isFinishedDueToTimeout() != null
+                    && txStateMeta.isFinishedDueToTimeout();
+
 
             return failedFuture(new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
+                            isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
                     "Transaction is already finished txId=[" + txId + ", txState=" + txState + "]."
             ));
         }
@@ -3603,9 +3530,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         busyLock.block();
 
-        catalogService.removeListener(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
-
-        txRwOperationTracker.close();
+        indexBuildingProcessor.onShutdown();
     }
 
     private int partId() {
@@ -3622,7 +3547,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             ReplicaPrimacy replicaPrimacy,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
-        incrementRwOperationCountIfNeeded(request);
+        indexBuildingProcessor.incrementRwOperationCountIfNeeded(request);
 
         UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
 
@@ -3630,7 +3555,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             return processOperationRequest(senderId, request, replicaPrimacy, opStartTsIfDirectRo)
                     .whenComplete((unused, throwable) -> {
                         unlockLwmIfNeeded(txIdLockingLwm, request);
-                        decrementRwOperationCountIfNeeded(request);
+                        indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
                     });
         } catch (Throwable e) {
             try {
@@ -3640,31 +3565,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             }
 
             try {
-                decrementRwOperationCountIfNeeded(request);
+                indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
             } catch (Throwable decrementProblem) {
                 e.addSuppressed(decrementProblem);
             }
             throw e;
-        }
-    }
-
-    private void incrementRwOperationCountIfNeeded(ReplicaRequest request) {
-        if (request instanceof ReadWriteReplicaRequest) {
-            int rwTxActiveCatalogVersion = rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request);
-
-            // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
-            // otherwise there may be races/errors and the index will not be able to start building.
-            if (!txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion)) {
-                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
-            }
-        }
-    }
-
-    private void decrementRwOperationCountIfNeeded(ReplicaRequest request) {
-        if (request instanceof ReadWriteReplicaRequest) {
-            txRwOperationTracker.decrementOperationCount(
-                    rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request)
-            );
         }
     }
 
@@ -3742,47 +3647,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         }
     }
 
-    private void prepareIndexBuilderTxRwOperationTracker() {
-        // Expected to be executed on the metastore thread.
-        CatalogIndexDescriptor indexDescriptor = latestIndexDescriptorInBuildingStatus(catalogService, tableId());
-
-        if (indexDescriptor != null) {
-            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
-
-            assert indexMeta != null : indexDescriptor.id();
-
-            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexMeta.statusChange(REGISTERED).catalogVersion());
-        }
-
-        catalogService.listen(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
-    }
-
-    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters) {
-        if (!busyLock.enterBusy()) {
-            return trueCompletedFuture();
-        }
-
-        try {
-            int indexId = ((StartBuildingIndexEventParameters) parameters).indexId();
-
-            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-
-            assert indexMeta != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
-
-            MetaIndexStatusChange registeredStatusChange = indexMeta.statusChange(REGISTERED);
-
-            if (indexMeta.tableId() == tableId()) {
-                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(registeredStatusChange.catalogVersion());
-            }
-
-            return falseCompletedFuture();
-        } catch (Throwable t) {
-            return failedFuture(t);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {
         return TableUtils.indexIdsAtRwTxBeginTs(catalogService, txId, tableId());
     }
@@ -3807,6 +3671,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
+    }
+
+    @TestOnly
+    public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
     }
 
     /**

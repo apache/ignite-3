@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -278,6 +279,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
         for (int i = 0; i < partitionIds.length; i++) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionIds[i]);
+            LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
+                    ? localStatesMap.get(replicaGrpId)
+                    : new LocalPartitionStateMessageByNode(emptyMap());
 
             futures[i] = partitionUpdate(
                     replicaGrpId,
@@ -289,7 +293,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     timestamp,
                     metaStorageManager,
                     tableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                    localStatesMap.get(replicaGrpId),
+                    localStatesByNode,
                     assignmentsTimestamp,
                     manualUpdate
             ).thenAccept(res -> {
@@ -459,12 +463,8 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      */
     private static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
-            @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
-        if (localPartitionStateMessageByNode == null) {
-            return new HashSet<>();
-        }
-
         var partAssignments = new HashSet<Assignment>();
 
         for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {

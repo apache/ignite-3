@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
@@ -62,7 +61,7 @@ class CriticalStripedThreadPoolExecutorFactory {
         short channelTypeId = channelType.id();
         String poolName = poolNamePrefix + "-" + channelType.name() + "-" + channelTypeId;
 
-        var threadFactory = IgniteThreadFactory.create(nodeName, poolName, log, NOTHING_ALLOWED);
+        var threadFactory = IgniteMessageServiceThreadFactory.create(nodeName, poolName, log, NOTHING_ALLOWED);
         var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0);
 
         for (CriticalWorker worker : executor.workers()) {

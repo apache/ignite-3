@@ -176,6 +176,7 @@ import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.JoinedNodes;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -677,6 +678,7 @@ public class IgniteImpl implements Ignite {
         );
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        logicalTopology.addEventListener(logicalTopologyJoinedNodesListener(clusterSvc.topologyService()));
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
@@ -888,6 +890,7 @@ public class IgniteImpl implements Ignite {
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
+                metricManager,
                 nodeConfigRegistry,
                 storagePath,
                 longJvmPauseDetector,
@@ -1123,7 +1126,9 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clusterSvc,
                 logicalTopologyService,
-                clockService
+                clockService,
+                failureManager,
+                lowWatermark
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -1246,6 +1251,20 @@ public class IgniteImpl implements Ignite {
                 serverDataPathByGroupName,
                 logStorageFactoryByGroupName
         );
+    }
+
+    private static LogicalTopologyEventListener logicalTopologyJoinedNodesListener(JoinedNodes joinedNodes) {
+        return new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+                joinedNodes.onJoined(joinedNode);
+            }
+
+            @Override
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+                joinedNodes.onLeft(leftNode);
+            }
+        };
     }
 
     private static ClusterInfo clusterInfo(ClusterStateStorageManager clusterStateStorageManager) {
@@ -2053,6 +2072,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public SystemDisasterRecoveryManager systemDisasterRecoveryManager() {
         return systemDisasterRecoveryManager;
+    }
+
+    @TestOnly
+    public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager() {
+        return partitionReplicaLifecycleManager;
     }
 
     /**

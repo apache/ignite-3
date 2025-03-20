@@ -48,6 +48,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1380,24 +1381,17 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             long lst1 = 2000;
             UUID nodeId1 = UUID.randomUUID();
 
-            storage.updateLease(lst0, nodeId0, nodeId0 + "name");
+            var leaseInfo = new LeaseInfo(lst0, nodeId0, nodeId0 + "name");
 
-            assertEquals(lst0, storage.leaseStartTime());
-            assertEquals(nodeId0, storage.primaryReplicaNodeId());
-            assertEquals(nodeId0 + "name", storage.primaryReplicaNodeName());
+            storage.updateLease(leaseInfo);
 
-            storage.updateLease(lst1, nodeId1, nodeId1 + "name");
+            assertEquals(leaseInfo, storage.leaseInfo());
 
-            assertEquals(lst1, storage.leaseStartTime());
-            assertEquals(nodeId1, storage.primaryReplicaNodeId());
-            assertEquals(nodeId1 + "name", storage.primaryReplicaNodeName());
+            leaseInfo = new LeaseInfo(lst1, nodeId1, nodeId1 + "name");
 
-            UUID nodeIdRandom = UUID.randomUUID();
-            storage.updateLease(0, nodeIdRandom, nodeIdRandom + "name");
+            storage.updateLease(leaseInfo);
 
-            assertEquals(lst1, storage.leaseStartTime());
-            assertEquals(nodeId1, storage.primaryReplicaNodeId());
-            assertEquals(nodeId1 + "name", storage.primaryReplicaNodeName());
+            assertEquals(leaseInfo, storage.leaseInfo());
 
             return null;
         });

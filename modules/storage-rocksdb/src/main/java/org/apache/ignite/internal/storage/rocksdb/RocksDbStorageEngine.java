@@ -40,6 +40,7 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -95,23 +96,21 @@ public class RocksDbStorageEngine implements StorageEngine {
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param engineConfig RocksDB storage engine configuration.
      * @param storageConfiguration Storage configuration.
      * @param storagePath Storage path.
      * @param logSyncer Write-ahead log synchronizer.
-     * @param scheduledPool Common scheduled thread pool. Needed only for asynchronous start of scheduled operations without performing
-     *      blocking, long or IO operations.
+     * @param scheduledPool Common scheduled thread pool. Needed only for asynchronous start of scheduled operations without
+     *         performing blocking, long or IO operations.
      */
     public RocksDbStorageEngine(
             String nodeName,
-            RocksDbStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfiguration,
             Path storagePath,
             LogSyncer logSyncer,
             ScheduledExecutorService scheduledPool
     ) {
-        this.engineConfig = engineConfig;
         this.storageConfiguration = storageConfiguration;
+        this.engineConfig = ((RocksDbStorageEngineExtensionConfiguration) storageConfiguration.engines()).rocksdb();
         this.storagePath = storagePath;
         this.logSyncer = logSyncer;
         this.scheduledPool = scheduledPool;

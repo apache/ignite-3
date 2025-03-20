@@ -31,19 +31,16 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * MergeJoinNode.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    protected static final int NOT_WAITING = -1;
-
     protected final Comparator<RowT> comp;
-
-    protected final RowFactory<RowT> outputRowFactory;
 
     protected int requested;
 
@@ -62,13 +59,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
      *
      * @param ctx  Execution context.
      * @param comp Join expression.
-     * @param outputRowFactory Output row factory.
      */
-    private MergeJoinNode(ExecutionContext<RowT> ctx, Comparator<RowT> comp, RowFactory<RowT> outputRowFactory) {
+    private MergeJoinNode(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
         super(ctx);
 
         this.comp = comp;
-        this.outputRowFactory = outputRowFactory;
     }
 
     /** {@inheritDoc} */
@@ -77,19 +72,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         assert !nullOrEmpty(sources()) && sources().size() == 2;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            this.execute(this::doJoin);
+            this.execute(this::join);
         }
-    }
-
-    private void doJoin() throws Exception {
-        checkState();
-
-        join();
     }
 
     /** {@inheritDoc} */
@@ -155,8 +142,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        checkState();
-
         waitingLeft--;
 
         leftInBuf.add(row);
@@ -167,8 +152,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
-
-        checkState();
 
         waitingRight--;
 
@@ -181,8 +164,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        checkState();
-
         waitingLeft = NOT_WAITING;
 
         join();
@@ -191,8 +172,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     private void endRight() throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
-
-        checkState();
 
         waitingRight = NOT_WAITING;
 
@@ -217,55 +196,57 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
      * @param rightRowType Row type of the right source.
      * @param joinType Join operator type.
      * @param comp Join expression comparator.
+     * @param outputProjection Output projection.
      */
     public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType leftRowType,
-            RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp) {
-        RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
-        RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
-
+            RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp, @Nullable SqlJoinProjection<RowT> outputProjection) {
         switch (joinType) {
             case INNER: {
-                RowSchema outputSchema = RowSchema.concat(leftRowSchema, rightRowSchema);
-                RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
+                assert outputProjection != null;
 
-                return new InnerJoin<>(ctx, comp, outputRowFactory);
+                return new InnerJoin<>(ctx, comp, outputProjection);
             }
 
             case LEFT: {
-                RowSchema outputSchema = RowSchema.concat(leftRowSchema, rightRowSchema);
-                RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
+                assert outputProjection != null;
+
+                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
                 RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
-                return new LeftJoin<>(ctx, comp, outputRowFactory, rightRowFactory);
+                return new LeftJoin<>(ctx, comp, outputProjection, rightRowFactory);
             }
 
             case RIGHT: {
-                RowSchema outputSchema = RowSchema.concat(leftRowSchema, rightRowSchema);
-                RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
+                assert outputProjection != null;
+
+                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
                 RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
 
-                return new RightJoin<>(ctx, comp, outputRowFactory, leftRowFactory);
+                return new RightJoin<>(ctx, comp, outputProjection, leftRowFactory);
             }
 
             case FULL: {
-                RowSchema outputSchema = RowSchema.concat(leftRowSchema, rightRowSchema);
-                RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
+                assert outputProjection != null;
+
+                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+
                 RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
                 RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
-                return new FullOuterJoin<>(ctx, comp, outputRowFactory, leftRowFactory, rightRowFactory);
+                return new FullOuterJoin<>(ctx, comp, outputProjection, leftRowFactory, rightRowFactory);
             }
 
             case SEMI: {
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                assert outputProjection == null;
 
-                return new SemiJoin<>(ctx, comp, leftRowFactory);
+                return new SemiJoin<>(ctx, comp);
             }
 
             case ANTI: {
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                assert outputProjection == null;
 
-                return new AntiJoin<>(ctx, comp, leftRowFactory);
+                return new AntiJoin<>(ctx, comp);
             }
 
             default:
@@ -274,6 +255,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     }
 
     private static class InnerJoin<RowT> extends MergeJoinNode<RowT> {
+        private final SqlJoinProjection<RowT> outputProjection;
+
         private RowT left;
 
         private RowT right;
@@ -290,10 +273,12 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          *
          * @param ctx Execution context.
          * @param comp Join expression comparator.
-         * @param outputRowFactory Output row factory.
+         * @param outputProjection Output projection.
          */
-        private InnerJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp, RowFactory<RowT> outputRowFactory) {
-            super(ctx, comp, outputRowFactory);
+        private InnerJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp, SqlJoinProjection<RowT> outputProjection) {
+            super(ctx, comp);
+
+            this.outputProjection = outputProjection;
         }
 
         /** {@inheritDoc} */
@@ -311,11 +296,18 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null)) {
-                    checkState();
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::join);
+
+                        return;
+                    }
+
 
                     if (left == null) {
                         left = leftInBuf.remove();
@@ -369,7 +361,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                             }
                         }
 
-                        row = outputRowFactory.concat(left, right);
+                        row = outputProjection.project(context(), left, right);
 
                         if (rightMaterialization != null) {
                             rightMaterialization.add(right);
@@ -398,7 +390,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                             continue;
                         }
 
-                        row = outputRowFactory.concat(left, right);
+                        row = outputProjection.project(context(), left, right);
                     }
 
                     requested--;
@@ -429,6 +421,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
 
+        private final SqlJoinProjection<RowT> outputProjection;
+
         private RowT left;
 
         private RowT right;
@@ -448,17 +442,18 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          *
          * @param ctx Execution context.
          * @param comp Join expression comparator.
-         * @param outputRowFactory Output row factory.
+         * @param outputProjection Output projection.
          * @param rightRowFactory Row factory for the right source.
          */
         private LeftJoin(
                 ExecutionContext<RowT> ctx,
                 Comparator<RowT> comp,
-                RowFactory<RowT> outputRowFactory,
+                SqlJoinProjection<RowT> outputProjection,
                 RowFactory<RowT> rightRowFactory
         ) {
-            super(ctx, comp, outputRowFactory);
+            super(ctx, comp);
 
+            this.outputProjection = outputProjection;
             this.rightRowFactory = rightRowFactory;
         }
 
@@ -477,11 +472,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null || waitingRight == NOT_WAITING)) {
-                    checkState();
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::join);
+
+                        return;
+                    }
 
                     if (left == null) {
                         left = leftInBuf.remove();
@@ -509,7 +510,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     RowT row;
                     if (!drainMaterialization) {
                         if (right == null) {
-                            row = outputRowFactory.concat(left, rightRowFactory.create());
+                            row = outputProjection.project(context(), left, rightRowFactory.create());
 
                             requested--;
                             downstream().push(row);
@@ -523,7 +524,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
                         if (cmp < 0) {
                             if (!matched) {
-                                row = outputRowFactory.concat(left, rightRowFactory.create());
+                                row = outputProjection.project(context(), left, rightRowFactory.create());
 
                                 requested--;
                                 downstream().push(row);
@@ -557,7 +558,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                             }
                         }
 
-                        row = outputRowFactory.concat(left, right);
+                        row = outputProjection.project(context(), left, right);
 
                         if (rightMaterialization != null) {
                             rightMaterialization.add(right);
@@ -586,7 +587,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                             continue;
                         }
 
-                        row = outputRowFactory.concat(left, right);
+                        row = outputProjection.project(context(), left, right);
                     }
 
                     requested--;
@@ -615,6 +616,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
 
+        private final SqlJoinProjection<RowT> outputProjection;
+
         private RowT left;
 
         private RowT right;
@@ -634,17 +637,18 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          *
          * @param ctx Execution context.
          * @param comp Join expression comparator.
-         * @param outputRowFactory Output row factory.
+         * @param outputProjection Output projection.
          * @param leftRowFactory Row factory for the left source.
          */
         private RightJoin(
                 ExecutionContext<RowT> ctx,
                 Comparator<RowT> comp,
-                RowHandler.RowFactory<RowT> outputRowFactory,
+                SqlJoinProjection<RowT> outputProjection,
                 RowHandler.RowFactory<RowT> leftRowFactory
         ) {
-            super(ctx, comp, outputRowFactory);
+            super(ctx, comp);
 
+            this.outputProjection = outputProjection;
             this.leftRowFactory = leftRowFactory;
         }
 
@@ -663,11 +667,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && (right != null || !rightInBuf.isEmpty() || rightMaterialization != null)) {
-                    checkState();
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::join);
+
+                        return;
+                    }
 
                     if (left == null && !leftInBuf.isEmpty()) {
                         left = leftInBuf.remove();
@@ -696,7 +706,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     if (!drainMaterialization) {
                         if (left == null) {
                             if (!matched) {
-                                row = outputRowFactory.concat(leftRowFactory.create(), right);
+                                row = outputProjection.project(context(), leftRowFactory.create(), right);
 
                                 requested--;
                                 downstream().push(row);
@@ -720,7 +730,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                             continue;
                         } else if (cmp > 0) {
                             if (!matched) {
-                                row = outputRowFactory.concat(leftRowFactory.create(), right);
+                                row = outputProjection.project(context(), leftRowFactory.create(), right);
 
                                 requested--;
                                 downstream().push(row);
@@ -745,7 +755,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
                         matched = true;
 
-                        row = outputRowFactory.concat(left, right);
+                        row = outputProjection.project(context(), left, right);
 
                         if (rightMaterialization != null) {
                             rightMaterialization.add(right);
@@ -784,7 +794,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                             continue;
                         }
 
-                        row = outputRowFactory.concat(left, right);
+                        row = outputProjection.project(context(), left, right);
                     }
 
                     requested--;
@@ -816,6 +826,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
 
+        private final SqlJoinProjection<RowT> outputProjection;
+
         private RowT left;
 
         private RowT right;
@@ -838,19 +850,20 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          *
          * @param ctx Execution context.
          * @param comp Join expression comparator.
-         * @param outputRowFactory Output row factory.
+         * @param outputProjection Output projection.
          * @param leftRowFactory Row factory for the left source.
          * @param rightRowFactory Row factory for the right source.
          */
         private FullOuterJoin(
                 ExecutionContext<RowT> ctx,
                 Comparator<RowT> comp,
-                RowHandler.RowFactory<RowT> outputRowFactory,
+                SqlJoinProjection<RowT> outputProjection,
                 RowHandler.RowFactory<RowT> leftRowFactory,
                 RowHandler.RowFactory<RowT> rightRowFactory
         ) {
-            super(ctx, comp, outputRowFactory);
+            super(ctx, comp);
 
+            this.outputProjection = outputProjection;
             this.leftRowFactory = leftRowFactory;
             this.rightRowFactory = rightRowFactory;
         }
@@ -870,11 +883,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && !(right == null && rightInBuf.isEmpty() && rightMaterialization == null && waitingRight != NOT_WAITING)) {
-                    checkState();
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::join);
+
+                        return;
+                    }
 
                     if (left == null && !leftInBuf.isEmpty()) {
                         left = leftInBuf.remove();
@@ -906,7 +925,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                         if (left == null || right == null) {
                             if (left == null && right != null) {
                                 if (!rightMatched) {
-                                    row = outputRowFactory.concat(leftRowFactory.create(), right);
+                                    row = outputProjection.project(context(), leftRowFactory.create(), right);
 
                                     requested--;
                                     downstream().push(row);
@@ -919,7 +938,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
                             if (left != null && right == null) {
                                 if (!leftMatched) {
-                                    row = outputRowFactory.concat(left, rightRowFactory.create());
+                                    row = outputProjection.project(context(), left, rightRowFactory.create());
 
                                     requested--;
                                     downstream().push(row);
@@ -937,7 +956,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
                         if (cmp < 0) {
                             if (!leftMatched) {
-                                row = outputRowFactory.concat(left, rightRowFactory.create());
+                                row = outputProjection.project(context(), left, rightRowFactory.create());
 
                                 requested--;
                                 downstream().push(row);
@@ -953,7 +972,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                             continue;
                         } else if (cmp > 0) {
                             if (!rightMatched) {
-                                row = outputRowFactory.concat(leftRowFactory.create(), right);
+                                row = outputProjection.project(context(), leftRowFactory.create(), right);
 
                                 requested--;
                                 downstream().push(row);
@@ -979,7 +998,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                         leftMatched = true;
                         rightMatched = true;
 
-                        row = outputRowFactory.concat(left, right);
+                        row = outputProjection.project(context(), left, right);
 
                         if (rightMaterialization != null) {
                             rightMaterialization.add(right);
@@ -1020,7 +1039,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
                         leftMatched = true;
 
-                        row = outputRowFactory.concat(left, right);
+                        row = outputProjection.project(context(), left, right);
                     }
 
                     requested--;
@@ -1057,10 +1076,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          *
          * @param ctx Execution context.
          * @param comp Join expression comparator.
-         * @param outputRowFactory Output row factory.
          */
-        private SemiJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp, RowFactory<RowT> outputRowFactory) {
-            super(ctx, comp, outputRowFactory);
+        private SemiJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
+            super(ctx, comp);
         }
 
         /** {@inheritDoc} */
@@ -1075,10 +1093,16 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty())) {
-                    checkState();
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::join);
+
+                        return;
+                    }
 
                     if (left == null) {
                         left = leftInBuf.remove();
@@ -1136,10 +1160,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          *
          * @param ctx Execution context.
          * @param comp Join expression comparator.
-         * @param outputRowFactory Output row factory.
          */
-        private AntiJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp, RowFactory<RowT> outputRowFactory) {
-            super(ctx, comp, outputRowFactory);
+        private AntiJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
+            super(ctx, comp);
         }
 
         /** {@inheritDoc} */
@@ -1154,11 +1177,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty())
                         && !(right == null && rightInBuf.isEmpty() && waitingRight != NOT_WAITING)) {
-                    checkState();
+                    if (processed++ > inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::join);
+
+                        return;
+                    }
 
                     if (left == null) {
                         left = leftInBuf.remove();

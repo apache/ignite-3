@@ -129,7 +129,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         createIndexForSalaryFieldAndWaitBecomeAvailable();
 
         // Now let's check the data itself.
-        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE salary > 0.0", INDEX_NAME, TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0)
                 .check();
@@ -162,7 +162,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertThat(insertIntoTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
-        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE salary > 0.0", INDEX_NAME, TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get())
                 .check();
@@ -202,7 +202,8 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertThat(updateIntoTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
-        QueryChecker queryChecker = assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0 ORDER BY ID ASC", TABLE_NAME))
+        QueryChecker queryChecker = assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ NAME FROM {} "
+                + "WHERE salary > 0.0 ORDER BY ID ASC", INDEX_NAME, TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .ordered();
 
@@ -248,7 +249,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertThat(deleteFromTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
-        assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ NAME FROM {} WHERE salary > 0.0", INDEX_NAME, TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get() - deleteFromTableFuture.join())
                 .check();
@@ -274,12 +275,12 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         // Hack so that we can wait for the index to be added to the sql planner.
         waitForReadTimestampThatObservesMostRecentCatalog();
 
-        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE salary > 0.0", indexName0, TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName0))
                 .returns(0, "0", 10.0, "foo")
                 .check();
 
-        assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE SURNAME = 'foo'", indexName1, TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName1))
                 .returns(0, "0", 10.0, "foo")
                 .check();
@@ -309,7 +310,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE SURNAME = 'foo'", INDEX_NAME, TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0, "foo")
                 .check();
@@ -333,7 +334,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertTrue(waitForCondition(() -> indexStorage(INDEX_NAME, partitionId).getNextRowIdToBuild() == null, SECONDS.toMillis(5)));
 
         // Now let's check the data itself.
-        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE salary > 0.0", INDEX_NAME, TABLE_NAME))
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0)
                 .check();

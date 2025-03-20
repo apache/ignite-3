@@ -112,8 +112,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (waiting == 0) {
@@ -130,8 +128,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert waiting > 0;
         assert reversed == null || reversed.isEmpty();
 
-        checkState();
-
         waiting--;
 
         rows.add(row);
@@ -147,19 +143,13 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         flush();
     }
 
     private void flush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        assert waiting == -1;
+        assert waiting == NOT_WAITING;
 
         int processed = 0;
 
@@ -186,8 +176,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             }
 
             while (requested > 0 && !(reversed == null ? rows.isEmpty() : reversed.isEmpty())) {
-                checkState();
-
                 requested--;
 
                 downstream().push(reversed == null ? rows.poll() : reversed.remove(reversed.size() - 1));

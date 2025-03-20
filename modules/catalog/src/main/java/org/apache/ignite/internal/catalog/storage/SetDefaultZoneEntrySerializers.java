@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link SetDefaultZoneEntry}.
@@ -33,14 +33,32 @@ public class SetDefaultZoneEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class SetDefaultZoneEntrySerializerV1 implements CatalogObjectSerializer<SetDefaultZoneEntry> {
         @Override
-        public SetDefaultZoneEntry readFrom(IgniteDataInput input) throws IOException {
+        public SetDefaultZoneEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int zoneId = input.readVarIntAsInt();
 
             return new SetDefaultZoneEntry(zoneId);
         }
 
         @Override
-        public void writeTo(SetDefaultZoneEntry entry, IgniteDataOutput output) throws IOException {
+        public void writeTo(SetDefaultZoneEntry entry, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(entry.zoneId());
+        }
+    }
+
+    /**
+     * Serializer for {@link SetDefaultZoneEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class SetDefaultZoneEntrySerializerV2 implements CatalogObjectSerializer<SetDefaultZoneEntry> {
+        @Override
+        public SetDefaultZoneEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int zoneId = input.readVarIntAsInt();
+
+            return new SetDefaultZoneEntry(zoneId);
+        }
+
+        @Override
+        public void writeTo(SetDefaultZoneEntry entry, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(entry.zoneId());
         }
     }

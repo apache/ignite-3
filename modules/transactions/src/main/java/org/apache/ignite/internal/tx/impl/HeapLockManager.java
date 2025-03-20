@@ -81,7 +81,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** Table size. */
     public static final int DEFAULT_SLOTS = 1_048_576;
 
-    private static final String LOCK_MAP_SIZE_PROPERTY_NAME = "lockMapSize";
+    public static final String LOCK_MAP_SIZE_PROPERTY_NAME = "lockMapSize";
 
     /** Striped lock concurrency. */
     private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
@@ -152,6 +152,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+        assert lockMode != null : "Lock mode is null";
+
         if (lockKey.contextId() == null) { // Treat this lock as a hierarchy(coarse) lock.
             CoarseLockState state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
 
@@ -200,6 +202,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
+        assert lockMode != null : "Lock mode is null";
+
         if (lockKey.contextId() == null) {
             throw new IllegalArgumentException("Coarse locks don't support downgrading");
         }
@@ -357,7 +361,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         if (lockStates != null) {
             for (Releasable lockState : lockStates) {
                 Lock lock = lockState.lock(txId);
-                if (lock != null) {
+                if (lock != null && lock.lockMode() != null) {
                     result.add(lock);
                 }
             }
@@ -776,12 +780,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @param lockMode Lock mode.
          * @return The future or null if state is marked for removal and acquired lock mode.
          */
-        @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
+        IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
+            assert lockMode != null : "Lock mode is null";
+
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
 
             synchronized (waiters) {
                 if (!isUsed()) {
-                    return new IgniteBiTuple(null, lockMode);
+                    return new IgniteBiTuple<>(null, lockMode);
                 }
 
                 // We always replace the previous waiter with the new one. If the previous waiter has lock intention then incomplete
@@ -798,7 +804,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                         waiter.upgrade(prev);
 
-                        return new IgniteBiTuple(nullCompletedFuture(), prev.lockMode());
+                        return new IgniteBiTuple<>(nullCompletedFuture(), prev.lockMode());
                     } else {
                         waiter.upgrade(prev);
 
@@ -856,11 +862,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @return True if current waiter ready to notify, false otherwise.
          */
         private boolean isWaiterReadyToNotify(WaiterImpl waiter, boolean skipFail) {
+            LockMode intendedLockMode = waiter.intendedLockMode();
+
+            assert intendedLockMode != null : "Intended lock mode is null";
+
             for (Entry<UUID, WaiterImpl> entry : waiters.tailMap(waiter.txId(), false).entrySet()) {
                 WaiterImpl tmp = entry.getValue();
                 LockMode mode = tmp.lockMode;
 
-                if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
+                if (mode != null && !mode.isCompatible(intendedLockMode)) {
                     if (conflictFound(waiter.txId())) {
                         waiter.fail(abandonedLockException(waiter.txId, tmp.txId));
 
@@ -879,7 +889,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 WaiterImpl tmp = entry.getValue();
                 LockMode mode = tmp.lockMode;
 
-                if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
+                if (mode != null && !mode.isCompatible(intendedLockMode)) {
                     if (skipFail) {
                         return false;
                     } else if (conflictFound(waiter.txId())) {
@@ -931,6 +941,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @return If the value is true, no one waits of any lock of the key, false otherwise.
          */
         boolean tryRelease(UUID txId, LockMode lockMode) {
+            assert lockMode != null : "Lock mode is null";
+
             List<WaiterImpl> toNotify = emptyList();
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(txId);
@@ -1102,7 +1114,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private final UUID txId;
 
         /** The lock mode to intend to hold. This is NOT specific to intention lock modes, such as IS and IX. */
-        private LockMode intendedLockMode;
+        private @Nullable LockMode intendedLockMode;
 
         /** The lock mode. */
         private LockMode lockMode;
@@ -1181,6 +1193,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             LockMode newLockMode = null;
 
             for (LockMode mode : locks.keySet()) {
+                assert mode != null : "Lock mode is null";
                 assert locks.get(mode) > 0 : "Incorrect lock counter [txId=" + txId + ", mode=" + mode + "]";
 
                 if (intendedLocks.contains(mode)) {
@@ -1207,7 +1220,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         void upgrade(WaiterImpl other) {
             intendedLocks.addAll(other.intendedLocks);
 
-            other.locks.entrySet().forEach(entry -> addLock(entry.getKey(), entry.getValue()));
+            other.locks.forEach(this::addLock);
 
             recalculate();
 
@@ -1239,7 +1252,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             if (ex != null) {
                 fut.completeExceptionally(ex);
             } else {
-                assert lockMode != null;
+                assert lockMode != null : "Lock mode is null";
 
                 // TODO FIXME https://issues.apache.org/jira/browse/IGNITE-20985
                 fut.complete(null);
@@ -1257,7 +1270,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          *
          * @return True if the waiter has an intended lock, false otherwise.
          */
-        public boolean hasLockIntent() {
+        boolean hasLockIntent() {
             return this.intendedLockMode != null;
         }
 
@@ -1269,12 +1282,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         /** {@inheritDoc} */
         @Override
-        public LockMode intendedLockMode() {
+        public @Nullable LockMode intendedLockMode() {
             return intendedLockMode;
         }
 
         /** Grant a lock. */
         private void lock() {
+            assert intendedLockMode != null : "Intended lock mode is null";
+
             lockMode = intendedLockMode;
 
             intendedLockMode = null;
@@ -1300,11 +1315,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         /** {@inheritDoc} */
         @Override
         public boolean equals(Object o) {
-            if (!(o instanceof WaiterImpl)) {
-                return false;
-            }
-
-            return compareTo((WaiterImpl) o) == 0;
+            return o instanceof WaiterImpl && compareTo((WaiterImpl) o) == 0;
         }
 
         /** {@inheritDoc} */

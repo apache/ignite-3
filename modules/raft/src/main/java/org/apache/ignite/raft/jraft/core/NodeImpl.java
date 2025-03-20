@@ -1763,7 +1763,7 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * ReadIndex response closure
      */
-    private static class ReadIndexHeartbeatResponseClosure extends RpcResponseClosureAdapter<AppendEntriesResponse> {
+    public static class ReadIndexHeartbeatResponseClosure extends RpcResponseClosureAdapter<AppendEntriesResponse> {
         final ReadIndexResponseBuilder respBuilder;
         final RpcResponseClosure<ReadIndexResponse> closure;
         final int quorum;
@@ -3478,7 +3478,8 @@ public class NodeImpl implements Node, RaftServerService {
                     return;
             }
 
-            LOG.info("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newPeersAndLearners);
+            logConfigurationChange(newPeersAndLearners);
+
             unsafeRegisterConfChange(this.conf.getConf(), newPeersAndLearners, done);
         }
         finally {
@@ -3503,7 +3504,7 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            LOG.info("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
+            logConfigurationChange(newConf);
 
             unsafeRegisterConfChange(this.conf.getConf(), newConf, done, true);
         }
@@ -4036,5 +4037,15 @@ public class NodeImpl implements Node, RaftServerService {
     @Override
     public String toString() {
         return "JRaftNode [nodeId=" + getNodeId() + "]";
+    }
+
+    private void logConfigurationChange(final Configuration newConfiguration) {
+        if (LOG.isDebugEnabled()) {
+            if (this.conf.getConf().equals(newConfiguration)) {
+                LOG.debug("Node {} change configuration to the same one {}.", getNodeId(), this.conf.getConf());
+            } else {
+                LOG.debug("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newConfiguration);
+            }
+        }
     }
 }

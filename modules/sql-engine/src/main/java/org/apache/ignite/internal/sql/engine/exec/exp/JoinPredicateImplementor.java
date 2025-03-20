@@ -68,18 +68,19 @@ class JoinPredicateImplementor {
      *
      * @param predicateExpression The expression to implement.
      * @param type The type of the input row as if rows from both sides will be joined.
+     * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
      * @param <RowT> The type of the execution row.
      * @return An implementation of join predicate.
      * @see SqlJoinPredicate
      */
-    <RowT> SqlJoinPredicate<RowT> implement(RexNode predicateExpression, RelDataType type) {
-        String digest = digest(SqlJoinPredicate.class, List.of(predicateExpression), type);
+    <RowT> SqlJoinPredicate<RowT> implement(RexNode predicateExpression, RelDataType type, int firstRowSize) {
+        String digest = digest(SqlJoinPredicate.class, List.of(predicateExpression), type, "firstRowSize=" + firstRowSize);
         Cache<String, SqlJoinPredicate<RowT>> cache = cast(this.cache);
 
-        return cache.get(digest, ignored -> implementInternal(predicateExpression, type));
+        return cache.get(digest, ignored -> implementInternal(predicateExpression, type, firstRowSize));
     }
 
-    private <RowT> SqlJoinPredicate<RowT> implementInternal(RexNode predicateExpression, RelDataType type) {
+    private <RowT> SqlJoinPredicate<RowT> implementInternal(RexNode predicateExpression, RelDataType type, int firstRowSize) {
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
         programBuilder.addCondition(predicateExpression);
@@ -98,7 +99,7 @@ class JoinPredicateImplementor {
 
         Expression rowHandler = builder.append("hnd", Expressions.call(ctx, IgniteMethod.CONTEXT_ROW_HANDLER.method()));
 
-        InputGetter inputGetter = new BiFieldGetter(rowHandler, left, right, type);
+        InputGetter inputGetter = new BiFieldGetter(rowHandler, left, right, type, firstRowSize);
 
         Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler)
                 .build(List.of(predicateExpression));

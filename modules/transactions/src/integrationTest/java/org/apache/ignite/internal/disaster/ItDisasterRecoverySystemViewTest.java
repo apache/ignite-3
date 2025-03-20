@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
@@ -38,14 +39,20 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery system views. */
+// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     /** Table name. */
     public static final String TABLE_NAME = "TEST_TABLE";
@@ -66,6 +73,44 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     void tearDown() {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
+    }
+
+    @Test
+    public void globalPatitionStatesMetadata() {
+        assertQuery("SELECT * FROM SYSTEM.GLOBAL_PARTITION_STATES")
+                .columnMetadata(
+                        new MetadataMatcher().name("ZONE_NAME").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TABLE_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCHEMA_NAME").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TABLE_NAME").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("PARTITION_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("PARTITION_STATE").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("ZONE_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCHEMA_ID").type(ColumnType.INT32).nullable(true),
+                        // Legacy columns.
+                        new MetadataMatcher().name("STATE").type(ColumnType.STRING).nullable(true)
+                )
+                .check();
+    }
+
+    @Test
+    public void localPatitionStatesMetadata() {
+        assertQuery("SELECT * FROM SYSTEM.LOCAL_PARTITION_STATES")
+                .columnMetadata(
+                        new MetadataMatcher().name("NODE_NAME").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("ZONE_NAME").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TABLE_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCHEMA_NAME").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TABLE_NAME").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("PARTITION_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("PARTITION_STATE").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("ESTIMATED_ROWS").type(ColumnType.INT64).nullable(true),
+                        new MetadataMatcher().name("ZONE_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("SCHEMA_ID").type(ColumnType.INT32).nullable(true),
+                        // Legacy columns.
+                        new MetadataMatcher().name("STATE").type(ColumnType.STRING).nullable(true)
+                )
+                .check();
     }
 
     @Test

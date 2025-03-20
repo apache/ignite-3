@@ -154,6 +154,7 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
@@ -657,6 +658,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
+                        new NoOpMetricManager(),
                         nodeCfgMgr.configurationRegistry(),
                         storagePath,
                         null,
@@ -698,12 +700,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService
         ) {
             @Override
-            public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
+            public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
                 if (dataNodesMock != null) {
                     return dataNodesMock.get();
                 }
 
-                return super.dataNodes(causalityToken, catalogVersion, zoneId);
+                return super.dataNodes(timestamp, catalogVersion, zoneId);
             }
         };
 

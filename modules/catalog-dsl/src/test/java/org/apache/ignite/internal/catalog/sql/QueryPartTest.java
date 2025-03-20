@@ -38,9 +38,8 @@ import static org.apache.ignite.catalog.ColumnType.UUID;
 import static org.apache.ignite.catalog.ColumnType.VARBINARY;
 import static org.apache.ignite.catalog.ColumnType.VARCHAR;
 import static org.apache.ignite.internal.catalog.sql.ColumnTypeImpl.wrap;
-import static org.apache.ignite.internal.catalog.sql.IndexColumnImpl.parseIndexColumnList;
+import static org.apache.ignite.internal.catalog.sql.IndexColumnImpl.parseColumn;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 
 import java.math.BigDecimal;
@@ -156,39 +155,33 @@ class QueryPartTest {
     }
 
     @Test
-    void indexColumnParseSimple() {
-        assertThat(parseIndexColumnList("col1"), contains(column("col1")));
-        assertThat(parseIndexColumnList("col1, col2"), contains(column("col1"), column("col2")));
-    }
-
-    @Test
     void indexColumnParseSorted() {
-        assertThat(parseIndexColumnList("col1"), contains(column("col1", SortOrder.DEFAULT)));
-        assertThat(parseIndexColumnList("COL2_UPPER_CASE ASC"), contains(column("COL2_UPPER_CASE", SortOrder.ASC)));
-        assertThat(parseIndexColumnList("col3 ASC    nUlls First  "), contains(column("col3", SortOrder.ASC_NULLS_FIRST)));
-        assertThat(parseIndexColumnList(" col4   asc  nulls  last "), contains(column("col4", SortOrder.ASC_NULLS_LAST)));
-        assertThat(parseIndexColumnList("col5 desc"), contains(column("col5", SortOrder.DESC)));
-        assertThat(parseIndexColumnList("col6 desc nulls first"), contains(column("col6", SortOrder.DESC_NULLS_FIRST)));
-        assertThat(parseIndexColumnList("col7 desc nulls last"), contains(column("col7", SortOrder.DESC_NULLS_LAST)));
-        assertThat(parseIndexColumnList("col8 nulls first"), contains(column("col8", SortOrder.NULLS_FIRST)));
-        assertThat(parseIndexColumnList("col9 nulls last"), contains(column("col9", SortOrder.NULLS_LAST)));
+        assertThat(parseColumn("col1"), is(column("col1", SortOrder.DEFAULT)));
+        assertThat(parseColumn("COL2_UPPER_CASE ASC"), is(column("COL2_UPPER_CASE", SortOrder.ASC)));
+        assertThat(parseColumn("col3 ASC    nUlls First  "), is(column("col3", SortOrder.ASC_NULLS_FIRST)));
+        assertThat(parseColumn(" col4   asc  nulls  last "), is(column("col4", SortOrder.ASC_NULLS_LAST)));
+        assertThat(parseColumn("col5 desc"), is(column("col5", SortOrder.DESC)));
+        assertThat(parseColumn("col6 desc nulls first"), is(column("col6", SortOrder.DESC_NULLS_FIRST)));
+        assertThat(parseColumn("col7 desc nulls last"), is(column("col7", SortOrder.DESC_NULLS_LAST)));
+        assertThat(parseColumn("col8 nulls first"), is(column("col8", SortOrder.NULLS_FIRST)));
+        assertThat(parseColumn("col9 nulls last"), is(column("col9", SortOrder.NULLS_LAST)));
     }
 
     @Test
     void indexColumnParseSortedWrongOrder() {
-        assertThat(parseIndexColumnList("col1 nulls first asc"), contains(column("col1", SortOrder.NULLS_FIRST)));
-        assertThat(parseIndexColumnList("col2 nulls last desc"), contains(column("col2", SortOrder.NULLS_LAST)));
-        assertThat(parseIndexColumnList("col3 desc nulls"), contains(column("col3", SortOrder.DESC)));
-        assertThat(parseIndexColumnList("col4 desc last nulls"), contains(column("col4", SortOrder.DESC)));
-        assertThat(parseIndexColumnList("col5 nulls asc first"), contains(column("col5")));
-        assertThat(parseIndexColumnList("col6 first nulls"), contains(column("col6")));
+        assertThat(parseColumn("col1 nulls first asc"), is(column("col1", SortOrder.NULLS_FIRST)));
+        assertThat(parseColumn("col2 nulls last desc"), is(column("col2", SortOrder.NULLS_LAST)));
+        assertThat(parseColumn("col3 desc nulls"), is(column("col3", SortOrder.DESC)));
+        assertThat(parseColumn("col4 desc last nulls"), is(column("col4", SortOrder.DESC)));
+        assertThat(parseColumn("col5 nulls asc first"), is(column("col5")));
+        assertThat(parseColumn("col6 first nulls"), is(column("col6")));
     }
 
     @Test
     void indexColumnPareIncorrectSortOrder() {
-        assertThat(parseIndexColumnList("col1 unexpectedKeyword"), contains(column("col1")));
-        assertThat(parseIndexColumnList("col2 nulls_first"), contains(column("col2")));
-        assertThat(parseIndexColumnList("col3 descnullslast"), contains(column("col3")));
+        assertThat(parseColumn("col1 unexpectedKeyword"), is(column("col1")));
+        assertThat(parseColumn("col2 nulls_first"), is(column("col2")));
+        assertThat(parseColumn("col3 descnullslast"), is(column("col3")));
     }
 
     private static String sql(QueryPart part) {

@@ -21,12 +21,12 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link CatalogZoneDescriptor}.
@@ -44,7 +44,7 @@ public class CatalogZoneDescriptorSerializers {
         }
 
         @Override
-        public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {
+        public CatalogZoneDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
             HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
@@ -78,7 +78,7 @@ public class CatalogZoneDescriptorSerializers {
         }
 
         @Override
-        public void writeTo(CatalogZoneDescriptor descriptor, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogZoneDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeVarInt(descriptor.updateTimestamp().longValue());
@@ -86,6 +86,60 @@ public class CatalogZoneDescriptorSerializers {
             CatalogStorageProfilesDescriptor storageProfilesDescriptor = descriptor.storageProfiles();
 
             serializers.get(1, storageProfilesDescriptor.typeId()).writeTo(storageProfilesDescriptor, output);
+
+            output.writeVarInt(descriptor.partitions());
+            output.writeVarInt(descriptor.replicas());
+            output.writeVarInt(descriptor.dataNodesAutoAdjust());
+            output.writeVarInt(descriptor.dataNodesAutoAdjustScaleUp());
+            output.writeVarInt(descriptor.dataNodesAutoAdjustScaleDown());
+            output.writeUTF(descriptor.filter());
+            output.writeByte(descriptor.consistencyMode().id());
+        }
+    }
+
+    /**
+     * Serializer for {@link CatalogZoneDescriptor}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class ZoneDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogZoneDescriptor> {
+        @Override
+        public CatalogZoneDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
+            int id = input.readVarIntAsInt();
+            String name = input.readUTF();
+            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
+
+            CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = input.readEntry(CatalogStorageProfilesDescriptor.class);
+
+            int partitions = input.readVarIntAsInt();
+            int replicas = input.readVarIntAsInt();
+            int dataNodesAutoAdjust = input.readVarIntAsInt();
+            int dataNodesAutoAdjustScaleUp = input.readVarIntAsInt();
+            int dataNodesAutoAdjustScaleDown = input.readVarIntAsInt();
+            String filter = input.readUTF();
+            ConsistencyMode consistencyMode = ConsistencyMode.forId(input.readByte());
+
+            return new CatalogZoneDescriptor(
+                    id,
+                    name,
+                    partitions,
+                    replicas,
+                    dataNodesAutoAdjust,
+                    dataNodesAutoAdjustScaleUp,
+                    dataNodesAutoAdjustScaleDown,
+                    filter,
+                    catalogStorageProfilesDescriptor,
+                    updateTimestamp,
+                    consistencyMode
+            );
+        }
+
+        @Override
+        public void writeTo(CatalogZoneDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
+
+            output.writeEntry(descriptor.storageProfiles());
 
             output.writeVarInt(descriptor.partitions());
             output.writeVarInt(descriptor.replicas());

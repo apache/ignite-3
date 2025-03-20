@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Collections.singletonMap;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -57,6 +59,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -124,6 +129,9 @@ import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
@@ -153,6 +161,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private static final int KEY_COUNT = 100;
 
@@ -292,7 +301,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 SCHEMA_REGISTRY,
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
-                mock(MinimumRequiredTimeCollectorService.class)
+                mock(MinimumRequiredTimeCollectorService.class),
+                mock(Executor.class)
         );
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -393,6 +403,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage.lastApplied(10L, 1L);
 
@@ -484,7 +496,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      * storages to all storages.
      */
     @Test
-    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm() {
+    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectExecutorService ExecutorService executor) {
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
@@ -509,18 +521,15 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 SCHEMA_REGISTRY,
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
-                mock(MinimumRequiredTimeCollectorService.class)
+                mock(MinimumRequiredTimeCollectorService.class),
+                executor
         );
 
         txStatePartitionStorage.lastApplied(3L, 1L);
 
         partitionDataStorage.lastApplied(5L, 2L);
 
-        AtomicLong counter = new AtomicLong(0);
-
-        testCommandListener.onSnapshotSave(workDir, (throwable) -> counter.incrementAndGet());
-
-        assertEquals(1L, counter.get());
+        saveSnapshot(testCommandListener);
 
         assertEquals(5L, partitionDataStorage.lastAppliedIndex());
         assertEquals(2L, partitionDataStorage.lastAppliedTerm());
@@ -532,15 +541,27 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         partitionDataStorage.lastApplied(7L, 1L);
 
-        testCommandListener.onSnapshotSave(workDir, (throwable) -> counter.incrementAndGet());
-
-        assertEquals(2L, counter.get());
+        saveSnapshot(testCommandListener);
 
         assertEquals(10L, partitionDataStorage.lastAppliedIndex());
         assertEquals(2L, partitionDataStorage.lastAppliedTerm());
 
         assertEquals(10L, txStatePartitionStorage.lastAppliedIndex());
         assertEquals(2L, txStatePartitionStorage.lastAppliedTerm());
+    }
+
+    private void saveSnapshot(PartitionListener listener) {
+        var snapshotDoneFuture = new CompletableFuture<Void>();
+
+        listener.onSnapshotSave(workDir, throwable -> {
+            if (throwable != null) {
+                snapshotDoneFuture.completeExceptionally(throwable);
+            } else {
+                snapshotDoneFuture.complete(null);
+            }
+        });
+
+        assertThat(snapshotDoneFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -587,6 +608,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
     void updatesLastAppliedForFinishTxCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 

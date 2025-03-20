@@ -21,10 +21,11 @@ import static java.lang.Math.max;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
 import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -78,7 +79,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      *
      * <p>Concurrent access is guarded by {@link #tableProcessorsStateLock}.
      */
-    private final Map<Integer, RaftTableProcessor> tableProcessors = new HashMap<>();
+    private final Int2ObjectMap<RaftTableProcessor> tableProcessors = new Int2ObjectOpenHashMap<>();
 
     private final TxStatePartitionStorage txStateStorage;
 
@@ -116,7 +117,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             TxManager txManager,
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            PartitionsSnapshots partitionsSnapshots
+            PartitionsSnapshots partitionsSnapshots,
+            Executor partitionOperationsExecutor
     ) {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
@@ -124,7 +126,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.txStateStorage = txStatePartitionStorage;
         this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage);
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
         // RAFT command handlers initialization.
         this.commandHandlers = new CommandHandlers.Builder()
@@ -339,7 +341,19 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         synchronized (tableProcessorsStateLock) {
-            onSnapshotSaveHandler.onSnapshotSave(lastAppliedIndex, lastAppliedTerm, tableProcessors.values())
+            byte[] configuration = txStateStorage.committedGroupConfiguration();
+
+            assert configuration != null : "Trying to create a snapshot without Raft group configuration";
+
+            var snapshotInfo = new PartitionSnapshotInfo(
+                    lastAppliedIndex,
+                    lastAppliedTerm,
+                    txStateStorage.leaseInfo(),
+                    configuration,
+                    tableProcessors.keySet()
+            );
+
+            onSnapshotSaveHandler.onSnapshotSave(snapshotInfo, tableProcessors.values())
                     .whenComplete((unused, throwable) -> doneClo.accept(throwable));
         }
     }
@@ -385,6 +399,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             RaftTableProcessor prev = tableProcessors.put(tableId, processor);
 
             assert prev == null : "Listener for table " + tableId + " already exists";
+        }
+    }
+
+    /** Returns the table processor associated with the given table ID. */
+    @TestOnly
+    public RaftTableProcessor tableProcessor(int tableId) {
+        synchronized (tableProcessorsStateLock) {
+            return tableProcessors.get(tableId);
         }
     }
 

@@ -23,7 +23,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -54,7 +54,7 @@ abstract class PrimaryReplicaNextWorkerSelector implements NextWorkerSelector {
     @Override
     public CompletableFuture<ClusterNode> next() {
         return placementDriver.awaitPrimaryReplica(
-                        tablePartitionId(),
+                        partitionGroupId(),
                         clock.now().addPhysicalTime(PRIMARY_REPLICA_ASK_CLOCK_ADDITION_MILLIS),
                         AWAIT_FOR_PRIMARY_REPLICA_SECONDS,
                         TimeUnit.SECONDS
@@ -63,5 +63,5 @@ abstract class PrimaryReplicaNextWorkerSelector implements NextWorkerSelector {
                 .thenApply(topologyService::getById);
     }
 
-    protected abstract TablePartitionId tablePartitionId();
+    protected abstract PartitionGroupId partitionGroupId();
 }
