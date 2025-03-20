@@ -216,6 +216,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     private long parkAndReturnParkingNanosWithoutCpBufferProtection() {
         long alreadyParkedNanos = 0L;
 
+        long minimalCalculatedParkNanos = Long.MAX_VALUE;
+
         while (true) {
             long calculatedParkNanos = cleanPagesProtector.protectionParkTime(System.nanoTime());
 
@@ -224,7 +226,9 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
                 return alreadyParkedNanos == 0L ? NO_THROTTLING_MARKER : alreadyParkedNanos;
             }
 
-            if (calculatedParkNanos <= alreadyParkedNanos) {
+            minimalCalculatedParkNanos = Math.min(minimalCalculatedParkNanos, calculatedParkNanos);
+
+            if (minimalCalculatedParkNanos <= alreadyParkedNanos) {
                 return alreadyParkedNanos;
             }
 
@@ -232,6 +236,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
 
             doPark(realParkNanos);
 
+            // Ignore spurious wake-ups, assuming they don't happen.
             alreadyParkedNanos += realParkNanos;
 
             if (calculatedParkNanos == realParkNanos) {
