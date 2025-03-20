@@ -900,7 +900,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the revision lower than the create zone revision is absent.
         assertThrowsWithCause(
-                () -> distributionZoneManager.dataNodes(createZoneRevision.subtractPhysicalTime(1), catalogManager.latestCatalogVersion() - 1, zoneId)
+                () -> distributionZoneManager
+                        .dataNodes(createZoneRevision.subtractPhysicalTime(1), catalogManager.latestCatalogVersion() - 1, zoneId)
                         .get(TIMEOUT, MILLISECONDS),
                 DistributionZoneNotFoundException.class
         );
