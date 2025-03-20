@@ -57,7 +57,7 @@ import org.apache.ignite.table.RecordView;
  *         Create a new deployment unit using the CLI tool:<br>
  *         {@code cluster unit deploy receiverExampleUnit \
  *          --version 1.0.0 \
- *          --path=$GRIDGAIN_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
+ *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
  */
