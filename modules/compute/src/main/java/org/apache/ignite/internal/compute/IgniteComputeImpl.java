@@ -588,7 +588,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             Collection<I> items,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits) {
-        byte[] payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
+        var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
 
         return runReceiverAsync(payload, node, deploymentUnits)
                 .thenApply(StreamerReceiverSerializer::deserializeReceiverJobResults);
