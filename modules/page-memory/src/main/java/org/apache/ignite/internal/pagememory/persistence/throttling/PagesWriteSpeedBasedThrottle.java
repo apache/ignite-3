@@ -42,7 +42,8 @@ import org.jetbrains.annotations.TestOnly;
  * Otherwise, uses average checkpoint write speed and instant speed of marking pages as dirty.<br>
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
-    private static final int PARKING_QUANTUM = 10_000;
+    private static final int PARKING_UNIT = 10_000;
+
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
     /**
@@ -208,30 +209,33 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
                 cpBufferProtector.resetBackoff();
             }
 
-            long totalParkTimeNanos = 0L;
+            return parkAndReturnParkingNanosWithoutCpBufferProtection();
+        }
+    }
 
-            while (true) {
-                // TODO try using smallest value instead of matching reality with proposed time
-                //  make sure that unit tests work, because they fail from the most innocent changes
-                long currentParkNanos = cleanPagesProtector.protectionParkTime(System.nanoTime());
+    private long parkAndReturnParkingNanosWithoutCpBufferProtection() {
+        long alreadyParkedNanos = 0L;
 
-                if (currentParkNanos == NO_THROTTLING_MARKER) {
-                    return totalParkTimeNanos == 0L ? NO_THROTTLING_MARKER : totalParkTimeNanos;
-                }
+        while (true) {
+            long calculatedParkNanos = cleanPagesProtector.protectionParkTime(System.nanoTime());
 
-                if (currentParkNanos <= totalParkTimeNanos) {
-                    return totalParkTimeNanos;
-                }
+            if (calculatedParkNanos == NO_THROTTLING_MARKER) {
+                // Return "NO_THROTTLING_MARKER" on first iteration, or "alreadyParkedNanos" on any other iteration.
+                return alreadyParkedNanos == 0L ? NO_THROTTLING_MARKER : alreadyParkedNanos;
+            }
 
-                long realParkNanos = Math.min(currentParkNanos, PARKING_QUANTUM);
+            if (calculatedParkNanos <= alreadyParkedNanos) {
+                return alreadyParkedNanos;
+            }
 
-                doPark(realParkNanos);
+            long realParkNanos = Math.min(calculatedParkNanos, PARKING_UNIT);
 
-                totalParkTimeNanos += realParkNanos;
+            doPark(realParkNanos);
 
-                if (currentParkNanos == realParkNanos) {
-                    return totalParkTimeNanos;
-                }
+            alreadyParkedNanos += realParkNanos;
+
+            if (calculatedParkNanos == realParkNanos) {
+                return alreadyParkedNanos;
             }
         }
     }
