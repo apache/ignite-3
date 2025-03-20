@@ -559,6 +559,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         var resultSubscriber = new TestSubscriber<Tuple>();
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
+            // Tuple argument.
             Tuple receiverArg = Tuple.create().set("arg1", "val1").set("arg2", 2);
 
             streamerFut = defaultTable().recordView().streamData(
@@ -571,6 +572,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     receiverArg
             );
 
+            // Tuple payload.
             publisher.submit(tuple(1, "foo1"));
             publisher.submit(tuple(2, "foo2"));
         }
@@ -578,6 +580,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
         assertEquals(2, resultSubscriber.items.size());
 
+        // Tuple results.
         for (Tuple item : resultSubscriber.items) {
             assertEquals("foo" + item.intValue(0), item.stringValue(1));
             assertEquals("val1", item.stringValue("arg1"));
