@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link DropZoneEntry}.
@@ -33,14 +33,32 @@ public class DropZoneEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class DropZoneEntrySerializerV1 implements CatalogObjectSerializer<DropZoneEntry> {
         @Override
-        public DropZoneEntry readFrom(IgniteDataInput input) throws IOException {
+        public DropZoneEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int zoneId = input.readVarIntAsInt();
 
             return new DropZoneEntry(zoneId);
         }
 
         @Override
-        public void writeTo(DropZoneEntry entry, IgniteDataOutput output) throws IOException {
+        public void writeTo(DropZoneEntry entry, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(entry.zoneId());
+        }
+    }
+
+    /**
+     * Serializer for {@link DropZoneEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class DropZoneEntrySerializerV2 implements CatalogObjectSerializer<DropZoneEntry> {
+        @Override
+        public DropZoneEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int zoneId = input.readVarIntAsInt();
+
+            return new DropZoneEntry(zoneId);
+        }
+
+        @Override
+        public void writeTo(DropZoneEntry entry, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(entry.zoneId());
         }
     }

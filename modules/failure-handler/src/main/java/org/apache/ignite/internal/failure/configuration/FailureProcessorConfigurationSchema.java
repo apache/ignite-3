@@ -29,12 +29,12 @@ import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerC
 @Config
 public class FailureProcessorConfigurationSchema {
     /**
-     * Amount of memory reserved in the heap at node start in kilobytes, which can be dropped
+     * Amount of memory reserved in the heap at node start in bytes, which can be dropped
      * to increase the chances of success when handling OutOfMemoryError.
      */
     @Value(hasDefault = true)
     @Range(min = 0)
-    public int oomBufferSizeBites = 16 * 1024;
+    public int oomBufferSizeBytes = 16 * 1024;
 
     /** Enables threads dumping on critical node failure. */
     @Value(hasDefault = true)

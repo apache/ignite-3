@@ -21,13 +21,15 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.IndexDescriptorSerializerHelper;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link CatalogSchemaDescriptor}.
@@ -47,7 +49,7 @@ public class CatalogSchemaDescriptorSerializers {
         }
 
         @Override
-        public CatalogSchemaDescriptor readFrom(IgniteDataInput input) throws IOException {
+        public CatalogSchemaDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             CatalogObjectSerializer<CatalogTableDescriptor> tableDescriptorSerializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE.id());
             CatalogObjectSerializer<CatalogSystemViewDescriptor> viewDescriptorSerializer =
@@ -65,7 +67,7 @@ public class CatalogSchemaDescriptorSerializers {
         }
 
         @Override
-        public void writeTo(CatalogSchemaDescriptor descriptor, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogSchemaDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
             CatalogObjectSerializer<CatalogTableDescriptor> tableDescriptorSerializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE.id());
             CatalogObjectSerializer<CatalogSystemViewDescriptor> viewDescriptorSerializer =
@@ -78,6 +80,39 @@ public class CatalogSchemaDescriptorSerializers {
             writeArray(descriptor.tables(), tableDescriptorSerializer, output);
             writeArray(descriptor.indexes(), indexSerializeHelper, output);
             writeArray(descriptor.systemViews(), viewDescriptorSerializer, output);
+        }
+    }
+
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class SchemaDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
+
+        @Override
+        public CatalogSchemaDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
+            int id = input.readVarIntAsInt();
+            String name = input.readUTF();
+            long updateToken = input.readVarInt();
+
+            List<CatalogTableDescriptor> tables = input.readCompactEntryList(CatalogTableDescriptor.class);
+            List<CatalogIndexDescriptor> indexes = input.readEntryList(CatalogIndexDescriptor.class);
+            List<CatalogSystemViewDescriptor> systemViews = input.readCompactEntryList(CatalogSystemViewDescriptor.class);
+
+            return new CatalogSchemaDescriptor(id, name,
+                    tables.toArray(new CatalogTableDescriptor[0]),
+                    indexes.toArray(new CatalogIndexDescriptor[0]),
+                    systemViews.toArray(new CatalogSystemViewDescriptor[0]),
+                    updateToken
+            );
+        }
+
+        @Override
+        public void writeTo(CatalogSchemaDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeVarInt(descriptor.updateToken());
+
+            output.writeCompactEntryList(Arrays.asList(descriptor.tables()));
+            output.writeEntryList(Arrays.asList(descriptor.indexes()));
+            output.writeCompactEntryList(Arrays.asList(descriptor.systemViews()));
         }
     }
 }

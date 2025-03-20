@@ -214,7 +214,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             return txCleanupRecoveryRequestHandler.handle((TxCleanupRecoveryRequest) request);
         }
 
-        return processZoneReplicaRequest(request, replicaPrimacy, senderId);
+        return processZoneReplicaRequest(request, replicaPrimacy);
     }
 
     /**
@@ -241,17 +241,9 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      *
      * @param request Request to be processed.
      * @param replicaPrimacy Replica primacy information.
-     * @param senderId Node sender id.
      * @return Future with the result of the processing.
      */
-    private CompletableFuture<?> processZoneReplicaRequest(
-            ReplicaRequest request,
-            ReplicaPrimacy replicaPrimacy,
-            UUID senderId
-    ) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24526
-        // Need to move the necessary part of PartitionReplicaListener#processRequest request processing here
-
+    private CompletableFuture<?> processZoneReplicaRequest(ReplicaRequest request, ReplicaPrimacy replicaPrimacy) {
         if (request instanceof VacuumTxStateReplicaRequest) {
             return vacuumTxStateReplicaRequestHandler.handle((VacuumTxStateReplicaRequest) request);
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {

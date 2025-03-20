@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link RemoveIndexEntry}.
@@ -33,14 +33,32 @@ public class RemoveIndexEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class RemoveIndexEntrySerializerV1 implements CatalogObjectSerializer<RemoveIndexEntry> {
         @Override
-        public RemoveIndexEntry readFrom(IgniteDataInput input) throws IOException {
+        public RemoveIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int indexId = input.readVarIntAsInt();
 
             return new RemoveIndexEntry(indexId);
         }
 
         @Override
-        public void writeTo(RemoveIndexEntry entry, IgniteDataOutput out) throws IOException {
+        public void writeTo(RemoveIndexEntry entry, CatalogObjectDataOutput out) throws IOException {
+            out.writeVarInt(entry.indexId());
+        }
+    }
+
+    /**
+     * Serializer for {@link RemoveIndexEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class RemoveIndexEntrySerializerV2 implements CatalogObjectSerializer<RemoveIndexEntry> {
+        @Override
+        public RemoveIndexEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int indexId = input.readVarIntAsInt();
+
+            return new RemoveIndexEntry(indexId);
+        }
+
+        @Override
+        public void writeTo(RemoveIndexEntry entry, CatalogObjectDataOutput out) throws IOException {
             out.writeVarInt(entry.indexId());
         }
     }

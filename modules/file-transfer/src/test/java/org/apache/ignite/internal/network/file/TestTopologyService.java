@@ -71,4 +71,12 @@ public class TestTopologyService extends AbstractTopologyService {
     public void fireDisappearedEvent(ClusterNode member) {
         getEventHandlers().forEach(it -> it.onDisappeared(member));
     }
+
+    @Override
+    public void onJoined(ClusterNode node) {
+    }
+
+    @Override
+    public void onLeft(ClusterNode node) {
+    }
 }
