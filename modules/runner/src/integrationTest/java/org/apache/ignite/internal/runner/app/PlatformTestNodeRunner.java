@@ -982,6 +982,7 @@ public class PlatformTestNodeRunner {
         }
     }
 
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class ExceptionCodeAsStringJob implements ComputeJob<Integer, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer arg) {
