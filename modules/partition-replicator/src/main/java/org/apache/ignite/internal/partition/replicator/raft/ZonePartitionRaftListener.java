@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -116,7 +117,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             TxManager txManager,
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            PartitionsSnapshots partitionsSnapshots
+            PartitionsSnapshots partitionsSnapshots,
+            Executor partitionOperationsExecutor
     ) {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
@@ -124,7 +126,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.txStateStorage = txStatePartitionStorage;
         this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage);
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
         // RAFT command handlers initialization.
         this.commandHandlers = new CommandHandlers.Builder()
@@ -339,7 +341,19 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         synchronized (tableProcessorsStateLock) {
-            onSnapshotSaveHandler.onSnapshotSave(lastAppliedIndex, lastAppliedTerm, tableProcessors.values())
+            byte[] configuration = txStateStorage.committedGroupConfiguration();
+
+            assert configuration != null : "Trying to create a snapshot without Raft group configuration";
+
+            var snapshotInfo = new PartitionSnapshotInfo(
+                    lastAppliedIndex,
+                    lastAppliedTerm,
+                    txStateStorage.leaseInfo(),
+                    configuration,
+                    tableProcessors.keySet()
+            );
+
+            onSnapshotSaveHandler.onSnapshotSave(snapshotInfo, tableProcessors.values())
                     .whenComplete((unused, throwable) -> doneClo.accept(throwable));
         }
     }
