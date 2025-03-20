@@ -15,29 +15,52 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.engine;
+package org.apache.ignite.internal.partition.replicator.raft;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Partition meta containing values of 'primitive' types (which are the same for all representations of partition metadata).
+ * Class containing information about the last performed Raft snapshot.
  */
-public class PrimitivePartitionMeta {
+public class PartitionSnapshotInfo {
     private final long lastAppliedIndex;
-    private final long lastAppliedTerm;
-    private final @Nullable LeaseInfo leaseInfo;
 
-    /** Constructor. */
-    public PrimitivePartitionMeta(
+    private final long lastAppliedTerm;
+
+    @Nullable
+    private final LeaseInfo leaseInfo;
+
+    private final byte[] configurationBytes;
+
+    private final Set<Integer> tableIds;
+
+    /**
+     * Constructor.
+     *
+     * @param lastAppliedIndex Applied index at the moment when the snapshot was taken.
+     * @param lastAppliedTerm Applied term at the moment when the snapshot was taken.
+     * @param leaseInfo Lease information or {@code null} if no lease has been issued for this storage yet.
+     * @param configurationBytes Serialized representation of Raft group configuration.
+     * @param tableIds IDs of tables that were part of the Raft group when the snapshot was taken.
+     */
+    public PartitionSnapshotInfo(
             long lastAppliedIndex,
             long lastAppliedTerm,
-            @Nullable LeaseInfo leaseInfo
+            @Nullable LeaseInfo leaseInfo,
+            byte[] configurationBytes,
+            Collection<Integer> tableIds
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.leaseInfo = leaseInfo;
+        this.configurationBytes = configurationBytes;
+        this.tableIds = Set.copyOf(tableIds);
     }
 
     public long lastAppliedIndex() {
@@ -48,8 +71,17 @@ public class PrimitivePartitionMeta {
         return lastAppliedTerm;
     }
 
-    public @Nullable LeaseInfo leaseInfo() {
+    @Nullable
+    public LeaseInfo leaseInfo() {
         return leaseInfo;
+    }
+
+    public byte[] configurationBytes() {
+        return configurationBytes;
+    }
+
+    public Set<Integer> tableIds() {
+        return tableIds;
     }
 
     @Override
@@ -58,9 +90,9 @@ public class PrimitivePartitionMeta {
             return false;
         }
 
-        PrimitivePartitionMeta that = (PrimitivePartitionMeta) o;
+        PartitionSnapshotInfo that = (PartitionSnapshotInfo) o;
         return lastAppliedIndex == that.lastAppliedIndex && lastAppliedTerm == that.lastAppliedTerm && Objects.equals(leaseInfo,
-                that.leaseInfo);
+                that.leaseInfo) && Arrays.equals(configurationBytes, that.configurationBytes) && tableIds.equals(that.tableIds);
     }
 
     @Override
@@ -68,6 +100,13 @@ public class PrimitivePartitionMeta {
         int result = Long.hashCode(lastAppliedIndex);
         result = 31 * result + Long.hashCode(lastAppliedTerm);
         result = 31 * result + Objects.hashCode(leaseInfo);
+        result = 31 * result + Arrays.hashCode(configurationBytes);
+        result = 31 * result + tableIds.hashCode();
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }
