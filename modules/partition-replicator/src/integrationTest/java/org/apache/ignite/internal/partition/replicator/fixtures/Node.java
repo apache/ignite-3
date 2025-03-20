@@ -690,6 +690,7 @@ public class Node {
                 sharedTxStateStorage,
                 txManager,
                 schemaManager,
+                dataStorageMgr,
                 outgoingSnapshotsManager
         );
 

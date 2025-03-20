@@ -741,6 +741,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 sharedTxStateStorage,
                 txManager,
                 schemaManager,
+                dataStorageManager,
                 outgoingSnapshotManager
         );
 
