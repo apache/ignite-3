@@ -101,6 +101,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
+import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.TxCleanupRecoveryRequestHandler;
@@ -340,6 +341,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     private static final boolean SKIP_UPDATES = getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
 
     private final ReplicaPrimacyEngine replicaPrimacyEngine;
+    private final TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor;
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinishMarker replicaTxFinishMarker;
@@ -430,6 +432,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService);
 
         replicaPrimacyEngine = new ReplicaPrimacyEngine(placementDriver, clockService, replicationGroupId, localNode);
+
+        this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
+                clockService,
+                new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService),
+                schemaSyncService
+        );
+
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
         replicaTxFinishMarker = new ReplicaTxFinishMarker(txManager);
@@ -567,46 +576,14 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
         }
 
-
         @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
         @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
         if (enabledColocation()) {
-            // TODO sanpwc 22522 always null as opStartTsDirectRo adjust.
             return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo);
         } else {
-            @Nullable HybridTimestamp txTs = getTxStartTimestamp(request);
-            if (txTs == null) {
-                txTs = opTsIfDirectRo;
-            }
-
-            assert opTs == null || txTs == null || opTs.compareTo(txTs) >= 0 : "Tx started at " + txTs + ", but opTs precedes it: " + opTs
-                    + "; request " + request;
-
-            // Don't need to validate schema.
-            if (opTs == null) {
-                assert opTsIfDirectRo == null;
-                return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, null);
-            }
-
-            assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
-
-            @Nullable HybridTimestamp finalTxTs = txTs;
-            Runnable validateClo = () -> {
-                schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId());
-
-                if (hasSchemaVersion) {
-                    SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
-
-                    schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
-                            finalTxTs,
-                            versionAwareRequest.schemaVersion(),
-                            tableId()
-                    );
-                }
-            };
-
-            return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo).thenCompose(ignored ->
-                    processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo));
+            return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
+                    .thenCompose(ignored ->
+                            processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo));
         }
     }
 

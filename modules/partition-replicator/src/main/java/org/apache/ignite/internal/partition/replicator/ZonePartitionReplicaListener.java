@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
@@ -38,9 +37,6 @@ import org.apache.ignite.internal.partition.replicator.handlers.TxRecoveryMessag
 import org.apache.ignite.internal.partition.replicator.handlers.TxStateCommitPartitionReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateReplicaRequestHandler;
 import org.apache.ignite.internal.partition.replicator.handlers.WriteIntentSwitchRequestHandler;
-import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
@@ -49,14 +45,11 @@ import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
-import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
-import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -66,7 +59,6 @@ import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -87,11 +79,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     private final ReplicaPrimacyEngine replicaPrimacyEngine;
 
-    private final ClockService clockService;
-
-    private final SchemaSyncService schemaSyncService;
-
-    private final SchemaCompatibilityValidator schemaCompatValidator;
+    private final TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor;
 
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
@@ -134,11 +122,11 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 localNode
         );
 
-        this.clockService = clockService;
-
-        this.schemaSyncService = schemaSyncService;
-
-        this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+        this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
+                clockService,
+                new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService),
+                schemaSyncService
+        );
 
         ReplicationRaftCommandApplicator raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
 
@@ -252,52 +240,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
-        if (request instanceof BuildIndexReplicaRequest) {
-            System.out.println(">>> 1");
-        }
-        assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
-
-        // TODO sanpwc not null. Change and add assert.
-        @Nullable HybridTimestamp opTs = getOperationTimestamp(request);
-        // TODO sanpwc add  assert message.
-        assert opTs != null;
-
-        @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
-        @Nullable HybridTimestamp txTs = getTxStartTimestamp(request);
-        if (txTs == null) {
-            txTs = opTsIfDirectRo;
-        }
-
-        assert opTs == null || txTs == null || opTs.compareTo(txTs) >= 0 : "Tx started at " + txTs + ", but opTs precedes it: " + opTs
-                + "; request " + request;
-
-        // TODO sanpwc smart enable.
-//        assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
-
         int tableId = ((TableAware) request).tableId();
 
-        @Nullable HybridTimestamp finalTxTs = txTs;
-        Runnable validateClo = () -> {
-            schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId);
-
-            boolean hasSchemaVersion = request instanceof SchemaVersionAwareReplicaRequest;
-
-            if (hasSchemaVersion) {
-                SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
-
-                schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
-                        finalTxTs,
-                        versionAwareRequest.schemaVersion(),
-                        tableId
-                );
-            }
-        };
-
-        if (request instanceof BuildIndexReplicaRequest) {
-            System.out.println(">>> 2");
-        }
-        return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo).
-                thenCompose(ignored -> replicas.get(tableId).process(request, replicaPrimacy, senderId));
+        return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
+                .thenCompose(ignored -> replicas.get(tableId).process(request, replicaPrimacy, senderId));
     }
 
     /**
@@ -367,60 +313,5 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                     }
                 }
         );
-    }
-
-    // TODO sanpwc adjust javadoc. Add todo for 22522 in order to adjust javadoc when colocation will be disabled.
-    /**
-     * Returns the txn operation timestamp.
-     *
-     * <ul>
-     *     <li>For a read/write in an RW transaction, it's 'now'</li>
-     *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
-     *     <li>For a direct read in an RO implicit transaction, it's the timestamp chosen (as 'now') to process the request</li>
-     * </ul>
-     *
-     * <p>For other requests, op timestamp is not applicable and the validation is skipped.
-     *
-     * @param request The request.
-     * @return The timestamp or {@code null} if not a tx operation request.
-     */
-    private @Nullable HybridTimestamp getOperationTimestamp(ReplicaRequest request) {
-        HybridTimestamp opStartTs;
-        // TODO sanpwc add comment explaining why it's required to evaluate opStartTs for all transacions.
-        if (request instanceof ReadOnlyReplicaRequest) {
-            opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
-        } else {
-            opStartTs = clockService.current();;
-        }
-
-        return opStartTs;
-    }
-
-    /**
-     * Returns timestamp of transaction start (for RW/timestamped RO requests) or @{code null} for other requests.
-     *
-     * @param request Replica request corresponding to the operation.
-     */
-    //TODO sanpwc rename
-    private static @Nullable HybridTimestamp getTxStartTimestamp(ReplicaRequest request) {
-        HybridTimestamp txStartTimestamp;
-
-        if (request instanceof ReadWriteReplicaRequest) {
-            txStartTimestamp = beginRwTxTs((ReadWriteReplicaRequest) request);
-        } else if (request instanceof ReadOnlyReplicaRequest) {
-            txStartTimestamp = ((ReadOnlyReplicaRequest) request).readTimestamp();
-        } else {
-            txStartTimestamp = null;
-        }
-        return txStartTimestamp;
-    }
-
-    /**
-     * Extracts begin timestamp of a read-write transaction from a request.
-     *
-     * @param request Read-write replica request.
-     */
-    static HybridTimestamp beginRwTxTs(ReadWriteReplicaRequest request) {
-        return TransactionIds.beginTimestamp(request.transactionId());
     }
 }
