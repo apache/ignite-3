@@ -31,11 +31,18 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Subscriber;
@@ -585,6 +592,56 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             assertEquals("foo" + item.intValue(0), item.stringValue(1));
             assertEquals("val1", item.stringValue("arg1"));
             assertEquals(2, item.intValue("arg2"));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testEchoTupleWithAllColumnTypes(boolean asArg) {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<Tuple>();
+
+        Tuple tuple = Tuple.create()
+                .set("bool", true)
+                .set("byte", (byte) 1)
+                .set("short", (short) 2)
+                .set("int", 3)
+                .set("long", 4L)
+                .set("float", 5.5f)
+                .set("double", 6.6)
+                .set("decimal", BigDecimal.valueOf(1, 1000))
+                .set("date", LocalDate.of(2021, 1, 1))
+                .set("time", LocalTime.of(1, 2, 3))
+                .set("datetime", LocalDateTime.of(2000, 1, 2, 3, 4, 5))
+                .set("uuid", new UUID(1, 2))
+                .set("string", "foo")
+                .set("binary", new byte[] {1, 2, 3})
+                .set("period", Period.ofMonths(3))
+                .set("duration", Duration.ofDays(4));
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            Tuple receiverArg = asArg ? tuple : Tuple.create();
+
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    Function.identity(),
+                    Function.identity(),
+                    ReceiverDescriptor.builder(TupleReceiver.class).build(),
+                    resultSubscriber,
+                    null,
+                    receiverArg
+            );
+
+            publisher.submit(asArg ? Tuple.create() : tuple);
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+        assertEquals(1, resultSubscriber.items.size());
+
+        Tuple resTuple = resultSubscriber.items.get(0);
+
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            assertEquals(tuple.value(i), (Object) resTuple.value(i));
         }
     }
 
