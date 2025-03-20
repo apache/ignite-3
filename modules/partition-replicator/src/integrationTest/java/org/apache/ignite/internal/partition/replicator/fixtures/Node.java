@@ -132,6 +132,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -156,6 +157,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
@@ -208,9 +210,11 @@ public class Node {
 
     public final String name;
 
-    private final Loza raftManager;
+    public final Loza raftManager;
 
     private final ThreadPoolsManager threadPoolsManager;
+
+    private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
     public final ReplicaManager replicaManager;
 
@@ -542,7 +546,8 @@ public class Node {
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                 new PersistentPageMemoryDataStorageModule(),
-                new NonVolatileTestDataStorageModule()
+                new NonVolatileTestDataStorageModule(),
+                new VolatilePageMemoryDataStorageModule()
         ));
 
         Path storagePath = dir.resolve("storage");
@@ -587,6 +592,8 @@ public class Node {
                 threadPoolsManager.commonScheduler()
         );
 
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
+
         replicaManager = new ReplicaManager(
                 name,
                 clusterService,
@@ -601,7 +608,7 @@ public class Node {
                 topologyAwareRaftGroupServiceFactory,
                 raftManager,
                 partitionRaftConfigurer,
-                view -> new LocalLogStorageFactory(),
+                volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
@@ -861,6 +868,7 @@ public class Node {
                 catalogCompactionRunner,
                 indexMetaStorage,
                 distributionZoneManager,
+                volatileLogStorageFactoryCreator,
                 replicaManager,
                 txManager,
                 dataStorageMgr,
