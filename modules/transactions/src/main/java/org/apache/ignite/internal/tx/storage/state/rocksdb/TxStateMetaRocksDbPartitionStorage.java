@@ -47,9 +47,14 @@ class TxStateMetaRocksDbPartitionStorage {
     private static final byte CONF_PREFIX = 1;
 
     /**
-     * Prefix to store lease information.
+     * Prefix for keys corresponding to the lease information.
      */
     private static final byte LEASE_INFO_PREFIX = 2;
+
+    /**
+     * Prefix for keys corresponding to the last saved snapshot information.
+     */
+    private static final byte SNAPSHOT_INFO_PREFIX = 3;
 
     private final ColumnFamily columnFamily;
 
@@ -62,6 +67,8 @@ class TxStateMetaRocksDbPartitionStorage {
     private final byte[] confKey;
 
     private final byte[] leaseInfoKey;
+
+    private final byte[] snapshotInfoKey;
 
     private volatile long lastAppliedIndex;
 
@@ -80,6 +87,7 @@ class TxStateMetaRocksDbPartitionStorage {
         lastAppliedKey = createKey(LAST_APPLIED_PREFIX);
         confKey = createKey(CONF_PREFIX);
         leaseInfoKey = createKey(LEASE_INFO_PREFIX);
+        snapshotInfoKey = createKey(SNAPSHOT_INFO_PREFIX);
     }
 
     private byte[] createKey(byte prefix) {
@@ -153,6 +161,10 @@ class TxStateMetaRocksDbPartitionStorage {
         return leaseInfo;
     }
 
+    byte @Nullable [] snapshotInfo() throws RocksDBException {
+        return columnFamily.get(snapshotInfoKey);
+    }
+
     void updateLastApplied(WriteBatch writeBatch, long index, long term) throws RocksDBException {
         columnFamily.put(writeBatch, lastAppliedKey, indexAndTermToBytes(index, term));
 
@@ -172,6 +184,10 @@ class TxStateMetaRocksDbPartitionStorage {
         this.leaseInfo = leaseInfo;
     }
 
+    void updateSnapshotInfo(WriteBatch writeBatch, byte[] snapshotInfo) throws RocksDBException {
+        columnFamily.put(writeBatch, snapshotInfoKey, snapshotInfo);
+    }
+
     private static byte[] indexAndTermToBytes(long lastAppliedIndex, long lastAppliedTerm) {
         return ByteBuffer.allocate(2 * Long.BYTES)
                 .order(ByteOrder.BIG_ENDIAN)
@@ -184,6 +200,7 @@ class TxStateMetaRocksDbPartitionStorage {
         columnFamily.delete(writeBatch, lastAppliedKey);
         columnFamily.delete(writeBatch, confKey);
         columnFamily.delete(writeBatch, leaseInfoKey);
+        columnFamily.delete(writeBatch, snapshotInfoKey);
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;

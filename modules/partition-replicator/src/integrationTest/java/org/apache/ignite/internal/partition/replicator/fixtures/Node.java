@@ -785,7 +785,8 @@ public class Node {
                 clusterService,
                 logicalTopologyService,
                 clockService,
-                failureManager
+                failureManager,
+                lowWatermark
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);

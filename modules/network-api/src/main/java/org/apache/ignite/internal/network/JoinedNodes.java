@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.commands;
+package org.apache.ignite.internal.network;
 
-import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup.Commands;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Command for updating the CMG state.
+ * Allows reacting to logical topology changes.
  */
-@Transferable(Commands.UPDATE_CMG_STATE)
-public interface UpdateClusterStateCommand extends WriteCommand {
+public interface JoinedNodes {
 
     /**
-     * Returns the CMG state.
+     * Called when the node joins logical topology.
+     *
+     * @param node Node.
      */
-    ClusterState clusterState();
+    void onJoined(ClusterNode node);
+
+    /**
+     * Called when the node leaves logical topology.
+     *
+     * @param node Node.
+     */
+    void onLeft(ClusterNode node);
 }

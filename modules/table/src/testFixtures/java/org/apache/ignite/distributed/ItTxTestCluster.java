@@ -877,7 +877,8 @@ public class ItTxTestCluster {
                             txManagers.get(assignment),
                             safeTimeTracker,
                             storageIndexTracker,
-                            mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS)
+                            mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
+                            partitionOperationsExecutor
                     )
             );
 
@@ -892,7 +893,8 @@ public class ItTxTestCluster {
                     schemaRegistry,
                     mock(IndexMetaStorage.class),
                     clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
-                    mock(MinimumRequiredTimeCollectorService.class)
+                    mock(MinimumRequiredTimeCollectorService.class),
+                    partitionOperationsExecutor
             );
 
             zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
@@ -910,7 +912,8 @@ public class ItTxTestCluster {
                     schemaRegistry,
                     mock(IndexMetaStorage.class),
                     clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
-                    mock(MinimumRequiredTimeCollectorService.class)
+                    mock(MinimumRequiredTimeCollectorService.class),
+                    partitionOperationsExecutor
             );
         }
     }

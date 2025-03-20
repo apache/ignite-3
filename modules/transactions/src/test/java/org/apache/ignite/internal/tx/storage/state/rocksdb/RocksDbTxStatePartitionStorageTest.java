@@ -109,7 +109,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
 
         storage = tableStorage.getOrCreatePartitionStorage(0);
 
-        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, GROUP_CONFIGURATION, LEASE_INFO);
+        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, GROUP_CONFIGURATION, LEASE_INFO, SNAPSHOT_INFO);
 
         checkStorageContainsRows(storage, rows);
     }
