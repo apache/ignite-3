@@ -31,13 +31,24 @@ public class ExceptionCodeAsStringTests : IgniteTestsBase
     [Test]
     public async Task TestCodeAsStringIsConsistentWithJava()
     {
-        var dotNetEx = new IgniteException(Guid.Empty, ErrorGroups.Common.Internal, null);
-        var dotNetCodeStr = dotNetEx.CodeAsString;
-
-        var nodes = await Client.GetClusterNodesAsync();
-        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(nodes), ComputeTests.ExceptionCodeAsStringJob, dotNetEx.Code);
-        var javaCodeStr = await jobExec.GetResultAsync();
+        var errorCode = ErrorGroups.Common.Internal;
+        var dotNetCodeStr = GetCodeAsString(errorCode);
+        var javaCodeStr = await GetCodeAsStringJava(errorCode);
 
         Assert.AreEqual(javaCodeStr, dotNetCodeStr);
+    }
+
+    private static string GetCodeAsString(int errorCode)
+    {
+        var ex = new IgniteException(Guid.Empty, errorCode, null);
+
+        return ex.CodeAsString;
+    }
+
+    private async Task<string> GetCodeAsStringJava(int errorCode)
+    {
+        var nodes = await Client.GetClusterNodesAsync();
+        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(nodes), ComputeTests.ExceptionCodeAsStringJob, errorCode);
+        return await jobExec.GetResultAsync();
     }
 }
