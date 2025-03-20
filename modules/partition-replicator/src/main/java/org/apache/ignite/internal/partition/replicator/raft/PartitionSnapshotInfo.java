@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator.raft;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
@@ -53,13 +54,13 @@ public class PartitionSnapshotInfo {
             long lastAppliedTerm,
             @Nullable LeaseInfo leaseInfo,
             byte[] configurationBytes,
-            Set<Integer> tableIds
+            Collection<Integer> tableIds
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.leaseInfo = leaseInfo;
         this.configurationBytes = configurationBytes;
-        this.tableIds = tableIds;
+        this.tableIds = Set.copyOf(tableIds);
     }
 
     public long lastAppliedIndex() {
