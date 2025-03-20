@@ -27,6 +27,7 @@ import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -112,9 +113,16 @@ public class ClientRecordSerializer<R> {
         writeRecRaw(rec, mapper, schema, out, part);
     }
 
-    void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
+    void writeRec(
+            @Nullable Transaction tx,
+            @Nullable R rec,
+            ClientSchema schema,
+            PayloadOutputChannel out,
+            WriteContext ctx,
+            TuplePart part
+    ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
 
         writeRecRaw(rec, schema, out.out(), part);
@@ -126,10 +134,11 @@ public class ClientRecordSerializer<R> {
             @Nullable R rec2,
             ClientSchema schema,
             PayloadOutputChannel out,
+            WriteContext ctx,
             TuplePart part
     ) {
-        out.out().packInt(tableId);
-        writeTx(tx, out);
+        out.out().packInt(tableId); // TODO move to writeTx
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
@@ -144,10 +153,11 @@ public class ClientRecordSerializer<R> {
             Collection<R> recs,
             ClientSchema schema,
             PayloadOutputChannel out,
+            WriteContext ctx,
             TuplePart part
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
         out.out().packInt(recs.size());
 

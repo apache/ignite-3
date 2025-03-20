@@ -117,7 +117,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
 
                 for (int i = 0; i < count; i++) {
                     if (i % 2 == 0) {
-                        transactionExpirationRegistry.unregister(txPool.get(i));
+                        transactionExpirationRegistry.unregister(txPool.get(i), offset + i);
                         continue;
                     }
 
@@ -244,11 +244,6 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         @Override
         public long getTimeout() {
             return 0;
-        }
-
-        @Override
-        public long getTimeoutOrDefault(long defaultTimeout) {
-            return defaultTimeout;
         }
 
         @Override

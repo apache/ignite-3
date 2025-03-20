@@ -25,9 +25,6 @@ import java.util.Map;
  * Utils for client protocol handshake handling.
  */
 public class HandshakeUtils {
-    /** Empty features. */
-    public static final BitSet EMPTY_FEATURES = new BitSet();
-
     /** Client type: general. */
     public static final int CLIENT_TYPE_GENERAL = 2;
 
