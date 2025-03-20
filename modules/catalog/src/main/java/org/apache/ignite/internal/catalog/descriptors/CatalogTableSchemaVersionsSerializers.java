@@ -21,13 +21,15 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link CatalogTableSchemaVersions}.
@@ -45,7 +47,7 @@ public class CatalogTableSchemaVersionsSerializers {
         }
 
         @Override
-        public CatalogTableSchemaVersions readFrom(IgniteDataInput input) throws IOException {
+        public CatalogTableSchemaVersions readFrom(CatalogObjectDataInput input) throws IOException {
             CatalogObjectSerializer<TableVersion> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_VERSION.id());
 
@@ -56,11 +58,32 @@ public class CatalogTableSchemaVersionsSerializers {
         }
 
         @Override
-        public void writeTo(CatalogTableSchemaVersions tabVersions, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogTableSchemaVersions tabVersions, CatalogObjectDataOutput output) throws IOException {
             CatalogObjectSerializer<TableVersion> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_VERSION.id());
 
             writeArray(tabVersions.versions(), serializer, output);
+            output.writeVarInt(tabVersions.earliestVersion());
+        }
+    }
+
+    /**
+     * Serializer for {@link CatalogTableSchemaVersions}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class TableSchemaVersionsSerializerV2 implements CatalogObjectSerializer<CatalogTableSchemaVersions> {
+
+        @Override
+        public CatalogTableSchemaVersions readFrom(CatalogObjectDataInput input) throws IOException {
+            List<TableVersion> versions = input.readCompactEntryList(TableVersion.class);
+            int base = input.readVarIntAsInt();
+
+            return new CatalogTableSchemaVersions(base, versions.toArray(new TableVersion[0]));
+        }
+
+        @Override
+        public void writeTo(CatalogTableSchemaVersions tabVersions, CatalogObjectDataOutput output) throws IOException {
+            output.writeCompactEntryList(Arrays.asList(tabVersions.versions()));
             output.writeVarInt(tabVersions.earliestVersion());
         }
     }

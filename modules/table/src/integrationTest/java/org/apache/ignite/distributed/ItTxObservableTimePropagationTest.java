@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -31,9 +32,12 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.TxInfrastructureTest;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -110,7 +114,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
 
         assertTrue(commitTs.compareTo(new HybridTimestamp(CLIENT_FROZEN_PHYSICAL_TIME, 0)) > 0, "Observable timestamp should be advanced");
 
-        TablePartitionId part = new TablePartitionId(accounts.tableId(), 0);
+        ReplicationGroupId part = replicationGroupId(accounts, 0);
 
         NodeImpl[] handle = {null};
         NodeImpl[] leader = {null};
@@ -135,7 +139,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
                 }
 
                 var fsm = (JraftServerImpl.DelegatingStateMachine) raftNode.getOptions().getFsm();
-                PartitionListener listener = (PartitionListener) fsm.getListener();
+                PartitionListener listener = extractPartitionListener(fsm, accounts);
                 PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = listener.getSafeTimeTracker();
 
                 try {
@@ -167,5 +171,13 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
         LOG.info("After leader change: commitTs={}", commitTs2);
 
         assertTrue(commitTs2.compareTo(commitTs) > 0, "Invalid safe time");
+    }
+
+    private static PartitionListener extractPartitionListener(DelegatingStateMachine fsm, TableViewInternal table) {
+        if (enabledColocation()) {
+            return (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
+        } else {
+            return (PartitionListener) fsm.getListener();
+        }
     }
 }

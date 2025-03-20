@@ -135,6 +135,11 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
+    public int zoneId() {
+        return tbl.zoneId();
+    }
+
+    @Override
     public int pkId() {
         return pkId;
     }

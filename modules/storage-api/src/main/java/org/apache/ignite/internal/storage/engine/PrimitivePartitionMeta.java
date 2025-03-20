@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import java.util.Objects;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,5 +50,24 @@ public class PrimitivePartitionMeta {
 
     public @Nullable LeaseInfo leaseInfo() {
         return leaseInfo;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        PrimitivePartitionMeta that = (PrimitivePartitionMeta) o;
+        return lastAppliedIndex == that.lastAppliedIndex && lastAppliedTerm == that.lastAppliedTerm && Objects.equals(leaseInfo,
+                that.leaseInfo);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Long.hashCode(lastAppliedIndex);
+        result = 31 * result + Long.hashCode(lastAppliedTerm);
+        result = 31 * result + Objects.hashCode(leaseInfo);
+        return result;
     }
 }
