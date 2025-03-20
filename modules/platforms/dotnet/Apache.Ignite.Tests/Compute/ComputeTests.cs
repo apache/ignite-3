@@ -79,7 +79,7 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly TaskDescriptor<object?, object?> ReduceExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnReduceTask");
 
-        public static readonly JobDescriptor<int, string> ExceptionCodeAsStringJob = new(PlatformTestNodeRunner + "ExceptionCodeAsStringJob");
+        public static readonly JobDescriptor<int, string> ExceptionCodeAsStringJob = new(PlatformTestNodeRunner + "$ExceptionCodeAsStringJob");
 
         [Test]
         public async Task TestGetClusterNodes()

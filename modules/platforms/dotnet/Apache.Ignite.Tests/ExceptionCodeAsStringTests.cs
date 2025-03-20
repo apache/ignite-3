@@ -34,7 +34,8 @@ public class ExceptionCodeAsStringTests : IgniteTestsBase
         var dotNetEx = new IgniteException(Guid.Empty, ErrorGroups.Common.Internal, null);
         var dotNetCodeStr = dotNetEx.CodeAsString;
 
-        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(), ComputeTests.ExceptionCodeAsStringJob, dotNetEx.Code);
+        var nodes = await Client.GetClusterNodesAsync();
+        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(nodes), ComputeTests.ExceptionCodeAsStringJob, dotNetEx.Code);
         var javaCodeStr = await jobExec.GetResultAsync();
 
         Assert.AreEqual(javaCodeStr, dotNetCodeStr);
