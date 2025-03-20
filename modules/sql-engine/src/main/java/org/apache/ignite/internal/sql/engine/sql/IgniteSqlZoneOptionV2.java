@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.sql.SqlCall;
@@ -34,19 +33,17 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** An AST node representing option in CREATE ZONE statement. */
 public class IgniteSqlZoneOptionV2 extends IgniteSqlZoneOption {
-    public static final Map<ZoneOptionEnum, String> OPTIONS_MAPPING = new EnumMap<>(ZoneOptionEnum.class);
-
-    static {
-        OPTIONS_MAPPING.put(ZoneOptionEnum.PARTITIONS, "PARTITIONS");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.REPLICAS, "REPLICAS");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "DISTRIBUTION ALGORITHM");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DATA_NODES_FILTER, "NODES FILTER");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, "AUTO ADJUST");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, "AUTO SCALE UP");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "AUTO SCALE DOWN");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.CONSISTENCY_MODE, "CONSISTENCY MODE");
-        OPTIONS_MAPPING.put(ZoneOptionEnum.STORAGE_PROFILES, "STORAGE PROFILES");
-    }
+    public static final Map<ZoneOptionEnum, String> OPTIONS_MAPPING = Map.of(
+        ZoneOptionEnum.PARTITIONS, "PARTITIONS",
+        ZoneOptionEnum.REPLICAS, "REPLICAS",
+        ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "DISTRIBUTION ALGORITHM",
+        ZoneOptionEnum.DATA_NODES_FILTER, "NODES FILTER",
+        ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, "AUTO ADJUST",
+        ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, "AUTO SCALE UP",
+        ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "AUTO SCALE DOWN",
+        ZoneOptionEnum.CONSISTENCY_MODE, "CONSISTENCY MODE",
+        ZoneOptionEnum.STORAGE_PROFILES, "STORAGE PROFILES"
+    );
 
     /** ZONE option operator. */
     protected static class Operator extends IgniteSqlSpecialOperator {
