@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -36,13 +37,16 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -155,10 +159,21 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         IgniteSql sql = ignite1.sql();
 
-        ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
+        CompletableFuture<?> result = sql.executeAsync(null, "SELECT valint2 FROM tbl1")
+                .thenApply(AsyncResultSet::currentPage)
+                .orTimeout(10, TimeUnit.SECONDS);
 
-        for (int i = 0; i < 10; ++i) {
-            assertNotNull(res.next().iterator().next());
+        try {
+            await(result);
+        } catch (Exception ex) {
+            IgniteStringBuilder sb = new IgniteStringBuilder("Running queries:").nl();
+
+            ((SqlQueryProcessor) unwrapIgniteImpl(ignite1).queryEngine()).runningQueries()
+                    .forEach(qi -> sb.app('\t').app(qi).nl());
+
+            System.out.println(sb);
+
+            throw ex;
         }
 
         for (int i = 10; i < 20; ++i) {
@@ -169,9 +184,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
 
-        res.close();
-
-        res = sql.execute(null, "SELECT sum(valint4) FROM tbl1");
+        ResultSet<SqlRow> res = sql.execute(null, "SELECT sum(valint4) FROM tbl1");
 
         assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
 
