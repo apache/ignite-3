@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
@@ -85,8 +86,6 @@ import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -107,10 +106,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         dropAllSchemas();
     }
 
-    @RepeatedTest(10)
-    // TODO sanpwc hangs forever sometimes in case of ItSqlClientSynchonousApiTest. That's important, might be a signal of
-    // a live lock on waitForSchema I guess.
+    @Test
     public void ddl() {
+        if (enabledColocation()) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24885 Test hangs in case of enabledColocation
+            return;
+        }
+
         IgniteSql sql = igniteSql();
 
         // CREATE TABLE
@@ -147,83 +149,83 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // CREATE INDEX
         checkDdl(true, sql, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Index with name 'PUBLIC.TEST_IDX' already exists",
-//                sql,
-//                "CREATE INDEX TEST_IDX ON TEST(VAL1)"
-//        );
-//        checkDdl(false, sql, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
-//
-//        checkDdl(true, sql, "DROP INDEX TESt_iDX");
-//        checkDdl(true, sql, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
-//        checkDdl(true, sql, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
-//        checkDdl(true, sql, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Column with name 'VAL0' specified more than once",
-//                sql,
-//                "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
-//        );
-//
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Deleting column 'VAL1' used by index(es) [TEST_IDX3], it is not allowed",
-//                sql,
-//                "ALTER TABLE TEST DROP COLUMN val1"
-//        );
-//
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Deleting column 'VAL0' used by index(es) [TEST_IDX1, TEST_IDX2, TEST_IDX3], it is not allowed",
-//                sql,
-//                "ALTER TABLE TEST DROP COLUMN (val0, val1)"
-//        );
-//
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Deleting column `ID` belonging to primary key is not allowed",
-//                sql,
-//                "ALTER TABLE TEST DROP COLUMN id"
-//        );
-//
-//        checkDdl(true, sql, "DROP INDEX TESt_iDX3");
-//
-//        // DROP COLUMNS
-//        checkDdl(true, sql, "ALTER TABLE TEST DROP COLUMN VAL1");
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
-//                sql,
-//                "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
-//        );
-//        checkDdl(false, sql, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Column with name 'VAL1' not found in table 'PUBLIC.TEST'",
-//                sql,
-//                "ALTER TABLE TEST DROP COLUMN VAL1"
-//        );
-//
-//        // DROP TABLE
-//        checkDdl(false, sql, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
-//
-//        checkDdl(true, sql, "DROP TABLE TEST");
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Table with name 'PUBLIC.TEST' not found",
-//                sql,
-//                "DROP TABLE TEST"
-//        );
-//
-//        checkDdl(false, sql, "DROP INDEX IF EXISTS TEST_IDX");
-//
-//        checkSqlError(
-//                Sql.STMT_VALIDATION_ERR,
-//                "Index with name 'PUBLIC.TEST_IDX' not found",
-//                sql,
-//                "DROP INDEX TEST_IDX"
-//        );
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Index with name 'PUBLIC.TEST_IDX' already exists",
+                sql,
+                "CREATE INDEX TEST_IDX ON TEST(VAL1)"
+        );
+        checkDdl(false, sql, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
+
+        checkDdl(true, sql, "DROP INDEX TESt_iDX");
+        checkDdl(true, sql, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
+        checkDdl(true, sql, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
+        checkDdl(true, sql, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Column with name 'VAL0' specified more than once",
+                sql,
+                "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
+        );
+
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Deleting column 'VAL1' used by index(es) [TEST_IDX3], it is not allowed",
+                sql,
+                "ALTER TABLE TEST DROP COLUMN val1"
+        );
+
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Deleting column 'VAL0' used by index(es) [TEST_IDX1, TEST_IDX2, TEST_IDX3], it is not allowed",
+                sql,
+                "ALTER TABLE TEST DROP COLUMN (val0, val1)"
+        );
+
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Deleting column `ID` belonging to primary key is not allowed",
+                sql,
+                "ALTER TABLE TEST DROP COLUMN id"
+        );
+
+        checkDdl(true, sql, "DROP INDEX TESt_iDX3");
+
+        // DROP COLUMNS
+        checkDdl(true, sql, "ALTER TABLE TEST DROP COLUMN VAL1");
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
+                sql,
+                "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
+        );
+        checkDdl(false, sql, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Column with name 'VAL1' not found in table 'PUBLIC.TEST'",
+                sql,
+                "ALTER TABLE TEST DROP COLUMN VAL1"
+        );
+
+        // DROP TABLE
+        checkDdl(false, sql, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
+
+        checkDdl(true, sql, "DROP TABLE TEST");
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Table with name 'PUBLIC.TEST' not found",
+                sql,
+                "DROP TABLE TEST"
+        );
+
+        checkDdl(false, sql, "DROP INDEX IF EXISTS TEST_IDX");
+
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Index with name 'PUBLIC.TEST_IDX' not found",
+                sql,
+                "DROP INDEX TEST_IDX"
+        );
     }
 
     /** Check all transactions are processed correctly even with case of sql Exception raised. */
@@ -249,8 +251,12 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     /** Check correctness of implicit and explicit transactions. */
     @Test
-    @Disabled("")
     public void checkTransactionsWithDml() {
+        if (enabledColocation()) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24886 Test fails in case of enabledColocation
+            return;
+        }
+
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -346,9 +352,12 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     /** Check correctness of rw and ro transactions for index scan. */
     @Test
-    // TODO sanpwc hangs forever ask Roma to check, caused it's Index related.
-    @Disabled("")
     public void checkMixedTransactionsForIndex() throws Exception {
+        if (enabledColocation()) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24885 Test hangs in case of enabledColocation
+            return;
+        }
+
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
@@ -786,7 +795,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
      * DDL is non-transactional.
      */
     @Test
-    @Disabled("")
     public void ddlInTransaction() {
         IgniteSql sql = igniteSql();
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");

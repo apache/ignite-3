@@ -568,13 +568,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         }
 
 
-
+        @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
+        @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
         if (enabledColocation()) {
             // TODO sanpwc 22522 always null as opStartTsDirectRo adjust.
-            return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, null);
+            return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo);
         } else {
-            @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
-            @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
             @Nullable HybridTimestamp txTs = getTxStartTimestamp(request);
             if (txTs == null) {
                 txTs = opTsIfDirectRo;

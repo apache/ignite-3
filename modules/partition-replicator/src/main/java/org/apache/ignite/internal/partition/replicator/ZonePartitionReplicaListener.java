@@ -258,7 +258,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
 
         // TODO sanpwc not null. Change and add assert.
-        @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
+        @Nullable HybridTimestamp opTs = getOperationTimestamp(request);
         // TODO sanpwc add  assert message.
         assert opTs != null;
 
@@ -384,7 +384,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param request The request.
      * @return The timestamp or {@code null} if not a tx operation request.
      */
-    private @Nullable HybridTimestamp getTxOpTimestamp(ReplicaRequest request) {
+    private @Nullable HybridTimestamp getOperationTimestamp(ReplicaRequest request) {
         HybridTimestamp opStartTs;
         // TODO sanpwc add comment explaining why it's required to evaluate opStartTs for all transacions.
         if (request instanceof ReadOnlyReplicaRequest) {
