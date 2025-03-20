@@ -598,10 +598,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    public void testEchoTupleWithAllColumnTypes(boolean asArg) {
-        CompletableFuture<Void> streamerFut;
-        var resultSubscriber = new TestSubscriber<Tuple>();
-
+    public void testReceiverTupleRoundTripWithAllColumnTypes(boolean asArg) {
         Tuple tuple = Tuple.create()
                 .set("bool", true)
                 .set("byte", (byte) 1)
@@ -619,6 +616,42 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 .set("binary", new byte[] {1, 2, 3})
                 .set("period", Period.ofMonths(3))
                 .set("duration", Duration.ofDays(4));
+
+        Tuple resTuple = receiverTupleRoundTrip(tuple, asArg);
+
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            Object origVal = tuple.value(i);
+            Object resVal = resTuple.value(i);
+
+            if (origVal instanceof byte[]) {
+                assertArrayEquals((byte[]) origVal, (byte[]) resVal);
+            } else {
+                assertEquals(origVal, resVal);
+            }
+        }
+    }
+
+    @Test
+    public void testReceiverNestedTupleRoundTrip() {
+        Tuple tuple = Tuple.create()
+                .set("int", 1)
+                .set("inner", Tuple.create()
+                        .set("string", "foo")
+                        .set("inner2", Tuple.create().set("int", 2)));
+
+        Tuple resTuple = receiverTupleRoundTrip(tuple, false);
+        assertEquals(1, resTuple.intValue("int"));
+
+        Tuple resTupleInner = resTuple.value("inner");
+        assertEquals("foo", resTupleInner.stringValue("string"));
+
+        Tuple resTupleInner2 = resTupleInner.value("inner2");
+        assertEquals(2, resTupleInner2.intValue("int"));
+    }
+
+    private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<Tuple>();
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             Tuple receiverArg = asArg ? tuple : Tuple.create();
@@ -640,17 +673,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals(1, resultSubscriber.items.size());
 
         Tuple resTuple = resultSubscriber.items.get(0);
-
-        for (int i = 0; i < tuple.columnCount(); i++) {
-            Object origVal = tuple.value(i);
-            Object resVal = resTuple.value(i);
-
-            if (origVal instanceof byte[]) {
-                assertArrayEquals((byte[]) origVal, (byte[]) resVal);
-            } else {
-                assertEquals(origVal, resVal);
-            }
-        }
+        return resTuple;
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
