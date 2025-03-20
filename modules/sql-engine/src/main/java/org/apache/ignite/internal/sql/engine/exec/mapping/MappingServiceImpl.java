@@ -119,7 +119,7 @@ public class MappingServiceImpl implements MappingService {
 
         int tableOrZoneId;
 
-        if (parameters.groupId() instanceof ZonePartitionId) {
+        if (enabledColocation) {
             tableOrZoneId = ((ZonePartitionId) parameters.groupId()).zoneId();
         } else {
             tableOrZoneId = ((TablePartitionId) parameters.groupId()).tableId();
