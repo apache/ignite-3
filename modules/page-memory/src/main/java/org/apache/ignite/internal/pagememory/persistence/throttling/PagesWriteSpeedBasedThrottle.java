@@ -64,7 +64,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
      * {@link IntervalBasedMeasurement#getSpeedOpsPerSec(long)} returns pages marked/second.
      * {@link IntervalBasedMeasurement#getAverage()} returns average throttle time.
      * */
-    private final IntervalBasedMeasurement markSpeedAndAvgParkTime = new IntervalBasedMeasurement(5, 150);
+    private final IntervalBasedMeasurement markSpeedAndAvgParkTime = new IntervalBasedMeasurement(30, 25);
 
     private final CheckpointLockStateChecker cpLockStateChecker;
 
@@ -199,6 +199,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
             while (true) {
                 long nanos = System.nanoTime();
 
+                // TODO try using smallest value instead of matching reality with proposed time
+                //  make sure that unit tests work, because they fail from the most innocent changes
                 long currentParkTime = cleanPagesProtector.protectionParkTime(nanos);
 
                 if (currentParkTime < throttleParkTimeNs) {
@@ -208,10 +210,11 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
                 parkingHappened = true;
 
                 if (currentParkTime > 0) {
-                    long park = Math.min(currentParkTime, PARKING_QUANTUM);
-                    throttleParkTimeNs += park;
+                    long actualParkNanos = Math.min(currentParkTime, PARKING_QUANTUM);
 
-                    doPark(park);
+                    throttleParkTimeNs += actualParkNanos;
+
+                    doPark(actualParkNanos);
 
                     if (currentParkTime <= PARKING_QUANTUM) {
                         break;
@@ -223,22 +226,14 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         }
 
         if (!parkingHappened) {
-//            assert throttleParkTimeNs == 0;
             return;
         }
 
-        long realThrottlingNanos = System.nanoTime() - startTimeNs;
-//        if (SpeedBasedMemoryConsumptionThrottlingStrategy.CNTR.get() < SpeedBasedMemoryConsumptionThrottlingStrategy.NUM_LOGS) {
-//            if (realThrottlingNanos >= 1_000_000) {
-//                LOG.info("Very long throttling on a page [isPageInCheckpoint=" + isPageInCheckpoint
-//                        + ", cpBufferOverflowThresholdExceeded=" + cpBufferOverflowThresholdExceeded
-//                        + ", realThrottlingNanos=" + realThrottlingNanos
-//                        + (isPageInCheckpoint && cpBufferOverflowThresholdExceeded ? ", exponentialBackoff!!!" : "")
-//                        + "]");
-//            }
-//        }
+        if (throttleParkTimeNs > LOGGING_THRESHOLD) {
+            LOG.warn("Parking thread=" + Thread.currentThread().getName() + " for timeout(ms)=" + (throttleParkTimeNs / 1_000_000));
+        }
 
-        totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(realThrottlingNanos));
+        totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNs));
 
         markSpeedAndAvgParkTime.addMeasurementForAverageCalculation(throttleParkTimeNs);
     }
@@ -250,11 +245,6 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
      */
     protected void doPark(long throttleParkTimeNs) {
         recurrentLogIfNeeded();
-
-        if (throttleParkTimeNs > LOGGING_THRESHOLD) {
-            LOG.warn("Parking thread=" + Thread.currentThread().getName()
-                    + " for timeout(ms)=" + (throttleParkTimeNs / 1_000_000));
-        }
 
         parkedThreads.add(Thread.currentThread());
 

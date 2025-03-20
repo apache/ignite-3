@@ -392,7 +392,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
 
         // Unlike regular "for" loop, "forEach" makes "i" effectively final.
         IntStream.range(0, SEGMENT_SIZE / PAGE_SIZE * 2).forEach(i -> runInLock(() -> {
-            // TODO add Jira link and remove the line once checkpointer is fixed.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
             checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
 
             long pageId = pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
@@ -404,7 +404,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
 
         for (int i = 0; i < pageIds.length * 10; i++) {
             runInLock(() -> {
-                // TODO add Jira link and remove the line once checkpointer is fixed.
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
                 checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
 
                 long pageId = pageIds[ThreadLocalRandom.current().nextInt(pageIds.length)];
