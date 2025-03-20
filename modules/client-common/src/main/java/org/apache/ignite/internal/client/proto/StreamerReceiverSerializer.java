@@ -56,8 +56,6 @@ import org.jetbrains.annotations.Nullable;
  * No intermediate steps, trivial serialize/deserialize.
  */
 public class StreamerReceiverSerializer {
-    private static final int TYPE_ID_TUPLE = -1;
-
     /**
      * Serializes streamer receiver info.
      *
@@ -330,7 +328,7 @@ public class StreamerReceiverSerializer {
             builder.appendInt(ColumnType.PERIOD.id());
             return (T v) -> builder.appendPeriod((Period) v);
         } else if (obj instanceof Tuple) {
-            builder.appendInt(TYPE_ID_TUPLE);
+            builder.appendInt(TupleWithSchemaMarshalling.TYPE_ID_TUPLE);
             return (T v) -> appendTuple(builder, (Tuple) v);
         } else {
             throw unsupportedTypeException(obj.getClass());
@@ -338,7 +336,7 @@ public class StreamerReceiverSerializer {
     }
 
     private static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, int typeId) {
-        if (typeId == TYPE_ID_TUPLE) {
+        if (typeId == TupleWithSchemaMarshalling.TYPE_ID_TUPLE) {
             return idx -> readTuple(binTuple, idx);
         }
 
@@ -403,7 +401,7 @@ public class StreamerReceiverSerializer {
 
     private static <T> void appendArg(BinaryTupleBuilder builder, @Nullable T arg) {
         if (arg instanceof Tuple) {
-            builder.appendInt(TYPE_ID_TUPLE);
+            builder.appendInt(TupleWithSchemaMarshalling.TYPE_ID_TUPLE);
             builder.appendInt(0); // Scale.
             appendTuple(builder, (Tuple) arg);
 
@@ -418,7 +416,7 @@ public class StreamerReceiverSerializer {
             return null;
         }
 
-        if (reader.intValue(index) == TYPE_ID_TUPLE) {
+        if (reader.intValue(index) == TupleWithSchemaMarshalling.TYPE_ID_TUPLE) {
             return readTuple(reader, index + 2);
         }
 
