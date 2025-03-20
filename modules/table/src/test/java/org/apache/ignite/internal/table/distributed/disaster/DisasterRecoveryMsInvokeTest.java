@@ -66,7 +66,6 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
 
     private static final TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-    private static final long expectedPendingChangeTriggerKey = 10L;
     private static final HybridTimestamp expectedPendingChangeTimestampKey = HybridTimestamp.hybridTimestamp(1000L);
 
     private long assignmentsTimestamp;

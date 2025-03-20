@@ -91,7 +91,6 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 latestCatalogVersion,
                 updateTimestampsToActivationTimeMap
         );
-        //Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision = allZonesByRevision(allZonesByTimestamp);
         Map<Integer, Long> zoneDeletionTimestamps = zoneDeletionTimestamps(earliestCatalogVersion, latestCatalogVersion);
 
         for (Map.Entry<Integer, Integer> entry : tableIdToZoneIdMap.entrySet()) {
@@ -157,7 +156,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 NavigableMap<Long, CatalogZoneDescriptor> map = allZones.computeIfAbsent(zone.id(), id -> new TreeMap<>());
 
                 if (map.isEmpty() || updateRequiresAssignmentsRecalculation(map.lastEntry().getValue(), zone)) {
-                    map.put(catalog.time(), zone);
+                    map.put(zone.updateTimestamp().longValue(), zone);
 
                     updateTimestampsToActivationTime.put(zone.updateTimestamp().longValue(), catalog.time());
                 }
