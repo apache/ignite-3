@@ -640,7 +640,7 @@ class ItScaleCubeNetworkMessagingTest {
         // Block work on the channel's event loop until we put close command and send commands on the loop.
         // As a result, after we unblock the loop, the sends will fail with ClosedChannelException in Netty.
         // We'll then observe whether this is handled transparently by opening a new channel and re-sending via new channel.
-        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver);
 
         CountDownLatch proceedToClosing = new CountDownLatch(1);
         blockEventLoopWith(proceedToClosing, defaultChannelSender);
@@ -662,7 +662,7 @@ class ItScaleCubeNetworkMessagingTest {
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
-            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
             assertThatHasNoUnacknowledgedMessages(nettySender);
         } finally {
             proceedToClosing.countDown();
@@ -717,9 +717,10 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(unackedMessagesFuture, willBe(empty()));
     }
 
-    private static NettySender nettySenderForDefaultChannel(ClusterService sender, String receiverConsistentId) {
+    private static NettySender nettySenderForDefaultChannel(ClusterService sender, ClusterService receiver) {
+        UUID receiverId = receiver.topologyService().localMember().id();
         return connectionManager(sender).channels()
-                .get(new ConnectorKey<>(receiverConsistentId, ChannelType.DEFAULT));
+                .get(new ConnectorKey<>(receiverId, ChannelType.DEFAULT));
     }
 
     private static ConnectionManager connectionManager(ClusterService clusterService) {
@@ -755,7 +756,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         establishConnection(sender, receiver);
 
-        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver);
 
         // Now close the sender completely.
         assertThat(defaultChannelSender.closeAsync(), willCompleteSuccessfully());
@@ -778,14 +779,14 @@ class ItScaleCubeNetworkMessagingTest {
         waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
         assertThat(receivedPayloads, equalTo(expectedPayloads));
 
-        NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
         assertThatHasNoUnacknowledgedMessages(nettySender);
     }
 
     private static void establishConnectionWithoutSendingMessages(ClusterService sender, ClusterService receiver) {
         NetworkAddress receiverAddress = receiver.topologyService().localMember().address();
         CompletableFuture<NettySender> newSenderFuture = connectionManager(sender).channel(
-                receiver.nodeName(),
+                receiver.topologyService().localMember().id(),
                 ChannelType.DEFAULT,
                 new InetSocketAddress(receiverAddress.host(), receiverAddress.port())
         ).toCompletableFuture();
@@ -820,7 +821,7 @@ class ItScaleCubeNetworkMessagingTest {
         // Block work on the channel's event loop until we put close command and send commands on the loop.
         // As a result, after we unblock the loop, the sends will fail with ClosedChannelException in Netty.
         // We'll then observe whether this is handled transparently by opening a new channel and re-sending via new channel.
-        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver);
 
         CountDownLatch proceedToClosing = new CountDownLatch(1);
         blockEventLoopWith(proceedToClosing, defaultChannelSender);
@@ -858,7 +859,7 @@ class ItScaleCubeNetworkMessagingTest {
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
-            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
             assertThatHasNoUnacknowledgedMessages(nettySender);
         } finally {
             proceedToClosing.countDown();

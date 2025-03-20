@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -32,9 +33,14 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.assertj.core.api.BDDAssertions;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,11 +62,9 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 zones.get(0).id()
         );
 
-        SnapshotEntry expectedEntry = new SnapshotEntry(catalog1);
-        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntry_1.bin");
+        SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        assertEquals(expectedEntry.typeId(), actualEntry.typeId());
-        BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
+        compareSnapshotEntry(snapshotEntry, "SnapshotEntry", entryVersion(MarshallableEntryType.SNAPSHOT));
     }
 
     @Test
@@ -74,25 +78,16 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 null
         );
 
-        SnapshotEntry expectedEntry = new SnapshotEntry(catalog1);
-        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, "SnapshotEntryNoDefaultZone_1.bin");
+        SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        assertEquals(expectedEntry.typeId(), actualEntry.typeId());
-        BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
+        compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", entryVersion(MarshallableEntryType.SNAPSHOT));
     }
 
     @Test
     public void objectIdUpdate() {
         List<UpdateEntry> entries = List.of(new ObjectIdGenUpdateEntry(23431), new ObjectIdGenUpdateEntry(1204));
-        List<UpdateEntry> actual = checkEntries(entries, "ObjectIdGenUpdateEntry_1.bin");
 
-        assertEquals(entries.size(), actual.size());
-        for (int i = 0; i < entries.size(); i++) {
-            ObjectIdGenUpdateEntry expectedEntry = (ObjectIdGenUpdateEntry) entries.get(i);
-            ObjectIdGenUpdateEntry actualEntry = (ObjectIdGenUpdateEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "ObjectIdGenUpdateEntry", entryVersion(MarshallableEntryType.ID_GENERATOR));
     }
 
     // Zones
@@ -101,15 +96,8 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
     public void newZone() {
         List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
         List<UpdateEntry> entries = zones.stream().map(NewZoneEntry::new).collect(Collectors.toList());
-        List<UpdateEntry> actual = checkEntries(entries, "NewZoneEntry_1.bin");
 
-        assertEquals(entries.size(), actual.size());
-        for (int i = 0; i < entries.size(); i++) {
-            NewZoneEntry expectedEntry = (NewZoneEntry) entries.get(i);
-            NewZoneEntry actualEntry = (NewZoneEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "NewZoneEntry", entryVersion(MarshallableEntryType.NEW_ZONE));
     }
 
     @Test
@@ -120,14 +108,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new AlterZoneEntry(zones.get(2))
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "AlterZoneEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-        for (int i = 0; i < entries.size(); i++) {
-            AlterZoneEntry expectedEntry = (AlterZoneEntry) entries.get(i);
-            AlterZoneEntry actualEntry = (AlterZoneEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "AlterZoneEntry", entryVersion(MarshallableEntryType.ALTER_ZONE));
     }
 
     @Test
@@ -136,15 +117,8 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new SetDefaultZoneEntry(state.id()),
                 new SetDefaultZoneEntry(state.id())
         );
-        List<UpdateEntry> actual = checkEntries(entries, "SetDefaultZoneEntry_1.bin");
 
-        assertEquals(entries.size(), actual.size());
-        for (int i = 0; i < entries.size(); i++) {
-            SetDefaultZoneEntry expectedEntry = (SetDefaultZoneEntry) entries.get(i);
-            SetDefaultZoneEntry actualEntry = (SetDefaultZoneEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "SetDefaultZoneEntry", entryVersion(MarshallableEntryType.SET_DEFAULT_ZONE));
     }
 
     @Test
@@ -154,15 +128,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropZoneEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropZoneEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            DropZoneEntry expectedEntry = (DropZoneEntry) entries.get(i);
-            DropZoneEntry actualEntry = (DropZoneEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "DropZoneEntry", entryVersion(MarshallableEntryType.DROP_ZONE));
     }
 
     // Schemas
@@ -174,15 +140,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewSchemaEntry::new)
                 .collect(Collectors.toList());
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewSchemaEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            NewSchemaEntry expectedEntry = (NewSchemaEntry) entries.get(i);
-            NewSchemaEntry actualEntry = (NewSchemaEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "NewSchemaEntry", entryVersion(MarshallableEntryType.NEW_SCHEMA));
     }
 
     @Test
@@ -192,15 +150,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropSchemaEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropSchemaEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            DropSchemaEntry expectedEntry = (DropSchemaEntry) entries.get(i);
-            DropSchemaEntry actualEntry = (DropSchemaEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "DropSchemaEntry", entryVersion(MarshallableEntryType.DROP_SCHEMA));
     }
 
     // Tables
@@ -212,15 +162,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewTableEntry::new)
                 .collect(Collectors.toList());
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewTableEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            NewTableEntry expectedEntry = (NewTableEntry) entries.get(i);
-            NewTableEntry actualEntry = (NewTableEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "NewTableEntry", entryVersion(MarshallableEntryType.NEW_TABLE));
     }
 
     @Test
@@ -230,15 +172,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new RenameTableEntry(state.id(), "NEW_NAME2")
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "RenameTableEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            RenameTableEntry expectedEntry = (RenameTableEntry) entries.get(i);
-            RenameTableEntry actualEntry = (RenameTableEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "RenameTableEntry", entryVersion(MarshallableEntryType.RENAME_TABLE));
     }
 
     @Test
@@ -248,15 +182,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropTableEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropTableEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            DropTableEntry expectedEntry = (DropTableEntry) entries.get(i);
-            DropTableEntry actualEntry = (DropTableEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "DropTableEntry", entryVersion(MarshallableEntryType.DROP_TABLE));
     }
 
     // Columns
@@ -280,30 +206,14 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
         Collections.shuffle(entries, state.random());
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewIndexEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            NewIndexEntry expectedEntry = (NewIndexEntry) entries.get(i);
-            NewIndexEntry actualEntry = (NewIndexEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "NewIndexEntry", entryVersion(MarshallableEntryType.NEW_INDEX));
     }
 
     @Test
     public void renameIndex() {
         List<UpdateEntry> entries = List.of(new RenameIndexEntry(state.id(), "NEW_NAME"));
 
-        List<UpdateEntry> actual = checkEntries(entries, "RenameIndexEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            RenameIndexEntry expectedEntry = (RenameIndexEntry) entries.get(i);
-            RenameIndexEntry actualEntry = (RenameIndexEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "RenameIndexEntry", entryVersion(MarshallableEntryType.RENAME_INDEX));
     }
 
     @Test
@@ -313,15 +223,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new RemoveIndexEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "RemoveIndexEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            RemoveIndexEntry expectedEntry = (RemoveIndexEntry) entries.get(i);
-            RemoveIndexEntry actualEntry = (RemoveIndexEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "RemoveIndexEntry", entryVersion(MarshallableEntryType.REMOVE_INDEX));
     }
 
     @Test
@@ -331,15 +233,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new MakeIndexAvailableEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "MakeIndexAvailableEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            MakeIndexAvailableEntry expectedEntry = (MakeIndexAvailableEntry) entries.get(i);
-            MakeIndexAvailableEntry actualEntry = (MakeIndexAvailableEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "MakeIndexAvailableEntry", entryVersion(MarshallableEntryType.MAKE_INDEX_AVAILABLE));
     }
 
     @Test
@@ -349,15 +243,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new StartBuildingIndexEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "StartBuildingIndexEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            StartBuildingIndexEntry expectedEntry = (StartBuildingIndexEntry) entries.get(i);
-            StartBuildingIndexEntry actualEntry = (StartBuildingIndexEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "StartBuildingIndexEntry", entryVersion(MarshallableEntryType.START_BUILDING_INDEX));
     }
 
     @Test
@@ -367,15 +253,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropIndexEntry(state.id())
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "DropIndexEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            DropIndexEntry expectedEntry = (DropIndexEntry) entries.get(i);
-            DropIndexEntry actualEntry = (DropIndexEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "DropIndexEntry", entryVersion(MarshallableEntryType.DROP_INDEX));
     }
 
     // Columns
@@ -393,15 +271,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new NewColumnsEntry(state.id(), columns2)
         );
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewColumnsEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            NewColumnsEntry expectedEntry = (NewColumnsEntry) entries.get(i);
-            NewColumnsEntry actualEntry = (NewColumnsEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "NewColumnsEntry", entryVersion(MarshallableEntryType.NEW_COLUMN));
     }
 
     @Test
@@ -413,16 +283,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new AlterColumnEntry(state.id(), columns.get(0)),
                 new AlterColumnEntry(state.id(), columns.get(1))
         );
-
-        List<UpdateEntry> actual = checkEntries(entries, "AlterColumnsEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            AlterColumnEntry expectedEntry = (AlterColumnEntry) entries.get(i);
-            AlterColumnEntry actualEntry = (AlterColumnEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "AlterColumnsEntry", entryVersion(MarshallableEntryType.ALTER_COLUMN));
     }
 
     @Test
@@ -437,16 +298,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropColumnsEntry(state.id(), Set.of("C1", "C2")),
                 new DropColumnsEntry(state.id(), Set.of("C3"))
         );
-
-        List<UpdateEntry> actual = checkEntries(entries, "DropColumnsEntry_1.bin");
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            DropColumnsEntry expectedEntry = (DropColumnsEntry) entries.get(i);
-            DropColumnsEntry actualEntry = (DropColumnsEntry) actual.get(i);
-
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
-        }
+        compareEntries(entries, "DropColumnsEntry", entryVersion(MarshallableEntryType.DROP_COLUMN));
     }
 
     // System views
@@ -458,21 +310,36 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewSystemViewEntry::new)
                 .collect(Collectors.toList());
 
-        List<UpdateEntry> actual = checkEntries(entries, "NewSystemViewEntry_1.bin");
+        compareEntries(entries, "NewSystemViewEntry", entryVersion(MarshallableEntryType.NEW_SYS_VIEW));
+    }
+
+    protected void compareSnapshotEntry(SnapshotEntry expectedEntry, String fileName, int version) {
+        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, fileName, version);
+
+        assertEquals(expectedEntry.typeId(), actualEntry.typeId());
+        assertEquals(expectedEntry.activationTime(), actualEntry.activationTime(), "activationTime");
+        assertEquals(expectedEntry.objectIdGenState(), actualEntry.objectIdGenState(), "objectIdGenState");
+        assertEquals(expectedEntry.defaultZoneId(), actualEntry.defaultZoneId(), "defaultZoneId");
+
+        BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
+    }
+
+    protected void compareEntries(List<UpdateEntry> entries, String fileName, int version) {
+        List<UpdateEntry> actual = checkEntries(entries, fileName, version);
         assertEquals(entries.size(), actual.size());
 
         for (int i = 0; i < entries.size(); i++) {
-            NewSystemViewEntry expectedEntry = (NewSystemViewEntry) entries.get(i);
-            NewSystemViewEntry actualEntry = (NewSystemViewEntry) actual.get(i);
+            UpdateEntry expectedEntry = entries.get(i);
+            UpdateEntry actualEntry = actual.get(i);
 
             BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
         }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private <T extends UpdateEntry> List<T> checkEntries(List<T> entries, String fileName) {
+    private <T extends UpdateEntry> List<T> checkEntries(List<? extends T> entries, String fileName, int version) {
         VersionedUpdate update = new VersionedUpdate(1, 100L, (List<UpdateEntry>) entries);
-        VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, fileName);
+        VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, fileName, version);
 
         assertEquals(update.version(), deserializedUpdate.version());
         assertEquals(update.typeId(), deserializedUpdate.typeId());
@@ -481,10 +348,36 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
         return (List) deserializedUpdate.entries();
     }
 
-    private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String fileName) {
-        String resourceName = "serialization_v1/" + fileName;
+    protected int protocolVersion() {
+        return 1;
+    }
 
-        UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
+    protected int entryVersion(MarshallableEntryType entryType) {
+        return 1;
+    }
+
+    protected String dirName() {
+        return "serialization_v1";
+    }
+
+    protected boolean expectExactVersion() {
+        return false;
+    }
+
+    private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String entryFileName, int version) {
+        String fileName = format("{}_{}.bin", entryFileName, version);
+        String resourceName = dirName() + "/" + fileName;
+
+        CatalogEntrySerializerProvider provider;
+        if (expectExactVersion()) {
+            provider = new VersionCheckingProvider(protocolVersion());
+        } else {
+            provider = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
+        }
+
+        log.info("Read fileName: {}, class: {}, version: {}", fileName, entryClass.getSimpleName(), version);
+
+        UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl(provider, protocolVersion());
 
         byte[] srcBytes;
 
@@ -500,5 +393,39 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
         }
 
         return entryClass.cast(marshaller.unmarshall(srcBytes));
+    }
+
+    private static class VersionCheckingProvider implements CatalogEntrySerializerProvider {
+
+        private final CatalogEntrySerializerProvider provider;
+
+        private final int expected;
+
+        private VersionCheckingProvider(int expected) {
+            this.provider = DEFAULT_PROVIDER;
+            this.expected = expected;
+        }
+
+        @Override
+        public <T extends MarshallableEntry> CatalogObjectSerializer<T> get(int version, int typeId) {
+            CatalogObjectSerializer<MarshallableEntry> serializer = provider.get(version, typeId);
+
+            checkVersion(typeId, version);
+
+            return (CatalogObjectSerializer<T>) serializer;
+        }
+
+        @Override
+        public int latestSerializerVersion(int typeId) {
+            int latest = provider.latestSerializerVersion(typeId);
+            checkVersion(typeId, latest);
+            return latest;
+        }
+
+        private void checkVersion(int typeId, int version) {
+            if (version != expected) {
+                Assertions.fail("Requested unexpected version for type " + typeId + ". All versions must be " + expected);
+            }
+        }
     }
 }

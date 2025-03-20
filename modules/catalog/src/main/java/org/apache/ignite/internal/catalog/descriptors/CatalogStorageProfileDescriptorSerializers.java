@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link CatalogStorageProfilesDescriptor}.
@@ -33,14 +33,32 @@ public class CatalogStorageProfileDescriptorSerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class StorageProfileDescriptorSerializerV1 implements CatalogObjectSerializer<CatalogStorageProfileDescriptor> {
         @Override
-        public CatalogStorageProfileDescriptor readFrom(IgniteDataInput input) throws IOException {
+        public CatalogStorageProfileDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             String storageProfileDescriptor = input.readUTF();
 
             return new CatalogStorageProfileDescriptor(storageProfileDescriptor);
         }
 
         @Override
-        public void writeTo(CatalogStorageProfileDescriptor descriptor, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogStorageProfileDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
+            output.writeUTF(descriptor.storageProfile());
+        }
+    }
+
+    /**
+     * Serializer for {@link CatalogStorageProfilesDescriptor}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class StorageProfileDescriptorSerializerV2 implements CatalogObjectSerializer<CatalogStorageProfileDescriptor> {
+        @Override
+        public CatalogStorageProfileDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
+            String storageProfileDescriptor = input.readUTF();
+
+            return new CatalogStorageProfileDescriptor(storageProfileDescriptor);
+        }
+
+        @Override
+        public void writeTo(CatalogStorageProfileDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
             output.writeUTF(descriptor.storageProfile());
         }
     }

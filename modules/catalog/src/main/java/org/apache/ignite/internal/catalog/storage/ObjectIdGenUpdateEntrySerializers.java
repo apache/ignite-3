@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link ObjectIdGenUpdateEntry}.
@@ -33,14 +33,32 @@ public class ObjectIdGenUpdateEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class ObjectIdGenUpdateEntrySerializerV1 implements CatalogObjectSerializer<ObjectIdGenUpdateEntry> {
         @Override
-        public ObjectIdGenUpdateEntry readFrom(IgniteDataInput input) throws IOException {
+        public ObjectIdGenUpdateEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int delta = input.readVarIntAsInt();
 
             return new ObjectIdGenUpdateEntry(delta);
         }
 
         @Override
-        public void writeTo(ObjectIdGenUpdateEntry entry, IgniteDataOutput output) throws IOException {
+        public void writeTo(ObjectIdGenUpdateEntry entry, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(entry.delta());
+        }
+    }
+
+    /**
+     * Serializer for {@link ObjectIdGenUpdateEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class ObjectIdGenUpdateEntrySerializerV2 implements CatalogObjectSerializer<ObjectIdGenUpdateEntry> {
+        @Override
+        public ObjectIdGenUpdateEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int delta = input.readVarIntAsInt();
+
+            return new ObjectIdGenUpdateEntry(delta);
+        }
+
+        @Override
+        public void writeTo(ObjectIdGenUpdateEntry entry, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(entry.delta());
         }
     }
