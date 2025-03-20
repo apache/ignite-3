@@ -405,13 +405,28 @@ public class StreamerReceiverSerializer {
     }
 
     private static <T> void appendArg(BinaryTupleBuilder builder, @Nullable T arg) {
-        // TODO: Support Tuple
+        if (arg instanceof Tuple) {
+            builder.appendInt(TYPE_ID_TUPLE);
+            builder.appendInt(0); // Scale.
+            builder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) arg));
+
+            return;
+        }
+
         ClientBinaryTupleUtils.appendObject(builder, arg);
     }
 
-    private static @Nullable Object readArg(BinaryTupleReader reader, int readerIndex) {
-        // TODO: Support Tuple
-        return ClientBinaryTupleUtils.readObject(reader, readerIndex);
+    private static @Nullable Object readArg(BinaryTupleReader reader, int index) {
+        if (reader.hasNullValue(index)) {
+            return null;
+        }
+
+        if (reader.intValue(index) == TYPE_ID_TUPLE) {
+            byte[] bytes = reader.bytesValue(index + 2);
+            return bytes == null ? null : TupleWithSchemaMarshalling.unmarshal(bytes);
+        }
+
+        return ClientBinaryTupleUtils.readObject(reader, index);
     }
 
     /**
