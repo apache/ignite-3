@@ -75,19 +75,19 @@ public class ClientTransactionCommitRequest {
 
             int cnt = in.unpackInt(); // Number of direct enlistments.
 
-            List<IgniteTuple3<TablePartitionId, UUID, Long>> list = new ArrayList<>();
+            List<IgniteTuple3<TablePartitionId, String, Long>> list = new ArrayList<>();
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
                 int partId = in.unpackInt();
-                UUID nodeId = in.unpackUuid();
+                String consistentId = in.unpackString();
                 long token = in.unpackLong();
 
-                list.add(new IgniteTuple3<>(new TablePartitionId(tableId, partId), nodeId, token));
+                list.add(new IgniteTuple3<>(new TablePartitionId(tableId, partId), consistentId, token));
             }
 
             Exception ex = null;
 
-            for (IgniteTuple3<TablePartitionId, UUID, Long> enlistment : list) {
+            for (IgniteTuple3<TablePartitionId, String, Long> enlistment : list) {
                 TableViewInternal table = igniteTables.cachedTable(enlistment.get1().tableId());
 
                 if (table == null) {
@@ -104,7 +104,7 @@ public class ClientTransactionCommitRequest {
 
             if (ex != null) {
                 // Perform enlistment for rollback.
-                for (IgniteTuple3<TablePartitionId, UUID, Long> enlistment : list) {
+                for (IgniteTuple3<TablePartitionId, String, Long> enlistment : list) {
                     TableViewInternal table = igniteTables.cachedTable(enlistment.get1().tableId());
 
                     if (table == null) {

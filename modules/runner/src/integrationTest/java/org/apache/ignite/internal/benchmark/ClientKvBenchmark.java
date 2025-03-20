@@ -57,12 +57,12 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 public class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
     private final Tuple tuple = Tuple.create();
 
-    private IgniteClient client;
+    protected IgniteClient client;
 
     private KeyValueView<Tuple, Tuple> kvView;
 
     @Param({"0"})
-    private int offset; // 1073741824 for second node to ensure unique keys;
+    private int offset; // 1073741824 for second client to ensure unique keys
 
     @Param({"5"})
     private int batch;

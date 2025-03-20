@@ -601,12 +601,12 @@ public class ClientTable implements Table {
             assert tx != null;
             assert ctx.pm != null;
 
-            UUID nodeId = in.in().unpackUuid();
+            String consistentId = in.in().unpackString();
             long token = in.in().unpackLong();
 
             // Finish enlist on first request only.
             if (ctx.enlistmentToken == 0) {
-                tx.tryFinishEnlist(ctx.pm, nodeId, token);
+                tx.tryFinishEnlist(ctx.pm, consistentId, token);
             }
         }
 

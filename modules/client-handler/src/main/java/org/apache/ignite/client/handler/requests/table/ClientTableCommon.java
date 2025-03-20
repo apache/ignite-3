@@ -48,6 +48,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -390,9 +391,9 @@ public class ClientTableCommon {
     public static void writeTxMeta(ClientMessagePacker out, @Nullable ClockService clockService, InternalTransaction tx) {
         if (tx.remote()) {
             // Remote tx carries operation enlistment info.
-            IgniteBiTuple<ClusterNode, Long> token = tx.enlistedNodeAndConsistencyToken(null);
-            out.packUuid(token.get1().id());
-            out.packLong(token.get2());
+            PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+            out.packString(token.primaryNodeConsistentId());
+            out.packLong(token.consistencyToken());
             out.meta(clockService.current());
         }
     }

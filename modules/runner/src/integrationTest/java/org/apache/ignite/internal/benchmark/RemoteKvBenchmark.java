@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.benchmark;
 
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -51,6 +53,17 @@ public class RemoteKvBenchmark extends ClientKvBenchmark {
     @Override
     protected String[] addresses() {
         return new String[]{};
+    }
+
+    @Override
+    public void nodeSetUp() throws Exception {
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
+
+        client = IgniteClient.builder().addresses(addresses()).build();
+        publicIgnite = client;
+
+        super.nodeSetUp();
     }
 
     /**

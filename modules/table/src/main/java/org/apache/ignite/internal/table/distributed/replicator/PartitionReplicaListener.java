@@ -2401,6 +2401,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param full {@code True} if this is a full transaction.
      * @param txCoordinatorId Transaction coordinator id.
      * @param catalogVersion Validated catalog version associated with given operation.
+     * @param leaseStartTime Lease start time.
+     * @param skipDelayedAck {@code True} to skip delayed ack optimization.
+     *
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
     private CompletableFuture<CommandApplicationResult> applyUpdateCommand(
@@ -2412,8 +2415,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             boolean full,
             UUID txCoordinatorId,
             int catalogVersion,
+            boolean skipDelayedAck,
             long leaseStartTime
-            boolean skipDelayedAck
     ) {
         UpdateCommand cmd = updateCommand(
                 commitPartitionId,
@@ -2434,7 +2437,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     storageUpdateHandler.handleUpdate(
                             cmd.txId(),
                             cmd.rowUuid(),
-                            cmd.commitPartitionId().asTablePartitionId(),
+                            cmd.commitPartitionId().asReplicationGroupId(),
                             cmd.rowToUpdate(),
                             true,
                             null,
@@ -2451,7 +2454,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     storageUpdateHandler.handleUpdate(
                             cmd.txId(),
                             cmd.rowUuid(),
-                            cmd.commitPartitionId().asTablePartitionId(),
+                            cmd.commitPartitionId().asReplicationGroupId(),
                             cmd.rowToUpdate(),
                             true,
                             null,

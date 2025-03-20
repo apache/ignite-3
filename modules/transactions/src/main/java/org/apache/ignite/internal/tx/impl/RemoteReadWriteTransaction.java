@@ -20,10 +20,10 @@ package org.apache.ignite.internal.tx.impl;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 public class RemoteReadWriteTransaction implements InternalTransaction {
     private final UUID txId;
     private final TablePartitionId commitGroupId;
-    private IgniteBiTuple<ClusterNode, Long> token;
+    private PendingTxPartitionEnlistment enlistment;
     private final UUID coord;
 
     /**
@@ -53,7 +53,7 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     public RemoteReadWriteTransaction(UUID txId, TablePartitionId commitGroupId, UUID coord, long token, ClusterNode localNode) {
         this.txId = txId;
         this.commitGroupId = commitGroupId;
-        this.token = token == 0 ? null : new IgniteBiTuple<>(localNode, token);
+        this.enlistment = token == 0 ? null : new PendingTxPartitionEnlistment(localNode.name(), token);
         this.coord = coord;
     }
 
@@ -78,6 +78,11 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     }
 
     @Override
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        return null;
+    }
+
+    @Override
     public boolean isReadOnly() {
         return false;
     }
@@ -88,8 +93,8 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ReplicationGroupId replicationGroupId) {
-        return token;
+    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+        return enlistment;
     }
 
     @Override
@@ -98,7 +103,7 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     }
 
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
         return false;
     }
 
@@ -108,11 +113,8 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, int tableId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
-        this.token = nodeAndConsistencyToken;
-
-        return null;
+    public void enlist(ReplicationGroupId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
+        this.enlistment = new PendingTxPartitionEnlistment(primaryNodeConsistentId, consistencyToken, tableId);
     }
 
     @Override
@@ -141,7 +143,8 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full) {
+    public CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full,
+            boolean timeoutExceeded) {
         return null;
     }
 
@@ -151,12 +154,22 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     }
 
     @Override
-    public long timeout() {
+    public long getTimeout() {
+        return 0;
+    }
+
+    @Override
+    public long getTimeoutOrDefault(long defaultTimeout) {
         return 0;
     }
 
     @Override
     public CompletableFuture<Void> kill() {
         return null;
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return false;
     }
 }

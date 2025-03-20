@@ -58,13 +58,13 @@ public class ClientTransactionRollbackRequest {
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
                 int partId = in.unpackInt();
-                UUID nodeId = in.unpackUuid();
+                String consistentId = in.unpackString();
                 long token = in.unpackLong();
 
                 TableViewInternal table = igniteTables.cachedTable(tableId);
 
                 if (table != null) {
-                    table.internalTable().mergeEnlistment(partId, nodeId, token, tx, false);
+                    table.internalTable().mergeEnlistment(partId, consistentId, token, tx, false);
                 }
             }
         }

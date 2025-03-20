@@ -547,5 +547,5 @@ public interface InternalTable extends ManuallyCloseable {
      */
     StreamerReceiverRunner streamerReceiverRunner();
 
-    boolean mergeEnlistment(int partId, UUID nodeId, long token, InternalTransaction tx, boolean commit);
+    boolean mergeEnlistment(int partId, String consistentId, long token, InternalTransaction tx, boolean commit);
 }

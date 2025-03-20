@@ -2247,20 +2247,14 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public boolean mergeEnlistment(int partId, UUID nodeId, long token, InternalTransaction tx, boolean commit) {
+    public boolean mergeEnlistment(int partId, String consistentId, long token, InternalTransaction tx, boolean commit) {
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
-        IgniteBiTuple<ClusterNode, Long> existing = tx.enlistedNodeAndConsistencyToken(replicationGroupId);
+        PendingTxPartitionEnlistment existing = tx.enlistedPartition(replicationGroupId);
         if (existing == null) {
-            ClusterNode node = clusterNodeResolver.getById(nodeId);
-
-            if (node == null) {
-                return false;
-            }
-
-            tx.enlist(replicationGroupId, tableId, new IgniteBiTuple<>(node, token));
+            tx.enlist(replicationGroupId, tableId, consistentId, token);
         } else {
             // Enlistment tokens should be equal on commit.
-            return !commit || existing.get2() == token;
+            return !commit || existing.consistencyToken() == token;
         }
 
         return true;

@@ -91,7 +91,7 @@ public class ClientTransaction implements Transaction {
 
     /** Direct enlistment map. */
     @IgniteToStringExclude
-    private final Map<TablePartitionId, CompletableFuture<IgniteBiTuple<UUID, Long>>> enlisted = new ConcurrentHashMap<>();
+    private final Map<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> enlisted = new ConcurrentHashMap<>();
 
     @IgniteToStringExclude
     private final HybridTimestampTracker tracker;
@@ -213,10 +213,10 @@ public class ClientTransaction implements Transaction {
             if (!isReadOnly) {
                 w.out().packLong(tracker.get().longValue());
                 w.out().packInt(enlisted.size());
-                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<UUID, Long>>> entry : enlisted.entrySet()) {
+                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
                     w.out().packInt(entry.getKey().tableId());
                     w.out().packInt(entry.getKey().partitionId());
-                    w.out().packUuid(entry.getValue().getNow(null).get1());
+                    w.out().packString(entry.getValue().getNow(null).get1());
                     w.out().packLong(entry.getValue().getNow(null).get2());
                 }
             }
@@ -250,10 +250,10 @@ public class ClientTransaction implements Transaction {
             w.out().packLong(id);
             if (!isReadOnly) {
                 w.out().packInt(enlisted.size());
-                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<UUID, Long>>> entry : enlisted.entrySet()) {
+                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
                     w.out().packInt(entry.getKey().tableId());
                     w.out().packInt(entry.getKey().partitionId());
-                    w.out().packUuid(entry.getValue().getNow(null).get1());
+                    w.out().packString(entry.getValue().getNow(null).get1());
                     w.out().packLong(entry.getValue().getNow(null).get2());
                 }
             }
@@ -338,7 +338,7 @@ public class ClientTransaction implements Transaction {
 
             TablePartitionId tablePartitionId = new TablePartitionId(ctx.pm.tableId(), ctx.pm.partition());
 
-            CompletableFuture<IgniteBiTuple<UUID, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
+            CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
                 if (v == null) {
                     first[0] = true;
                     return new CompletableFuture<>();
@@ -368,10 +368,10 @@ public class ClientTransaction implements Transaction {
      * Tries to finish existing enlistment.
      *
      * @param pm Partition mapping.
-     * @param nodeId Node id.
+     * @param consistentId Consistent id.
      * @param token Enlistment token.
      */
-    public void tryFinishEnlist(PartitionMapping pm, UUID nodeId, long token) {
+    public void tryFinishEnlist(PartitionMapping pm, String consistentId, long token) {
         if (!hasCommitPartition()) {
             return;
         }
@@ -379,10 +379,10 @@ public class ClientTransaction implements Transaction {
         // TODO avoid new object.
         TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
 
-        CompletableFuture<IgniteBiTuple<UUID, Long>> fut = enlisted.get(tablePartitionId);
+        CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.get(tablePartitionId);
 
         if (fut != null && !fut.isDone()) {
-            fut.complete(new IgniteBiTuple<>(nodeId, token));
+            fut.complete(new IgniteBiTuple<>(consistentId, token));
         }
     }
 
