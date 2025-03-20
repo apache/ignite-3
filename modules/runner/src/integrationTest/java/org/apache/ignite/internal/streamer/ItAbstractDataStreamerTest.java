@@ -672,8 +672,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
         assertEquals(1, resultSubscriber.items.size());
 
-        Tuple resTuple = resultSubscriber.items.get(0);
-        return resTuple;
+        return resultSubscriber.items.get(0);
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
