@@ -34,6 +34,7 @@ jobs:
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
         env:
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+          MACOSX_DEPLOYMENT_TARGET: 14.0
 
       - uses: actions/upload-artifact@v4
         with:
