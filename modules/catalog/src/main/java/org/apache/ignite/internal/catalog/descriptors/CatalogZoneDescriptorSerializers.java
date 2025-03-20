@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -44,7 +47,7 @@ public class CatalogZoneDescriptorSerializers {
         public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
 
             CatalogObjectSerializer<CatalogStorageProfilesDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_STORAGE_PROFILES.id());
@@ -69,7 +72,7 @@ public class CatalogZoneDescriptorSerializers {
                     dataNodesAutoAdjustScaleDown,
                     filter,
                     catalogStorageProfilesDescriptor,
-                    updateToken,
+                    updateTimestamp,
                     consistencyMode
             );
         }
@@ -78,7 +81,7 @@ public class CatalogZoneDescriptorSerializers {
         public void writeTo(CatalogZoneDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
 
             CatalogStorageProfilesDescriptor storageProfilesDescriptor = descriptor.storageProfiles();
 

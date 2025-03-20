@@ -43,6 +43,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -443,8 +444,8 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         CatalogZoneDescriptor catalogZoneDescriptor = catalog.zone(zoneName);
         assertNotNull(catalogZoneDescriptor);
 
-        long revision = catalogZoneDescriptor.updateToken();
-        byte[] revisionBytes = ByteUtils.longToBytesKeepingOrder(revision);
+        HybridTimestamp msTimestamp = catalogZoneDescriptor.updateTimestamp();
+        byte[] msTimestampBytes = ByteUtils.longToBytesKeepingOrder(msTimestamp.longValue());
 
         assertNotNull(catalogZoneDescriptor);
 
@@ -456,8 +457,8 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
 
                 if (!stable) {
                     metaStorageData.put(
-                            RebalanceUtil.pendingChangeTriggerKey(tablePartitionId),
-                            revisionBytes
+                            RebalanceUtil.pendingChangeTimestampKey(tablePartitionId),
+                            msTimestampBytes
                     );
                 }
 

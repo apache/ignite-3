@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySeri
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -49,7 +51,7 @@ public class CatalogTableDescriptorSerializers {
         public CatalogTableDescriptor readFrom(IgniteDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
 
             CatalogObjectSerializer<CatalogTableSchemaVersions> schemaVerSerializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS.id());
@@ -99,7 +101,7 @@ public class CatalogTableDescriptorSerializers {
                     colocationColumns,
                     schemaVersions,
                     storageProfile,
-                    updateToken
+                    updateTimestamp
             );
         }
 
@@ -107,7 +109,7 @@ public class CatalogTableDescriptorSerializers {
         public void writeTo(CatalogTableDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
 
             CatalogTableSchemaVersions schemaVersions = descriptor.schemaVersions();
             CatalogObjectSerializer<CatalogTableColumnDescriptor> tableColumnSerializer =

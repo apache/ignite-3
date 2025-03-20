@@ -311,7 +311,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
     /**
-     * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(long, int, int)} method on different nodes.
+     * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(HybridTimestamp, int, int)} method on different nodes.
      */
     private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 

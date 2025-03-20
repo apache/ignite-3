@@ -133,6 +133,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, partNum + 1, replicas);
 
     private static final long expectedPendingChangeTriggerKey = 10L;
+    private static final HybridTimestamp expectedPendingChangeTimestampKey = hybridTimestamp(1000L);
 
     private long assignmentsTimestamp;
 
@@ -307,6 +308,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 KV_UPDATE_CONTEXT
         );
 
+        keyValueStorage.put(
+                RebalanceUtil.pendingChangeTimestampKey(tablePartitionId).bytes(),
+                longToBytesKeepingOrder(1),
+                KV_UPDATE_CONTEXT
+        );
+
         RebalanceUtil.updatePendingAssignmentsKeys(
                 tableDescriptor,
                 tablePartitionId,
@@ -314,6 +321,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 partNum + 1,
                 replicas,
                 expectedPendingChangeTriggerKey,
+                expectedPendingChangeTimestampKey,
                 metaStorageManager,
                 partNum,
                 tableCfgAssignments,
@@ -344,7 +352,9 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         }
 
         byte[] pendingChangeTriggerKey = keyValueStorage.get(RebalanceUtil.pendingChangeTriggerKey(tablePartitionId).bytes()).value();
+        byte[] pendingChangeTimestampKey = keyValueStorage.get(RebalanceUtil.pendingChangeTimestampKey(tablePartitionId).bytes()).value();
         long actualPendingChangeTrigger = bytesToLongKeepingOrder(pendingChangeTriggerKey);
+        HybridTimestamp actualPendingChangeTimestamp = hybridTimestamp(bytesToLongKeepingOrder(pendingChangeTimestampKey));
 
         LOG.info("stableAssignments {}", actualStableAssignments);
         LOG.info("pendingAssignments {}", actualPendingAssignments);
@@ -372,5 +382,6 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         }
 
         assertEquals(expectedPendingChangeTriggerKey, actualPendingChangeTrigger);
+        assertEquals(expectedPendingChangeTimestampKey, actualPendingChangeTimestamp);
     }
 }

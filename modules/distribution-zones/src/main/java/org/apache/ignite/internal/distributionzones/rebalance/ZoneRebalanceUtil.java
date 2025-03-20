@@ -54,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -132,6 +133,7 @@ public class ZoneRebalanceUtil {
      * @param partitions Number of partitions in a zone.
      * @param replicas Number of replicas for a zone.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
+     * @param timestamp Timestamp of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
      * @param partNum Partition id.
      * @param zoneCfgPartAssignments Zone configuration assignments.
@@ -145,6 +147,7 @@ public class ZoneRebalanceUtil {
             int partitions,
             int replicas,
             long revision,
+            HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> zoneCfgPartAssignments,
@@ -153,6 +156,7 @@ public class ZoneRebalanceUtil {
             ConsistencyMode consistencyMode
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
+        ByteArray partChangeTimestampKey = pendingChangeTimestampKey(zonePartitionId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(zonePartitionId);
 
@@ -236,27 +240,36 @@ public class ZoneRebalanceUtil {
         }
 
         byte[] revisionBytes = longToBytesKeepingOrder(revision);
+        byte[] timestampBytes = longToBytesKeepingOrder(timestamp.longValue());
 
-        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(revisionBytes)),
+        Iif iif = iif(
+                and(
+                        or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(revisionBytes)),
+                        or(notExists(partChangeTimestampKey), value(partChangeTimestampKey).lt(timestampBytes))
+                ),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsPendingBytes),
-                                put(partChangeTriggerKey, revisionBytes)
+                                put(partChangeTriggerKey, revisionBytes),
+                                put(partChangeTimestampKey, timestampBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsPendingBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsPlannedBytes),
-                                        put(partChangeTriggerKey, revisionBytes)
+                                        put(partChangeTriggerKey, revisionBytes),
+                                        put(partChangeTimestampKey, timestampBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsPendingBytes),
                                         ops(
                                                 remove(partAssignmentsPlannedKey),
-                                                put(partChangeTriggerKey, revisionBytes)
+                                                put(partChangeTriggerKey, revisionBytes),
+                                                put(partChangeTimestampKey, timestampBytes)
                                         ).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
                                         iif(notExists(partAssignmentsPendingKey),
                                                 ops(
                                                         remove(partAssignmentsPlannedKey),
-                                                        put(partChangeTriggerKey, revisionBytes)
+                                                        put(partChangeTriggerKey, revisionBytes),
+                                                        put(partChangeTimestampKey, timestampBytes)
                                                 ).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
                                                 ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal()))
                                 ))),
@@ -325,6 +338,7 @@ public class ZoneRebalanceUtil {
      * @param zoneDescriptor Zone descriptor.
      * @param dataNodes Data nodes to use.
      * @param storageRevision MetaStorage revision corresponding to this request.
+     * @param storageTimestamp MetaStorage timestamp corresponding to this request.
      * @param metaStorageManager MetaStorage manager used to read/write assignments.
      * @param busyLock Busy lock to use.
      * @param assignmentsTimestamp Time when the catalog version that the assignments were calculated against becomes active.
@@ -335,6 +349,7 @@ public class ZoneRebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
+            HybridTimestamp storageTimestamp,
             MetaStorageManager metaStorageManager,
             IgniteSpinBusyLock busyLock,
             long assignmentsTimestamp,
@@ -364,6 +379,7 @@ public class ZoneRebalanceUtil {
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
                         storageRevision,
+                        storageTimestamp,
                         metaStorageManager,
                         finalPartId,
                         zoneAssignments.get(finalPartId).nodes(),
@@ -433,6 +449,16 @@ public class ZoneRebalanceUtil {
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
 
+    /** Key prefix for change trigger keys. */
+    private static final String ZONE_PENDING_CHANGE_TRIGGER_PREFIX = "zone.pending.change.trigger.";
+
+    /** Key prefix for change timestamp keys. */
+    private static final String ZONE_PENDING_CHANGE_TIMESTAMP_PREFIX = "zone.pending.change.timestamp.";
+
+    static final byte[] ZONE_PENDING_CHANGE_TRIGGER_PREFIX_BYTES = ZONE_PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
+
+    static final byte[] ZONE_PENDING_CHANGE_TIMESTAMP_PREFIX_BYTES = ZONE_PENDING_CHANGE_TIMESTAMP_PREFIX.getBytes(UTF_8);
+
     /**
      * Key that is needed for skipping stale events of pending key change.
      *
@@ -441,7 +467,18 @@ public class ZoneRebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingChangeTriggerKey(ZonePartitionId zonePartitionId) {
-        return new ByteArray("zone.pending.change.trigger." + zonePartitionId);
+        return new ByteArray(ZONE_PENDING_CHANGE_TRIGGER_PREFIX + zonePartitionId);
+    }
+
+    /**
+     * Key that is needed for skipping stale events of pending key change.
+     *
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
+     * @return Key for a partition.
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
+     */
+    public static ByteArray pendingChangeTimestampKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(ZONE_PENDING_CHANGE_TIMESTAMP_PREFIX + zonePartitionId);
     }
 
     /**

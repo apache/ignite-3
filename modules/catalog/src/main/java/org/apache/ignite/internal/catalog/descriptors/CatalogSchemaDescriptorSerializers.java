@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSer
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.IndexDescriptorSerializerHelper;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -55,13 +57,13 @@ public class CatalogSchemaDescriptorSerializers {
 
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
 
             CatalogTableDescriptor[] tables = readArray(tableDescriptorSerializer, input, CatalogTableDescriptor.class);
             CatalogIndexDescriptor[] indexes = readArray(indexSerializeHelper, input, CatalogIndexDescriptor.class);
             CatalogSystemViewDescriptor[] systemViews = readArray(viewDescriptorSerializer, input, CatalogSystemViewDescriptor.class);
 
-            return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateToken);
+            return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateTimestamp);
         }
 
         @Override
@@ -73,7 +75,7 @@ public class CatalogSchemaDescriptorSerializers {
 
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
 
             writeArray(descriptor.tables(), tableDescriptorSerializer, output);
             writeArray(descriptor.indexes(), indexSerializeHelper, output);

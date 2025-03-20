@@ -310,7 +310,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         distributionZoneManager = mock(DistributionZoneManager.class);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
@@ -671,7 +671,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
                 .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         var txStateStorage = mock(TxStatePartitionStorage.class);
@@ -766,7 +766,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     .thenReturn(mock(SchemaDescriptor.class));
         }
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         TableManager tableManager = createTableManager(tblManagerFut);

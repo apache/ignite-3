@@ -41,7 +41,7 @@ class BulkUpdateProducer implements UpdateProducer {
 
             for (UpdateEntry entry : entries) {
                 updateContext.updateCatalog(
-                        catalog -> entry.applyUpdate(catalog, CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN)
+                        catalog -> entry.applyUpdate(catalog, CatalogManagerImpl.INITIAL_TIMESTAMP)
                 );
             }
 

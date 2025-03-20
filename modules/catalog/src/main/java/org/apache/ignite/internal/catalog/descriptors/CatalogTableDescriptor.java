@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -28,6 +28,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -96,7 +97,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 colocationCols,
                 new CatalogTableSchemaVersions(new TableVersion(columns)),
                 storageProfile,
-                INITIAL_CAUSALITY_TOKEN
+                INITIAL_TIMESTAMP
         );
     }
 
@@ -110,7 +111,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
      * @param storageProfile Storage profile.
-     * @param causalityToken Token of the update of the descriptor.
+     * @param timestamp Token of the update of the descriptor.
      */
     CatalogTableDescriptor(
             int id,
@@ -123,9 +124,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
             @Nullable List<String> colocationCols,
             CatalogTableSchemaVersions schemaVersions,
             String storageProfile,
-            long causalityToken
+            HybridTimestamp timestamp
     ) {
-        super(id, Type.TABLE, name, causalityToken);
+        super(id, Type.TABLE, name, timestamp);
 
         this.schemaId = schemaId;
         this.pkIndexId = pkIndexId;
@@ -152,7 +153,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
             String name,
             int tableVersion,
             List<CatalogTableColumnDescriptor> columns,
-            long causalityToken,
+            HybridTimestamp timestamp,
             String storageProfile
     ) {
         CatalogTableSchemaVersions newSchemaVersions = tableVersion == schemaVersions.latestVersion()
@@ -170,7 +171,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 colocationColumns,
                 newSchemaVersions,
                 storageProfile,
-                causalityToken
+                timestamp
         );
     }
 

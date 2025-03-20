@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -425,7 +426,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         SnapshotEntry entry = new SnapshotEntry(new Catalog(2, 0L, 1,
                 List.of(zone1),
-                List.of(new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, 1)), zone1.id()));
+                List.of(new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, hybridTimestamp(1))), zone1.id()));
 
         SnapshotEntry deserialized = (SnapshotEntry) marshaller.unmarshall(marshaller.marshall(entry));
 
@@ -582,6 +583,6 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 new CatalogSystemViewDescriptor(1, 2, "view2", columns, SystemViewType.CLUSTER)
         };
 
-        return new CatalogSchemaDescriptor(1, name, tables, indexes, views, 3);
+        return new CatalogSchemaDescriptor(1, name, tables, indexes, views, hybridTimestamp(3));
     }
 }

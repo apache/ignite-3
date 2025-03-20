@@ -1478,7 +1478,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
             return distributionZoneManager.dataNodes(
-                    zoneDescriptor.updateToken(),
+                    zoneDescriptor.updateTimestamp(),
                     catalogVersion,
                     tableDescriptor.zoneId()
             ).thenApply(dataNodes ->
@@ -1874,7 +1874,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             long assignmentsTimestamp = catalog.time();
 
-            assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+            assignmentsFuture = distributionZoneManager.dataNodes(tableDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes ->
                             PartitionDistributionUtils.calculateAssignments(
                                             dataNodes,
@@ -2597,9 +2597,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                     CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-                                    long causalityToken = zoneDescriptor.updateToken();
-
-                                    return distributionZoneManager.dataNodes(causalityToken, catalogVersion,
+                                    return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion,
                                                     tableDescriptor.zoneId())
                                             .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
                                                     metaStorageMgr,

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 
 import java.util.List;
@@ -83,7 +83,7 @@ public class CreateSchemaCommand implements CatalogCommand {
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0],
                 new CatalogSystemViewDescriptor[0],
-                INITIAL_CAUSALITY_TOKEN
+                INITIAL_TIMESTAMP
         );
 
         return List.of(

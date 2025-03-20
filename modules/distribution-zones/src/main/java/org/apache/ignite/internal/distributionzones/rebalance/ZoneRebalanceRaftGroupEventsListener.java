@@ -597,6 +597,9 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         ByteArray changeTriggerKey = ZoneRebalanceUtil.pendingChangeTriggerKey(partId);
         byte[] rev = ByteUtils.longToBytesKeepingOrder(entry.revision());
 
+        ByteArray changeTimestampKey = ZoneRebalanceUtil.pendingChangeTimestampKey(partId);
+        byte[] timestamp = ByteUtils.longToBytesKeepingOrder(entry.timestamp().longValue());
+
         // Here is what happens in the MetaStorage:
         // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {
         //     put(pendingKey, pending)
@@ -607,24 +610,31 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         //     put(changeTriggerKey, revision)
         // }
 
+        Condition changeRevisionAndTimestampDontExistOrLessThan = and(
+                or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                or(notExists(changeTimestampKey), value(changeTimestampKey).lt(timestamp))
+        );
+
         Iif resultingOperation = iif(
                 and(
-                        or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                        changeRevisionAndTimestampDontExistOrLessThan,
                         and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
                 ),
                 ops(
                         put(pendingKey, pendingByteArray),
                         put(stablePartAssignmentsKey(partId), assignmentsByteArray),
-                        put(changeTriggerKey, rev)
+                        put(changeTriggerKey, rev),
+                        put(changeTimestampKey, timestamp)
                 ).yield(),
                 iif(
                         and(
-                                or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                                changeRevisionAndTimestampDontExistOrLessThan,
                                 notExists(pendingKey)
                         ),
                         ops(
                                 put(pendingKey, pendingByteArray),
-                                put(changeTriggerKey, rev)
+                                put(changeTriggerKey, rev),
+                                put(changeTimestampKey, timestamp)
                         ).yield(),
                         ops().yield()
                 )

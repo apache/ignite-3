@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateSystemViewEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -72,10 +73,10 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
 
     /** {@inheritDoc} */
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogSchemaDescriptor systemSchema = schemaOrThrow(catalog, descriptor.schemaId());
 
-        descriptor.updateToken(causalityToken);
+        descriptor.updateTimestamp(timestamp);
 
         Map<String, CatalogSystemViewDescriptor> systemViews = Arrays.stream(systemSchema.systemViews())
                 .collect(Collectors.toMap(CatalogSystemViewDescriptor::name, Function.identity()));
@@ -89,7 +90,7 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
                 systemSchema.tables(),
                 systemSchema.indexes(),
                 sysViewArray,
-                causalityToken);
+                timestamp);
 
         return new Catalog(
                 catalog.version(),

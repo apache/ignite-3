@@ -44,7 +44,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -420,7 +419,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void replicasTriggersAssignmentsChangingOnNonDefaultZones() throws Exception {
         createTable(ZONE_NAME_0, TABLE_NAME);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         int catalogVersion = catalogManager.latestCatalogVersion();
         long timestamp = catalogManager.catalog(catalogVersion).time();
@@ -453,7 +452,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void replicasTriggersAssignmentsChangingOnDefaultZone() throws Exception {
         createTable(ZONE_NAME_0, TABLE_NAME);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         int catalogVersion = catalogManager.latestCatalogVersion();
         long timestamp = catalogManager.catalog(catalogVersion).time();

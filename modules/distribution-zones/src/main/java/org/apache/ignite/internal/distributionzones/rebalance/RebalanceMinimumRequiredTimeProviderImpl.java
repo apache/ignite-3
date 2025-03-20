@@ -19,10 +19,9 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.lang.Math.min;
 import static java.util.Collections.emptyMap;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor.updateRequiresAssignmentsRecalculation;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TIMESTAMP_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 
 import java.util.HashMap;
@@ -76,8 +75,8 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         Map<Integer, Map<Integer, Assignments>> stableAssignments = readAssignments(STABLE_ASSIGNMENTS_PREFIX_BYTES, appliedRevision);
         Map<Integer, Map<Integer, Assignments>> pendingAssignments = readPendingAssignments(appliedRevision);
 
-        Map<Integer, Long> pendingChangeTriggerRevisions = readPendingChangeTriggerRevisions(
-                PENDING_CHANGE_TRIGGER_PREFIX_BYTES,
+        Map<Integer, Long> pendingChangeTriggerTimestamps = readPendingChangeTriggerRevisionsOrTimestamps(
+                PENDING_CHANGE_TIMESTAMP_PREFIX_BYTES,
                 appliedRevision
         );
 
@@ -86,13 +85,13 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
         Map<Integer, Integer> tableIdToZoneIdMap = tableIdToZoneIdMap(earliestCatalogVersion, latestCatalogVersion);
 
-        Map<Long, Long> updateTokensToActivationTimeMap = new HashMap<>();
+        Map<Long, Long> updateTimestampsToActivationTimeMap = new HashMap<>();
         Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByTimestamp = allZonesByTimestamp(
                 earliestCatalogVersion,
                 latestCatalogVersion,
-                updateTokensToActivationTimeMap
+                updateTimestampsToActivationTimeMap
         );
-        Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision = allZonesByRevision(allZonesByTimestamp);
+        //Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision = allZonesByRevision(allZonesByTimestamp);
         Map<Integer, Long> zoneDeletionTimestamps = zoneDeletionTimestamps(earliestCatalogVersion, latestCatalogVersion);
 
         for (Map.Entry<Integer, Integer> entry : tableIdToZoneIdMap.entrySet()) {
@@ -102,20 +101,20 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
             NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors = allZonesByTimestamp.get(zoneId);
             int zonePartitions = zoneDescriptors.lastEntry().getValue().partitions();
 
-            Long pendingChangeTriggerRevision = pendingChangeTriggerRevisions.get(tableId);
+            Long pendingChangeTriggerTimestamp = pendingChangeTriggerTimestamps.get(tableId);
 
             // +-1 here ir required for 2 reasons:
             // - we need timestamp right before deletion, if zone is deleted, thus we must subtract 1;
             // - we need a "metaStorageSafeTime" if zone is not deleted, without any subtractions.
             long latestTimestamp = zoneDeletionTimestamps.getOrDefault(zoneId, metaStorageSafeTime + 1) - 1;
 
-            long zoneRevision = pendingChangeTriggerRevision == null
-                    ? zoneDescriptors.firstEntry().getValue().updateToken()
-                    : pendingChangeTriggerRevision;
+            long zoneTimestamp = pendingChangeTriggerTimestamp == null
+                    ? zoneDescriptors.firstEntry().getValue().updateTimestamp().longValue()
+                    : pendingChangeTriggerTimestamp;
 
-            NavigableMap<Long, CatalogZoneDescriptor> map = allZonesByRevision.get(zoneId);
-            Map.Entry<Long, CatalogZoneDescriptor> zone = map.floorEntry(zoneRevision);
-            long timestamp = updateTokensToActivationTimeMap.get(zone.getValue().updateToken());
+            NavigableMap<Long, CatalogZoneDescriptor> map = allZonesByTimestamp.get(zoneId);
+            Map.Entry<Long, CatalogZoneDescriptor> zone = map.floorEntry(zoneTimestamp);
+            long timestamp = updateTimestampsToActivationTimeMap.get(zone.getValue().updateTimestamp());
 
             timestamp = ceilTime(zoneDescriptors, timestamp, latestTimestamp);
 
@@ -140,20 +139,6 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return minTimestamp;
     }
 
-    static Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision(
-            Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZones
-    ) {
-        return allZones.entrySet().stream().collect(toMap(Map.Entry::getKey, entry -> {
-            NavigableMap<Long, CatalogZoneDescriptor> mapByRevision = new TreeMap<>();
-
-            for (CatalogZoneDescriptor zone : entry.getValue().values()) {
-                mapByRevision.put(zone.updateToken(), zone);
-            }
-
-            return mapByRevision;
-        }));
-    }
-
     /**
      * Detects all changes in zones configurations and arranges them in a convenient map. It maps {@code zoneId} into a sorted map, that
      * contains a {@code alterTime -> zoneDescriptor} mapping.
@@ -161,7 +146,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
     Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByTimestamp(
             int earliestCatalogVersion,
             int latestCatalogVersion,
-            Map<Long, Long> updateTokensToActivationTime
+            Map<Long, Long> updateTimestampsToActivationTime
     ) {
         Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZones = new HashMap<>();
 
@@ -174,7 +159,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 if (map.isEmpty() || updateRequiresAssignmentsRecalculation(map.lastEntry().getValue(), zone)) {
                     map.put(catalog.time(), zone);
 
-                    updateTokensToActivationTime.put(zone.updateToken(), catalog.time());
+                    updateTimestampsToActivationTime.put(zone.updateTimestamp().longValue(), catalog.time());
                 }
             }
         }
@@ -288,7 +273,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return assignments;
     }
 
-    Map<Integer, Long> readPendingChangeTriggerRevisions(byte[] prefix, long appliedRevision) {
+    Map<Integer, Long> readPendingChangeTriggerRevisionsOrTimestamps(byte[] prefix, long appliedRevision) {
         Map<Integer, Long> revisions = new HashMap<>();
 
         try (Cursor<Entry> entries = readLocallyByPrefix(prefix, appliedRevision)) {
@@ -299,10 +284,10 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
                 int tableId = RebalanceUtil.extractTablePartitionId(entry.key(), prefix).tableId();
 
-                byte[] value = entry.value();
-                long revision = ByteUtils.bytesToLongKeepingOrder(value);
+                byte[] valueBytes = entry.value();
+                long value = ByteUtils.bytesToLongKeepingOrder(valueBytes);
 
-                revisions.compute(tableId, (k, prev) -> prev == null ? revision : min(prev, revision));
+                revisions.compute(tableId, (k, prev) -> prev == null ? value : min(prev, value));
             }
         }
 

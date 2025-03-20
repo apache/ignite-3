@@ -31,7 +31,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.when;
@@ -150,7 +149,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(nodeName)));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(nodeName)));
 
         when(zoneResourcesManager.allocateZonePartitionResources(any(), anyInt(), any()))
                 .thenReturn(new ZonePartitionResources(
