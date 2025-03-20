@@ -34,15 +34,15 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /** An AST node representing option in CREATE ZONE statement. */
 public class IgniteSqlZoneOptionV2 extends IgniteSqlZoneOption {
     public static final Map<ZoneOptionEnum, String> OPTIONS_MAPPING = Map.of(
-        ZoneOptionEnum.PARTITIONS, "PARTITIONS",
-        ZoneOptionEnum.REPLICAS, "REPLICAS",
-        ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "DISTRIBUTION ALGORITHM",
-        ZoneOptionEnum.DATA_NODES_FILTER, "NODES FILTER",
-        ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, "AUTO ADJUST",
-        ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, "AUTO SCALE UP",
-        ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "AUTO SCALE DOWN",
-        ZoneOptionEnum.CONSISTENCY_MODE, "CONSISTENCY MODE",
-        ZoneOptionEnum.STORAGE_PROFILES, "STORAGE PROFILES"
+            ZoneOptionEnum.PARTITIONS, "PARTITIONS",
+            ZoneOptionEnum.REPLICAS, "REPLICAS",
+            ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "DISTRIBUTION ALGORITHM",
+            ZoneOptionEnum.DATA_NODES_FILTER, "NODES FILTER",
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, "AUTO ADJUST",
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, "AUTO SCALE UP",
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "AUTO SCALE DOWN",
+            ZoneOptionEnum.CONSISTENCY_MODE, "CONSISTENCY MODE",
+            ZoneOptionEnum.STORAGE_PROFILES, "STORAGE PROFILES"
     );
 
     /** ZONE option operator. */
