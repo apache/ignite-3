@@ -21,14 +21,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.23.1
+
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23.1
-        #  env:
-        #    CIBW_SOME_OPTION: value
-          with:
-            package-dir: modules/platforms/python
-            output-dir: modules/platforms/python/wheels
-        #    config-file: "{package}/pyproject.toml"
+        run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
 
       - uses: actions/upload-artifact@v4
         with:
