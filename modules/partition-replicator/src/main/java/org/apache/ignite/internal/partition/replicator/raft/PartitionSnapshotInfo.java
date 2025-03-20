@@ -80,6 +80,13 @@ public class PartitionSnapshotInfo {
         return configurationBytes;
     }
 
+    /**
+     * Returns the set of table IDs which partition storages took part in this Raft snapshot of a zone-wide Raft group.
+     *
+     * <p>If a table ID is seen in this set, it effectively means that this table's partition storage has been durably flushed and is
+     * guaranteed to have seen the state of the Raft group at the moment when the snapshot was taken. This information is then used during
+     * recovery to determine whether a table's partition storage has suffered data loss or simply hasn't had any updates yet.
+     */
     public Set<Integer> tableIds() {
         return tableIds;
     }
