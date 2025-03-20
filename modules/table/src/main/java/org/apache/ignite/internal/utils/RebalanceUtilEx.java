@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.utils;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTimestampKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -149,25 +148,19 @@ public class RebalanceUtilEx {
         byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
-        byte[] rev = longToBytesKeepingOrder(entry.revision());
-
-        ByteArray changeTimestampKey = pendingChangeTimestampKey(partId);
         byte[] timestamp = longToBytesKeepingOrder(entry.timestamp().longValue());
 
         // Here is what happens in the MetaStorage:
-        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {
+        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < timestamp) && (notExists(pendingKey) && notExists(stableKey)) {
         //     put(pendingKey, pending)
         //     put(stableKey, assignments)
-        //     put(changeTriggerKey, revision)
-        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey))) {
+        //     put(changeTriggerKey, timestamp)
+        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < timestamp) && (notExists(pendingKey))) {
         //     put(pendingKey, pending)
-        //     put(changeTriggerKey, revision)
+        //     put(changeTriggerKey, timestamp)
         // }
 
-        Condition revisionAndTimestampDontExistOrLessThan = and(
-                or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
-                or(notExists(changeTimestampKey), value(changeTimestampKey).lt(timestamp))
-        );
+        Condition revisionAndTimestampDontExistOrLessThan = or(notExists(changeTriggerKey), value(changeTriggerKey).lt(timestamp));
 
         Iif resultingOperation = iif(
                 and(
@@ -177,8 +170,7 @@ public class RebalanceUtilEx {
                 ops(
                         put(pendingKey, pendingByteArray),
                         put(stablePartAssignmentsKey(partId), assignmentsByteArray),
-                        put(changeTriggerKey, rev),
-                        put(changeTimestampKey, timestamp)
+                        put(changeTriggerKey, timestamp)
                 ).yield(),
                 iif(
                         and(
@@ -187,8 +179,7 @@ public class RebalanceUtilEx {
                         ),
                         ops(
                                 put(pendingKey, pendingByteArray),
-                                put(changeTriggerKey, rev),
-                                put(changeTimestampKey, timestamp)
+                                put(changeTriggerKey, timestamp)
                         ).yield(),
                         ops().yield()
                 )

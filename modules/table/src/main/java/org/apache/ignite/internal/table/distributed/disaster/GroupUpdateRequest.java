@@ -25,12 +25,10 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTimestampKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableStableAssignments;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -353,7 +351,6 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
         Iif invokeClosure = prepareMsInvokeClosure(
                 partId,
-                longToBytesKeepingOrder(revision),
                 longToBytesKeepingOrder(timestamp.longValue()),
                 assignmentsQueue.toBytes(),
                 // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
@@ -419,42 +416,34 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * Creates an {@link Iif} instance for meta-storage's {@link MetaStorageManager#invoke(Iif)} call. Does the following:
      * <ul>
      *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)} check.</li>
-     *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTimestampKey(TablePartitionId)} check.</li>
      *     <li>Adds additional guard with comparison of real and proposed values of
      *          {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}, just in case.</li>
      *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.</li>
-     *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTimestampKey(TablePartitionId)}.</li>
      *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.</li>
      *     <li>Updates the value of {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or removes it, if
      *          {@code plannedAssignmentsBytes} is {@code null}.</li>
      * </ul>
      *
      * @param partId Partition ID.
-     * @param revisionBytes Properly serialized current meta-storage revision.
-     * @param revisionBytes Properly serialized current meta-storage timestamp.
+     * @param timestampBytes Properly serialized current meta-storage timestamp.
      * @param pendingAssignmentsBytes Value for {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.
      * @param plannedAssignmentsBytes Value for {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or {@code null}.
      * @return {@link Iif} instance.
      */
     static Iif prepareMsInvokeClosure(
             TablePartitionId partId,
-            byte[] revisionBytes,
             byte[] timestampBytes,
             byte[] pendingAssignmentsBytes,
             byte @Nullable [] plannedAssignmentsBytes
     ) {
         ByteArray pendingChangeTriggerKey = pendingChangeTriggerKey(partId);
-        ByteArray pendingChangeTimestampKey = pendingChangeTimestampKey(partId);
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
         return iif(
-                and(
-                        notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(revisionBytes)),
-                        notExists(pendingChangeTimestampKey).or(value(pendingChangeTimestampKey).lt(timestampBytes))
-                ),
+                notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(timestampBytes)),
                 ops(
-                        put(pendingChangeTriggerKey, revisionBytes),
+                        put(pendingChangeTriggerKey, timestampBytes),
                         put(partAssignmentsPendingKey, pendingAssignmentsBytes),
                         plannedAssignmentsBytes == null
                                 ? remove(partAssignmentsPlannedKey)

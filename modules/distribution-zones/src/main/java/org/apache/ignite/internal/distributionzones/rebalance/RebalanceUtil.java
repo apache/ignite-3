@@ -161,7 +161,6 @@ public class RebalanceUtil {
             ConsistencyMode consistencyMode
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
-        ByteArray partChangeTimestampKey = pendingChangeTimestampKey(partId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
 
@@ -216,24 +215,24 @@ public class RebalanceUtil {
         byte[] partAssignmentsPendingQueueBytes = partAssignmentsPendingQueue.toBytes();
 
 
-        //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
+        //    if empty(partition.change.trigger) || partition.change.trigger < event.timestamp:
         //        if empty(partition.assignments.pending)
         //              && ((isNewAssignments && empty(partition.assignments.stable))
         //                  || (partition.assignments.stable != calcPartAssignments() && !empty(partition.assignments.stable))):
         //            partition.assignments.pending = partAssignmentsPendingQueue
-        //            partition.change.trigger.revision = event.revision
+        //            partition.change.trigger = event.timestamp
         //        else:
         //            if partition.assignments.pending != partAssignmentsPendingQueue && !empty(partition.assignments.pending)
         //                partition.assignments.planned = calcPartAssignments()
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //            else if partition.assignments.pending == partAssignmentsPendingQueue
         //                remove(partition.assignments.planned)
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //                message after the metastorage invoke:
         //                "Remove planned key because current pending key has the same value."
         //            else if empty(partition.assignments.pending)
         //                remove(partition.assignments.planned)
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //                message after the metastorage invoke:
         //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
@@ -246,37 +245,28 @@ public class RebalanceUtil {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
-        byte[] revisionBytes = longToBytesKeepingOrder(revision);
         byte[] timestampBytes = longToBytesKeepingOrder(timestamp.longValue());
 
-        Iif iif = iif(
-                and(
-                        or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(revisionBytes)),
-                        or(notExists(partChangeTimestampKey), value(partChangeTimestampKey).lt(timestampBytes))
-                ),
+        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(timestampBytes)),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsPendingQueueBytes),
-                                put(partChangeTriggerKey, revisionBytes),
-                                put(partChangeTimestampKey, timestampBytes)
+                                put(partChangeTriggerKey, timestampBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsPendingQueueBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsPlannedBytes),
-                                        put(partChangeTriggerKey, revisionBytes),
-                                        put(partChangeTimestampKey, timestampBytes)
+                                        put(partChangeTriggerKey, timestampBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsPendingQueueBytes),
                                         ops(
                                                 remove(partAssignmentsPlannedKey),
-                                                put(partChangeTriggerKey, revisionBytes),
-                                                put(partChangeTimestampKey, timestampBytes)
+                                                put(partChangeTriggerKey, timestampBytes)
                                         ).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
                                         iif(notExists(partAssignmentsPendingKey),
                                                 ops(
                                                         remove(partAssignmentsPlannedKey),
-                                                        put(partChangeTriggerKey, revisionBytes),
-                                                        put(partChangeTimestampKey, timestampBytes)
+                                                        put(partChangeTriggerKey, timestampBytes)
                                                 ).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
                                                 ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal()))
                                 ))),
@@ -477,12 +467,7 @@ public class RebalanceUtil {
     /** Key prefix for change trigger keys. */
     public static final String PENDING_CHANGE_TRIGGER_PREFIX = "pending.change.trigger.";
 
-    /** Key prefix for change timestamp keys. */
-    public static final String PENDING_CHANGE_TIMESTAMP_PREFIX = "pending.change.timestamp.";
-
     static final byte[] PENDING_CHANGE_TRIGGER_PREFIX_BYTES = PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
-
-    static final byte[] PENDING_CHANGE_TIMESTAMP_PREFIX_BYTES = PENDING_CHANGE_TIMESTAMP_PREFIX.getBytes(UTF_8);
 
     private static final String ASSIGNMENTS_CHAIN_PREFIX = "assignments.chain.";
 
@@ -497,17 +482,6 @@ public class RebalanceUtil {
      */
     public static ByteArray pendingChangeTriggerKey(TablePartitionId partId) {
         return new ByteArray(PENDING_CHANGE_TRIGGER_PREFIX + partId);
-    }
-
-    /**
-     * Key that is needed for skipping stale events of pending key change.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
-     */
-    public static ByteArray pendingChangeTimestampKey(TablePartitionId partId) {
-        return new ByteArray(PENDING_CHANGE_TIMESTAMP_PREFIX + partId);
     }
 
     /**

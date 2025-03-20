@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTimestampKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -52,8 +51,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests for disaster recovery meta storage invoke that changes {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}
- * and {@link RebalanceUtil#pendingChangeTimestampKey(TablePartitionId)}. We expect that the keys are changed in provided cases.
+ * Tests for disaster recovery meta storage invoke that changes {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.
+ * We expect that the keys are changed in provided cases.
  */
 public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
     private static final int partNum = 2;
@@ -88,10 +87,6 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
                 metaStorageManager.put(pendingChangeTriggerKey(tablePartitionId), longToBytesKeepingOrder(1)), willCompleteSuccessfully()
         );
 
-        assertThat(
-                metaStorageManager.put(pendingChangeTimestampKey(tablePartitionId), longToBytesKeepingOrder(1)), willCompleteSuccessfully()
-        );
-
         assignmentsTimestamp = clock.now().longValue();
     }
 
@@ -115,7 +110,6 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
                 metaStorageManager.invoke(
                         GroupUpdateRequest.prepareMsInvokeClosure(
                                 tablePartitionId,
-                                longToBytesKeepingOrder(expectedPendingChangeTriggerKey),
                                 longToBytesKeepingOrder(expectedPendingChangeTimestampKey.longValue()),
                                 AssignmentsQueue.toBytes(Assignments.of(pending, assignmentsTimestamp)),
                                 null
@@ -125,15 +119,11 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
         );
 
         CompletableFuture<Entry> actualPendingFut = metaStorageManager.get(pendingChangeTriggerKey(tablePartitionId));
-        CompletableFuture<Entry> actualPendingTimestampFut = metaStorageManager.get(pendingChangeTimestampKey(tablePartitionId));
 
         assertThat(actualPendingFut, willCompleteSuccessfully());
-        assertThat(actualPendingTimestampFut, willCompleteSuccessfully());
 
-        long actualPendingChangeTriggerKey = bytesToLongKeepingOrder(actualPendingFut.get().value());
-        HybridTimestamp actualTimestamp = HybridTimestamp.hybridTimestamp(bytesToLongKeepingOrder(actualPendingTimestampFut.get().value()));
+        HybridTimestamp actualTimestamp = HybridTimestamp.hybridTimestamp(bytesToLongKeepingOrder(actualPendingFut.get().value()));
 
-        assertEquals(expectedPendingChangeTriggerKey, actualPendingChangeTriggerKey);
         assertEquals(expectedPendingChangeTimestampKey, actualTimestamp);
     }
 

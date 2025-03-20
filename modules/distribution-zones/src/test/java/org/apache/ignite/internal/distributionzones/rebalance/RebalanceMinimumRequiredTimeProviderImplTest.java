@@ -457,7 +457,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
 
                 if (!stable) {
                     metaStorageData.put(
-                            RebalanceUtil.pendingChangeTimestampKey(tablePartitionId),
+                            RebalanceUtil.pendingChangeTriggerKey(tablePartitionId),
                             msTimestampBytes
                     );
                 }

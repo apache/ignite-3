@@ -156,7 +156,6 @@ public class ZoneRebalanceUtil {
             ConsistencyMode consistencyMode
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
-        ByteArray partChangeTimestampKey = pendingChangeTimestampKey(zonePartitionId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(zonePartitionId);
 
@@ -209,24 +208,24 @@ public class ZoneRebalanceUtil {
         byte[] partAssignmentsPlannedBytes = targetAssignments.toBytes();
         byte[] partAssignmentsPendingBytes = partAssignmentsPendingQueue.toBytes();
 
-        //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
+        //    if empty(partition.change.trigger) || partition.change.trigger < event.timestamp:
         //        if empty(partition.assignments.pending)
         //              && ((isNewAssignments && empty(partition.assignments.stable))
         //                  || (partition.assignments.stable != calcPartAssignments() && !empty(partition.assignments.stable))):
         //            partition.assignments.pending = partAssignmentsPendingQueue
-        //            partition.change.trigger.revision = event.revision
+        //            partition.change.trigger = event.timestamp
         //        else:
         //            if partition.assignments.pending != partAssignmentsPendingQueue && !empty(partition.assignments.pending)
         //                partition.assignments.planned = calcPartAssignments()
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //            else if partition.assignments.pending == partAssignmentsPendingQueue
         //                remove(partition.assignments.planned)
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //                message after the metastorage invoke:
         //                "Remove planned key because current pending key has the same value."
         //            else if empty(partition.assignments.pending)
         //                remove(partition.assignments.planned)
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //                message after the metastorage invoke:
         //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
@@ -239,37 +238,29 @@ public class ZoneRebalanceUtil {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
-        byte[] revisionBytes = longToBytesKeepingOrder(revision);
         byte[] timestampBytes = longToBytesKeepingOrder(timestamp.longValue());
 
         Iif iif = iif(
-                and(
-                        or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(revisionBytes)),
-                        or(notExists(partChangeTimestampKey), value(partChangeTimestampKey).lt(timestampBytes))
-                ),
+                or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(timestampBytes)),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsPendingBytes),
-                                put(partChangeTriggerKey, revisionBytes),
-                                put(partChangeTimestampKey, timestampBytes)
+                                put(partChangeTriggerKey, timestampBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsPendingBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsPlannedBytes),
-                                        put(partChangeTriggerKey, revisionBytes),
-                                        put(partChangeTimestampKey, timestampBytes)
+                                        put(partChangeTriggerKey, timestampBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsPendingBytes),
                                         ops(
                                                 remove(partAssignmentsPlannedKey),
-                                                put(partChangeTriggerKey, revisionBytes),
-                                                put(partChangeTimestampKey, timestampBytes)
+                                                put(partChangeTriggerKey, timestampBytes)
                                         ).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
                                         iif(notExists(partAssignmentsPendingKey),
                                                 ops(
                                                         remove(partAssignmentsPlannedKey),
-                                                        put(partChangeTriggerKey, revisionBytes),
-                                                        put(partChangeTimestampKey, timestampBytes)
+                                                        put(partChangeTriggerKey, timestampBytes)
                                                 ).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
                                                 ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal()))
                                 ))),
@@ -279,9 +270,9 @@ public class ZoneRebalanceUtil {
             switch (UpdateStatus.valueOf(sr.getAsInt())) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore pending partitions key [key={}, partition={}, zone={}/{}, newVal={}]",
+                            "Update metastore pending partitions key [key={}, partition={}, zone={}/{}, newVal={}, timestamp={}]",
                             partAssignmentsPendingKey.toString(), partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignmentsPendingQueue);
+                            partAssignmentsPendingQueue, timestamp);
 
                     break;
                 case PLANNED_KEY_UPDATED:
@@ -452,12 +443,7 @@ public class ZoneRebalanceUtil {
     /** Key prefix for change trigger keys. */
     private static final String ZONE_PENDING_CHANGE_TRIGGER_PREFIX = "zone.pending.change.trigger.";
 
-    /** Key prefix for change timestamp keys. */
-    private static final String ZONE_PENDING_CHANGE_TIMESTAMP_PREFIX = "zone.pending.change.timestamp.";
-
     static final byte[] ZONE_PENDING_CHANGE_TRIGGER_PREFIX_BYTES = ZONE_PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
-
-    static final byte[] ZONE_PENDING_CHANGE_TIMESTAMP_PREFIX_BYTES = ZONE_PENDING_CHANGE_TIMESTAMP_PREFIX.getBytes(UTF_8);
 
     /**
      * Key that is needed for skipping stale events of pending key change.
@@ -468,17 +454,6 @@ public class ZoneRebalanceUtil {
      */
     public static ByteArray pendingChangeTriggerKey(ZonePartitionId zonePartitionId) {
         return new ByteArray(ZONE_PENDING_CHANGE_TRIGGER_PREFIX + zonePartitionId);
-    }
-
-    /**
-     * Key that is needed for skipping stale events of pending key change.
-     *
-     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
-     */
-    public static ByteArray pendingChangeTimestampKey(ZonePartitionId zonePartitionId) {
-        return new ByteArray(ZONE_PENDING_CHANGE_TIMESTAMP_PREFIX + zonePartitionId);
     }
 
     /**

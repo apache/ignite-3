@@ -21,7 +21,7 @@ import static java.lang.Math.min;
 import static java.util.Collections.emptyMap;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor.updateRequiresAssignmentsRecalculation;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TIMESTAMP_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 
 import java.util.HashMap;
@@ -75,8 +75,8 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         Map<Integer, Map<Integer, Assignments>> stableAssignments = readAssignments(STABLE_ASSIGNMENTS_PREFIX_BYTES, appliedRevision);
         Map<Integer, Map<Integer, Assignments>> pendingAssignments = readPendingAssignments(appliedRevision);
 
-        Map<Integer, Long> pendingChangeTriggerTimestamps = readPendingChangeTriggerRevisionsOrTimestamps(
-                PENDING_CHANGE_TIMESTAMP_PREFIX_BYTES,
+        Map<Integer, Long> pendingChangeTriggerTimestamps = readPendingChangeTriggerTimestamps(
+                PENDING_CHANGE_TRIGGER_PREFIX_BYTES,
                 appliedRevision
         );
 
@@ -114,7 +114,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
             NavigableMap<Long, CatalogZoneDescriptor> map = allZonesByTimestamp.get(zoneId);
             Map.Entry<Long, CatalogZoneDescriptor> zone = map.floorEntry(zoneTimestamp);
-            long timestamp = updateTimestampsToActivationTimeMap.get(zone.getValue().updateTimestamp());
+            long timestamp = updateTimestampsToActivationTimeMap.get(zone.getValue().updateTimestamp().longValue());
 
             timestamp = ceilTime(zoneDescriptors, timestamp, latestTimestamp);
 
@@ -273,8 +273,8 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return assignments;
     }
 
-    Map<Integer, Long> readPendingChangeTriggerRevisionsOrTimestamps(byte[] prefix, long appliedRevision) {
-        Map<Integer, Long> revisions = new HashMap<>();
+    Map<Integer, Long> readPendingChangeTriggerTimestamps(byte[] prefix, long appliedRevision) {
+        Map<Integer, Long> timestamps = new HashMap<>();
 
         try (Cursor<Entry> entries = readLocallyByPrefix(prefix, appliedRevision)) {
             for (Entry entry : entries) {
@@ -287,11 +287,11 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 byte[] valueBytes = entry.value();
                 long value = ByteUtils.bytesToLongKeepingOrder(valueBytes);
 
-                revisions.compute(tableId, (k, prev) -> prev == null ? value : min(prev, value));
+                timestamps.compute(tableId, (k, prev) -> prev == null ? value : min(prev, value));
             }
         }
 
-        return revisions;
+        return timestamps;
     }
 
     private Cursor<Entry> readLocallyByPrefix(byte[] prefix, long revision) {

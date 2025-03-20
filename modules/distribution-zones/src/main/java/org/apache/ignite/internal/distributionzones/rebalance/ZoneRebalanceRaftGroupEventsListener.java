@@ -597,7 +597,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         ByteArray changeTriggerKey = ZoneRebalanceUtil.pendingChangeTriggerKey(partId);
         byte[] rev = ByteUtils.longToBytesKeepingOrder(entry.revision());
 
-        ByteArray changeTimestampKey = ZoneRebalanceUtil.pendingChangeTimestampKey(partId);
+        ByteArray changeTimestampKey = ZoneRebalanceUtil.pendingChangeTriggerKey(partId);
         byte[] timestamp = ByteUtils.longToBytesKeepingOrder(entry.timestamp().longValue());
 
         // Here is what happens in the MetaStorage:
