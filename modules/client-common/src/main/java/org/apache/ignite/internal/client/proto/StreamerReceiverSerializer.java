@@ -56,7 +56,7 @@ import org.jetbrains.annotations.Nullable;
  * No intermediate steps, trivial serialize/deserialize.
  */
 public class StreamerReceiverSerializer {
-    private static final int TYPE_ID_TUPLE = -64;
+    private static final int TYPE_ID_TUPLE = -1;
 
     /**
      * Serializes streamer receiver info.
@@ -331,7 +331,7 @@ public class StreamerReceiverSerializer {
             return (T v) -> builder.appendPeriod((Period) v);
         } else if (obj instanceof Tuple) {
             builder.appendInt(TYPE_ID_TUPLE);
-            return (T v) -> builder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) v));
+            return (T v) -> appendTuple(builder, (Tuple) v);
         } else {
             throw unsupportedTypeException(obj.getClass());
         }
@@ -339,10 +339,7 @@ public class StreamerReceiverSerializer {
 
     private static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, int typeId) {
         if (typeId == TYPE_ID_TUPLE) {
-            return idx -> {
-                byte[] bytes = binTuple.bytesValue(idx);
-                return bytes == null ? null : TupleWithSchemaMarshalling.unmarshal(bytes);
-            };
+            return idx -> readTuple(binTuple, idx);
         }
 
         ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
@@ -408,7 +405,7 @@ public class StreamerReceiverSerializer {
         if (arg instanceof Tuple) {
             builder.appendInt(TYPE_ID_TUPLE);
             builder.appendInt(0); // Scale.
-            builder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) arg));
+            appendTuple(builder, (Tuple) arg);
 
             return;
         }
@@ -422,11 +419,19 @@ public class StreamerReceiverSerializer {
         }
 
         if (reader.intValue(index) == TYPE_ID_TUPLE) {
-            byte[] bytes = reader.bytesValue(index + 2);
-            return bytes == null ? null : TupleWithSchemaMarshalling.unmarshal(bytes);
+            return readTuple(reader, index + 2);
         }
 
         return ClientBinaryTupleUtils.readObject(reader, index);
+    }
+
+    private static <T> void appendTuple(BinaryTupleBuilder builder, Tuple arg) {
+        builder.appendBytes(TupleWithSchemaMarshalling.marshal(arg));
+    }
+
+    private static @Nullable Object readTuple(BinaryTupleReader binTuple, int idx) {
+        byte[] bytes = binTuple.bytesValue(idx);
+        return bytes == null ? null : TupleWithSchemaMarshalling.unmarshal(bytes);
     }
 
     /**
