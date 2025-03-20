@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
@@ -50,8 +52,9 @@ import org.immutables.value.Value;
  * Planner rule that pushes a {@link Project} under {@link Correlate} to apply on Correlate's left and right inputs.
  *
  * <p>There are two differences between this rule and {@link ProjectCorrelateTransposeRule}:
- * 1. is that former take into account RexCall parameters for functions in LogicalTableFunctionScan like a SYSTEM_RANGE. 2. For some reasons
- * for rewritten node can try be rewritten again, so for that case we just skip the rewrite.
+ * 1. Take into account RexCall parameters for functions in LogicalTableFunctionScan like a SYSTEM_RANGE.
+ *      See RelNodesExprsHandler#visit(RelNode)
+ * 2. Fixed an issue for trying amend correlation for incorrect case. See RexFieldAccessReplacer#visitFieldAccess(RexFieldAccess)
  *
  * @see CoreRules#PROJECT_CORRELATE_TRANSPOSE
  */
@@ -182,15 +185,14 @@ public class IgniteProjectCorrelateTransposeRule
             RexNode refExpr = fieldAccess.getReferenceExpr().accept(this);
             // creates new RexFieldAccess instance for the case when referenceExpr was replaced.
             // Otherwise calls super method.
-            if (refExpr == rexCorrelVariable) {
-                int fieldIndex = fieldAccess.getField().getIndex();
-                Integer idx = requiredColsMap.get(fieldIndex);
-                if (idx == null) {
-                    // "no entry for field in requiredColsMap
-                    // Seems we got already rewritten node, so just skip it.
-                    return super.visitFieldAccess(fieldAccess);
+            if (fieldAccess.getReferenceExpr() != refExpr) {
+                if (refExpr == rexCorrelVariable) {
+                    int fieldIndex = fieldAccess.getField().getIndex();
+                    return builder.makeFieldAccess(
+                            refExpr,
+                            requireNonNull(requiredColsMap.get(fieldIndex),
+                                    () -> "no entry for field " + fieldIndex + " in " + requiredColsMap));
                 }
-                return builder.makeFieldAccess(refExpr, idx);
             }
             return super.visitFieldAccess(fieldAccess);
         }
