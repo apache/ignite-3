@@ -1,0 +1,36 @@
+name: "Build pyignite-dbapi Mac wheels"
+
+on:
+  pull_request:
+    types:
+      - opened
+    paths:
+      - 'modules/platforms/python/**.py'
+      - 'modules/platforms/cpp/**'
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # macos-13 is an intel runner, macos-14 is apple silicon
+        #os: [ubuntu-latest, windows-latest, macos-13, macos-14]
+        os: [macos-13, macos-14]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.1
+        #  env:
+        #    CIBW_SOME_OPTION: value
+          with:
+            package-dir: modules/platforms/python
+            output-dir: modules/platforms/python/wheels
+        #    config-file: "{package}/pyproject.toml"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: modules/platforms/python/wheels/*.whl
