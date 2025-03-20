@@ -323,6 +323,9 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         /**
          * Sets the operation timeout, in milliseconds. Default is {@code 0} (no timeout).
          *
+         * <p>An "operation" is a single client request to the server. Some public API calls may involve multiple operations, in
+         * which case the operation timeout is applied to each individual network call.
+         *
          * @param operationTimeout Operation timeout, in milliseconds.
          * @return This instance.
          * @throws IllegalArgumentException When value is less than zero.
