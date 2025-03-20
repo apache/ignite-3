@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,10 +35,12 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -45,6 +48,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -55,6 +59,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.table.TupleHelper;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,9 +70,9 @@ public class ClientTableCommon {
     /**
      * Writes a schema.
      *
-     * @param packer    Packer.
+     * @param packer Packer.
      * @param schemaVer Schema version.
-     * @param schema    Schema.
+     * @param schema Schema.
      */
     static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) {
         packer.packInt(schemaVer);
@@ -99,7 +104,7 @@ public class ClientTableCommon {
      * Writes a tuple.
      *
      * @param packer Packer.
-     * @param tuple  Tuple.
+     * @param tuple Tuple.
      */
     public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part, SchemaRegistry schemaRegistry) {
         if (tuple == null) {
@@ -115,10 +120,10 @@ public class ClientTableCommon {
     /**
      * Writes a tuple.
      *
-     * @param packer     Packer.
-     * @param tuple      Tuple.
+     * @param packer Packer.
+     * @param tuple Tuple.
      * @param skipHeader Whether to skip the tuple header.
-     * @param part       Which part of tuple to write.
+     * @param part Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
     private static void writeTuple(
@@ -167,8 +172,8 @@ public class ClientTableCommon {
     /**
      * Writes multiple tuples.
      *
-     * @param packer         Packer.
-     * @param tuples         Tuples.
+     * @param packer Packer.
+     * @param tuples Tuples.
      * @param schemaRegistry The registry.
      * @throws IgniteException on failed serialization.
      */
@@ -182,9 +187,9 @@ public class ClientTableCommon {
     /**
      * Writes multiple tuples.
      *
-     * @param packer         Packer.
-     * @param tuples         Tuples.
-     * @param part           Which part of tuple to write.
+     * @param packer Packer.
+     * @param tuples Tuples.
+     * @param part Which part of tuple to write.
      * @param schemaRegistry The registry.
      * @throws IgniteException on failed serialization.
      */
@@ -223,9 +228,9 @@ public class ClientTableCommon {
     /**
      * Writes multiple tuples with null flags.
      *
-     * @param packer         Packer.
-     * @param tuples         Tuples.
-     * @param part           Which part of tuple to write.
+     * @param packer Packer.
+     * @param tuples Tuples.
+     * @param part Which part of tuple to write.
      * @param schemaRegistry The registry.
      * @throws IgniteException on failed serialization.
      */
@@ -283,8 +288,8 @@ public class ClientTableCommon {
      * Reads a tuple.
      *
      * @param unpacker Unpacker.
-     * @param keyOnly  Whether only key fields are expected.
-     * @param schema   Tuple schema.
+     * @param keyOnly Whether only key fields are expected.
+     * @param schema Tuple schema.
      * @return Tuple.
      */
     public static Tuple readTuple(
@@ -343,12 +348,12 @@ public class ClientTableCommon {
      * Reads a table.
      *
      * @param unpacker Unpacker.
-     * @param tables   Ignite tables.
+     * @param tables Ignite tables.
      * @return Table.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
-     *                         <ul>
-     *                             <li>the node is stopping.</li>
-     *                         </ul>
+     *         <ul>
+     *             <li>the node is stopping.</li>
+     *         </ul>
      */
     public static CompletableFuture<TableViewInternal> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
         int tableId = unpacker.unpackInt();
@@ -377,6 +382,23 @@ public class ClientTableCommon {
     }
 
     /**
+     * Writes tx metadata for a direct mapping request.
+     *
+     * @param out Packer.
+     * @param clockService Clock service.
+     * @param tx The transaction.
+     */
+    public static void writeTxMeta(ClientMessagePacker out, @Nullable ClockService clockService, InternalTransaction tx) {
+        if (tx.remote()) {
+            // Remote tx carries operation enlistment info.
+            PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+            out.packString(token.primaryNodeConsistentId());
+            out.packLong(token.consistencyToken());
+            out.meta(clockService.current());
+        }
+    }
+
+    /**
      * Returns a new table id not found exception.
      *
      * @param tableId Table id.
@@ -392,24 +414,47 @@ public class ClientTableCommon {
      * @param in Unpacker.
      * @param out Packer.
      * @param resources Resource registry.
+     * @param txManager Tx manager.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            @Nullable TxManager txManager
     ) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
-            var tx = resources.get(in.unpackLong()).get(InternalTransaction.class);
+            long id = in.unpackLong();
+            if (id == 0) {
+                long token = in.unpackLong();
+                UUID txId = in.unpackUuid();
+                int commitTableId = in.unpackInt();
+                int commitPart = in.unpackInt();
+                UUID coord = in.unpackUuid();
+                long timeout = in.unpackLong();
+
+                InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
+                        coord, token, timeout);
+
+                // Remote transaction will be synchronously rolled back if the timeout has exceeded.
+                if (remote.isRolledBackWithTimeoutExceeded()) {
+                    throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                            "Transaction is already finished [tx=" + remote + "].");
+                }
+
+                return remote;
+            }
+
+            var tx = resources.get(id).get(InternalTransaction.class);
 
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
                 // use readTimestamp() instead of now().
-                out.meta(tx.readTimestamp());
+                out.meta(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
             }
 
             return tx;
@@ -428,15 +473,14 @@ public class ClientTableCommon {
      * @param readOnly Read only flag.
      * @return Transaction.
      */
-    public static @Nullable InternalTransaction readOrStartImplicitTx(
+    public static InternalTransaction readOrStartImplicitTx(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             TxManager txManager,
             boolean readOnly
     ) {
-
-        InternalTransaction tx = readTx(in, out, resources);
+        InternalTransaction tx = readTx(in, out, resources, txManager);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.

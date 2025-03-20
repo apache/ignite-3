@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -214,6 +216,31 @@ public class ItTransactionTestUtils {
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
 
         return primaryReplicaFut.join();
+    }
+
+    /**
+     * Executes a closure in a transaction.
+     *
+     * @param transactions Transactions facade.
+     * @param c The closure.
+     */
+    public static void withTxVoid(IgniteTransactions transactions, Consumer<Transaction> c) {
+        Transaction tx = transactions.begin();
+        c.accept(tx);
+        tx.commit();
+    }
+
+    /**
+     * Executes a closure in a transaction.
+     *
+     * @param transactions Transactions facade.
+     * @param c The closure.
+     */
+    public static <T> T withTx(IgniteTransactions transactions, Function<Transaction, T> c) {
+        Transaction tx = transactions.begin();
+        T t = c.apply(tx);
+        tx.commit();
+        return t;
     }
 
     /**

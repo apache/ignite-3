@@ -547,6 +547,11 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
+    public ReplicationGroupId targetReplicationGroupId(int partId) {
+        return null; // Not supported yet.
+    }
+
+    @Override
     public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, @Nullable A receiverArg,
             Collection<I> items, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         throw new UnsupportedOperationException("Not implemented");

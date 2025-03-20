@@ -32,7 +32,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * TABLE_GET/TABLES_GET requests with {@link QualifiedName}.
      */
-    TABLE_GET_REQS_USE_QUALIFIED_NAME(1);
+    TABLE_GET_REQS_USE_QUALIFIED_NAME(1),
+
+    /**
+     * Direct mapping for transactions.
+     */
+    TX_DIRECT_MAPPING(2);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

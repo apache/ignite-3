@@ -20,13 +20,12 @@ package org.apache.ignite.internal.tx.impl;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -40,13 +39,32 @@ class TransactionExpirationRegistry {
      */
     private final NavigableMap<Long, Object> txsByExpirationTime = new ConcurrentSkipListMap<>();
 
-    /** Map from registered transaction to its expiration timestamp. */
-    private final Map<InternalTransaction, Long> expirationTimeByTx = new ConcurrentHashMap<>();
-
     private final ReadWriteLock watermarkLock = new ReentrantReadWriteLock();
 
     /** Watermark at which expiration has already happened (millis since Unix epoch). */
     private volatile long watermark = Long.MIN_VALUE;
+
+    private static long physicalExpirationTimeMillis(HybridTimestamp beginTimestamp, long effectiveTimeoutMillis) {
+        return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
+    }
+
+    private static long sumWithSaturation(long a, long b) {
+        assert a >= 0 : a;
+        assert b >= 0 : b;
+
+        long sum = a + b;
+
+        if (sum < 0) {
+            // Overflow.
+            return Long.MAX_VALUE;
+        } else {
+            return sum;
+        }
+    }
+
+    void register(InternalTransaction tx) {
+        register(tx, physicalExpirationTimeMillis(tx.startTimestamp(), tx.getTimeout()));
+    }
 
     void register(InternalTransaction tx, long txExpirationTime) {
         if (isExpired(txExpirationTime)) {
@@ -82,8 +100,6 @@ class TransactionExpirationRegistry {
                         return txsExpiringAtTs;
                     }
             );
-
-            expirationTimeByTx.put(tx, txExpirationTime);
         } finally {
             watermarkLock.readLock().unlock();
         }
@@ -96,7 +112,7 @@ class TransactionExpirationRegistry {
     private static void abortTransaction(InternalTransaction tx) {
         tx.rollbackTimeoutExceededAsync().whenComplete((res, ex) -> {
             if (ex != null) {
-                LOG.error("Transaction abort due to timeout failed [txId={}]", ex, tx.id());
+                LOG.error("Transaction has aborted due to timeout [txId={}]", ex, tx.id());
             }
         });
     }
@@ -119,13 +135,11 @@ class TransactionExpirationRegistry {
         for (Object txOrSet : transactionsAndSetsToExpire) {
             if (txOrSet instanceof Set) {
                 for (InternalTransaction tx : (Set<InternalTransaction>) txOrSet) {
-                    expirationTimeByTx.remove(tx);
                     abortTransaction(tx);
                 }
             } else {
                 InternalTransaction tx = (InternalTransaction) txOrSet;
 
-                expirationTimeByTx.remove(tx);
                 abortTransaction(tx);
             }
         }
@@ -136,20 +150,24 @@ class TransactionExpirationRegistry {
     }
 
     void unregister(InternalTransaction tx) {
-        Long expirationTime = expirationTimeByTx.remove(tx);
+        unregister(tx, physicalExpirationTimeMillis(tx.startTimestamp(), tx.getTimeout()));
+    }
 
-        if (expirationTime != null) {
-            txsByExpirationTime.computeIfPresent(expirationTime, (k, txOrSet) -> {
-                if (txOrSet instanceof Set) {
-                    Set<InternalTransaction> set = (Set<InternalTransaction>) txOrSet;
+    void unregister(InternalTransaction tx, long expirationTime) {
+        txsByExpirationTime.computeIfPresent(expirationTime, (k, txOrSet) -> {
+            if (txOrSet instanceof Set) {
+                Set<InternalTransaction> set = (Set<InternalTransaction>) txOrSet;
 
-                    set.remove(tx);
+                set.remove(tx);
 
-                    return set.size() == 1 ? set.iterator().next() : set;
-                } else {
-                    return null;
-                }
-            });
-        }
+                return set.size() == 1 ? set.iterator().next() : set;
+            } else {
+                InternalTransaction tx0 = (InternalTransaction) txOrSet;
+
+                assert tx0.id().equals(tx.id());
+
+                return null;
+            }
+        });
     }
 }

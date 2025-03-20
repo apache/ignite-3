@@ -26,5 +26,10 @@ import org.apache.ignite.internal.replicator.message.TableAware;
  */
 @Transferable(PartitionReplicationMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
 public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest, TableAware {
-
+    /**
+     * Disable delayed ack optimization.
+     *
+     * @return {@code True} to disable the delayed ack optimization.
+     */
+    boolean skipDelayedAck();
 }
