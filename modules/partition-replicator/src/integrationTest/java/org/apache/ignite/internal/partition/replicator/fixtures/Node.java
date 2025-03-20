@@ -591,7 +591,7 @@ public class Node {
                 threadPoolsManager.commonScheduler()
         );
 
-        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout-" + name));
 
         replicaManager = new ReplicaManager(
                 name,
