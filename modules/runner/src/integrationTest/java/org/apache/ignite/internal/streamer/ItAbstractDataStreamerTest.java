@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -641,7 +642,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         Tuple resTuple = resultSubscriber.items.get(0);
 
         for (int i = 0; i < tuple.columnCount(); i++) {
-            assertEquals(tuple.value(i), (Object) resTuple.value(i));
+            Object origVal = tuple.value(i);
+            Object resVal = resTuple.value(i);
+
+            if (origVal instanceof byte[]) {
+                assertArrayEquals((byte[]) origVal, (byte[]) resVal);
+            } else {
+                assertEquals(origVal, resVal);
+            }
         }
     }
 
