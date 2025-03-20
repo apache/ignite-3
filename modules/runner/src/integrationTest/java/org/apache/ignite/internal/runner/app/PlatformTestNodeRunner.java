@@ -982,7 +982,7 @@ public class PlatformTestNodeRunner {
         }
     }
 
-    private static class ErrorCodeAsStringJob implements ComputeJob<Integer, String> {
+    private static class ExceptionCodeAsStringJob implements ComputeJob<Integer, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer arg) {
             var ex = new IgniteException(arg);

@@ -17,10 +17,26 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
+using System.Threading.Tasks;
+using Compute;
+using Ignite.Compute;
+using NUnit.Framework;
+
 /// <summary>
 /// Tests for <see cref="IgniteException.CodeAsString"/>.
 /// </summary>
 public class ExceptionCodeAsStringTests : IgniteTestsBase
 {
+    [Test]
+    public async Task TestCodeAsStringIsConsistentWithJava()
+    {
+        var dotNetEx = new IgniteException(Guid.Empty, ErrorGroups.Common.Internal, null);
+        var dotNetCodeStr = dotNetEx.CodeAsString;
 
+        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(), ComputeTests.ExceptionCodeAsStringJob, dotNetEx.Code);
+        var javaCodeStr = await jobExec.GetResultAsync();
+
+        Assert.AreEqual(javaCodeStr, dotNetCodeStr);
+    }
 }
