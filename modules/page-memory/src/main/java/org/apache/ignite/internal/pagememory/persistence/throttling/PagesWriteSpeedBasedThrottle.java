@@ -178,54 +178,10 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         assert cpLockStateChecker.checkpointLockIsHeldByThread();
 
         long startTimeNs = System.nanoTime();
-        boolean cpBufferOverflowThresholdExceeded = isCpBufferOverflowThresholdExceeded();
 
-        long throttleParkTimeNs = 0;
+        long throttleParkTimeNs = parkAndReturnParkingNanos(isPageInCheckpoint);
 
-        boolean parkingHappened = false;
-        if (isPageInCheckpoint && cpBufferOverflowThresholdExceeded) {
-            parkingHappened = true;
-
-            throttleParkTimeNs = cpBufferProtector.protectionParkTime();
-
-            doPark(throttleParkTimeNs);
-        } else {
-            if (isPageInCheckpoint) {
-                // The fact that we are here means that we checked whether CP Buffer is in danger zone and found that
-                // it is ok, so its protector may relax, hence we reset it.
-                cpBufferProtector.resetBackoff();
-            }
-
-            while (true) {
-                long nanos = System.nanoTime();
-
-                // TODO try using smallest value instead of matching reality with proposed time
-                //  make sure that unit tests work, because they fail from the most innocent changes
-                long currentParkTime = cleanPagesProtector.protectionParkTime(nanos);
-
-                if (currentParkTime < throttleParkTimeNs) {
-                    break;
-                }
-
-                parkingHappened = true;
-
-                if (currentParkTime > 0) {
-                    long actualParkNanos = Math.min(currentParkTime, PARKING_QUANTUM);
-
-                    throttleParkTimeNs += actualParkNanos;
-
-                    doPark(actualParkNanos);
-
-                    if (currentParkTime <= PARKING_QUANTUM) {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-
-        if (!parkingHappened) {
+        if (throttleParkTimeNs == NO_THROTTLING_MARKER) {
             return;
         }
 
@@ -236,6 +192,48 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNs));
 
         markSpeedAndAvgParkTime.addMeasurementForAverageCalculation(throttleParkTimeNs);
+    }
+
+    private long parkAndReturnParkingNanos(boolean isPageInCheckpoint) {
+        if (isPageInCheckpoint && isCpBufferOverflowThresholdExceeded()) {
+            long parkTimeNanos = cpBufferProtector.protectionParkTime();
+
+            doPark(parkTimeNanos);
+
+            return parkTimeNanos;
+        } else {
+            if (isPageInCheckpoint) {
+                // The fact that we are here means that we checked whether CP Buffer is in danger zone and found that
+                // it is ok, so its protector may relax, hence we reset it.
+                cpBufferProtector.resetBackoff();
+            }
+
+            long totalParkTimeNanos = 0L;
+
+            while (true) {
+                // TODO try using smallest value instead of matching reality with proposed time
+                //  make sure that unit tests work, because they fail from the most innocent changes
+                long currentParkNanos = cleanPagesProtector.protectionParkTime(System.nanoTime());
+
+                if (currentParkNanos == NO_THROTTLING_MARKER) {
+                    return totalParkTimeNanos == 0L ? NO_THROTTLING_MARKER : totalParkTimeNanos;
+                }
+
+                if (currentParkNanos <= totalParkTimeNanos) {
+                    return totalParkTimeNanos;
+                }
+
+                long realParkNanos = Math.min(currentParkNanos, PARKING_QUANTUM);
+
+                doPark(realParkNanos);
+
+                totalParkTimeNanos += realParkNanos;
+
+                if (currentParkNanos == realParkNanos) {
+                    return totalParkTimeNanos;
+                }
+            }
+        }
     }
 
     /**
