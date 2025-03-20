@@ -10,7 +10,7 @@ on:
       - 'modules/platforms/cpp/**'
 
 jobs:
-  build_wheels:
+  build_wheels_macos:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -24,17 +24,30 @@ jobs:
 
       - uses: actions/setup-python@v5
 
-      - name: Install UnixODBC
+      - name: Install UnixODBC on macOS
+        if: runner.os == 'macOS'
         run: brew install unixodbc
+
+      - name: Install UnixODBC on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt install unixodbc-dev
 
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.23.1
 
-      - name: Build wheels
+      - name: Build wheels macOS 14
+        if: matrix.os == 'macos-14'
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
         env:
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
           MACOSX_DEPLOYMENT_TARGET: 14.0
+
+      - name: Build wheels
+        if: matrix.os != 'macos-14'
+        run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
+        env:
+          CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+          MACOSX_DEPLOYMENT_TARGET: 13.0
 
       - uses: actions/upload-artifact@v4
         with:
