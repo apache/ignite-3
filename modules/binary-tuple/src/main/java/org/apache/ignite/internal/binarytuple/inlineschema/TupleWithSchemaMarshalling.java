@@ -40,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
 public final class TupleWithSchemaMarshalling {
     private static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
-    private static final int NESTED_TUPLE_FLAG = -1;
+    public static final int TYPE_ID_TUPLE = -1;
 
     /**
      * Marshal tuple in the following format (LITTLE_ENDIAN).
@@ -255,7 +255,7 @@ public final class TupleWithSchemaMarshalling {
 
     private static int getColumnTypeId(@Nullable Object value) {
         if (value instanceof Tuple) {
-            return NESTED_TUPLE_FLAG;
+            return TYPE_ID_TUPLE;
         } else {
             return inferType(value).id();
         }
@@ -321,7 +321,7 @@ public final class TupleWithSchemaMarshalling {
 
 
     private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, int colTypeId, int i) {
-        if (colTypeId == NESTED_TUPLE_FLAG) {
+        if (colTypeId == TYPE_ID_TUPLE) {
             byte[] nestedTupleBytes = reader.bytesValue(i);
             Tuple nestedTuple = unmarshal(nestedTupleBytes);
             tuple.set(colName, nestedTuple);
