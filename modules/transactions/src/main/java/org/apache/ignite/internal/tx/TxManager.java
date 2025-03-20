@@ -26,7 +26,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -146,23 +145,28 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @param ts The timestamp which is associated to txn completion.
      * @param commit {@code True} if a commit requested.
+     * @param timeoutExceeded {@code True} if a timeout exceeded. 'commit' and timeout must not be {@code} True at the same time.
      */
-    void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit);
+    void finishFull(
+            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    );
 
     /**
      * Finishes a dependant transactions.
      *
      * @param timestampTracker Observable timestamp tracker is used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
-     * @param commitPartition Partition to store a transaction state.
+     * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
      * @param commit {@code true} if a commit requested.
+     * @param timeoutExceeded {@code true} if a timeout exceeded.
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            TablePartitionId commitPartition,
+            @Nullable ReplicationGroupId commitPartition,
             boolean commit,
+            boolean timeoutExceeded,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
@@ -200,7 +204,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
+            ReplicationGroupId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -215,7 +219,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId);
+    CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId);
 
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.

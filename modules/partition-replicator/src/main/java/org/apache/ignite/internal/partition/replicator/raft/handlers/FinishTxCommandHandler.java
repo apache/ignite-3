@@ -21,18 +21,18 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -40,22 +40,23 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Handler for {@link FinishTxCommand}.
  */
-public class FinishTxCommandHandler {
+public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxCommand> {
     private static final IgniteLogger LOG = Loggers.forClass(FinishTxCommandHandler.class);
 
     private final TxStatePartitionStorage txStatePartitionStorage;
-    private final TablePartitionId replicationGroupId;
+    private final ReplicationGroupId replicationGroupId;
 
     private final RaftTxFinishMarker txFinishMarker;
 
     /** Constructor. */
     public FinishTxCommandHandler(
             TxStatePartitionStorage txStatePartitionStorage,
-            TablePartitionId replicationGroupId,
+            ReplicationGroupId replicationGroupId,
             TxManager txManager
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
@@ -64,30 +65,26 @@ public class FinishTxCommandHandler {
         txFinishMarker = new RaftTxFinishMarker(txManager);
     }
 
-    /**
-     * Handles a {@link FinishTxCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @param commandTerm Term of the RAFT command.
-     * @return The actually stored transaction state {@link TransactionResult}.
-     * @throws IgniteInternalException if an exception occurred during a transaction state change.
-     */
-    public IgniteBiTuple<Serializable, Boolean> handle(FinishTxCommand cmd, long commandIndex, long commandTerm)
-            throws IgniteInternalException {
+    @Override
+    protected CommandResult handleInternally(
+            FinishTxCommand command,
+            long commandIndex,
+            long commandTerm,
+            @Nullable HybridTimestamp safeTimestamp
+    ) throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {
-            return new IgniteBiTuple<>(null, false);
+            return CommandResult.EMPTY_NOT_APPLIED_RESULT;
         }
 
-        UUID txId = cmd.txId();
+        UUID txId = command.txId();
 
-        TxState stateToSet = cmd.commit() ? COMMITTED : ABORTED;
+        TxState stateToSet = command.commit() ? COMMITTED : ABORTED;
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                fromPartitionMessages(cmd.partitions()),
-                cmd.commitTimestamp()
+                fromPartitionMessages(command.partitions()),
+                command.commitTimestamp()
         );
 
         TxMeta txMetaBeforeCas = txStatePartitionStorage.get(txId);
@@ -101,7 +98,7 @@ public class FinishTxCommandHandler {
         );
 
         // Assume that we handle the finish command only on the commit partition.
-        txFinishMarker.markFinished(txId, cmd.commit(), cmd.commitTimestamp(), this.replicationGroupId);
+        txFinishMarker.markFinished(txId, command.commit(), command.commitTimestamp(), this.replicationGroupId);
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
@@ -111,7 +108,7 @@ public class FinishTxCommandHandler {
             onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
         }
 
-        return new IgniteBiTuple<>(new TransactionResult(stateToSet, cmd.commitTimestamp()), true);
+        return new CommandResult(new TransactionResult(stateToSet, command.commitTimestamp()), true);
     }
 
     private static List<EnlistedPartitionGroup> fromPartitionMessages(List<EnlistedPartitionGroupMessage> messages) {

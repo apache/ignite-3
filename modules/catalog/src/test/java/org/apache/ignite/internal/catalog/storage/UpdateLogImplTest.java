@@ -42,8 +42,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
-import org.apache.ignite.internal.catalog.storage.VersionedUpdate.VersionedUpdateSerializer;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdateSerializers.VersionedUpdateSerializerV1;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
@@ -59,8 +61,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -415,13 +415,13 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
     private static class TestEntrySerializerProvider implements CatalogEntrySerializerProvider {
         @Override
-        public CatalogObjectSerializer<MarshallableEntry> get(int id) {
+        public CatalogObjectSerializer<MarshallableEntry> get(int versionNotUsed, int id) {
             CatalogObjectSerializer<? extends MarshallableEntry> serializer;
 
             if (id < 0) {
                 serializer = new CatalogObjectSerializer<>() {
                     @Override
-                    public MarshallableEntry readFrom(IgniteDataInput input) throws IOException {
+                    public MarshallableEntry readFrom(CatalogObjectDataInput input) throws IOException {
                         int length = input.readVarIntAsInt();
                         byte[] data = input.readByteArray(length);
 
@@ -429,7 +429,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
                     }
 
                     @Override
-                    public void writeTo(MarshallableEntry value, IgniteDataOutput output) throws IOException {
+                    public void writeTo(MarshallableEntry value, CatalogObjectDataOutput output) throws IOException {
                         byte[] bytes = ByteUtils.toBytes(value);
 
                         output.writeVarInt(bytes.length);
@@ -437,12 +437,17 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
                     }
                 };
             } else if (id == MarshallableEntryType.VERSIONED_UPDATE.id()) {
-                serializer = new VersionedUpdateSerializer(this);
+                serializer = new VersionedUpdateSerializerV1(this);
             } else {
-                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(id);
+                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(2, id);
             }
 
             return (CatalogObjectSerializer<MarshallableEntry>) serializer;
+        }
+
+        @Override
+        public int latestSerializerVersion(int typeId) {
+            return 2;
         }
     }
 }

@@ -26,13 +26,11 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -97,12 +95,12 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
-        return transaction.assignCommitPartition(tablePartitionId);
+    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+        return transaction.assignCommitPartition(commitPartitionId);
     }
 
     @Override
-    public TablePartitionId commitPartition() {
+    public ReplicationGroupId commitPartition() {
         return transaction.commitPartition();
     }
 
@@ -110,10 +108,10 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     public void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,
-            ClusterNode primaryNode,
+            String primaryNodeConsistentId,
             long consistencyToken
     ) {
-        transaction.enlist(replicationGroupId, tableId, primaryNode, consistencyToken);
+        transaction.enlist(replicationGroupId, tableId, primaryNodeConsistentId, consistencyToken);
     }
 
     @Override
@@ -137,8 +135,8 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
-        return transaction.finish(commit, executionTimestamp, full);
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
+        return transaction.finish(commit, executionTimestamp, full, timeoutExceeded);
     }
 
     @Override
@@ -147,8 +145,13 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public long timeout() {
-        return transaction.timeout();
+    public long getTimeout() {
+        return transaction.getTimeout();
+    }
+
+    @Override
+    public long getTimeoutOrDefault(long defaultTimeout) {
+        return transaction.getTimeoutOrDefault(defaultTimeout);
     }
 
     @Override
@@ -159,5 +162,15 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     @Override
     public CompletableFuture<Void> kill() {
         return transaction.kill();
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        return transaction.rollbackTimeoutExceededAsync();
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return transaction.isRolledBackWithTimeoutExceeded();
     }
 }

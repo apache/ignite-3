@@ -418,6 +418,9 @@ public class ErrorGroups {
          * read timestamp of the transaction.
          */
         public static final int TX_STALE_READ_ONLY_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
+
+        /** Operation failed because the transaction is already finished with timeout. */
+        public static final int TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode((short) 16);
     }
 
     /** Replicator error group. */
@@ -497,6 +500,9 @@ public class ErrorGroups {
 
         /** Could not resolve address. */
         public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Duplicate consistent ID. */
+        public static final int DUPLICATE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Node configuration error group. */

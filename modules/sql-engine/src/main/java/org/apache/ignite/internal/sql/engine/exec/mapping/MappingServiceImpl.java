@@ -42,11 +42,13 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
@@ -80,6 +82,8 @@ public class MappingServiceImpl implements MappingService {
     private final Supplier<Long> logicalTopologyVerSupplier;
     private final ExecutionDistributionProvider distributionProvider;
 
+    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+
     /**
      * Constructor.
      *
@@ -112,7 +116,14 @@ public class MappingServiceImpl implements MappingService {
     /** Called when the primary replica has expired. */
     public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         assert parameters != null;
-        assert parameters.groupId() instanceof TablePartitionId;
+
+        assert enabledColocation ? parameters.groupId() instanceof ZonePartitionId : parameters.groupId() instanceof TablePartitionId
+                : parameters.groupId();
+
+        if (parameters.groupId() instanceof ZonePartitionId) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-24679 - remove mappings from cache for zone partitions.
+            return CompletableFutures.falseCompletedFuture();
+        }
 
         int tabId = ((TablePartitionId) parameters.groupId()).tableId();
 
@@ -322,7 +333,7 @@ public class MappingServiceImpl implements MappingService {
         Stream<IntObjectPair<ExecutionTarget>> tableTargets = template.fragments.stream().flatMap(fragment ->
                 fragment.tables().values().stream()
                         .map(table -> IntObjectPair.of(table.id(),
-                                buildTargetforTable(targetFactory, distr.tableAssignments(table.id())))));
+                                targetFactory.partitioned(distr.tableAssignments(table.id())))));
 
         Stream<IntObjectPair<ExecutionTarget>> viewTargets = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
                 .map(view -> IntObjectPair.of(view.id(), buildTargetForSystemView(targetFactory, view, distr.viewNodes(view.id())))));
@@ -339,10 +350,6 @@ public class MappingServiceImpl implements MappingService {
         return view.distribution() == IgniteDistributions.single()
                 ? factory.oneOf(nodes)
                 : factory.allOf(nodes);
-    }
-
-    private static ExecutionTarget buildTargetforTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
-        return factory.partitioned(assignments);
     }
 
     private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {

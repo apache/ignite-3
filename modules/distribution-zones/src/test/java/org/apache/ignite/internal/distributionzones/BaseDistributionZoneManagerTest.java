@@ -22,20 +22,20 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -49,8 +49,11 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -68,6 +71,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /** Base class for {@link DistributionZoneManager} unit tests. */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
+    private static final int DELAY_DURATION_MS = 100;
+
     protected static final String ZONE_NAME = "zone1";
 
     protected static final long ZONE_MODIFICATION_AWAIT_TIMEOUT = 10_000L;
@@ -84,7 +89,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected MetaStorageManager metaStorageManager;
 
-    private final HybridClock clock = new HybridClockImpl();
+    protected final HybridClock clock = new HybridClockImpl();
 
     protected CatalogManager catalogManager;
 
@@ -117,11 +122,12 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
-        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager, () -> DELAY_DURATION_MS);
         components.add(catalogManager);
 
-        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(nodeName, "test-rebalance-scheduler", logger()));
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(nodeName, "distribution-zone-manager-test-scheduled-executor", log)
+        );
 
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
@@ -129,8 +135,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,
-                rebalanceScheduler,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                new TestClockService(clock, new ClockWaiter(nodeName, clock, scheduledExecutorService))
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
@@ -223,9 +229,15 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
     }
 
-    protected CatalogZoneDescriptor getDefaultZone() {
-        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+    protected CatalogZoneDescriptor zoneDescriptor(String zoneName, HybridTimestamp timestamp) {
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(timestamp.longValue()).zone(zoneName);
 
-        return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
+        assertNotNull(zoneDescriptor);
+
+        return zoneDescriptor;
+    }
+
+    protected CatalogZoneDescriptor getDefaultZone() {
+        return CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
     }
 }

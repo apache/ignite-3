@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -52,6 +53,8 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
 import org.apache.ignite.internal.disaster.system.storage.NoOpMetastorageRepairStorage;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -218,6 +221,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      * @param raftGroupOptionsConfigurer Configures MS RAFT options.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      * @param ioExecutor Executor to which I/O operations can be offloaded from network threads.
+     * @param failureManager Failure manager to use when reporting failures.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -232,7 +236,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetastorageRepair metastorageRepair,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            Executor ioExecutor
+            Executor ioExecutor,
+            FailureManager failureManager
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -240,7 +245,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
         this.clock = clock;
-        this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock);
+        this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock, failureManager);
         this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
@@ -317,7 +322,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 (nodes, mgReplicationFactor) -> nullCompletedFuture(),
                 raftGroupOptionsConfigurer,
                 tracker,
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                new FailureManager(new NoOpFailureHandler())
         );
 
         configure(configuration);
@@ -863,6 +869,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
+    public Entry getLocally(ByteArray key) {
+        return inBusyLock(busyLock, () -> storage.get(key.bytes()));
+    }
+
+    @Override
     public Entry getLocally(ByteArray key, long revUpperBound) {
         return inBusyLock(busyLock, () -> storage.get(key.bytes(), revUpperBound));
     }
@@ -870,6 +881,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
         return inBusyLock(busyLock, () -> storage.range(startKey.bytes(), endKey == null ? null : endKey.bytes(), revUpperBound));
+    }
+
+    @Override
+    public List<Entry> getAllLocally(List<ByteArray> keys) {
+        var k = new ArrayList<byte[]>(keys.size());
+
+        for (int i = 0; i < keys.size(); i++) {
+            k.add(keys.get(i).bytes());
+        }
+
+        return inBusyLock(busyLock, () -> storage.getAll(k));
     }
 
     @Override

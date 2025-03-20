@@ -65,7 +65,6 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = new Compactor(
                 log,
                 "test",
-                null,
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
@@ -97,7 +96,6 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = new Compactor(
                 log,
                 "test",
-                null,
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
@@ -122,7 +120,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
 
         verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(0L), eq(0L), any(ByteBuffer.class), anyBoolean());
-        verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class), anyBoolean());
+        verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class));
 
         verify(filePageStore, times(1)).sync();
         verify(filePageStore, times(1)).removeDeltaFile(eq(deltaFilePageStoreIo));
@@ -150,7 +148,6 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                null,
                 threadsConfig(1),
                 filePageStoreManager,
                 PAGE_SIZE,
@@ -183,7 +180,6 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                null,
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
@@ -209,7 +205,6 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                null,
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
@@ -229,7 +224,6 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                null,
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,

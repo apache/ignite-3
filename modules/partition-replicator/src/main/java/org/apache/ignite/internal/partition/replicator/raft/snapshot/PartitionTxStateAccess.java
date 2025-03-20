@@ -20,7 +20,9 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
@@ -65,6 +67,11 @@ public interface PartitionTxStateAccess {
     @Nullable LeaseInfo leaseInfo();
 
     /**
+     * Returns the last saved snapshot information or {@code null} if it was never saved.
+     */
+    @Nullable PartitionSnapshotInfo snapshotInfo();
+
+    /**
      * Prepares the TX storage for rebalance with the same guarantees and requirements as {@link PartitionMvStorageAccess#startRebalance}.
      */
     CompletableFuture<Void> startRebalance();
@@ -79,5 +86,5 @@ public interface PartitionTxStateAccess {
      * Completes rebalancing of the TX storage with the same guarantees and requirements as
      * {@link PartitionMvStorageAccess#finishRebalance}.
      */
-    CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta);
+    CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta);
 }

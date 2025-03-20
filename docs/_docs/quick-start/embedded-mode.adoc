@@ -46,13 +46,13 @@ First, you need to add Ignite to your project. The easiest way to do this is add
 
 <dependencies>
     <dependency>
-        <groupId>org.ignite</groupId>
+        <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-api</artifactId>
         <version>3.0.0</version>
     </dependency>
 
     <dependency>
-        <groupId>org.ignite</groupId>
+        <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-runner</artifactId>
         <version>3.0.0</version>
     </dependency>

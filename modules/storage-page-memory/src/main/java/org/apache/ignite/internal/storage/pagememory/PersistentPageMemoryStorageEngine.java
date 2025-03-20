@@ -39,6 +39,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -71,6 +73,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryStorageEngine.class);
 
     private final String igniteInstanceName;
+
+    private final MetricManager metricManager;
 
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
@@ -104,18 +108,17 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      * Constructor.
      *
      * @param igniteInstanceName Ignite instance name.
-     * @param engineConfig PageMemory storage engine configuration.
      * @param storageConfig Storage engine and storage profiles configurations.
      * @param ioRegistry IO registry.
      * @param storagePath Storage path.
-     * @param failureManager Failure processor that is used to handle critical errors.
      * @param longJvmPauseDetector Long JVM pause detector.
+     * @param failureManager Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
      * @param clock Hybrid Logical Clock.
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            MetricManager metricManager,
             StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
@@ -127,8 +130,9 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         super(clock);
 
         this.igniteInstanceName = igniteInstanceName;
-        this.engineConfig = engineConfig;
+        this.metricManager = metricManager;
         this.storageConfig = storageConfig;
+        this.engineConfig = ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
@@ -169,7 +173,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         try {
             checkpointManager = new CheckpointManager(
                     igniteInstanceName,
-                    null,
                     longJvmPauseDetector,
                     failureManager,
                     engineConfig.checkpoint(),
@@ -300,6 +303,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         int pageSize = engineConfig.pageSize().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
+                metricManager,
                 storageProfileConfiguration,
                 ioRegistry,
                 filePageStoreManager,

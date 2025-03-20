@@ -30,7 +30,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.RaftSnapshotPartitionMeta;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -40,7 +39,9 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -135,7 +136,14 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion) {
+    public void addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId,
+            int catalogVersion
+    ) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage();
 
         List<IndexIdAndTableVersion> indexIdAndTableVersionList = fullStateTransferIndexChooser.chooseForAddWrite(
@@ -149,7 +157,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+            mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
             for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
                 indexUpdateHandler.addToIndex(indexIdAndBinaryRow.binaryRow(), rowId, indexIdAndBinaryRow.indexId());
@@ -195,18 +203,8 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
     }
 
     @Override
-    public long leaseStartTime() {
-        return getMvPartitionStorage().leaseStartTime();
-    }
-
-    @Override
-    public @Nullable UUID primaryReplicaNodeId() {
-        return getMvPartitionStorage().primaryReplicaNodeId();
-    }
-
-    @Override
-    public @Nullable String primaryReplicaNodeName() {
-        return getMvPartitionStorage().primaryReplicaNodeName();
+    public @Nullable LeaseInfo leaseInfo() {
+        return getMvPartitionStorage().leaseInfo();
     }
 
     @Override
@@ -222,9 +220,10 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta) {
-        return mvTableStorage.finishRebalancePartition(partitionId(), partitionMeta.toMvPartitionMeta(partitionMeta.raftGroupConfig()))
-                .thenAccept(unused -> mvGc.addStorage(tablePartitionId(), gcUpdateHandler));
+    public CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta) {
+        return mvTableStorage.finishRebalancePartition(partitionId(), partitionMeta)
+                .thenAccept(v -> mvGc.addStorage(tablePartitionId(), gcUpdateHandler))
+                .thenCompose(v -> getMvPartitionStorage().flush());
     }
 
     @Override

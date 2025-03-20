@@ -21,16 +21,21 @@ import static java.util.Collections.emptySet;
 import static java.util.Map.of;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -52,7 +57,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -63,7 +67,11 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
-import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZoneTimer;
+import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -73,25 +81,33 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 
 /** Parent for tests of HA zones feature. */
+// TODO https://issues.apache.org/jira/browse/IGNITE-24144
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
     static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
@@ -222,7 +238,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
 
                             ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
-                            ByteArray pendingKey = pendingPartAssignmentsKey(tablePartitionId);
+                            ByteArray pendingKey = pendingPartAssignmentsQueueKey(tablePartitionId);
                             ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
 
                             Map<ByteArray, Entry> results = await(gatewayNode.metaStorageManager()
@@ -233,7 +249,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                             boolean isPlannedEmpty = results.get(plannedKey).value() == null;
 
                             stableNodes.set(assignmentsFromEntry(results.get(stableKey)));
-                            pendingNodes.set(assignmentsFromEntry(results.get(pendingKey)));
+                            pendingNodes.set(assignmentsFromPendingEntry(results.get(pendingKey)));
                             plannedNodes.set(assignmentsFromEntry(results.get(plannedKey)));
 
                             return isStableAsExpected && isPendingEmpty && isPlannedEmpty;
@@ -254,6 +270,15 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private static Set<String> assignmentsFromEntry(Entry entry) {
         return (entry.value() != null)
                 ? Assignments.fromBytes(entry.value()).nodes()
+                        .stream()
+                        .map(Assignment::consistentId)
+                        .collect(Collectors.toUnmodifiableSet())
+                : emptySet();
+    }
+
+    private static Set<String> assignmentsFromPendingEntry(Entry entry) {
+        return (entry.value() != null)
+                ? AssignmentsQueue.fromBytes(entry.value()).poll().nodes()
                         .stream()
                         .map(Assignment::consistentId)
                         .collect(Collectors.toUnmodifiableSet())
@@ -361,10 +386,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(gatewayNode).empty(), timeoutMillis));
     }
 
-    void stopNodes(Integer... nodes) {
-        Arrays.stream(nodes).forEach(this::stopNode);
-    }
-
     static void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeoutSeconds) {
         CompletableFuture<Void> changeFuture = gatewayNode
                 .clusterConfiguration()
@@ -377,40 +398,51 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         assertThat(changeFuture, willCompleteSuccessfully());
     }
 
-    final long waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(
-            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopologyUpdate
+    final long waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(
+            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopologyReduction
     ) throws InterruptedException {
         int zoneId = zoneIdByName(gatewayNode.catalogManager(), zoneName);
 
-        AtomicLong revision = new AtomicLong();
-
         assertTrue(waitForCondition(() -> {
-            var state = gatewayNode
-                    .distributionZoneManager()
-                    .zonesState()
-                    .get(zoneId);
+            Entry e = gatewayNode.metaStorageManager().getLocally(zoneScaleDownTimerKey(zoneId));
 
-            if (state != null) {
-                var lastEntry = state.topologyAugmentationMap().lastEntry();
-
-                var isTheSameAsTarget = lastEntry.getValue().nodes()
-                        .stream()
-                        .map(Node::nodeName)
-                        .collect(Collectors.toUnmodifiableSet())
-                        .equals(targetTopologyUpdate);
-
-                if (isTheSameAsTarget) {
-                    revision.set(lastEntry.getKey());
-                }
-
-                return isTheSameAsTarget;
+            if (e == null || e.value() == null) {
+                return false;
             }
-            return false;
+
+            DistributionZoneTimer scaleDownTimer = DistributionZoneTimerSerializer.deserialize(e.value());
+
+            return scaleDownTimer.nodes().stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(Collectors.toUnmodifiableSet())
+                    .containsAll(targetTopologyReduction);
         }, 10_000));
 
-        assert revision.get() != 0;
+        return gatewayNode.metaStorageManager().appliedRevision();
+    }
 
-        return revision.get();
+    long waitForRev(
+            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopology
+    ) throws InterruptedException {
+        int zoneId = zoneIdByName(gatewayNode.catalogManager(), zoneName);
+
+        assertTrue(waitForCondition(() -> {
+            Entry e = gatewayNode.metaStorageManager().getLocally(zoneDataNodesHistoryKey(zoneId));
+
+            if (e == null || e.value() == null) {
+                return false;
+            }
+
+            DataNodesHistory history = DataNodesHistorySerializer.deserialize(e.value());
+
+            return history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes()
+                    .stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(Collectors.toSet())
+                    .equals(targetTopology);
+        }, 10_000));
+
+        return gatewayNode.metaStorageManager().appliedRevision();
     }
 
     private void awaitForAllNodesTableGroupInitialization(Set<Integer> tableIds, int replicas) throws InterruptedException {
@@ -485,10 +517,24 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         }
     }
 
-    void assertValuesNotPresentOnNodes(HybridTimestamp ts, Table table, Integer... indexes) {
+    void assertPartitionsAreEmpty(String tableName,  Set<Integer> partitionIds, Integer... indexes) throws InterruptedException {
         for (Integer index : indexes) {
-            assertValuesOnNode(table, ts, index, rowFut -> rowFut.join() == null);
+            for (Integer partId : partitionIds) {
+                assertTrue(waitForCondition(() -> partitionIsEmpty(index, tableName, partId), 10_000));
+            }
         }
+    }
+
+    private boolean partitionIsEmpty(Integer index, String tableName, int partId) {
+        IgniteImpl targetNode = unwrapIgniteImpl(node(index));
+        TableManager tableManager = unwrapTableManager(targetNode.tables());
+
+        MvPartitionStorage storage = tableManager.tableView(QualifiedName.fromSimple(tableName))
+                .internalTable()
+                .storage()
+                .getMvPartition(partId);
+
+        return storage == null || bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(partId))) == null;
     }
 
     private void assertValuesOnNode(

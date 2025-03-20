@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -63,6 +64,7 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetada
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCancelRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
@@ -133,6 +135,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
@@ -220,6 +223,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final Map<HandshakeExtension, Object> extensions;
 
+    private final Executor commonExecutor;
+
+    private final Map<Long, CancelHandle> cancelHandles = new ConcurrentHashMap<>();
+
     /**
      * Constructor.
      *
@@ -239,6 +246,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
+     * @param commonExecutor Common executor used by SQL script handler.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -257,7 +265,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientPrimaryReplicaTracker primaryReplicaTracker,
             Executor partitionOperationsExecutor,
             BitSet features,
-            Map<HandshakeExtension, Object> extensions
+            Map<HandshakeExtension, Object> extensions,
+            Executor commonExecutor
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -304,6 +313,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         this.features = features;
         this.extensions = extensions;
+
+        this.commonExecutor = commonExecutor;
     }
 
     @Override
@@ -817,7 +828,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics);
+                return ClientSqlExecuteRequest.process(in, out, requestId, cancelHandles, queryProcessor, resources, metrics);
+
+            case ClientOp.SQL_CANCEL_EXEC:
+                return ClientSqlCancelRequest.process(in, out, cancelHandles);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, out, resources);
@@ -832,7 +846,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
-                return ClientSqlExecuteScriptRequest.process(in, out, queryProcessor);
+                return ClientSqlExecuteScriptRequest.process(in, out, queryProcessor, commonExecutor, requestId, cancelHandles);
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
@@ -1115,5 +1129,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     @TestOnly
     public ClientResourceRegistry resources() {
         return resources;
+    }
+
+    @TestOnly
+    public int cancelHandlesCount() {
+        return cancelHandles.size();
     }
 }

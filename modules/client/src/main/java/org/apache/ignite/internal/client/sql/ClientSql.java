@@ -41,7 +41,9 @@ import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -179,20 +181,19 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public void executeScript(String query, @Nullable Object... arguments) {
-        Objects.requireNonNull(query);
-
-        try {
-            executeScriptAsync(query, arguments).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        executeScript(null, query, arguments);
     }
 
     /** {@inheritDoc} */
     @Override
     public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Support cancellation token.
-        throw new UnsupportedOperationException();
+        Objects.requireNonNull(query);
+
+        try {
+            executeScriptAsync(cancellationToken, query, arguments).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /** {@inheritDoc} */
@@ -261,6 +262,10 @@ public class ClientSql implements IgniteSql {
             w.out().packObjectArrayAsBinaryTuple(arguments);
 
             w.out().packLong(ch.observableTimestamp());
+
+            if (cancellationToken != null) {
+                addCancelAction(cancellationToken, w.requestId());
+            }
         };
 
         PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), marshallers, r.in(), mapper);
@@ -323,6 +328,13 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
+        return executeScriptAsync(null, query, arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> executeScriptAsync(@Nullable CancellationToken cancellationToken, String query,
+            @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
         PayloadWriter payloadWriter = w -> {
@@ -337,17 +349,32 @@ public class ClientSql implements IgniteSql {
             w.out().packString(query);
             w.out().packObjectArrayAsBinaryTuple(arguments);
             w.out().packLong(ch.observableTimestamp());
+
+            if (cancellationToken != null) {
+                addCancelAction(cancellationToken, w.requestId());
+            }
         };
 
         return ch.serviceAsync(ClientOp.SQL_EXEC_SCRIPT, payloadWriter, null);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> executeScriptAsync(@Nullable CancellationToken cancellationToken, String query,
-            @Nullable Object... arguments) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Support cancellation token.
-        throw new UnsupportedOperationException();
+    private void addCancelAction(CancellationToken cancellationToken, long correlationToken) {
+        CompletableFuture<Void> cancelFuture = new CompletableFuture<>();
+
+        if (CancelHandleHelper.isCancelled(cancellationToken)) {
+            throw new SqlException(Sql.EXECUTION_CANCELLED_ERR, "The query was cancelled while executing.");
+        }
+
+        Runnable cancelAction = () -> ch.serviceAsync(ClientOp.SQL_CANCEL_EXEC, w -> w.out().packLong(correlationToken), null)
+                .whenComplete((r, e) -> {
+                    if (e != null) {
+                        cancelFuture.completeExceptionally(e);
+                    } else {
+                        cancelFuture.complete(null);
+                    }
+                });
+
+        CancelHandleHelper.addCancelAction(cancellationToken, cancelAction, cancelFuture);
     }
 
     private static void packProperties(

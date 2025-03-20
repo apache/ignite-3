@@ -128,6 +128,11 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
+    public int zoneId() {
+        return 0;
+    }
+
+    @Override
     public QualifiedName name() {
         return tableName;
     }
@@ -413,7 +418,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -455,7 +460,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             UUID txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,

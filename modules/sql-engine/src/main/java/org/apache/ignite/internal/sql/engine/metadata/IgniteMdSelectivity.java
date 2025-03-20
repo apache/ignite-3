@@ -37,8 +37,10 @@ import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -108,7 +110,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      * OR(<($t3, 110), >($t3, 150), AND(>=($t2, -($t1, 2)), <=($t2, +($t3, 2))), >($t4, $t2), <($t4, $t3)) selectivity computes separately
      * for each local ref with AND selectivity adjustment. <br>
      */
-    private static double computeOrSelectivity(RexCall call, @Nullable BitSet primaryKeys) {
+    private static double computeOrSelectivity(RexCall call, @Nullable BitSet primaryKeys, @Nullable Mapping columnMapping) {
         List<RexNode> operands = call.operands;
         List<RexNode> andOperands = new ArrayList<>();
         List<RexNode> otherOperands = new ArrayList<>();
@@ -132,10 +134,10 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         // AND inside OR
         for (RexNode andOp : andOperands) {
             baseSelectivity = Math.max(baseSelectivity, guessAndSelectivity(andOp, primaryKeys == null
-                    ? null : (BitSet) primaryKeys.clone()));
+                    ? null : (BitSet) primaryKeys.clone(), columnMapping));
         }
 
-        List<RexNode> operandsToProcess = otherOperands.isEmpty() ? call.getOperands() : otherOperands;
+        List<RexNode> operandsToProcess = andConsist ? otherOperands : call.getOperands();
 
         for (RexNode node : operandsToProcess) {
             RexNode ref = getLocalRef(node);
@@ -191,9 +193,14 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
 
         ImmutableIntList keyColumns;
         BitSet primaryKeys = null;
+        Mapping columnMapping = null;
 
         // sys view is possible here
         if (table != null) {
+            int colCount = table.getRowType(Commons.typeFactory()).getFieldCount();
+            ImmutableBitSet requiredCols = rel.requiredColumns() == null ? ImmutableBitSet.range(colCount) : rel.requiredColumns();
+            columnMapping = Commons.trimmingMapping(colCount, requiredCols);
+
             keyColumns = table.keyColumns();
             primaryKeys = new BitSet();
 
@@ -213,17 +220,17 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
 
             if (predicateExpanded.isA(SqlKind.OR)) {
                 double processed = computeOrSelectivity((RexCall) predicateExpanded, primaryKeys == null
-                        ? null : (BitSet) primaryKeys.clone());
+                        ? null : (BitSet) primaryKeys.clone(), columnMapping);
                 sel *= processed;
             } else {
-                sel *= computeSelectivity(predicateExpanded, primaryKeys);
+                sel *= computeSelectivity(predicateExpanded, primaryKeys, columnMapping);
             }
         }
 
         return sel * artificialSel;
     }
 
-    private static double guessAndSelectivity(@Nullable RexNode predicate, @Nullable BitSet keyColumns) {
+    private static double guessAndSelectivity(@Nullable RexNode predicate, @Nullable BitSet keyColumns, @Nullable Mapping columnMapping) {
         double sel = 1.0;
         if ((predicate == null) || predicate.isAlwaysTrue()) {
             return sel;
@@ -232,13 +239,13 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         List<RexNode> conjunctions = RelOptUtil.conjunctions(predicate);
 
         for (RexNode pred : conjunctions) {
-            sel *= computeSelectivity(pred, keyColumns);
+            sel *= computeSelectivity(pred, keyColumns, columnMapping);
         }
 
         return sel;
     }
 
-    private static double computeSelectivity(RexNode predicate, @Nullable BitSet keyColumns) {
+    private static double computeSelectivity(RexNode predicate, @Nullable BitSet keyColumns, @Nullable Mapping columnMapping) {
         double sel = 1.0;
         double artificialSel = 1.0;
 
@@ -251,10 +258,11 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             artificialSel *= RelMdUtil.getSelectivityValue(predicate);
         } else if (predicate.isA(SqlKind.EQUALS)) {
             if (keyColumns != null) {
+                assert columnMapping != null;
                 RexLocalRef localRef = getLocalRef(predicate);
 
                 if (localRef != null) {
-                    keyColumns.clear(localRef.getIndex());
+                    keyColumns.clear(columnMapping.getSource(localRef.getIndex()));
                     if (keyColumns.isEmpty()) {
                         return 0.0;
                     }

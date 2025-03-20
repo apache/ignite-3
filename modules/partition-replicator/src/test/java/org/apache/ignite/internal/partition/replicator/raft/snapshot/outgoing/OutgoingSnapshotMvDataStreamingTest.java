@@ -59,7 +59,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -155,14 +154,18 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         rowIdOutOfOrder = id;
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24517")
     @Test
-    void sendsEmptyResponseForEmptyMvData() {
+    void sendsEmptyResponseForEmptyMvData(
+            @Mock PartitionTxStateAccess txStateAccess,
+            @Mock RaftGroupConfiguration raftGroupConfiguration
+    ) {
+        when(txStateAccess.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
+
         snapshot = new OutgoingSnapshot(
                 UUID.randomUUID(),
                 partitionKey,
                 Int2ObjectMaps.emptyMap(),
-                mock(PartitionTxStateAccess.class),
+                txStateAccess,
                 catalogService
         );
 
@@ -201,7 +204,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowId1.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
-        assertThat(responseRow.commitTableId(), is(commitTableId));
+        assertThat(responseRow.commitTableOrZoneId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
@@ -353,7 +356,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowIdOutOfOrder.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
-        assertThat(responseRow.commitTableId(), is(commitTableId));
+        assertThat(responseRow.commitTableOrZoneId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));

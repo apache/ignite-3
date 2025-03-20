@@ -19,18 +19,14 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 
-import java.io.IOException;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Distribution zone descriptor base class.
  */
-public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
-    public static final CatalogObjectSerializer<CatalogZoneDescriptor> SERIALIZER = new ZoneDescriptorSerializer();
-
+public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements MarshallableEntry {
     /** Amount of zone partitions. */
     private final int partitions;
 
@@ -115,7 +111,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param filter Nodes filter.
      * @param causalityToken Token of the update of the descriptor.
      */
-    private CatalogZoneDescriptor(
+    CatalogZoneDescriptor(
             int id,
             String name,
             int partitions,
@@ -203,60 +199,12 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     @Override
-    public String toString() {
-        return S.toString(CatalogZoneDescriptor.class, this, super.toString());
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_ZONE.id();
     }
 
-    /**
-     * Serializer for {@link CatalogZoneDescriptor}.
-     */
-    private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
-        @Override
-        public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readVarIntAsInt();
-            String name = input.readUTF();
-            long updateToken = input.readVarInt();
-
-            CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = CatalogStorageProfilesDescriptor.SERIALIZER.readFrom(input);
-
-            int partitions = input.readVarIntAsInt();
-            int replicas = input.readVarIntAsInt();
-            int dataNodesAutoAdjust = input.readVarIntAsInt();
-            int dataNodesAutoAdjustScaleUp = input.readVarIntAsInt();
-            int dataNodesAutoAdjustScaleDown = input.readVarIntAsInt();
-            String filter = input.readUTF();
-            ConsistencyMode consistencyMode = ConsistencyMode.forId(input.readByte());
-
-            return new CatalogZoneDescriptor(
-                    id,
-                    name,
-                    partitions,
-                    replicas,
-                    dataNodesAutoAdjust,
-                    dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown,
-                    filter,
-                    catalogStorageProfilesDescriptor,
-                    updateToken,
-                    consistencyMode
-            );
-        }
-
-        @Override
-        public void writeTo(CatalogZoneDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeVarInt(descriptor.id());
-            output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
-
-            CatalogStorageProfilesDescriptor.SERIALIZER.writeTo(descriptor.storageProfiles(), output);
-
-            output.writeVarInt(descriptor.partitions());
-            output.writeVarInt(descriptor.replicas());
-            output.writeVarInt(descriptor.dataNodesAutoAdjust());
-            output.writeVarInt(descriptor.dataNodesAutoAdjustScaleUp());
-            output.writeVarInt(descriptor.dataNodesAutoAdjustScaleDown());
-            output.writeUTF(descriptor.filter());
-            output.writeByte(descriptor.consistencyMode().id());
-        }
+    @Override
+    public String toString() {
+        return S.toString(CatalogZoneDescriptor.class, this, super.toString());
     }
 }

@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +71,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond1.keys(), cond2.keys()), cond.keys());
         assertTrue(cond.test(entries));
         verify(cond1, times(1)).test(Arrays.copyOf(entries, 2));
-        verify(cond2, times(1)).test(Arrays.copyOfRange(entries, 2, 3));
+        verify(cond2, never()).test(any(Entry[].class));
     }
 
     @Test
@@ -80,7 +81,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond2.keys(), cond3.keys()), cond.keys());
         assertTrue(cond.test(entries));
         verify(cond2, times(1)).test(Arrays.copyOf(entries, 1));
-        verify(cond3, times(1)).test(Arrays.copyOfRange(entries, 1, 3));
+        verify(cond3, never()).test(any(Entry[].class));
     }
 
     @Test
@@ -95,7 +96,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testFalseFalse() {
-        var cond = new AndCondition(cond3, cond4);
+        var cond = new OrCondition(cond3, cond4);
 
         assertArrayEquals(ArrayUtils.concat(cond3.keys(), cond4.keys()), cond.keys());
         assertFalse(cond.test(entries));
@@ -108,7 +109,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
 
         when(m.keys()).thenReturn(keys);
 
-        when(m.test(any())).thenReturn(result);
+        when(m.test(any(Entry[].class))).thenReturn(result);
 
         return m;
     }

@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,11 +32,9 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -162,17 +158,14 @@ public class TxMessageSender {
      */
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
-            TablePartitionId commitPartition,
+            ReplicationGroupId commitPartition,
             Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             Long consistencyToken,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        TablePartitionIdMessage commitPartitionIdMessage = REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
-                .partitionId(commitPartition.partitionId())
-                .tableId(commitPartition.tableId())
-                .build();
+        ReplicationGroupIdMessage commitPartitionIdMessage = toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition);
 
         return replicaService.invoke(
                 primaryConsistentId,
@@ -180,11 +173,7 @@ public class TxMessageSender {
                         .txId(txId)
                         .commitPartitionId(commitPartitionIdMessage)
                         .timestamp(clockService.now())
-                        // TODO Dirty hack within colocation track only. Remove after https://issues.apache.org/jira/browse/IGNITE-24343
-                        .groupId(enabledColocation()
-                                ? toReplicationGroupIdMessage(
-                                REPLICA_MESSAGES_FACTORY, enlistedPartitions.entrySet().iterator().next().getKey())
-                                : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
+                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toEnlistedPartitionMessagesByGroupId(enlistedPartitions))
                         .commit(commit)
                         .commitTimestamp(commitTimestamp)
@@ -205,16 +194,17 @@ public class TxMessageSender {
     public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
             String primaryConsistentId,
             UUID txId,
-            TablePartitionId commitGrpId,
+            ReplicationGroupId commitGrpId,
             Long consistencyToken
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
-                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
+                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
                         .txId(txId)
                         .enlistmentConsistencyToken(consistencyToken)
-                        .build());
+                        .build()
+        );
     }
 
     /**
@@ -248,14 +238,14 @@ public class TxMessageSender {
      * Send TxCleanupRecoveryRequest.
      *
      * @param primaryConsistentId Node id to send the request to.
-     * @param tablePartitionId Table partition id.
+     * @param replicationGroupId Replication group ID corresponding to a partition.
      * @return Completable future of ReplicaResponse.
      */
-    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, TablePartitionId tablePartitionId) {
+    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, ReplicationGroupId replicationGroupId) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txCleanupRecoveryRequest()
-                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
+                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
                         .build()
         );
     }

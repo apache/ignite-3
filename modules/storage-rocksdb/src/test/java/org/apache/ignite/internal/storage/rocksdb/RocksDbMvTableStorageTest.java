@@ -39,7 +39,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -61,15 +61,13 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.flushDelayMillis = 0")
-            RocksDbStorageEngineConfiguration engineConfig,
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
             @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
             StorageConfiguration storageConfiguration,
             @InjectExecutorService
             ScheduledExecutorService scheduledExecutor
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
+        engine = new RocksDbStorageEngine("test", storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
 
         engine.start();
 
@@ -145,14 +143,13 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID);
 
         RowId rowId0 = new RowId(PARTITION_ID);
-        long leaseStartTime = 1234567;
-        UUID primaryReplicaNodeId = UUID.randomUUID();
-        String primaryReplicaNodeName = primaryReplicaNodeId + "name";
+
+        var leaseInfo = new LeaseInfo(1234567, UUID.randomUUID(), "name");
 
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            partitionStorage0.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+            partitionStorage0.updateLease(leaseInfo);
             return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
@@ -169,9 +166,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow()),
                 is(equalTo(unwrap(testData))));
 
-        assertEquals(leaseStartTime, tableStorage.getMvPartition(PARTITION_ID).leaseStartTime());
-        assertEquals(primaryReplicaNodeId, tableStorage.getMvPartition(PARTITION_ID).primaryReplicaNodeId());
-        assertEquals(primaryReplicaNodeName, tableStorage.getMvPartition(PARTITION_ID).primaryReplicaNodeName());
+        assertEquals(leaseInfo, tableStorage.getMvPartition(PARTITION_ID).leaseInfo());
     }
 
     @Test

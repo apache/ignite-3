@@ -159,6 +159,8 @@ import org.jetbrains.annotations.Nullable;
  * A collection of builders to create test objects.
  */
 public class TestBuilders {
+    private static final int ZONE_ID = 10000;
+
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
 
     private static final IgniteLogger LOG = Loggers.forClass(TestBuilders.class);
@@ -617,7 +619,8 @@ public class TestBuilders {
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
-                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
+                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                    -1
             );
         }
     }
@@ -1037,7 +1040,8 @@ public class TestBuilders {
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),
                     indexes,
-                    partitions
+                    partitions,
+                    ZONE_ID
             );
         }
     }

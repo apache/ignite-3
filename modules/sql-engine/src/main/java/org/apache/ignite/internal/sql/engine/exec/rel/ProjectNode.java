@@ -54,8 +54,6 @@ public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
-        checkState();
-
         source().request(rowsCnt);
     }
 
@@ -64,8 +62,6 @@ public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<
     public void push(RowT row) throws Exception {
         assert downstream() != null;
 
-        checkState();
-
         downstream().push(prj.apply(row));
     }
 
@@ -73,8 +69,6 @@ public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<
     @Override
     public void end() throws Exception {
         assert downstream() != null;
-
-        checkState();
 
         downstream().end();
     }

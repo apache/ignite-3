@@ -62,6 +62,7 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -140,7 +141,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
         checkpointManager = new CheckpointManager(
                 NODE_NAME,
                 null,
-                null,
                 failureManager,
                 checkpointConfig,
                 filePageStoreManager,
@@ -159,15 +159,15 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
         pageMemory = new PersistentPageMemory(
                 (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
+                new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 new long[]{MAX_MEMORY_SIZE},
                 10 * MiB,
                 filePageStoreManager,
-                null,
-                (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
+                checkpointManager::writePageToDeltaFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
                 PAGE_SIZE,
-                new OffheapReadWriteLock(128)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
         dataRegionList.add(() -> pageMemory);

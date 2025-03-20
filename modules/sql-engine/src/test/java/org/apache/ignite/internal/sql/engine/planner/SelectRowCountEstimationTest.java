@@ -76,18 +76,32 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
     @ParameterizedTest
     @MethodSource("pkSelectivity")
     void testConditionWithPk(String sql, double selectivityFactor) {
-        // partial pk
         assertQuery(NODE, sql)
                 .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
                 .disableRules("TableScanToKeyValueGetRule", "LogicalIndexScanConverterRule")
                 .check();
     }
 
+    @ParameterizedTest
+    @MethodSource("pkSelectivity")
+    void testConditionWithPkNoUnion(String sql, double selectivityFactor) {
+        assertQuery(NODE, sql)
+                .matches(nodeRowCount("TableScan", approximatelyEqual(TABLE_REAL_SIZE * selectivityFactor)))
+                .disableRules("TableScanToKeyValueGetRule", "LogicalIndexScanConverterRule", "ScanLogicalOrToUnionRule")
+                .check();
+    }
+
     private static Stream<Arguments> pkSelectivity() {
         return Stream.of(
                 // partial pk
+                Arguments.of("SELECT CS_SOLD_DATE_SK, CS_ITEM_SK FROM CATALOG_SALES WHERE CS_ITEM_SK = 1", EQ_SELECTIVITY),
+                // partial pk
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1", EQ_SELECTIVITY),
                 // full pk, eq operations
+                Arguments.of("SELECT CS_SOLD_DATE_SK FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1",
+                        1.0 / TABLE_REAL_SIZE),
+                Arguments.of("SELECT CS_SOLD_DATE_SK FROM CATALOG_SALES WHERE CS_ITEM_SK = 1+ROUND(1/CS_SHIP_DATE_SK) "
+                                + "AND CS_ORDER_NUMBER = 1+1", 1.0 / TABLE_REAL_SIZE),
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER = 1", 1.0 / TABLE_REAL_SIZE),
                 // full pk, comp operations
                 Arguments.of("SELECT * FROM CATALOG_SALES WHERE CS_ITEM_SK = 1 AND CS_ORDER_NUMBER > 1",
@@ -145,6 +159,4 @@ public class SelectRowCountEstimationTest extends BaseRowsProcessedEstimationTes
 
         return query.toString();
     }
-
-
 }

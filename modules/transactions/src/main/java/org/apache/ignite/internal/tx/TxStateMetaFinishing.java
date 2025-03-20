@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaFinishingMessage;
@@ -43,9 +43,12 @@ public class TxStateMetaFinishing extends TxStateMeta {
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition id.
+     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      */
-    public TxStateMetaFinishing(@Nullable UUID txCoordinatorId, @Nullable TablePartitionId commitPartitionId) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null);
+    public TxStateMetaFinishing(
+            @Nullable UUID txCoordinatorId, @Nullable ReplicationGroupId commitPartitionId, @Nullable Boolean isFinishingDueToTimeout
+    ) {
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, isFinishingDueToTimeout);
     }
 
     /**
@@ -67,12 +70,14 @@ public class TxStateMetaFinishing extends TxStateMeta {
             ReplicaMessagesFactory replicaMessagesFactory,
             TxMessagesFactory txMessagesFactory
     ) {
-        TablePartitionId commitPartitionId = commitPartitionId();
+        ReplicationGroupId commitPartitionId = commitPartitionId();
 
         return txMessagesFactory.txStateMetaFinishingMessage()
                 .txState(txState())
                 .txCoordinatorId(txCoordinatorId())
-                .commitPartitionId(commitPartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, commitPartitionId))
+                .commitPartitionId(
+                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
+                )
                 .commitTimestamp(commitTimestamp())
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp())

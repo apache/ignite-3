@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import java.util.UUID;
+import java.util.Arrays;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,22 +27,50 @@ import org.jetbrains.annotations.Nullable;
 public class MvPartitionMeta extends PrimitivePartitionMeta {
     private final byte[] groupConfig;
 
+    private final byte[] snapshotInfo;
+
     /** Constructor. */
     public MvPartitionMeta(
             long lastAppliedIndex,
             long lastAppliedTerm,
             byte[] groupConfig,
-            long leaseStartTime,
-            @Nullable UUID primaryReplicaNodeId,
-            @Nullable String primaryReplicaNodeName
+            @Nullable LeaseInfo leaseInfo,
+            byte[] snapshotInfo
     ) {
-        super(lastAppliedIndex, lastAppliedTerm, leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+        super(lastAppliedIndex, lastAppliedTerm, leaseInfo);
 
         this.groupConfig = groupConfig;
+        this.snapshotInfo = snapshotInfo;
     }
 
     /** Returns replication group config as bytes. */
     public byte[] groupConfig() {
         return groupConfig;
+    }
+
+    /** Returns snapshot info as bytes. */
+    public byte[] snapshotInfo() {
+        return snapshotInfo;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+
+        MvPartitionMeta that = (MvPartitionMeta) o;
+        return Arrays.equals(groupConfig, that.groupConfig) && Arrays.equals(snapshotInfo, that.snapshotInfo);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+        result = 31 * result + Arrays.hashCode(groupConfig);
+        result = 31 * result + Arrays.hashCode(snapshotInfo);
+        return result;
     }
 }

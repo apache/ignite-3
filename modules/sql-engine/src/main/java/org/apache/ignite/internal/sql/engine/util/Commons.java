@@ -43,6 +43,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +70,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
@@ -89,7 +91,6 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
@@ -135,6 +136,13 @@ public final class Commons {
 
     public static final int IO_BATCH_SIZE = 256;
     public static final int IO_BATCH_COUNT = 4;
+
+    private static final EnumSet<SqlKind> SUPPORTED_DDL = EnumSet.of(
+            SqlKind.CREATE_SCHEMA, SqlKind.DROP_SCHEMA,
+            SqlKind.CREATE_TABLE, SqlKind.ALTER_TABLE, SqlKind.DROP_TABLE,
+            SqlKind.CREATE_INDEX, SqlKind.ALTER_INDEX, SqlKind.DROP_INDEX,
+            SqlKind.OTHER_DDL
+    );
 
     /**
      * The number of elements to be prefetched from each partition when scanning the sorted index.
@@ -199,20 +207,6 @@ public final class Commons {
 
     private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
         return SqlTypeCoercionRule.instance(IgniteCustomAssignmentsRules.instance().getTypeMapping());
-    }
-
-    /**
-     * Gets appropriate field from two rows by offset.
-     *
-     * @param hnd RowHandler impl.
-     * @param offset Current offset.
-     * @param row1 row1.
-     * @param row2 row2.
-     * @return Returns field by offset.
-     */
-    public static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
-        return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
-            hnd.get(offset - hnd.columnCount(row1), row2);
     }
 
     /**
@@ -828,7 +822,7 @@ public final class Commons {
             return SqlQueryType.TX_CONTROL;
         }
 
-        if (SqlKind.DDL.contains(sqlKind)) {
+        if (SUPPORTED_DDL.contains(sqlKind)) {
             return SqlQueryType.DDL;
         }
 
@@ -847,6 +841,9 @@ public final class Commons {
                 return SqlQueryType.QUERY;
 
             case INSERT:
+                assert sqlNode instanceof SqlInsert;
+                SqlInsert insert = (SqlInsert) sqlNode;
+                return insert.isUpsert() ? null : SqlQueryType.DML;
             case DELETE:
             case UPDATE:
             case MERGE:

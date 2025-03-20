@@ -70,7 +70,6 @@ import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
-import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.apache.ignite.internal.util.worker.WorkProgressDispatcher;
 import org.jetbrains.annotations.Nullable;
 
@@ -176,7 +175,6 @@ public class Checkpointer extends IgniteWorker {
      * Constructor.
      *
      * @param igniteInstanceName Name of the Ignite instance.
-     * @param workerListener Listener for life-cycle worker events.
      * @param detector Long JVM pause detector.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param checkpointWorkFlow Implementation of checkpoint.
@@ -189,7 +187,6 @@ public class Checkpointer extends IgniteWorker {
      */
     Checkpointer(
             String igniteInstanceName,
-            @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector detector,
             FailureManager failureManager,
             CheckpointWorkflow checkpointWorkFlow,
@@ -200,7 +197,7 @@ public class Checkpointer extends IgniteWorker {
             PageMemoryCheckpointConfiguration checkpointConfig,
             LogSyncer logSyncer
     ) {
-        super(LOG, igniteInstanceName, "checkpoint-thread", workerListener);
+        super(LOG, igniteInstanceName, "checkpoint-thread");
 
         this.pauseDetector = detector;
         this.pageSize = pageSize;
@@ -770,6 +767,10 @@ public class Checkpointer extends IgniteWorker {
         if (checkpointWritePagesPool != null) {
             shutdownAndAwaitTermination(checkpointWritePagesPool, 2, MINUTES);
         }
+    }
+
+    @Nullable CheckpointProgress currentCheckpointProgress() {
+        return currentCheckpointProgress;
     }
 
     /**

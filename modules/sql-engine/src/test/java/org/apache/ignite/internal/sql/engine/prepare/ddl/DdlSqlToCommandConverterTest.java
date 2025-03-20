@@ -301,13 +301,9 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @CsvSource(value = {
             // Negative values are rejected by the parser
             // Char
-            "VARCHAR(0); VARCHAR length 0 must be between 1 and 65536",
-            "VARCHAR(100000000); VARCHAR length 100000000 must be between 1 and 65536",
+            "VARCHAR(0); VARCHAR length 0 must be between 1 and 2147483647",
             // Binary
-            "BINARY(0); BINARY length 0 must be between 1 and 65536",
-            "BINARY(100000000); BINARY length 100000000 must be between 1 and 65536",
-            "VARBINARY(0); VARBINARY length 0 must be between 1 and 65536",
-            "VARBINARY(100000000); VARBINARY length 100000000 must be between 1 and 65536",
+            "VARBINARY(0); VARBINARY length 0 must be between 1 and 2147483647",
             // Decimal
             "DECIMAL(0); DECIMAL precision 0 must be between 1 and 32767",
             "DECIMAL(100000000); DECIMAL precision 100000000 must be between 1 and 32767",
@@ -333,13 +329,9 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @CsvSource(value = {
             // Negative values are rejected by the parser
             // Char
-            "VARCHAR(0); VARCHAR length 0 must be between 1 and 65536",
-            "VARCHAR(100000000); VARCHAR length 100000000 must be between 1 and 65536",
+            "VARCHAR(0); VARCHAR length 0 must be between 1 and 2147483647",
             // Binary
-            "BINARY(0); BINARY length 0 must be between 1 and 65536",
-            "BINARY(100000000); BINARY length 100000000 must be between 1 and 65536",
-            "VARBINARY(0); VARBINARY length 0 must be between 1 and 65536",
-            "VARBINARY(100000000); VARBINARY length 100000000 must be between 1 and 65536",
+            "VARBINARY(0); VARBINARY length 0 must be between 1 and 2147483647",
             // Decimal
             "DECIMAL(0); DECIMAL precision 0 must be between 1 and 32767",
             "DECIMAL(100000000); DECIMAL precision 100000000 must be between 1 and 32767",
@@ -623,11 +615,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("BINARY", "x'01'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1}, byte[].class));
-        fillTestCase("BINARY", "'01'", testItems, false, ctx);
-        fillTestCase("BINARY", "1", testItems, false, ctx);
-        fillTestCase("BINARY", "x'0102'", testItems, false, ctx);
-        fillTestCase("BINARY(2)", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, byte[].class));
         fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, byte[].class));
         fillTestCase("VARBINARY", "'0102'", testItems, false, ctx);
         fillTestCase("VARBINARY", "1", testItems, false, ctx);

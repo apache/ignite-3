@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.runtime.Resources.BaseMessage;
 import org.apache.calcite.runtime.Resources.ExInst;
@@ -82,6 +83,9 @@ public interface IgniteResource {
     @BaseMessage("CHAR datatype is not supported in table")
     ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
 
+    @BaseMessage("BINARY datatype is not supported in table")
+    ExInst<SqlValidatorException> binaryDataTypeIsNotSupportedInTable();
+
     @BaseMessage("{0} datatype is not supported'")
     ExInst<SqlValidatorException> dataTypeIsNotSupported(String a0);
 
@@ -103,6 +107,9 @@ public interface IgniteResource {
 
     @BaseMessage("A recursive query is not supported.")
     ExInst<SqlValidatorException> recursiveQueryIsNotSupported();
+
+    @BaseMessage("Unexpected statement: {0} ")
+    ExInst<CalciteException> unexpectedStatement(String type);
 
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {

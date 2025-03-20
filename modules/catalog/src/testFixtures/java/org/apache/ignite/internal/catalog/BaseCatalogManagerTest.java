@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
@@ -108,12 +109,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected CatalogManagerImpl manager;
 
-    protected AtomicLong delayDuration = new AtomicLong();
+    protected AtomicLong delayDuration = new AtomicLong(TEST_DELAY_DURATION);
 
     @BeforeEach
     void setUp() {
-        delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
-
         metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
         updateLog = spy(new UpdateLogImpl(metastore));

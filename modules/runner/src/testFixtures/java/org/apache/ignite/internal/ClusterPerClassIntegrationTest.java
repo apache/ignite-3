@@ -167,6 +167,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     @Timeout(60)
     void stopCluster() {
         CLUSTER.shutdown();
+
+        MicronautCleanup.removeShutdownHooks();
     }
 
     /** Drops all visible tables. */
@@ -437,6 +439,12 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object[] args) {
         return sql(CLUSTER.node(nodeIndex), tx, null, zoneId, sql, args);
+    }
+
+    protected static void sqlScript(String query, Object... args) {
+        IgniteSql sql = CLUSTER.aliveNode().sql();
+
+        sql.executeScript(query, args);
     }
 
     private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {

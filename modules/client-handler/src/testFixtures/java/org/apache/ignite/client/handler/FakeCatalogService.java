@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -39,26 +40,46 @@ import org.apache.ignite.internal.event.EventListener;
  * Fake catalog service.
  */
 public class FakeCatalogService implements CatalogService {
-
+    /** Catalog mock. */
     private final Catalog catalog;
+
+    private final ToIntFunction<Integer> zoneIdProvider;
 
     /**
      * Creates fake catalog service.
+     *
+     * @param partitions Amount of partitions for a zone.
      */
     public FakeCatalogService(int partitions) {
+        this(partitions, tableId -> tableId + 10_000);
+    }
+
+    /**
+     * Creates fake catalog service.
+     *
+     * @param partitions Amount of partitions for a zone.
+     * @param zoneIdProvider Function that provides the zone id given a table id.
+     */
+    public FakeCatalogService(int partitions, ToIntFunction<Integer> zoneIdProvider) {
+        this.zoneIdProvider = zoneIdProvider;
+
         catalog = mock(Catalog.class);
 
-        lenient().doAnswer(invocation -> new CatalogTableDescriptor(
-                invocation.getArgument(0),
-                0,
-                0,
-                "table",
-                0,
-                List.of(mock(CatalogTableColumnDescriptor.class)),
-                List.of(),
-                null,
-                DEFAULT_STORAGE_PROFILE)
-        ).when(catalog).table(anyInt());
+        lenient().doAnswer(invocation -> {
+            int tableId = invocation.getArgument(0);
+
+            return new CatalogTableDescriptor(
+                    tableId,
+                    0,
+                    0,
+                    "table",
+                    zoneIdProvider.applyAsInt(tableId),
+                    List.of(mock(CatalogTableColumnDescriptor.class)),
+                    List.of(),
+                    null,
+                    DEFAULT_STORAGE_PROFILE
+            );
+        }).when(catalog).table(anyInt());
 
         lenient().doAnswer(invocation -> new CatalogZoneDescriptor(
                 invocation.getArgument(0),
@@ -106,11 +127,9 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> listener) {
-
     }
 
     @Override
     public void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> listener) {
-
     }
 }

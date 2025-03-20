@@ -64,6 +64,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     private int cmpRes;
 
+    private boolean inLoop;
+
     /**
      * Constructor.
      *
@@ -100,20 +102,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
-        if (!outBuf.isEmpty()) {
-            doPush();
-        }
-
         if (waiting == 0) {
-            waiting = inBufSize;
-
-            source().request(inBufSize);
-        } else if (waiting < 0 && requested > 0) {
-            downstream().end();
+            source().request(waiting = inBufSize);
+        } else if (!inLoop) {
+            execute(this::doFlush);
         }
     }
 
@@ -122,8 +116,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -143,7 +135,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
                 grp = newGroup(row);
 
-                doPush();
+                flush();
             }
         } else {
             grp = newGroup(row);
@@ -154,7 +146,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         if (waiting == 0 && requested > 0) {
             waiting = inBufSize;
 
-            this.execute(() -> source().request(inBufSize));
+            source().request(inBufSize);
         }
     }
 
@@ -164,22 +156,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         if (grp != null) {
             outBuf.add(grp.row());
-
-            doPush();
         }
 
-        if (requested > 0) {
-            downstream().end();
-        }
-
-        grp = null;
-        prevRow = null;
+        flush();
     }
 
     /** {@inheritDoc} */
@@ -228,11 +211,28 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return grp;
     }
 
-    private void doPush() throws Exception {
-        while (requested > 0 && !outBuf.isEmpty()) {
-            requested--;
+    private void doFlush() throws Exception {
+        flush();
+    }
 
-            downstream().push(outBuf.poll());
+    private void flush() throws Exception {
+        inLoop = true;
+        try {
+            while (requested > 0 && !outBuf.isEmpty()) {
+                requested--;
+
+                downstream().push(outBuf.poll());
+            }
+        } finally {
+            inLoop = false;
+        }
+
+        if (requested > 0 && waiting == NOT_WAITING && outBuf.isEmpty()) {
+            requested = 0;
+            downstream().end();
+
+            grp = null;
+            prevRow = null;
         }
     }
 

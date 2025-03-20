@@ -55,6 +55,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-storage-api'))
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-transactions'))
+    testImplementation testFixtures(project(':ignite-placement-driver-api'))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
@@ -99,6 +100,10 @@ dependencies {
     integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
+    integrationTestImplementation project(':ignite-sql-engine') // TODO: IGNITE-22522 - remove.
+    integrationTestImplementation project(':ignite-system-view-api') // TODO: IGNITE-22522 - remove.
+    integrationTestImplementation project(':ignite-system-view') // TODO: IGNITE-22522 - remove.
+    integrationTestImplementation project(':ignite-eventlog') // TODO: IGNITE-22522 - remove.
 
     integrationTestImplementation libs.jetbrains.annotations
 }

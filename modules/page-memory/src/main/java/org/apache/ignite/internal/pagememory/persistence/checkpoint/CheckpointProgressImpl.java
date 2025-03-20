@@ -145,16 +145,17 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return writtenPagesCntr;
     }
 
-    /**
-     * Returns counter for fsynced checkpoint pages.
-     */
+    @Override
+    public int writtenPages() {
+        return writtenPagesCntr.get();
+    }
+
+    @Override
     public AtomicInteger syncedPagesCounter() {
         return syncedPagesCntr;
     }
 
-    /**
-     * Returns Counter for evicted pages during current checkpoint.
-     */
+    @Override
     public AtomicInteger evictedPagesCounter() {
         return evictedPagesCntr;
     }

@@ -40,7 +40,11 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
         int partitions0 = partitions;
 
         if (schema0 == null || partitions0 < 0) {
-            throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
+            throw new IllegalStateException("StreamerPartitionAwarenessProvider.refreshAsync() was not called or awaited.");
+        }
+
+        if (partitions0 == 0) {
+            throw new IllegalStateException("StreamerPartitionAwarenessProvider has zero partitions.");
         }
 
         int hash = colocationHash(schema0, item);

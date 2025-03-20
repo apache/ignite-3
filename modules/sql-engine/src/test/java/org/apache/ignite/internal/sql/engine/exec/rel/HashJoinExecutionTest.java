@@ -18,27 +18,26 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.rel.core.JoinRelType.INNER;
-import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
+import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
-import org.apache.calcite.rel.core.JoinInfo;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableIntList;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.BiPredicate;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.type.NativeTypes;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** Hash join execution tests. */
-@SuppressWarnings("resource")
 public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
     @Override
     JoinAlgo joinAlgo() {
@@ -47,7 +46,7 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
 
     @Test
     public void testHashJoinRewind() {
-        ExecutionContext<Object[]> ctx = executionContext(true);
+        ExecutionContext<Object[]> ctx = executionContext();
 
         ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
@@ -62,68 +61,38 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
                 new Object[]{3, "QA"}
         ));
 
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-
-        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
-        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-
-        AbstractRightMaterializedJoinNode<Object[]> join = HashJoinNode.create(ctx, outType, leftType, rightType, RIGHT,
-                JoinInfo.of(ImmutableIntList.of(0), ImmutableIntList.of(2)), null);
-
-        join.register(asList(deps, persons));
-
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[2], r[3], r[1]});
-        project.register(join);
+        HashJoinNode<Object[]> join = createJoinNode(ctx, LEFT, null);
+        join.register(asList(persons, deps));
 
         RootRewindable<Object[]> node = new RootRewindable<>(ctx);
-        node.register(project);
+        node.register(join);
 
-        assert node.hasNext();
+        Object[][] rows = fetchRows(node);
 
-        ArrayList<Object[]> rows = new ArrayList<>();
-
-        while (node.hasNext()) {
-            rows.add(node.next());
-        }
-
-        assertEquals(4, rows.size());
+        assertEquals(4, rows.length);
 
         Object[][] expected = {
-                {0, "Igor", "Core"},
-                {1, "Roman", "SQL"},
-                {2, "Ivan", null},
-                {3, "Alexey", "Core"}
+                {0, "Igor", 1, 1, "Core"},
+                {1, "Roman", 2, 2, "SQL"},
+                {2, "Ivan", 5, null, null},
+                {3, "Alexey", 1, 1, "Core"}
         };
 
         assert2DimArrayEquals(expected, rows);
 
-        List<Object[]> depsRes = new ArrayList<>();
-        depsRes.add(new Object[]{5, "QA"});
-
-        deps = new ScanNode<>(ctx, depsRes);
-
-        join.register(asList(deps, persons));
-
+        deps = new ScanNode<>(ctx, Collections.singleton(new Object[]{5, "QA"}));
+        join.register(asList(persons, deps));
         node.rewind();
 
-        assert node.hasNext();
+        Object[][] rowsAfterRewind = fetchRows(node);
 
-        ArrayList<Object[]> rowsAfterRewind = new ArrayList<>();
-
-        while (node.hasNext()) {
-            rowsAfterRewind.add(node.next());
-        }
-
-        assertEquals(4, rowsAfterRewind.size());
+        assertEquals(4, rowsAfterRewind.length);
 
         Object[][] expectedAfterRewind = {
-                {0, "Igor", null},
-                {1, "Roman", null},
-                {2, "Ivan", "QA"},
-                {3, "Alexey", null}
+                {0, "Igor", 1, null, null},
+                {1, "Roman", 2, null, null},
+                {2, "Ivan", 5, 5, "QA"},
+                {3, "Alexey", 1, null, null}
         };
 
         assert2DimArrayEquals(expectedAfterRewind, rowsAfterRewind);
@@ -131,104 +100,93 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
 
     @Test
     void innerHashJoinWithPostFiltration() {
-        ExecutionContext<Object[]> ctx = executionContext(true);
-
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
+        Object[][] persons = {
                 new Object[]{0, "Igor", 1},
                 new Object[]{1, "Roman", 2},
                 new Object[]{2, "Ivan", 5},
                 new Object[]{3, "Alexey", 1}
-        ));
+        };
 
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
+        Object[][] deps = {
                 new Object[]{1, "Core"},
                 new Object[]{2, "SQL"},
                 new Object[]{3, "QA"}
-        ));
-
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-
-        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
-        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-
-        AbstractRightMaterializedJoinNode<Object[]> join = HashJoinNode.create(ctx, outType, leftType, rightType, INNER,
-                JoinInfo.of(ImmutableIntList.of(0), ImmutableIntList.of(2)), (l, r) -> ((String) l[1]).length() > 3);
-
-        join.register(asList(deps, persons));
-
-        RootNode<Object[]> node = new RootNode<>(ctx);
-        node.register(join);
-
-        ArrayList<Object[]> rows = new ArrayList<>();
-
-        while (node.hasNext()) {
-            rows.add(node.next());
-        }
-
-        Object[][] expected = {
-                {1, "Core", 0, "Igor", 1},
-                {1, "Core", 3, "Alexey", 1},
         };
 
-        assert2DimArrayEquals(expected, rows);
+        Object[][] expected = {
+                {0, "Igor", 1, 1, "Core"},
+                {3, "Alexey", 1, 1, "Core"},
+        };
+
+        BiPredicate<Object[], Object[]> condition = (l, r) -> ((String) r[1]).length() > 3;
+
+        validate(INNER, condition, Stream.of(persons)::iterator, Stream.of(deps)::iterator, expected);
     }
 
     @Test
     void semiHashJoinWithPostFiltration() {
-        ExecutionContext<Object[]> ctx = executionContext(true);
-
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
+        Object[][] persons = {
                 new Object[]{0, "Igor", 1},
                 new Object[]{1, "Roman", 2},
                 new Object[]{2, "Ivan", 5},
                 new Object[]{3, "Alexey", 1}
-        ));
+        };
 
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
+        Object[][] deps = {
                 new Object[]{1, "Core"},
                 new Object[]{2, "SQL"},
                 new Object[]{3, "QA"}
-        ));
+        };
 
-        IgniteTypeFactory tf = ctx.getTypeFactory();
+        Object[][] expected = {
+                new Object[]{0, "Igor", 1},
+                new Object[]{3, "Alexey", 1}
+        };
 
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
-        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+        BiPredicate<Object[], Object[]> condition = (l, r) -> ((String) r[1]).length() > 3;
 
-        AbstractRightMaterializedJoinNode<Object[]> join = HashJoinNode.create(ctx, leftType, leftType, rightType, SEMI,
-                JoinInfo.of(ImmutableIntList.of(0), ImmutableIntList.of(2)), (l, r) -> ((String) l[1]).length() > 3);
+        validate(SEMI, condition, Stream.of(persons)::iterator, Stream.of(deps)::iterator, expected);
+    }
 
-        join.register(asList(deps, persons));
+    private void validate(
+            JoinRelType joinType,
+            @Nullable BiPredicate<Object[], Object[]> condition,
+            Iterable<Object[]> leftSource,
+            Iterable<Object[]> rightSource,
+            Object[][] expected
+    ) {
+        ExecutionContext<Object[]> ctx = executionContext();
+
+        ScanNode<Object[]> left = new ScanNode<>(ctx, leftSource);
+        ScanNode<Object[]> right = new ScanNode<>(ctx, rightSource);
+
+        HashJoinNode<Object[]> join = createJoinNode(ctx, joinType, condition);
+
+        join.register(asList(left, right));
 
         RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(join);
 
-        ArrayList<Object[]> rows = new ArrayList<>();
-
-        while (node.hasNext()) {
-            rows.add(node.next());
-        }
-
-        Object[][] expected = {
-                {1, "Core"}
-        };
+        Object[][] rows = fetchRows(node);
 
         assert2DimArrayEquals(expected, rows);
     }
 
-    private static void assert2DimArrayEquals(Object[][] expected, ArrayList<Object[]> actual) {
-        assertEquals(expected.length, actual.size(), "expected length: " + expected.length + ", actual length: " + actual.size());
+    private static Object[][] fetchRows(RootNode<Object[]> node) {
+        return StreamSupport
+                .stream(Spliterators.spliteratorUnknownSize(node, Spliterator.ORDERED), false)
+                .toArray(Object[][]::new);
+    }
 
-        actual.sort(Comparator.comparing(r -> (int) r[0]));
+    private static void assert2DimArrayEquals(Object[][] expected, Object[][] actual) {
+        assertEquals(expected.length, actual.length, "expected length: " + expected.length + ", actual length: " + actual.length);
+
+        Arrays.sort(actual, Comparator.comparing(r -> (int) r[0]));
 
         int length = expected.length;
         for (int i = 0; i < length; ++i) {
             Object[] exp = expected[i];
-            Object[] act = actual.get(i);
+            Object[] act = actual[i];
 
             assertEquals(exp.length, act.length, "expected length: " + exp.length + ", actual length: " + act.length);
             assertArrayEquals(exp, act);

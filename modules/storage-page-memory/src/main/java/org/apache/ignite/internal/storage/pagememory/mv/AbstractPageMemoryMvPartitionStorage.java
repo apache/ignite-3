@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.ArrayList;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -55,6 +55,7 @@ import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -138,7 +139,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
-        rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId(), IoStatisticsHolderNoOp.INSTANCE);
+        rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId());
         updateNextLinkHandler = new UpdateNextLinkHandler();
         updateTimestampHandler = new UpdateTimestampHandler();
     }
@@ -416,7 +417,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
@@ -426,7 +427,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             assert rowIsLocked(rowId);
 
             try {
-                AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableId, commitPartitionId, this);
+                AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
@@ -579,20 +580,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public void close() {
-        if (!transitionToTerminalState(StorageState.CLOSED)) {
+        if (!transitionToClosedState(state, this::createStorageInfo)) {
             return;
         }
 
         busyLock.block();
 
         closeResources();
-    }
-
-    /**
-     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
-     */
-    private boolean transitionToTerminalState(StorageState targetState) {
-        return StorageUtils.transitionToTerminalState(targetState, state);
     }
 
     /**
@@ -631,7 +625,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @return {@code true} if this call actually made the transition and, hence, the caller must call {@link #closeResources()}.
      */
     public boolean transitionToDestroyedState() {
-        if (!transitionToTerminalState(StorageState.DESTROYED)) {
+        if (!StorageUtils.transitionToDestroyedState(state)) {
             return false;
         }
 
@@ -747,17 +741,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public abstract void committedGroupConfigurationOnRebalance(byte[] config);
 
     /**
-     * Updates the current lease start time in the storage on rebalance.
-     *
-     * @param leaseStartTime Lease start time.
-     * @param primaryReplicaNodeId Primary replica node id.
-     * @param primaryReplicaNodeName Primary replica node name.
+     * Updates the current lease information in the storage on rebalance.
      */
-    public abstract void updateLeaseOnRebalance(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    );
+    public abstract void updateLeaseOnRebalance(LeaseInfo leaseInfo);
 
     /**
      * Prepares the storage and its indexes for cleanup.

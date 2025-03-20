@@ -28,7 +28,6 @@ import org.apache.ignite.internal.storage.AbstractMvTableStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -46,15 +45,13 @@ class RocksDbMvTableStorageConcurrencyTest extends AbstractMvTableStorageConcurr
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.flushDelayMillis = 0")
-            RocksDbStorageEngineConfiguration engineConfig,
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
             @InjectConfiguration("mock.profiles.default = {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
             StorageConfiguration storageConfiguration,
             @InjectExecutorService
             ScheduledExecutorService scheduledExecutor
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
+        engine = new RocksDbStorageEngine("test", storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
 
         engine.start();
 

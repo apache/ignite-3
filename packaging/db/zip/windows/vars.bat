@@ -17,14 +17,11 @@
 
 set NODE_NAME=defaultNode
 
-set WORK_DIR=%IGNITE_HOME%\work
-set LOG_DIR=%IGNITE_HOME%\log
-set LIBS_DIR=%IGNITE_HOME%\lib
-set CONF_DIR=%IGNITE_HOME%\etc
-set INSTALL_DIR=%IGNITE_HOME%
-
-set LOG_FILE_PATTERN=%LOG_DIR%\ignite3db-%g.log
-set CONFIG_FILE=%CONF_DIR%\ignite-config.conf
+set WORK_DIR=@WORK_DIR@
+set LOG_DIR=@LOG_DIR@
+set LIBS_DIR=@LIB_DIR@
+set CONF_DIR=@CONF_DIR@
+set CONFIG_FILE=%CONF_DIR%\@CONF_FILE@
 
 @rem JVM props
 set JVM_MAX_MEM=16g

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT;
@@ -77,6 +78,7 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -135,6 +137,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
     private static final int PART_ID = 0;
     private static final int TABLE_ID = 1;
     private static final int PK_INDEX_ID = 1;
+    private static final int ZONE_ID = 2;
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
@@ -226,7 +229,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 newTxManager(),
                 LOCK_MANAGER,
                 Runnable::run,
-                PART_ID,
+                enabledColocation() ? new ZonePartitionId(ZONE_ID, PART_ID) : new TablePartitionId(TABLE_ID, PART_ID),
                 TABLE_ID,
                 () -> Map.of(
                         pkLocker.id(), pkLocker

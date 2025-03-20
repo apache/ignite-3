@@ -177,4 +177,16 @@ public class ThreadAssertingTxStatePartitionStorage implements TxStatePartitionS
 
         storage.leaseInfo(leaseInfo, index, term);
     }
+
+    @Override
+    public byte @Nullable [] snapshotInfo() {
+        return storage.snapshotInfo();
+    }
+
+    @Override
+    public void snapshotInfo(byte[] snapshotInfo, long index, long term) {
+        assertThreadAllowsToWrite();
+
+        storage.snapshotInfo(snapshotInfo, index, term);
+    }
 }

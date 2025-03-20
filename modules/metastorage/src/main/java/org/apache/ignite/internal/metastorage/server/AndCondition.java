@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import org.apache.ignite.internal.metastorage.Entry;
+
 /**
  * Compound condition, which implements logical AND of left and right subcondition.
  */
@@ -31,11 +33,8 @@ public class AndCondition extends AbstractCompoundCondition {
         super(leftCondition, rightCondition);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    protected boolean combine(boolean left, boolean right) {
-        return left && right;
+    public boolean test(Entry... entries) {
+        return testLeftCondition(entries) && testRightCondition(entries);
     }
 }

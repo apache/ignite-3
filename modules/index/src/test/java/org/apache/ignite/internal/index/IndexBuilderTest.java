@@ -56,6 +56,8 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link IndexBuilder} testing. */
 public class IndexBuilderTest extends BaseIgniteAbstractTest {
+    private static final int ZONE_ID = 0;
+
     private static final int TABLE_ID = 1;
 
     private static final int INDEX_ID = 2;
@@ -82,7 +84,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     void testIndexBuildCompletionListener() {
         CompletableFuture<Void> listenCompletionIndexBuildingFuture = listenCompletionIndexBuilding(INDEX_ID, TABLE_ID, PARTITION_ID);
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
         assertThat(listenCompletionIndexBuildingFuture, willCompleteSuccessfully());
     }
@@ -101,7 +103,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         indexBuilder.listen(listener);
         indexBuilder.stopListen(listener);
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
         assertThat(invokeListenerFuture, willTimeoutFast());
     }
@@ -118,7 +120,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Void> awaitSecondInvokeForReplicaService = awaitSecondInvokeForReplicaService(secondInvokeReplicaServiceFuture);
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, nextRowIdsToBuild);
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, nextRowIdsToBuild);
 
         assertThat(awaitSecondInvokeForReplicaService, willCompleteSuccessfully());
 
@@ -133,7 +135,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     void testIndexBuildCompletionListenerForAlreadyBuiltIndex() {
         CompletableFuture<Void> listenCompletionIndexBuildingFuture = listenCompletionIndexBuilding(INDEX_ID, TABLE_ID, PARTITION_ID);
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of());
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of());
 
         assertThat(listenCompletionIndexBuildingFuture, willCompleteSuccessfully());
     }
@@ -146,7 +148,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 .thenReturn(failedFuture(new ReplicationTimeoutException(new TablePartitionId(TABLE_ID, PARTITION_ID))))
                 .thenReturn(nullCompletedFuture());
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
         assertThat(listenCompletionIndexBuildingFuture, willCompleteSuccessfully());
 
@@ -158,13 +160,14 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> listenCompletionIndexBuildingAfterDisasterRecoveryFuture =
                 listenCompletionIndexBuildingAfterDisasterRecovery(INDEX_ID, TABLE_ID, PARTITION_ID);
 
-        scheduleBuildIndexAfterDisasterRecovery(INDEX_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+        scheduleBuildIndexAfterDisasterRecovery(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
         assertThat(listenCompletionIndexBuildingAfterDisasterRecoveryFuture, willCompleteSuccessfully());
     }
 
-    private void scheduleBuildIndex(int indexId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
+    private void scheduleBuildIndex(int indexId, int zoneId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
         indexBuilder.scheduleBuildIndex(
+                zoneId,
                 tableId,
                 partitionId,
                 indexId,
@@ -175,8 +178,15 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private void scheduleBuildIndexAfterDisasterRecovery(int indexId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
+    private void scheduleBuildIndexAfterDisasterRecovery(
+            int indexId,
+            int zoneId,
+            int tableId,
+            int partitionId,
+            Collection<RowId> nextRowIdsToBuild
+    ) {
         indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
+                zoneId,
                 tableId,
                 partitionId,
                 indexId,

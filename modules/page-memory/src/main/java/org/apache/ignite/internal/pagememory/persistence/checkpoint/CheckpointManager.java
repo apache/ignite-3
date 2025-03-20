@@ -44,7 +44,6 @@ import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,7 +87,6 @@ public class CheckpointManager {
      *
      * @param igniteInstanceName Ignite instance name.
      * @param checkpointConfig Checkpoint configuration.
-     * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param filePageStoreManager File page store manager.
@@ -100,7 +98,6 @@ public class CheckpointManager {
      */
     public CheckpointManager(
             String igniteInstanceName,
-            @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
             PageMemoryCheckpointConfiguration checkpointConfig,
@@ -132,7 +129,7 @@ public class CheckpointManager {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                (pageMemory, fullPageId, pageBuf) -> writePageToDeltaFilePageStore(pageMemory, fullPageId, pageBuf, true),
+                this::writePageToDeltaFilePageStore,
                 ioRegistry,
                 partitionMetaManager,
                 pageSize
@@ -141,7 +138,6 @@ public class CheckpointManager {
         compactor = new Compactor(
                 Loggers.forClass(Compactor.class),
                 igniteInstanceName,
-                workerListener,
                 checkpointConfig.compactionThreads(),
                 filePageStoreManager,
                 pageSize,
@@ -150,7 +146,6 @@ public class CheckpointManager {
 
         checkpointer = new Checkpointer(
                 igniteInstanceName,
-                workerListener,
                 longJvmPauseDetector,
                 failureManager,
                 checkpointWorkflow,
@@ -243,6 +238,10 @@ public class CheckpointManager {
         return checkpointer.scheduleCheckpoint(delayMillis, reason);
     }
 
+    public @Nullable CheckpointProgress currentCheckpointProgress() {
+        return checkpointer.currentCheckpointProgress();
+    }
+
     /**
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
@@ -290,14 +289,12 @@ public class CheckpointManager {
      * @param pageMemory Page memory.
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
     public void writePageToDeltaFilePageStore(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
-            ByteBuffer pageBuf,
-            boolean calculateCrc
+            ByteBuffer pageBuf
     ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
 
@@ -331,7 +328,7 @@ public class CheckpointManager {
                 }
         );
 
-        deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf, calculateCrc);
+        deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf);
     }
 
     /**

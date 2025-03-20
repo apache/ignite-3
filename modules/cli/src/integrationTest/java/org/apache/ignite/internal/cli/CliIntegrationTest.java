@@ -63,7 +63,9 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("metastorage").enabled(true),
             new MetricSource().name("client.handler").enabled(true),
             new MetricSource().name("sql.client").enabled(true),
-            new MetricSource().name("sql.plan.cache").enabled(true)
+            new MetricSource().name("sql.plan.cache").enabled(true),
+            new MetricSource().name("storage.aipersist.default").enabled(true),
+            new MetricSource().name("storage.aipersist.default_aipersist").enabled(true)
     };
 
     /** Correct ignite jdbc url. */
@@ -130,6 +132,10 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
+    }
+
+    public String getOutput() {
+        return sout.toString();
     }
 
     protected Class<?> getCommandClass() {

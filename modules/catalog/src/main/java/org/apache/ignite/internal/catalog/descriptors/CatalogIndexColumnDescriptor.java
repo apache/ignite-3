@@ -17,19 +17,13 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.IOException;
 import java.util.Objects;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Indexed column descriptor.
  */
 public class CatalogIndexColumnDescriptor {
-    public static final CatalogObjectSerializer<CatalogIndexColumnDescriptor> SERIALIZER = new IndexColumnDescriptorSerializer();
-
     private final String name;
 
     private final CatalogColumnCollation collation;
@@ -51,21 +45,5 @@ public class CatalogIndexColumnDescriptor {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    private static class IndexColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexColumnDescriptor> {
-        @Override
-        public CatalogIndexColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
-            String name = input.readUTF();
-            CatalogColumnCollation collation = CatalogColumnCollation.unpack(input.readByte());
-
-            return new CatalogIndexColumnDescriptor(name, collation);
-        }
-
-        @Override
-        public void writeTo(CatalogIndexColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeUTF(descriptor.name());
-            output.writeByte(CatalogColumnCollation.pack(descriptor.collation()));
-        }
     }
 }

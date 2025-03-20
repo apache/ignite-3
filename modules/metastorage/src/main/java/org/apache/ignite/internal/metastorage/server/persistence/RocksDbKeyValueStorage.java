@@ -74,6 +74,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -1465,25 +1466,25 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     private void compactKeys(long compactionRevision) throws RocksDBException {
-        compactInBatches(index, (it, batch) -> {
-            compactForKey(batch, it.key(), getAsLongs(it.value()), compactionRevision);
+        compactInBatches(index, (key, value, batch) -> {
+            compactForKey(batch, key, getAsLongs(value.get()), compactionRevision);
 
             return true;
         });
     }
 
     private void compactAuxiliaryMappings(long compactionRevision) throws RocksDBException {
-        compactInBatches(revisionToTs, (it, batch) -> {
-            long revision = bytesToLong(it.key());
+        compactInBatches(revisionToTs, (key, value, batch) -> {
+            long revision = bytesToLong(key);
 
             if (revision > compactionRevision) {
                 return false;
             }
 
-            revisionToTs.delete(batch, it.key());
-            tsToRevision.delete(batch, it.value());
+            revisionToTs.delete(batch, key);
+            tsToRevision.delete(batch, value.get());
 
-            revisionToChecksum.delete(batch, it.key());
+            revisionToChecksum.delete(batch, key);
 
             return true;
         });
@@ -1495,19 +1496,25 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
          * Performs compaction on the storage at the current iterator pointer. Returns {@code true} if it is necessary to continue
          * iterating, {@link false} if it is necessary to finish with writing the last batch.
          */
-        boolean compact(RocksIterator it, WriteBatch batch) throws RocksDBException;
+        boolean compact(byte[] key, Supplier<byte[]> value, WriteBatch batch) throws RocksDBException;
     }
 
     private void compactInBatches(ColumnFamily columnFamily, CompactionAction compactionAction) throws RocksDBException {
         try (RocksIterator iterator = columnFamily.newIterator()) {
-            iterator.seekToFirst();
-
             boolean continueIterating = true;
 
-            while (continueIterating && iterator.isValid()) {
+            byte[] key = null;
+
+            while (continueIterating) {
                 rwLock.writeLock().lock();
 
                 try (WriteBatch batch = new WriteBatch()) {
+                    // We must refresh the iterator while holding write lock, because iterator state might be outdated due to its snapshot
+                    // isolation.
+                    if (!refreshIterator(iterator, key)) {
+                        break;
+                    }
+
                     assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
 
                     for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
@@ -1515,7 +1522,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                             return;
                         }
 
-                        if (!compactionAction.compact(iterator, batch)) {
+                        key = iterator.key();
+
+                        if (!compactionAction.compact(key, iterator::value, batch)) {
                             continueIterating = false;
 
                             break;
@@ -1530,6 +1539,30 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             iterator.status();
         }
+    }
+
+    private static boolean refreshIterator(RocksIterator iterator, byte @Nullable [] key) throws RocksDBException {
+        iterator.refresh();
+
+        if (key == null) {
+            // First iteration. Seek to the first key.
+            iterator.seekToFirst();
+        } else {
+            // Searches for either the exact key or its previous value.
+            iterator.seekForPrev(key);
+
+            if (iterator.isValid()) {
+                iterator.next();
+            } else {
+                // Key has been concurrently removed and it was the first key in column family. Seek to the first key.
+                iterator.seekToFirst();
+            }
+        }
+
+        // Check for errors.
+        iterator.status();
+
+        return iterator.isValid();
     }
 
     private boolean isTombstone(byte[] key, long revision) throws RocksDBException {

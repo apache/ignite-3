@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -82,11 +86,19 @@ class NextColocatedWorkerSelector<K> extends PrimaryReplicaNextWorkerSelector {
     }
 
     @Override
-    protected TablePartitionId tablePartitionId() {
+    protected PartitionGroupId partitionGroupId() {
         if (key != null && keyMapper != null) {
-            return new TablePartitionId(table.tableId(), table.partitionId(key, keyMapper));
+            if (enabledColocation()) {
+                return new ZonePartitionId(table.zoneId(), table.partitionId(key, keyMapper));
+            } else {
+                return new TablePartitionId(table.tableId(), table.partitionId(key, keyMapper));
+            }
         } else {
-            return new TablePartitionId(table.tableId(), table.partitionId(tuple));
+            if (enabledColocation()) {
+                return new ZonePartitionId(table.zoneId(), table.partitionId(tuple));
+            } else {
+                return new TablePartitionId(table.tableId(), table.partitionId(tuple));
+            }
         }
     }
 }

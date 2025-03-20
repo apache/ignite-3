@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 import java.io.IOException;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Catalog object serializer.
+ *
+ * <p>All implementations used in production (and not tied to a specific
+ * version of another serializer) must be annotated with {@link CatalogSerializer}.
+ *
+ * @see CatalogSerializer
  */
 public interface CatalogObjectSerializer<T> {
     /**
@@ -31,7 +34,7 @@ public interface CatalogObjectSerializer<T> {
      * @param input Data input.
      * @return Catalog entry.
      */
-    T readFrom(IgniteDataInput input) throws IOException;
+    T readFrom(CatalogObjectDataInput input) throws IOException;
 
     /**
      * Writes catalog object to data output.
@@ -39,5 +42,5 @@ public interface CatalogObjectSerializer<T> {
      * @param value Catalog entry.
      * @param output Data output.
      */
-    void writeTo(T value, IgniteDataOutput output) throws IOException;
+    void writeTo(T value, CatalogObjectDataOutput output) throws IOException;
 }

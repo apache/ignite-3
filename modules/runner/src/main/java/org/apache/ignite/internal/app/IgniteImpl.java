@@ -25,15 +25,16 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
@@ -175,6 +176,7 @@ import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.JoinedNodes;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -556,10 +558,12 @@ public class IgniteImpl implements Ignite {
         try {
             lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
         } catch (NodeStoppingException e) {
-            assert false : "Unexpected exception: " + e;
+            throw new AssertionError("Unexpected exception", e);
         }
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
+
+        LOG.info("Local node configuration: {}", convertToHoconString(nodeConfigRegistry));
 
         NetworkConfiguration networkConfiguration = nodeConfigRegistry.getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
@@ -674,6 +678,7 @@ public class IgniteImpl implements Ignite {
         );
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        logicalTopology.addEventListener(logicalTopologyJoinedNodesListener(clusterSvc.topologyService()));
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
@@ -754,7 +759,8 @@ public class IgniteImpl implements Ignite {
                 new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),
                 msRaftConfigurer,
                 readOperationForCompactionTracker,
-                threadPoolsManager.tableIoExecutor()
+                threadPoolsManager.tableIoExecutor(),
+                failureManager
         );
 
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -864,7 +870,7 @@ public class IgniteImpl implements Ignite {
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
-                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                         .thenApply(org.apache.ignite.internal.metastorage.Entry::value)
         );
 
@@ -884,6 +890,7 @@ public class IgniteImpl implements Ignite {
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
+                metricManager,
                 nodeConfigRegistry,
                 storagePath,
                 longJvmPauseDetector,
@@ -942,8 +949,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                clockService
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1119,7 +1126,9 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clusterSvc,
                 logicalTopologyService,
-                clockService
+                clockService,
+                failureManager,
+                lowWatermark
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -1148,7 +1157,7 @@ public class IgniteImpl implements Ignite {
 
         systemViewManager.register(qryEngine);
 
-        sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
+        sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker, threadPoolsManager.commonScheduler());
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -1207,7 +1216,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                threadPoolsManager.commonScheduler()
         );
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
@@ -1241,6 +1251,20 @@ public class IgniteImpl implements Ignite {
                 serverDataPathByGroupName,
                 logStorageFactoryByGroupName
         );
+    }
+
+    private static LogicalTopologyEventListener logicalTopologyJoinedNodesListener(JoinedNodes joinedNodes) {
+        return new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+                joinedNodes.onJoined(joinedNode);
+            }
+
+            @Override
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+                joinedNodes.onLeft(leftNode);
+            }
+        };
     }
 
     private static ClusterInfo clusterInfo(ClusterStateStorageManager clusterStateStorageManager) {
@@ -1496,6 +1520,8 @@ public class IgniteImpl implements Ignite {
                 .thenComposeAsync(v -> {
                     LOG.info("Components started, performing recovery");
 
+                    LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
+
                     return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
                 }, joinExecutor)
                 .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), joinExecutor)
@@ -1570,7 +1596,7 @@ public class IgniteImpl implements Ignite {
     private RuntimeException handleStartException(Throwable e) {
         String errMsg = "Unable to start [node=" + name + "]";
 
-        IgniteException igniteException = new IgniteException(INTERNAL_ERR, errMsg, e);
+        var igniteException = new IgniteException(extractCodeFrom(e), errMsg, e);
 
         ExecutorService lifecycleExecutor = stopExecutor();
 
@@ -2046,5 +2072,18 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public SystemDisasterRecoveryManager systemDisasterRecoveryManager() {
         return systemDisasterRecoveryManager;
+    }
+
+    @TestOnly
+    public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager() {
+        return partitionReplicaLifecycleManager;
+    }
+
+    /**
+     * Converts the entire configuration from the registry to a HOCON string without spaces, comments and quotes. For example,
+     * "ignite{clientConnector{connectTimeout=5000,idleTimeout=0}}".
+     */
+    private static String convertToHoconString(ConfigurationRegistry configRegistry) {
+        return HoconConverter.represent(configRegistry.superRoot(), List.of()).render(ConfigRenderOptions.concise().setJson(false));
     }
 }

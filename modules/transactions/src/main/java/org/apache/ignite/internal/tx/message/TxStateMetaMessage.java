@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.message;
 
 import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.jetbrains.annotations.Nullable;
@@ -31,7 +31,7 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
     @Nullable UUID txCoordinatorId();
 
     /** ID of the replication group that manages a transaction state. */
-    @Nullable TablePartitionIdMessage commitPartitionId();
+    @Nullable ReplicationGroupIdMessage commitPartitionId();
 
     /** Initial vacuum observation timestamp. */
     @Nullable Long initialVacuumObservationTimestamp();
@@ -39,18 +39,21 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
     /** Cleanup completion timestamp. */
     @Nullable Long cleanupCompletionTimestamp();
 
+    @Nullable Boolean isFinishedDueToTimeout();
+
     /** Converts to {@link TxStateMeta}. */
     default TxStateMeta asTxStateMeta() {
-        TablePartitionIdMessage commitPartitionId = commitPartitionId();
+        ReplicationGroupIdMessage commitPartitionId = commitPartitionId();
 
         return new TxStateMeta(
                 txState(),
                 txCoordinatorId(),
-                commitPartitionId == null ? null : commitPartitionId.asTablePartitionId(),
+                commitPartitionId == null ? null : commitPartitionId.asReplicationGroupId(),
                 commitTimestamp(),
                 null,
                 initialVacuumObservationTimestamp(),
-                cleanupCompletionTimestamp()
+                cleanupCompletionTimestamp(),
+                isFinishedDueToTimeout()
         );
     }
 

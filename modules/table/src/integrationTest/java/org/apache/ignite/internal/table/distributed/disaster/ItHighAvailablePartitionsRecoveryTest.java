@@ -22,23 +22,20 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -177,11 +174,15 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         assertRecoveryKeyIsEmpty(node);
 
+        log.info("Test: stopping nodes.");
+
         stopNodes(1, 2);
 
         waitAndAssertRecoveryKeyIsNotEmpty(node, 30_000);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+
+        log.info("Test: restarting nodes.");
 
         startNode(1);
         startNode(2);
@@ -203,17 +204,17 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNode(2);
 
-        long revision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node, HA_ZONE_NAME, Set.of(stopNode));
+        long revision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node, HA_ZONE_NAME, Set.of(stopNode));
 
         waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
         assertTrue(
                 node
                         .distributionZoneManager()
-                        .zonesState()
-                        .get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
-                        .partitionDistributionResetTask()
-                        .isDone()
+                        .dataNodesManager()
+                        .zoneTimers(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
+                        .partitionReset
+                        .taskIsDone()
         );
 
         assertTrue(node.disasterRecoveryManager().ongoingOperationsById().isEmpty());
@@ -233,16 +234,17 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNodes(2, 1);
 
-        long revision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node, SC_ZONE_NAME, Set.of(lastStopNode));
+        long revision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node, SC_ZONE_NAME, Set.of(lastStopNode));
 
         waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
-        assertNull(
+        assertFalse(
                 node
                         .distributionZoneManager()
-                        .zonesState()
-                        .get(zoneIdByName(node.catalogManager(), SC_ZONE_NAME))
-                        .partitionDistributionResetTask()
+                        .dataNodesManager()
+                        .zoneTimers(zoneIdByName(node.catalogManager(), SC_ZONE_NAME))
+                        .partitionReset
+                        .taskIsScheduled()
         );
 
         assertRecoveryKeyIsEmpty(node);
@@ -273,6 +275,8 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         assertRecoveryRequestForHaZoneTable(node);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+
+        log.info("Test: restarting nodes.");
 
         var node1 = startNode(1);
 
@@ -458,21 +462,18 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         KeyValueStorage keyValueStorage = ((MetaStorageManagerImpl) node.metaStorageManager()).storage();
 
-        Supplier<Long> getScaleDownRevision = () ->
-                bytesToLongKeepingOrder(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value());
-
-        long revisionOfScaleDown = getScaleDownRevision.get();
+        String stoppedNodeName = node(2).name();
 
         stopNode(2);
-
-        assertTrue(waitForCondition(() -> getScaleDownRevision.get() > revisionOfScaleDown, 5_000));
 
         Set<LogicalNode> expectedNodes = runningNodes()
                 .map(n -> unwrapIgniteImpl(n).clusterService().topologyService().localMember())
                 .map(LogicalNode::new)
                 .collect(Collectors.toUnmodifiableSet());
 
-        DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage(
+        assertFalse(expectedNodes.contains(stoppedNodeName));
+
+        assertDataNodesFromLogicalNodesInStorage(
                 zoneId,
                 expectedNodes,
                 keyValueStorage
@@ -493,7 +494,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24509")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     void testNodeStateCleanupAfterRestartInHaMode() throws Exception {
         startNode(3);
         startNode(4);
@@ -517,6 +518,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         startNode(6);
 
-        assertValuesNotPresentOnNodes(node0.clock().now(), table, 6);
+        assertPartitionsAreEmpty(HA_TABLE_NAME, PARTITION_IDS, 6);
     }
 }

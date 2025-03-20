@@ -44,6 +44,7 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.tostring.S;
@@ -71,12 +72,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
-    // -1 is used as an initial value, in order not to clash with {@code ReplicaMeta.getStartTime}
-    private volatile long leaseStartTime = -1;
-
-    private volatile UUID primaryReplicaNodeId;
-
-    private volatile String primaryReplicaNodeName;
+    @Nullable
+    private volatile LeaseInfo leaseInfo;
 
     private volatile long estimatedSize;
 
@@ -236,7 +233,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableId,
+            int commitTableOrZoneId,
             int commitPartitionId
     ) throws TxIdMismatchException {
         checkStorageClosed();
@@ -251,10 +248,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
                 res[0] = versionChain.row;
 
-                return VersionChain.forWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, versionChain.next);
+                return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain.next);
             }
 
-            return VersionChain.forWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, versionChain);
+            return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
         });
 
         return res[0];
@@ -639,41 +636,23 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized void updateLease(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    ) {
+    public synchronized void updateLease(LeaseInfo leaseInfo) {
         checkStorageClosed();
 
-        if (leaseStartTime <= this.leaseStartTime) {
+        LeaseInfo thisLeaseInfo = this.leaseInfo;
+
+        if (thisLeaseInfo != null && leaseInfo.leaseStartTime() <= thisLeaseInfo.leaseStartTime()) {
             return;
         }
 
-        this.leaseStartTime = leaseStartTime;
-        this.primaryReplicaNodeId = primaryReplicaNodeId;
-        this.primaryReplicaNodeName = primaryReplicaNodeName;
+        this.leaseInfo = leaseInfo;
     }
 
     @Override
-    public long leaseStartTime() {
+    public @Nullable LeaseInfo leaseInfo() {
         checkStorageClosed();
 
-        return leaseStartTime;
-    }
-
-    @Override
-    public @Nullable UUID primaryReplicaNodeId() {
-        checkStorageClosed();
-
-        return primaryReplicaNodeId;
-    }
-
-    @Override
-    public @Nullable String primaryReplicaNodeName() {
-        checkStorageClosed();
-
-        return primaryReplicaNodeName;
+        return leaseInfo;
     }
 
     @Override
@@ -685,6 +664,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
+        if (rebalance) {
+            throw new StorageRebalanceException();
+        }
+
         closed = true;
 
         clear0();
@@ -715,8 +698,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         lastAppliedTerm = 0;
         estimatedSize = 0;
         groupConfig = null;
-
-        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+        leaseInfo = null;
     }
 
     private void checkStorageClosed() {
@@ -754,8 +736,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = REBALANCE_IN_PROGRESS;
         lastAppliedTerm = REBALANCE_IN_PROGRESS;
-        estimatedSize = 0;
-        groupConfig = null;
     }
 
     void abortRebalance() {
@@ -780,6 +760,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         this.lastAppliedIndex = partitionMeta.lastAppliedIndex();
         this.lastAppliedTerm = partitionMeta.lastAppliedTerm();
         this.groupConfig = Arrays.copyOf(partitionMeta.groupConfig(), partitionMeta.groupConfig().length);
+        this.leaseInfo = partitionMeta.leaseInfo();
     }
 
     private class ScanVersionsCursor implements Cursor<ReadResult> {

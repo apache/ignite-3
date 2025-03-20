@@ -33,7 +33,11 @@ public class AlterZoneEventParameters extends CatalogEventParameters {
      * @param catalogVersion Catalog version.
      * @param zoneDescriptor Newly created distribution zone descriptor.
      */
-    public AlterZoneEventParameters(long causalityToken, int catalogVersion, CatalogZoneDescriptor zoneDescriptor) {
+    public AlterZoneEventParameters(
+            long causalityToken,
+            int catalogVersion,
+            CatalogZoneDescriptor zoneDescriptor
+    ) {
         super(causalityToken, catalogVersion);
 
         this.zoneDescriptor = zoneDescriptor;

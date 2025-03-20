@@ -30,7 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
  */
 public class MockAsyncContext implements RpcContext {
     private Object responseObject;
-    private NodeManager nodeManager = new NodeManager();
+    private NodeManager nodeManager = new NodeManager(null);
 
     private ClusterNode sender = new ClusterNodeImpl(
             UUID.randomUUID(),

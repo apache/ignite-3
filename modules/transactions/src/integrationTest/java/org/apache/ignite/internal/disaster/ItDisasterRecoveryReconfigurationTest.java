@@ -30,9 +30,10 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -95,6 +96,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsLink;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.RendezvousDistributionFunction;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
@@ -109,6 +111,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -137,6 +140,8 @@ import org.junit.jupiter.api.Timeout;
  * partitions.
  */
 @Timeout(120)
+// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
@@ -462,10 +467,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         startNode(1);
         startNode(2);
 
-        // Make sure recovery has finished.
-        assertThat(igniteImpl(1).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
-        assertThat(igniteImpl(2).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
-
         // Make sure 1 and 2 did not start.
         assertRealAssignments(node0, partId, 0);
     }
@@ -657,6 +658,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         awaitPrimaryReplica(node0, partId);
 
         assertRealAssignments(node0, partId, 0, 1, 4);
+
+        log.info("Test: stopping nodes.");
 
         stopNodesInParallel(1, 4);
         waitForScale(node0, 3);
@@ -1479,6 +1482,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments, link3Assignments));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testSecondResetRewritesUnfinishedFirstPhaseReset() throws Exception {
@@ -2001,13 +2005,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private @Nullable Assignments getPendingAssignments(IgniteImpl node, int partId) {
         CompletableFuture<Entry> pendingFut = node.metaStorageManager()
-                .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partId)));
+                .get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partId)));
 
         assertThat(pendingFut, willCompleteSuccessfully());
 
         Entry pending = pendingFut.join();
 
-        return pending.empty() ? null : Assignments.fromBytes(pending.value());
+        return pending.empty() ? null : AssignmentsQueue.fromBytes(pending.value()).poll();
     }
 
     private @Nullable Assignments getStableAssignments(IgniteImpl node, int partId) {

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.message;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 
@@ -27,11 +27,13 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 public interface TxStateMetaFinishingMessage extends TxStateMetaMessage {
     /** Converts to {@link TxStateMetaFinishing}. */
     default TxStateMetaFinishing asTxStateMetaFinishing() {
-        TablePartitionIdMessage commitPartitionId = commitPartitionId();
+        ReplicationGroupIdMessage commitPartitionId = commitPartitionId();
 
         return new TxStateMetaFinishing(
                 txCoordinatorId(),
-                commitPartitionId == null ? null : commitPartitionId.asTablePartitionId()
+                commitPartitionId == null ? null : commitPartitionId.asReplicationGroupId(),
+                isFinishedDueToTimeout()
+
         );
     }
 

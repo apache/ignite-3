@@ -45,12 +45,12 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
 
     @BeforeAll
     public void createTable() {
-        runSql("CREATE TABLE binary_fixed_length(id INTEGER PRIMARY KEY, test_key BINARY(10))");
-        runSql("CREATE INDEX binary_fixed_length_test_key_idx on binary_fixed_length (test_key)");
+        runSql("CREATE TABLE varbinary_table(id INTEGER PRIMARY KEY, test_key VARBINARY(10))");
+        runSql("CREATE INDEX varbinary_table_test_key_idx on varbinary_table (test_key)");
 
-        runSql("INSERT INTO binary_fixed_length VALUES(1, $0)");
-        runSql("INSERT INTO binary_fixed_length VALUES(2, $1)");
-        runSql("INSERT INTO binary_fixed_length VALUES(3, $2)");
+        runSql("INSERT INTO varbinary_table VALUES(1, $0)");
+        runSql("INSERT INTO varbinary_table VALUES(2, $1)");
+        runSql("INSERT INTO varbinary_table VALUES(3, $2)");
     }
 
     /**
@@ -65,7 +65,7 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
         // TODO Disable for VARBINARY, remove after https://issues.apache.org/jira/browse/IGNITE-19931 is fixed
         Assumptions.assumeFalse(mode == ValueMode.CAST);
 
-        checkQuery(format("SELECT * FROM {} WHERE test_key = {}", table, value1str))
+        checkQuery(format("SELECT /*+ FORCE_INDEX({}_TEST_KEY_IDX) */ * FROM {} WHERE test_key = {}", table, table, value1str))
                 .matches(containsIndexScan("PUBLIC", table, table + "_TEST_KEY_IDX"))
                 .returns(1, value1)
                 .check();
@@ -102,9 +102,9 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
                 Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.LITERAL),
                 Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.CAST_WITH_PRECISION),
 
-                Arguments.of("BINARY_FIXED_LENGTH", ValueMode.LITERAL),
-                Arguments.of("BINARY_FIXED_LENGTH", ValueMode.CAST),
-                Arguments.of("BINARY_FIXED_LENGTH", ValueMode.CAST_WITH_PRECISION)
+                Arguments.of("VARBINARY_TABLE", ValueMode.LITERAL),
+                Arguments.of("VARBINARY_TABLE", ValueMode.CAST),
+                Arguments.of("VARBINARY_TABLE", ValueMode.CAST_WITH_PRECISION)
         );
     }
 

@@ -28,8 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.AbstractTopologyService;
@@ -131,9 +129,8 @@ public class ClusterServiceFactory {
                     messagingServicesByNode.remove(nodeName);
                     topologyServicesByNode.remove(nodeName);
 
-                    topologyServicesByNode.values().stream()
-                            .flatMap(topSrvc -> topSrvc.getEventHandlers().stream())
-                            .forEach(eventHandler -> eventHandler.onDisappeared(node));
+                    topologyServicesByNode.values()
+                            .forEach(topologyService -> topologyService.evictNode(nodeName));
                 }
 
                 return nullCompletedFuture();
@@ -149,9 +146,11 @@ public class ClusterServiceFactory {
         private final Map<NetworkAddress, ClusterNode> allMembersByAddress;
 
         private LocalTopologyService(String localMember, List<String> allMembers) {
-            this.allMembers = allMembers.stream()
+            this.allMembers = new ConcurrentHashMap<>();
+
+            allMembers.stream()
                     .map(LocalTopologyService::nodeFromName)
-                    .collect(Collectors.toMap(ClusterNode::name, Function.identity()));
+                    .forEach(node -> this.allMembers.put(node.name(), node));
 
             this.localMember = this.allMembers.get(localMember);
 
@@ -162,6 +161,14 @@ public class ClusterServiceFactory {
             this.allMembersByAddress = new HashMap<>();
 
             this.allMembers.forEach((ignored, member) -> allMembersByAddress.put(member.address(), member));
+        }
+
+        private void evictNode(String nodeName) {
+            ClusterNode nodeToEvict = allMembers.remove(nodeName);
+
+            if (nodeToEvict != null) {
+                getEventHandlers().forEach(handler -> handler.onDisappeared(nodeToEvict));
+            }
         }
 
         private static ClusterNode nodeFromName(String name) {
@@ -200,6 +207,14 @@ public class ClusterServiceFactory {
         @Override
         public @Nullable ClusterNode getById(UUID id) {
             return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
+        }
+
+        @Override
+        public void onJoined(ClusterNode node) {
+        }
+
+        @Override
+        public void onLeft(ClusterNode node) {
         }
     }
 

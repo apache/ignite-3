@@ -330,6 +330,10 @@ public class LeaseUpdater {
         ClusterNode primaryCandidate = null;
 
         for (Assignment assignment : assignments) {
+            if (!assignment.isPeer()) {
+                continue;
+            }
+
             // Check whether given assignments is actually available in logical topology. It's a best effort check because it's possible
             // for proposed primary candidate to leave the topology at any time. In that case primary candidate will be recalculated.
             ClusterNode candidateNode = topologyTracker.nodeByConsistentId(assignment.consistentId());
@@ -715,7 +719,7 @@ public class LeaseUpdater {
                 return false;
             }
 
-            boolean result = ++statisticsLogCounter > LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
+            boolean result = ++statisticsLogCounter >= LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
 
             if (result) {
                 statisticsLogCounter = 0;

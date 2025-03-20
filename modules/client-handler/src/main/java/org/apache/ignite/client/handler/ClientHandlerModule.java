@@ -130,6 +130,8 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final Executor partitionOperationsExecutor;
 
+    private final Executor commonExecutor;
+
     @TestOnly
     @SuppressWarnings("unused")
     private volatile ClientInboundMessageHandler handler;
@@ -150,6 +152,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param clientConnectorConfiguration Configuration of the connector.
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
+     * @param commonExecutor Common executor used by SQL script handler.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -168,7 +171,8 @@ public class ClientHandlerModule implements IgniteComponent {
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            Executor commonExecutor
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -187,6 +191,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert clientConnectorConfiguration != null;
         assert lowWatermark != null;
         assert partitionOperationsExecutor != null;
+        assert commonExecutor != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -205,6 +210,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 lowWatermark);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.commonExecutor = commonExecutor;
     }
 
     /** {@inheritDoc} */
@@ -294,13 +300,17 @@ public class ClientHandlerModule implements IgniteComponent {
                     @Override
                     protected void initChannel(Channel ch) {
                         if (!busyLock.enterBusy()) {
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("Client handler stopped, dropping client connection [remoteAddress=" + ch.remoteAddress() + ']');
+                            }
+
                             ch.close();
                             return;
                         }
 
-                        try {
-                            long connectionId = CONNECTION_ID_GEN.incrementAndGet();
+                        long connectionId = CONNECTION_ID_GEN.incrementAndGet();
 
+                        try {
                             if (LOG.isDebugEnabled()) {
                                 LOG.debug("New client connection [connectionId=" + connectionId
                                         + ", remoteAddress=" + ch.remoteAddress() + ']');
@@ -329,6 +339,11 @@ public class ClientHandlerModule implements IgniteComponent {
                             );
 
                             metrics.connectionsInitiatedIncrement();
+                        } catch (Throwable t) {
+                            LOG.error("Failed to initialize client connection [connectionId=" + connectionId
+                                    + ", remoteAddress=" + ch.remoteAddress() + "]:" + t.getMessage(), t);
+
+                            ch.close();
                         } finally {
                             busyLock.leaveBusy();
                         }
@@ -407,7 +422,8 @@ public class ClientHandlerModule implements IgniteComponent {
                 primaryReplicaTracker,
                 partitionOperationsExecutor,
                 HandshakeUtils.EMPTY_FEATURES,
-                Map.of()
+                Map.of(),
+                commonExecutor
         );
     }
 

@@ -31,10 +31,12 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreeReusePageMemoryTest;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -47,6 +49,11 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
             value = "mock.engine = aipersist"
     )
     private StorageProfileConfiguration dataRegionCfg;
+
+    @BeforeAll
+    static void initLockOffset() {
+        lockOffset = PersistentPageMemory.PAGE_LOCK_OFFSET;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -62,17 +69,16 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
 
         return new PersistentPageMemory(
                 (PersistentPageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
+                new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
                 10 * MiB,
                 new TestPageReadWriteManager(),
-                (page, fullPageId, pageMemoryImpl) -> {
-                },
                 (fullPageId, buf, tag) -> {
                 },
                 mockCheckpointTimeoutLock(true),
                 PAGE_SIZE,
-                new OffheapReadWriteLock(128)
+                wrapLock(new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL))
         );
     }
 

@@ -48,6 +48,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -766,7 +767,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertNull(res.transactionId());
-        assertNull(res.commitTableId());
+        assertNull(res.commitTableOrZoneId());
         assertEquals(ReadResult.UNDEFINED_COMMIT_PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow));
 
@@ -775,7 +776,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertEquals(txId2, res.transactionId());
-        assertEquals(COMMIT_TABLE_ID, res.commitTableId());
+        assertEquals(COMMIT_TABLE_ID, res.commitTableOrZoneId());
         assertEquals(PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow2));
     }
@@ -1218,7 +1219,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertTrue(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(not(ReadResult.UNDEFINED_COMMIT_PARTITION_ID)));
-                assertThat(result.commitTableId(), is(notNullValue()));
+                assertThat(result.commitTableOrZoneId(), is(notNullValue()));
                 assertThat(result.transactionId(), is(notNullValue()));
                 assertThat(result.commitTimestamp(), is(nullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));
@@ -1242,7 +1243,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertFalse(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(ReadResult.UNDEFINED_COMMIT_PARTITION_ID));
-                assertThat(result.commitTableId(), is(nullValue()));
+                assertThat(result.commitTableOrZoneId(), is(nullValue()));
                 assertThat(result.transactionId(), is(nullValue()));
                 assertThat(result.commitTimestamp(), is(notNullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));
@@ -1380,24 +1381,17 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             long lst1 = 2000;
             UUID nodeId1 = UUID.randomUUID();
 
-            storage.updateLease(lst0, nodeId0, nodeId0 + "name");
+            var leaseInfo = new LeaseInfo(lst0, nodeId0, nodeId0 + "name");
 
-            assertEquals(lst0, storage.leaseStartTime());
-            assertEquals(nodeId0, storage.primaryReplicaNodeId());
-            assertEquals(nodeId0 + "name", storage.primaryReplicaNodeName());
+            storage.updateLease(leaseInfo);
 
-            storage.updateLease(lst1, nodeId1, nodeId1 + "name");
+            assertEquals(leaseInfo, storage.leaseInfo());
 
-            assertEquals(lst1, storage.leaseStartTime());
-            assertEquals(nodeId1, storage.primaryReplicaNodeId());
-            assertEquals(nodeId1 + "name", storage.primaryReplicaNodeName());
+            leaseInfo = new LeaseInfo(lst1, nodeId1, nodeId1 + "name");
 
-            UUID nodeIdRandom = UUID.randomUUID();
-            storage.updateLease(0, nodeIdRandom, nodeIdRandom + "name");
+            storage.updateLease(leaseInfo);
 
-            assertEquals(lst1, storage.leaseStartTime());
-            assertEquals(nodeId1, storage.primaryReplicaNodeId());
-            assertEquals(nodeId1 + "name", storage.primaryReplicaNodeName());
+            assertEquals(leaseInfo, storage.leaseInfo());
 
             return null;
         });

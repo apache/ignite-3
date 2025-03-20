@@ -71,7 +71,8 @@ public class VolatileTxStateMetaStorage {
      * @param tx Transaction object.
      */
     public void initialize(InternalTransaction tx) {
-        TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx));
+        TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx, null));
+
 
         assert previous == null : "Transaction state has already defined [txId=" + tx.id() + ", state=" + previous.txState() + ']';
     }
@@ -143,7 +144,7 @@ public class VolatileTxStateMetaStorage {
     public CompletableFuture<Void> vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
             // Should be changed to ZonePartitionId.
             Function<Map<ReplicationGroupId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
     ) {
@@ -153,7 +154,7 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522
         // Should be changed to ZonePartitionId.
         Map<ReplicationGroupId, Set<VacuumizableTx>> txIds = new HashMap<>();
         Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
@@ -180,7 +181,7 @@ public class VolatileTxStateMetaStorage {
 
                             return null;
                         } else {
-                            // TODO https://issues.apache.org/jira/browse/IGNITE-24343
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
                             // Should be changed to ZonePartitionId.
                             Set<VacuumizableTx> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
                             ids.add(new VacuumizableTx(txId, cleanupCompletionTimestamp));

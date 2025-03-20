@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,6 +33,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -72,6 +74,8 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
     protected static final int TABLE_ID = 1;
 
     protected static final byte[] GROUP_CONFIGURATION = {1, 2, 3};
+
+    protected static final byte[] SNAPSHOT_INFO = {4, 5, 6};
 
     protected static final LeaseInfo LEASE_INFO = new LeaseInfo(1, UUID.randomUUID(), "node");
 
@@ -379,7 +383,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
     public void testSuccessRebalance() {
         TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
 
-        MvPartitionMeta partitionMeta = saneMvPartitionMeta(30, 50, new byte[] {1, 2, 3});
+        MvPartitionMeta partitionMeta = saneMvPartitionMeta(30, 50);
 
         // We can't finish rebalance that we haven't started.
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.finishRebalance(partitionMeta));
@@ -399,19 +403,13 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         // Let's fill it with new data.
         fillStorageDuringRebalance(storage, rowsOnRebalance);
 
-        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, null, null);
+        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, null, null, null);
 
         // Let's complete rebalancing.
         assertThat(storage.finishRebalance(partitionMeta), willCompleteSuccessfully());
 
         // Let's check the storage.
-        var leaseInfo = new LeaseInfo(
-                partitionMeta.leaseStartTime(),
-                partitionMeta.primaryReplicaNodeId(),
-                partitionMeta.primaryReplicaNodeName()
-        );
-
-        checkMeta(storage, 30, 50, partitionMeta.groupConfig(), leaseInfo);
+        checkMeta(storage, 30, 50, partitionMeta.groupConfig(), partitionMeta.leaseInfo(), partitionMeta.snapshotInfo());
 
         checkStorageContainsRows(storage, rowsOnRebalance);
     }
@@ -438,13 +436,13 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         // Let's fill it with new data.
         fillStorageDuringRebalance(storage, rowsOnRebalance);
 
-        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, null, null);
+        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, null, null, null);
 
         // Let's abort rebalancing.
         assertThat(storage.abortRebalance(), willCompleteSuccessfully());
 
         // Let's check the storage.
-        checkMeta(storage, 0, 0, null, null);
+        checkMeta(storage, 0, 0, null, null, null);
 
         checkStorageIsEmpty(storage);
     }
@@ -458,7 +456,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         storage1.destroy();
 
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::startRebalance);
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage1::startRebalance);
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_ERR, storage1::startRebalance);
     }
 
     @Test
@@ -468,7 +466,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         // Cleaning up on empty storage should not generate errors.
         assertThat(storage.clear(), willCompleteSuccessfully());
 
-        checkMeta(storage, 0, 0, null, null);
+        checkMeta(storage, 0, 0, null, null, null);
         checkStorageIsEmpty(storage);
 
         List<IgniteBiTuple<UUID, TxMeta>> rows = List.of(
@@ -481,7 +479,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         // Cleanup the non-empty storage.
         assertThat(storage.clear(), willCompleteSuccessfully());
 
-        checkMeta(storage, 0, 0, null, null);
+        checkMeta(storage, 0, 0, null, null, null);
         checkStorageIsEmpty(storage);
     }
 
@@ -497,7 +495,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
         try {
             assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::clear);
-            assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage1::clear);
+            assertThrowsIgniteInternalException(TX_STATE_STORAGE_ERR, storage1::clear);
             assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage2::clear);
         } finally {
             assertThat(storage2.abortRebalance(), willCompleteSuccessfully());
@@ -508,30 +506,48 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
     void testSetAndReadMeta() {
         TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
 
-        MvPartitionMeta mvPartitionMeta = saneMvPartitionMeta(0, 0, new byte[] {1, 2, 3});
+        storage.lastApplied(1, 15);
 
-        storage.lastApplied(10, 15);
-
-        assertThat(storage.lastAppliedIndex(), is(10L));
+        assertThat(storage.lastAppliedIndex(), is(1L));
         assertThat(storage.lastAppliedTerm(), is(15L));
 
-        storage.committedGroupConfiguration(mvPartitionMeta.groupConfig(), 20, 30);
+        storage.committedGroupConfiguration(GROUP_CONFIGURATION, 2, 30);
 
-        assertThat(storage.committedGroupConfiguration(), is(mvPartitionMeta.groupConfig()));
-        assertThat(storage.lastAppliedIndex(), is(20L));
+        assertThat(storage.committedGroupConfiguration(), is(GROUP_CONFIGURATION));
+        assertThat(storage.lastAppliedIndex(), is(2L));
         assertThat(storage.lastAppliedTerm(), is(30L));
 
-        var leaseInfo = new LeaseInfo(
-                mvPartitionMeta.leaseStartTime(),
-                mvPartitionMeta.primaryReplicaNodeId(),
-                mvPartitionMeta.primaryReplicaNodeName()
-        );
+        storage.leaseInfo(LEASE_INFO, 3, 50);
 
-        storage.leaseInfo(leaseInfo, 40, 50);
-
-        assertThat(storage.leaseInfo(), is(leaseInfo));
-        assertThat(storage.lastAppliedIndex(), is(40L));
+        assertThat(storage.leaseInfo(), is(LEASE_INFO));
+        assertThat(storage.lastAppliedIndex(), is(3L));
         assertThat(storage.lastAppliedTerm(), is(50L));
+
+        storage.snapshotInfo(SNAPSHOT_INFO, 4, 60);
+
+        assertThat(storage.snapshotInfo(), is(SNAPSHOT_INFO));
+        assertThat(storage.lastAppliedIndex(), is(4L));
+        assertThat(storage.lastAppliedTerm(), is(60L));
+    }
+
+    @Test
+    void testCloseStartedRebalance() {
+        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+
+        assertThat(storage.startRebalance(), willCompleteSuccessfully());
+
+        assertThrows(IgniteInternalException.class, storage::close);
+
+        assertThat(storage.finishRebalance(saneMvPartitionMeta(0, 0)), willCompleteSuccessfully());
+    }
+
+    @Test
+    void testDestroyStartedRebalance() {
+        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
+
+        assertThat(storage.startRebalance(), willCompleteSuccessfully());
+
+        assertDoesNotThrow(storage::destroy);
     }
 
     private static void checkStorageIsEmpty(TxStatePartitionStorage storage) {
@@ -566,7 +582,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
     }
 
     private static void checkTxStateStorageMethodsWhenRebalanceInProgress(TxStatePartitionStorage storage) {
-        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, null, null);
+        checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, null, null, null);
 
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.lastApplied(100, 500));
         assertThrowsIgniteInternalException(
@@ -576,6 +592,10 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         assertThrowsIgniteInternalException(
                 TX_STATE_STORAGE_REBALANCE_ERR,
                 () -> storage.leaseInfo(LEASE_INFO, 1, 2)
+        );
+        assertThrowsIgniteInternalException(
+                TX_STATE_STORAGE_REBALANCE_ERR,
+                () -> storage.snapshotInfo(SNAPSHOT_INFO, 1, 2)
         );
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.get(UUID.randomUUID()));
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID(), 100, 500));
@@ -636,8 +656,12 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
             }
         }
 
-        storage.committedGroupConfiguration(GROUP_CONFIGURATION, storage.lastAppliedIndex() + 1, storage.lastAppliedTerm() + 1);
-        storage.leaseInfo(LEASE_INFO, storage.lastAppliedIndex() + 1, storage.lastAppliedTerm() + 1);
+        long lastAppliedIndex = storage.lastAppliedIndex();
+        long lastAppliedTerm = storage.lastAppliedTerm();
+
+        storage.committedGroupConfiguration(GROUP_CONFIGURATION, lastAppliedIndex + 1, lastAppliedTerm);
+        storage.leaseInfo(LEASE_INFO, lastAppliedIndex + 2, lastAppliedTerm);
+        storage.snapshotInfo(SNAPSHOT_INFO, lastAppliedIndex + 3, lastAppliedTerm);
     }
 
     protected static void fillStorageDuringRebalance(TxStatePartitionStorage storage, List<IgniteBiTuple<UUID, TxMeta>> rows) {
@@ -656,15 +680,23 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
             long expLastAppliedIndex,
             long expLastAppliedTerm,
             byte @Nullable [] expConfiguration,
-            @Nullable LeaseInfo expLeaseInfo
+            @Nullable LeaseInfo expLeaseInfo,
+            byte @Nullable [] expSnapshotInfo
     ) {
         assertThat(storage.lastAppliedIndex(), is(expLastAppliedIndex));
         assertThat(storage.lastAppliedTerm(), is(expLastAppliedTerm));
         assertThat(storage.committedGroupConfiguration(), is(expConfiguration));
         assertThat(storage.leaseInfo(), is(expLeaseInfo));
+        assertThat(storage.snapshotInfo(), is(expSnapshotInfo));
     }
 
-    private static MvPartitionMeta saneMvPartitionMeta(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
-        return new MvPartitionMeta(lastAppliedIndex, lastAppliedTerm, groupConfig, 333, new UUID(1, 2), "primary");
+    private static MvPartitionMeta saneMvPartitionMeta(long lastAppliedIndex, long lastAppliedTerm) {
+        return new MvPartitionMeta(
+                lastAppliedIndex,
+                lastAppliedTerm,
+                GROUP_CONFIGURATION,
+                LEASE_INFO,
+                SNAPSHOT_INFO
+        );
     }
 }

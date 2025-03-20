@@ -878,6 +878,43 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     /**
+     * BINARY datatype has certain storage assignment rules, namely it requires value to be padded with X'00' symbol up to declared
+     * length. This currently not supported in storage, thus let's forbid usage of BINARY datatype for table's columns.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c BINARY)",
+            "CREATE TABLE t (c BINARY(5))",
+            "ALTER TABLE t ADD COLUMN c BINARY",
+            "ALTER TABLE t ADD COLUMN c BINARY(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE BINARY",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE BINARY(5)",
+    })
+    void binaryTypeIsNotAllowedInTable(String statement) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "BINARY datatype is not supported in table",
+                () -> parse(statement)
+        );
+    }
+
+    /**
+     * Test makes sure exception is not thrown for BINARY VARYING type and in CAST operation where BINARY is allowed.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c VARBINARY)",
+            "CREATE TABLE t (c BINARY VARYING)",
+            "SELECT CAST(1 AS BINARY)",
+            "SELECT 1::BINARY",
+    })
+    void restrictionOfBinaryTypeIsNotAppliedToVarbinaryAndCast(String statement) {
+        SqlNode node = parse(statement);
+
+        assertNotNull(node);
+    }
+
+    /**
      * Matcher to verify name in the column declaration.
      *
      * @param name Expected name.

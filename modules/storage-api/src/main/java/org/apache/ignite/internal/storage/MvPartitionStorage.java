@@ -23,6 +23,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -170,6 +171,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
      * In details:
@@ -180,14 +182,14 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param rowId Row id.
      * @param row Table row to update. {@code null} means value removal.
      * @param txId Transaction id.
-     * @param commitTableId Commit table id.
+     * @param commitTableOrZoneId Commit table/zone id.
      * @param commitPartitionId Commit partitionId.
      * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
      *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**
@@ -270,39 +272,13 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     @Nullable BinaryRow vacuum(GcEntry entry);
 
-    /**
-     * Updates the current lease start time in the storage.
-     *
-     * @param leaseStartTime Lease start time.
-     * @param primaryReplicaNodeId Primary replica node id.
-     * @param primaryReplicaNodeName Primary replica node name.
-     */
-    void updateLease(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    );
+    /** Saves the given lease information in the storage. */
+    void updateLease(LeaseInfo leaseInfo);
 
     /**
-     * Returns the start time of the known lease for this replication group.
-     *
-     * @return Lease start time.
+     * Returns the last saved lease information or {@code null} if it was never saved.
      */
-    long leaseStartTime();
-
-    /**
-     * Return the node id of the known lease for this replication group.
-     *
-     * @return Primary replica node id or null if there is no information about lease in the storage.
-     */
-    @Nullable UUID primaryReplicaNodeId();
-
-    /**
-     * Return the node name of the known lease for this replication group.
-     *
-     * @return Primary replica node name or null if there is no information about lease in the storage.
-     */
-    @Nullable String primaryReplicaNodeName();
+    @Nullable LeaseInfo leaseInfo();
 
     /**
      * Returns the <em>estimated size</em> of this partition.

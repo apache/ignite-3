@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.jetbrains.annotations.Nullable;
@@ -49,7 +49,7 @@ public class RaftTxFinishMarker {
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
-            @Nullable TablePartitionId commitPartitionId
+            @Nullable ReplicationGroupId commitPartitionId
     ) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 commit ? COMMITTED : ABORTED,
@@ -58,7 +58,8 @@ public class RaftTxFinishMarker {
                 commit ? commitTimestamp : null,
                 old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
-                old == null ? null : old.cleanupCompletionTimestamp()
+                old == null ? null : old.cleanupCompletionTimestamp(),
+                old == null ? null : old.isFinishedDueToTimeout()
         ));
     }
 }

@@ -82,7 +82,6 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         CheckpointManager checkpointManager = new CheckpointManager(
                 "test",
                 null,
-                null,
                 mock(FailureManager.class),
                 checkpointConfig,
                 mock(FilePageStoreManager.class),
@@ -195,7 +194,6 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         CheckpointManager checkpointManager = spy(new CheckpointManager(
                 "test",
                 null,
-                null,
                 mock(FailureManager.class),
                 checkpointConfig,
                 filePageStoreManager,
@@ -221,9 +219,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         // Spying because mocking ByteBuffer does not work on Java 21.
         ByteBuffer pageBuf = spy(ByteBuffer.wrap(new byte[deltaFilePageStoreIo.pageSize()]));
 
-        checkpointManager.writePageToDeltaFilePageStore(pageMemory, dirtyPageId, pageBuf, true);
+        checkpointManager.writePageToDeltaFilePageStore(pageMemory, dirtyPageId, pageBuf);
 
-        verify(deltaFilePageStoreIo, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf), eq(true));
+        verify(deltaFilePageStoreIo, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf));
     }
 
     private static FullPageId[] dirtyPageArray(int grpId, int partId, int... pageIndex) {

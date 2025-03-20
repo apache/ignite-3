@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -26,7 +27,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableStableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -38,6 +39,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.SINGLE_NODE;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -271,6 +273,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
         for (int i = 0; i < partitionIds.length; i++) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionIds[i]);
+            LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
+                    ? localStatesMap.get(replicaGrpId)
+                    : new LocalPartitionStateMessageByNode(emptyMap());
 
             futures[i] = partitionUpdate(
                     replicaGrpId,
@@ -281,7 +286,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     revision,
                     metaStorageManager,
                     tableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                    localStatesMap.get(replicaGrpId),
+                    localStatesByNode,
                     assignmentsTimestamp,
                     manualUpdate
             ).thenAccept(res -> {
@@ -338,7 +343,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         Iif invokeClosure = prepareMsInvokeClosure(
                 partId,
                 longToBytesKeepingOrder(revision),
-                Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
+                pendingAssignmentsCalculator()
+                        .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
+                        .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
+                        .toQueue().toBytes(),
                 // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                 isProposedPendingEqualsProposedPlanned
                         ? null
@@ -403,16 +411,16 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * <ul>
      *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)} check.</li>
      *     <li>Adds additional guard with comparison of real and proposed values of
-     *          {@link RebalanceUtil#pendingPartAssignmentsKey(TablePartitionId)}, just in case.</li>
+     *          {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}, just in case.</li>
      *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.</li>
-     *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsKey(TablePartitionId)}.</li>
+     *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.</li>
      *     <li>Updates the value of {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or removes it, if
      *          {@code plannedAssignmentsBytes} is {@code null}.</li>
      * </ul>
      *
      * @param partId Partition ID.
      * @param revisionBytes Properly serialized current meta-storage revision.
-     * @param pendingAssignmentsBytes Value for {@link RebalanceUtil#pendingPartAssignmentsKey(TablePartitionId)}.
+     * @param pendingAssignmentsBytes Value for {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.
      * @param plannedAssignmentsBytes Value for {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or {@code null}.
      * @return {@link Iif} instance.
      */
@@ -423,7 +431,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             byte @Nullable [] plannedAssignmentsBytes
     ) {
         ByteArray pendingChangeTriggerKey = pendingChangeTriggerKey(partId);
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
         return iif(notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(revisionBytes)),
@@ -439,17 +447,13 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     }
 
     /**
-     * Returns a set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
+     * Returns a modifiable set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
      * {@link LocalPartitionStateEnum#CATCHING_UP}.
      */
     private static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
-            @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
-        if (localPartitionStateMessageByNode == null) {
-            return Set.of();
-        }
-
         var partAssignments = new HashSet<Assignment>();
 
         for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {

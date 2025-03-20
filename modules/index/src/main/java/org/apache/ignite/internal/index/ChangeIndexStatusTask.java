@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWi
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.index.IndexManagementUtils.localNode;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
@@ -42,11 +43,16 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
@@ -61,7 +67,9 @@ import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
@@ -120,6 +128,8 @@ abstract class ChangeIndexStatusTask {
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final FailureManager failureManager;
+
     private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
@@ -136,6 +146,7 @@ abstract class ChangeIndexStatusTask {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
+            FailureManager failureManager,
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
@@ -146,6 +157,7 @@ abstract class ChangeIndexStatusTask {
         this.logicalTopologyService = logicalTopologyService;
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
+        this.failureManager = failureManager;
         this.executor = executor;
         this.busyLock = busyLock;
     }
@@ -172,8 +184,14 @@ abstract class ChangeIndexStatusTask {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);
 
-                            if (!(cause instanceof IndexTaskStoppingException) && !(cause instanceof NodeStoppingException)) {
-                                LOG.error("Error starting index task: {}", cause, indexDescriptor.id());
+                            if (!(cause instanceof IndexTaskStoppingException)
+                                    && !(cause instanceof NodeStoppingException)
+                                    // The index's table might have been dropped while we were waiting for the ability
+                                    // to switch the index status to a new state, so IndexNotFound is not a problem.
+                                    && !(cause instanceof IndexNotFoundValidationException)) {
+                                LOG.error("Error starting index task: {}", throwable, indexDescriptor.id());
+
+                                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, throwable));
                             }
                         }
                     })
@@ -237,7 +255,23 @@ abstract class ChangeIndexStatusTask {
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica() {
         return inBusyLocks(() -> {
-            TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
+
+            if (indexMeta == null) {
+                // Index was destroyed under a low watermark, well, we not need to build it.
+                throw new IndexTaskStoppingException();
+            }
+
+            CatalogTableDescriptor tableDescriptor = catalogManager.catalog(indexMeta.catalogVersion()).table(indexDescriptor.tableId());
+
+            if (tableDescriptor == null) {
+                // Table was dropped, no need to build the index.
+                throw new IndexTaskStoppingException();
+            }
+
+            ReplicationGroupId groupId = enabledColocation()
+                    ? new ZonePartitionId(tableDescriptor.zoneId(), 0)
+                    : new TablePartitionId(indexDescriptor.tableId(), 0);
 
             return placementDriver.awaitPrimaryReplica(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {

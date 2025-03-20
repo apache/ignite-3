@@ -27,9 +27,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.io.FileMatchers.anExistingFile;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectFunction;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Set;
@@ -38,18 +40,27 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(SystemPropertiesExtension.class)
 class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -71,6 +82,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
     void partitionIsDestroyedOnTableDestruction() throws Exception {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
 
@@ -78,13 +90,36 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         makePutToTestTable();
 
         int tableId = testTableId();
+        TablePartitionId replicationGroupId = new TablePartitionId(tableId, PARTITION_ID);
+
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
 
-        makeSurePartition0ExistsOnDisk(ignite0, tableId);
+        makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
 
         executeUpdate("DROP TABLE " + TABLE_NAME);
 
-        verifyPartition0GetsRemovedFromDisk(ignite0, tableId);
+        verifyPartitionGetsRemovedFromDisk(ignite0, tableId, replicationGroupId);
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24345")
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    void partitionIsDestroyedOnZoneDestruction() throws Exception {
+        cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
+
+        createZoneAndTableWith1Partition(1);
+        makePutToTestTable();
+
+        int tableId = testTableId();
+        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(tableId), PARTITION_ID);
+
+        IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
+
+        makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
+
+        executeUpdate("DROP ZONE " + ZONE_NAME);
+
+        verifyPartitionGetsRemovedFromDisk(ignite0, tableId, replicationGroupId);
     }
 
     private void createZoneAndTableWith1Partition(int replicas) {
@@ -110,44 +145,50 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         return tableImpl.tableId();
     }
 
-    private static void makeSurePartition0ExistsOnDisk(IgniteImpl ignite, int tableId) {
+    private int zoneId(int tableId) {
+        CatalogTableDescriptor table = igniteImpl(0)
+                .catalogManager()
+                .activeCatalog(Long.MAX_VALUE)
+                .table(tableId);
+        assertThat(table, is(notNullValue()));
+
+        return table.zoneId();
+    }
+
+    private static void makeSurePartitionExistsOnDisk(IgniteImpl ignite, int tableId, ReplicationGroupId replicationGroupId) {
         File partitionFile = testTablePartition0File(ignite, tableId);
         assertThat(partitionFile, is(anExistingFile()));
 
-        LogStorage logStorage = partition0LogStorage(ignite, tableId);
+        LogStorage logStorage = partitionLogStorage(ignite, replicationGroupId);
         assertThat(logStorage.getLastLogIndex(), is(greaterThan(0L)));
 
-        File raftMetaFile = partition0RaftMetaFile(ignite, tableId);
+        File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
         assertThat(raftMetaFile, is(anExistingFile()));
     }
 
-    private static File partition0RaftMetaFile(IgniteImpl ignite, int tableId) {
-        String relativePath = partition0RaftNodeIdStringForStorage(ignite, tableId) + "/meta/raft_meta";
+    private static File partitionRaftMetaFile(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
+        String relativePath = partitionRaftNodeIdStringForStorage(ignite, replicationGroupId) + "/meta/raft_meta";
         Path raftMetaFilePath = ignite.partitionsWorkDir().metaPath().resolve(relativePath);
         return raftMetaFilePath.toFile();
     }
 
-    private static LogStorage partition0LogStorage(IgniteImpl ignite, int tableId) {
+    private static LogStorage partitionLogStorage(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
         return ignite.partitionsLogStorageFactory().createLogStorage(
-                partition0RaftNodeIdStringForStorage(ignite, tableId),
+                partitionRaftNodeIdStringForStorage(ignite, replicationGroupId),
                 new RaftOptions()
         );
     }
 
-    private static String partition0RaftNodeIdStringForStorage(IgniteImpl ignite, int tableId) {
-        RaftNodeId partitionRaftNodeId = new RaftNodeId(partition0ReplicationGroupId(tableId), new Peer(ignite.name()));
+    private static String partitionRaftNodeIdStringForStorage(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
+        RaftNodeId partitionRaftNodeId = new RaftNodeId(replicationGroupId, new Peer(ignite.name()));
         return partitionRaftNodeId.nodeIdStringForStorage();
     }
 
-    private static TablePartitionId partition0ReplicationGroupId(int tableId) {
-        return new TablePartitionId(tableId, PARTITION_ID);
-    }
-
     private static File testTablePartition0File(IgniteImpl ignite, int tableId) {
-        return ignite.partitionsWorkDir().dbPath().resolve("db/table-" + tableId + "/part-0.bin").toFile();
+        return ignite.partitionsWorkDir().dbPath().resolve("db/table-" + tableId + "/part-" + PARTITION_ID + ".bin").toFile();
     }
 
-    private static void verifyPartition0GetsRemovedFromDisk(IgniteImpl ignite, int tableId)
+    private static void verifyPartitionGetsRemovedFromDisk(IgniteImpl ignite, int tableId, ReplicationGroupId replicationGroupId)
             throws InterruptedException {
         File partitionFile = testTablePartition0File(ignite, tableId);
         assertTrue(
@@ -156,11 +197,11 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         );
 
         assertTrue(
-                waitForCondition(() -> partition0LogStorage(ignite, tableId).getLastLogIndex() == 0L, SECONDS.toMillis(10)),
+                waitForCondition(() -> partitionLogStorage(ignite, replicationGroupId).getLastLogIndex() == 0L, SECONDS.toMillis(10)),
                 "Partition Raft log was not removed in time"
         );
 
-        File raftMetaFile = partition0RaftMetaFile(ignite, tableId);
+        File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
         assertTrue(
                 waitForCondition(() -> !raftMetaFile.exists(), SECONDS.toMillis(10)),
                 "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was not removed in time"
@@ -168,47 +209,66 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void partitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    void tablePartitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
+        testPartitionIsDestroyedWhenItIsEvictedFromNode(tableId -> new TablePartitionId(tableId, PARTITION_ID));
+    }
+
+    @Test
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    void zonePartitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
+        testPartitionIsDestroyedWhenItIsEvictedFromNode(tableId -> new ZonePartitionId(zoneId(tableId), PARTITION_ID));
+    }
+
+    private void testPartitionIsDestroyedWhenItIsEvictedFromNode(Int2ObjectFunction<ReplicationGroupId> replicationGroupIdByTableId)
+            throws Exception {
         cluster.startAndInit(2);
 
         createZoneAndTableWith1Partition(2);
         makePutToTestTable();
 
         int tableId = testTableId();
+        ReplicationGroupId replicationGroupId = replicationGroupIdByTableId.apply(tableId);
+
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
         IgniteImpl ignite1 = unwrapIgniteImpl(cluster.node(1));
 
-        waitTillAssignmentCountReaches(2, tableId);
+        waitTillAssignmentCountReaches(2, replicationGroupId);
 
-        makeSurePartition0ExistsOnDisk(ignite0, tableId);
-        makeSurePartition0ExistsOnDisk(ignite1, tableId);
+        makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
+        makeSurePartitionExistsOnDisk(ignite1, tableId, replicationGroupId);
 
         executeUpdate("ALTER ZONE " + ZONE_NAME + " SET REPLICAS = 1");
 
-        IgniteImpl notHostingIgnite = nodeNotHostingPartition0(tableId);
-        verifyPartition0GetsRemovedFromDisk(notHostingIgnite, tableId);
+        IgniteImpl notHostingIgnite = nodeNotHostingPartition(replicationGroupId);
+        verifyPartitionGetsRemovedFromDisk(notHostingIgnite, tableId, replicationGroupId);
     }
 
-    private void waitTillAssignmentCountReaches(int targetAssignmentCount, int tableId) throws InterruptedException {
+    private void waitTillAssignmentCountReaches(int targetAssignmentCount, ReplicationGroupId replicationGroupId)
+            throws InterruptedException {
         assertTrue(
-                waitForCondition(() -> partition0Assignments(tableId).size() == targetAssignmentCount, SECONDS.toMillis(10)),
+                waitForCondition(() -> partitionAssignments(replicationGroupId).size() == targetAssignmentCount, SECONDS.toMillis(10)),
                 "Did not see assignments count reaching " + targetAssignmentCount
         );
     }
 
-    private Set<Assignment> partition0Assignments(int tableId) {
+    private Set<Assignment> partitionAssignments(ReplicationGroupId replicationGroupId) {
         IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
 
-        CompletableFuture<TokenizedAssignments> assignmentsFuture = ignite.placementDriver().getAssignments(partition0ReplicationGroupId(
-                tableId), ignite.clock().now());
+        CompletableFuture<TokenizedAssignments> assignmentsFuture = ignite.placementDriver()
+                .getAssignments(replicationGroupId, ignite.clock().now());
         assertThat(assignmentsFuture, willCompleteSuccessfully());
-        return assignmentsFuture.join().nodes();
+
+        TokenizedAssignments assignments = assignmentsFuture.join();
+        assertThat(assignments, is(notNullValue()));
+
+        return assignments.nodes();
     }
 
-    private IgniteImpl nodeNotHostingPartition0(int tableId) throws InterruptedException {
-        waitTillAssignmentCountReaches(1, tableId);
+    private IgniteImpl nodeNotHostingPartition(ReplicationGroupId replicationGroupId) throws InterruptedException {
+        waitTillAssignmentCountReaches(1, replicationGroupId);
 
-        Set<Assignment> assignments = partition0Assignments(tableId);
+        Set<Assignment> assignments = partitionAssignments(replicationGroupId);
         assertThat(assignments, hasSize(1));
         Assignment assignment = assignments.iterator().next();
 

@@ -136,6 +136,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     @Timeout(60)
     public void stopCluster() {
         cluster.shutdown();
+
+        MicronautCleanup.removeShutdownHooks();
     }
 
     /**
@@ -207,6 +209,20 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      */
     protected void stopNode(String name) {
         cluster.stopNode(name);
+    }
+
+    /** Stops nodes by indexes. */
+    public void stopNodes(int... nodeIndexes) {
+        for (int nodeIndex : nodeIndexes) {
+            stopNode(nodeIndex);
+        }
+    }
+
+    /** Starts nodes by indexes. */
+    public void startNodes(int... nodeIndexes) {
+        for (int nodeIndex : nodeIndexes) {
+            startNode(nodeIndex);
+        }
     }
 
     /**

@@ -30,6 +30,8 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,6 +70,7 @@ public interface PartitionMvStorageAccess {
      */
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID. In details: - if there is no
      * uncommitted version, a new uncommitted version is added - if there is an uncommitted version belonging to the same transaction, it
@@ -77,13 +80,13 @@ public interface PartitionMvStorageAccess {
      * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction ID.
-     * @param commitTableId Commit table ID.
+     * @param commitTableOrZoneId Commit table/zone ID.
      * @param commitPartitionId Commit partitionId.
      * @param catalogVersion Catalog version of the incoming partition snapshot.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction ID.
      * @throws StorageException If failed to write data.
      */
-    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion);
+    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId, int catalogVersion);
 
     /**
      * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
@@ -104,26 +107,8 @@ public interface PartitionMvStorageAccess {
     /** Returns the last applied term of this storage. */
     long lastAppliedTerm();
 
-    /**
-     * Returns the start time of the known lease for this replication group.
-     *
-     * @return Lease start time.
-     */
-    long leaseStartTime();
-
-    /**
-     * Return the node ID of the known lease for this replication group.
-     *
-     * @return Primary replica node id or {@code null} if there is no information about lease in the storage.
-     */
-    @Nullable UUID primaryReplicaNodeId();
-
-    /**
-     * Return the node name of the known lease for this replication group.
-     *
-     * @return Primary replica node name or {@code null} if there is no information about lease in the storage.
-     */
-    @Nullable String primaryReplicaNodeName();
+    /** Returns the saved lease information of this storage. */
+    @Nullable LeaseInfo leaseInfo();
 
     /**
      * Prepares partition storages for rebalancing.
@@ -145,8 +130,8 @@ public interface PartitionMvStorageAccess {
      *
      * <p>This method must be called before every rebalance and ends with a call to one of the methods:
      * <ul>
-     *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalance(RaftSnapshotPartitionMeta)} - in case of successful completion of rebalance.</li>
+     *     <li>{@link #abortRebalance} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalance} - in case of successful completion of rebalance.</li>
      * </ul>
      *
      * @return Future of the operation.
@@ -183,7 +168,7 @@ public interface PartitionMvStorageAccess {
      * @return Future of the operation.
      * @throws StorageRebalanceException If there are errors when trying to finish rebalancing.
      */
-    CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta);
+    CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta);
 
     /**
      * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.

@@ -209,7 +209,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         // Check that the volatile PENDING state of the transaction is preserved.
         parallelTx1.commit();
         waitForTxStateVacuum(nodes, parallelTx1Id, partIdForParallelTx, true, 10_000);
-        assertTrue(checkVolatileTxStateOnNodes(nodes, txId));
+        // Wait for condition is used instead of simple check because spreading information about transaction with txId=txId over all nodes
+        // takes time. There's no hb between (parallelTx1.commit() and/or parallelTx1 vacuumization) and txId state update.
+        assertTrue(waitForCondition(() -> checkVolatileTxStateOnNodes(nodes, txId), 10_000));
 
         Transaction parallelTx2 = node.transactions().begin();
         UUID parallelTx2Id = txId(parallelTx2);

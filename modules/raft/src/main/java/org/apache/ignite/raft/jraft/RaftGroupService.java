@@ -16,14 +16,13 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
@@ -74,16 +73,14 @@ public class RaftGroupService {
      * @param serverId Server id.
      * @param nodeOptions Node options.
      * @param rpcServer RPC server.
-     * @param nodeManager Node manager.
      */
     public RaftGroupService(
             final String groupId,
             final PeerId serverId,
             final NodeOptions nodeOptions,
-            final RpcServer rpcServer,
-            final NodeManager nodeManager
+            final RpcServer rpcServer
     ) {
-        this(groupId, serverId, nodeOptions, rpcServer, nodeManager, null);
+        this(groupId, serverId, nodeOptions, rpcServer, null);
     }
 
     /**
@@ -91,7 +88,6 @@ public class RaftGroupService {
      * @param serverId Server id.
      * @param nodeOptions Node options.
      * @param rpcServer RPC server.
-     * @param nodeManager Node manager.
      * @param ownFsmCallerExecutorDisruptorConfig Configuration own striped disruptor for FSMCaller service of raft node, {@code null}
      *      means use shared disruptor.
      */
@@ -100,15 +96,13 @@ public class RaftGroupService {
             final PeerId serverId,
             final NodeOptions nodeOptions,
             final RpcServer rpcServer,
-            final NodeManager nodeManager,
             @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
     ) {
-        super();
         this.groupId = groupId;
         this.serverId = serverId;
         this.nodeOptions = nodeOptions;
         this.rpcServer = rpcServer;
-        this.nodeManager = nodeManager;
+        this.nodeManager = nodeOptions.getNodeManager();
         this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
     }
 

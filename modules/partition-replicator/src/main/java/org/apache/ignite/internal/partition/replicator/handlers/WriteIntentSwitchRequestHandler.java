@@ -35,6 +35,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
+import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -43,7 +45,6 @@ import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -68,7 +69,7 @@ public class WriteIntentSwitchRequestHandler {
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    private final IntFunction<ReplicaListener> replicaListenerByTableId;
+    private final IntFunction<ReplicaTableProcessor> replicaListenerByTableId;
 
     private final ClockService clockService;
 
@@ -80,7 +81,7 @@ public class WriteIntentSwitchRequestHandler {
 
     /** Constructor. */
     public WriteIntentSwitchRequestHandler(
-            IntFunction<ReplicaListener> replicaListenerByTableId,
+            IntFunction<ReplicaTableProcessor> replicaListenerByTableId,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
@@ -117,12 +118,8 @@ public class WriteIntentSwitchRequestHandler {
                 .map(tableId -> invokeTableWriteIntentSwitchReplicaRequest(tableId, request, clockService.current(), senderId))
                 .collect(toList());
 
-        // We choose current() to try to avoid compaction of the chosen version (and we make sure it's not below commitTs [if it's a commit]
-        // or txBeginTs [if it's an abort]). But there seems to be no guarantee that the compactor will not remove this version.
-        // TODO: IGNITE-24574 Introduce a mechanism to save the chosen catalog version from being compacted too early.
         @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
         HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
-        HybridTimestamp finalCommandTimestamp = HybridTimestamp.max(commandTimestamp, clockService.current());
 
         return allOf(futures)
                 .thenCompose(unused -> {
@@ -136,7 +133,7 @@ public class WriteIntentSwitchRequestHandler {
                         return completedFuture(new ReplicaResult(writeIntentSwitchReplicationInfoFor(request), null));
                     }
 
-                    return reliableCatalogVersions.reliableCatalogVersionFor(finalCommandTimestamp)
+                    return reliableCatalogVersions.safeReliableCatalogVersionFor(commandTimestamp)
                             .thenApply(catalogVersion -> {
                                 CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture =
                                         applyCommandToGroup(request, catalogVersion)
@@ -163,7 +160,8 @@ public class WriteIntentSwitchRequestHandler {
                 .tableId(tableId)
                 .build();
 
-        return replicaListener(tableId).invoke(tableSpecificRequest, senderId);
+        // Using empty primacy because the request is not a PrimaryReplicaRequest.
+        return replicaTableProcessor(tableId).process(tableSpecificRequest, ReplicaPrimacy.empty(), senderId);
     }
 
     private CompletableFuture<Object> applyCommandToGroup(WriteIntentSwitchReplicaRequest request, Integer catalogVersion) {
@@ -189,11 +187,11 @@ public class WriteIntentSwitchRequestHandler {
         return new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId);
     }
 
-    private ReplicaListener replicaListener(Integer tableId) {
-        ReplicaListener replicaListener = replicaListenerByTableId.apply(tableId);
+    private ReplicaTableProcessor replicaTableProcessor(int tableId) {
+        ReplicaTableProcessor replicaTableProcessor = replicaListenerByTableId.apply(tableId);
 
-        assert replicaListener != null : "No replica listener for table ID " + tableId;
+        assert replicaTableProcessor != null : "No replica table processor for table ID " + tableId;
 
-        return replicaListener;
+        return replicaTableProcessor;
     }
 }

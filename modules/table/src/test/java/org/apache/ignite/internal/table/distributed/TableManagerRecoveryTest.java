@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -24,7 +25,9 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCata
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -42,6 +45,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -56,9 +61,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -82,12 +89,12 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -99,9 +106,11 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -152,7 +161,6 @@ import org.mockito.quality.Strictness;
 public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "testNode1";
     private static final String ZONE_NAME = "zone1";
-    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String TABLE_NAME = "testTable";
     private static final String INDEX_NAME = "testIndex1";
     private static final String INDEXED_COLUMN_NAME = "columnName";
@@ -175,7 +183,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     // Table manager dependencies.
     private SchemaManager sm;
     private CatalogManager catalogManager;
-    private MetaStorageManager metaStorageManager;
+    private MetaStorageManagerImpl metaStorageManager;
     private TxStateRocksDbSharedStorage sharedTxStateStorage;
     private TableManager tableManager;
     @InjectExecutorService(threadCount = 4, allowedOperations = {STORAGE_READ, STORAGE_WRITE})
@@ -185,6 +193,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private DataStorageManager dsm;
     private HybridClockImpl clock;
     private TestLowWatermark lowWatermark;
+    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     private IndexMetaStorage indexMetaStorage;
 
@@ -297,11 +306,18 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
 
-        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
-                .thenReturn(nullCompletedFuture());
-        when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
-        when(replicaMgr.weakStartReplica(any(), any(), any())).thenReturn(trueCompletedFuture());
-        when(replicaMgr.weakStopReplica(any(), any(), any())).thenReturn(nullCompletedFuture());
+        doReturn(nullCompletedFuture())
+                .when(replicaMgr).startReplica(any(RaftGroupEventsListener.class), any(), anyBoolean(), any(), any(), any(), any(), any());
+        doReturn(nullCompletedFuture())
+                .when(replicaMgr)
+                .startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+        doReturn(trueCompletedFuture()).when(replicaMgr).stopReplica(any());
+        doAnswer(invocation -> {
+            Supplier<CompletableFuture<Boolean>> startSupplier = invocation.getArgument(1);
+            return bypassingThreadAssertions(startSupplier);
+        }).when(replicaMgr).weakStartReplica(any(), any(), any());
+        doReturn(nullCompletedFuture())
+                .when(replicaMgr).weakStopReplica(any(), any(), any());
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))
@@ -349,7 +365,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         var outgoingSnapshotManager = new OutgoingSnapshotsManager(node.name(), clusterService.messagingService());
 
-        var partitionReplicaLifecycleListener = new PartitionReplicaLifecycleManager(
+        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaMgr,
                 distributionZoneManager,
@@ -403,7 +419,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService),
                 indexMetaStorage,
                 logSyncer,
-                partitionReplicaLifecycleListener,
+                partitionReplicaLifecycleManager,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         ) {
@@ -433,17 +449,20 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertThat(
                 metaStorageManager.startAsync(componentContext)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
-                        .thenCompose(unused -> startAsync(
-                                componentContext,
-                                catalogManager,
-                                sm,
-                                indexMetaStorage,
-                                sharedTxStateStorage,
-                                tableManager
-                        ))
-                        .thenCompose(unused -> ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart())
+                        .thenCompose(unused -> {
+                            CompletableFuture<Void> startComponentsFuture = startAsync(
+                                    componentContext,
+                                    catalogManager,
+                                    sm,
+                                    indexMetaStorage,
+                                    sharedTxStateStorage,
+                                    partitionReplicaLifecycleManager,
+                                    tableManager
+                            );
+                            return allOf(startComponentsFuture, metaStorageManager.notifyRevisionUpdateListenerOnStart());
+                        })
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
-                willCompleteSuccessfully()
+                willSucceedIn(10, SECONDS)
         );
     }
 
@@ -451,6 +470,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void stopComponents() throws Exception {
         closeAll(
                 tableManager == null ? null : tableManager::beforeNodeStop,
+                partitionReplicaLifecycleManager == null ? null : partitionReplicaLifecycleManager::beforeNodeStop,
                 dsm == null ? null : dsm::beforeNodeStop,
                 sm == null ? null : sm::beforeNodeStop,
                 indexMetaStorage == null ? null : indexMetaStorage::beforeNodeStop,
@@ -460,6 +480,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         stopAsync(
                                 new ComponentContext(),
                                 tableManager,
+                                partitionReplicaLifecycleManager,
                                 sharedTxStateStorage,
                                 dsm,
                                 sm,
@@ -484,6 +505,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         DataStorageManager manager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         NODE_NAME,
+                        mock(MetricManager.class),
                         mockedRegistry,
                         workDir,
                         null,
@@ -526,15 +548,12 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(INDEXED_COLUMN_NAME), false);
     }
 
-    private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
-    }
-
     private static PersistentPageMemoryDataStorageModule createDataStorageModule() {
         return new PersistentPageMemoryDataStorageModule() {
             @Override
             public StorageEngine createEngine(
                     String igniteInstanceName,
+                    MetricManager metricManager,
                     ConfigurationRegistry configRegistry,
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -545,6 +564,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             ) throws StorageException {
                 return spy(super.createEngine(
                         igniteInstanceName,
+                        metricManager,
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,

@@ -139,25 +139,29 @@ def run_setup():
         long_description_content_type='text/markdown',
         url='https://github.com/apache/ignite-3/tree/main/modules/platforms/python',
         packages=setuptools.find_packages(),
+        include_package_data=True,
         ext_modules=[CMakeExtension(EXTENSION_NAME)],
         cmdclass=dict(build_ext=CMakeBuild),
         install_requires=install_requirements,
         license='Apache License 2.0',
         license_files=('LICENSE', 'NOTICE'),
         classifiers=[
+            'Programming Language :: C++',
             'Programming Language :: Python',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.7',
-            'Programming Language :: Python :: 3.8',
             'Programming Language :: Python :: 3.9',
             'Programming Language :: Python :: 3.10',
+            'Programming Language :: Python :: 3.11',
+            'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
             'Programming Language :: Python :: 3 :: Only',
             'Intended Audience :: Developers',
             'Topic :: Database :: Front-Ends',
             'Topic :: Software Development :: Libraries :: Python Modules',
             'License :: Free for non-commercial use',
-            'Operating System :: OS Independent',
-        ]
+            'Operating System :: Microsoft :: Windows',
+            'Operating System :: POSIX :: Linux',
+        ],
     )
 
 

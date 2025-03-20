@@ -20,12 +20,14 @@ package org.apache.ignite.internal.client;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -685,7 +687,7 @@ public final class ReliableChannel implements AutoCloseable {
             try {
                 futs.add(hld.getOrCreateChannelAsync());
             } catch (Exception e) {
-                log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
+                logFailedEstablishConnection(hld, e);
             }
         }
 
@@ -841,7 +843,7 @@ public final class ReliableChannel implements AutoCloseable {
                     closeChannel();
                     onChannelFailure(this, null);
 
-                    log.warn("Failed to establish connection to " + chCfg.getAddress() + ": " + err.getMessage(), err);
+                    logFailedEstablishConnection(this, err);
 
                     return null;
                 });
@@ -928,5 +930,25 @@ public final class ReliableChannel implements AutoCloseable {
 
             return ch != null && !ch.closed();
         }
+    }
+
+    private void logFailedEstablishConnection(ClientChannelHolder ch, Throwable err) {
+        String logMessage = "Failed to establish connection to {}: {}";
+
+        if (isLogFailedEstablishConnectionExceptionStackTrace(err)) {
+            log.warn(logMessage, err, ch.chCfg.getAddress(), err.getMessage());
+        } else {
+            log.info(logMessage, ch.chCfg.getAddress(), err.getMessage());
+        }
+    }
+
+    /**
+     * Returns {@code true} if need to log the stack trace of the error, since the error is unexpected and will need to be dealt with later,
+     * otherwise {@code false} and means that the exception is expected and there is not need to log its stack trace so as not to worry when
+     * analyzing the log.
+     */
+    private static boolean isLogFailedEstablishConnectionExceptionStackTrace(Throwable err) {
+        // May occur when nodes are restarted, which is expected.
+        return !hasCauseOrSuppressed(err, "Connection refused", ConnectException.class);
     }
 }

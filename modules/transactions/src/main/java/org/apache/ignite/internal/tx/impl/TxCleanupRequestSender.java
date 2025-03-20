@@ -36,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -118,20 +117,18 @@ public class TxCleanupRequestSender {
     private void markTxnCleanupReplicated(UUID txId, TxState state, ReplicationGroupId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        // TODO: IGNITE-24343 - handle for ZonePartitionId as well.
-        if (commitPartitionId instanceof TablePartitionId) {
-            txStateVolatileStorage.updateMeta(txId, oldMeta ->
-                    new TxStateMeta(
-                            oldMeta == null ? state : oldMeta.txState(),
-                            oldMeta == null ? null : oldMeta.txCoordinatorId(),
-                            (TablePartitionId) commitPartitionId,
-                            oldMeta == null ? null : oldMeta.commitTimestamp(),
-                            oldMeta == null ? null : oldMeta.tx(),
-                            oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
-                            cleanupCompletionTimestamp
-                    )
-            );
-        }
+        txStateVolatileStorage.updateMeta(txId, oldMeta ->
+                new TxStateMeta(
+                        oldMeta == null ? state : oldMeta.txState(),
+                        oldMeta == null ? null : oldMeta.txCoordinatorId(),
+                        commitPartitionId,
+                        oldMeta == null ? null : oldMeta.commitTimestamp(),
+                        oldMeta == null ? null : oldMeta.tx(),
+                        oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
+                        cleanupCompletionTimestamp,
+                        oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
+                )
+        );
     }
 
     /**
@@ -142,7 +139,7 @@ public class TxCleanupRequestSender {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId) {
+    public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
         return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null);
     }
 

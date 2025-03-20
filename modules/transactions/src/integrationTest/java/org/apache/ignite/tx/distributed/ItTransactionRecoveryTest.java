@@ -739,10 +739,11 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl txCrdNode2 = unwrapIgniteImpl(node(0));
 
-        TablePartitionId commitPartition = ((InternalTransaction) rwTx1).commitPartition();
+        ReplicationGroupId commitPartition = ((InternalTransaction) rwTx1).commitPartition();
         CompletableFuture<Void> finish2 = txCrdNode2.txManager().finish(
                 HybridTimestampTracker.atomicTracker(null),
                 commitPartition,
+                false,
                 false,
                 Map.of(commitPartition, new PendingTxPartitionEnlistment(txCrdNode2.node().name(), 0L)),
                 rwTx1Id
