@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -42,7 +43,10 @@ import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHi
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,6 +54,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
+    private static final String TABLE_NAME = "TEST_TABLE";
 
     @Override
     protected int initialNodes() {
@@ -69,6 +74,12 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
                         + "}",
                 INTERVAL_SYSTEM_PROPERTY_NAME, interval, DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME, dataAvailabilityTime
         );
+    }
+
+    @AfterEach
+    public void tearDown() {
+        sql("drop table if exists " + TABLE_NAME);
+        sql("drop zone " + ZONE_NAME);
     }
 
     /**
@@ -128,6 +139,42 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
 
         // Check that data nodes for old timestamp are still available.
         assertEquals(dataNodesBeforeNodeStop, dataNodes(ignite, zoneId, beforeNodesStop));
+    }
+
+    @Test
+    public void testCompactionDuringRebalancing() throws InterruptedException {
+        sql("create zone " + ZONE_NAME + " with partitions=1, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'"
+                + ", data_nodes_auto_adjust_scale_down=0");
+        sql("create table " + TABLE_NAME + " (id int primary key) zone " + ZONE_NAME);
+        sql("insert into " + TABLE_NAME + " values (1)");
+        sql("alter zone " + ZONE_NAME + " set replicas=2");
+
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
+
+        int zoneId = ignite.catalogManager().activeCatalog(ignite.clock().now().longValue()).zone(ZONE_NAME).id();
+        int tableId = ignite.catalogManager().activeCatalog(ignite.clock().now().longValue()).tables()
+                .stream()
+                .filter(t -> t.name().equals(TABLE_NAME))
+                .findFirst()
+                .orElseThrow()
+                .id();
+
+        MetaStorageManager metaStorageManager = ignite.metaStorageManager();
+
+        // Wait for the rebalancing to finish.
+        assertTrue(waitForCondition(() -> {
+            CompletableFuture<Entry> entryFut = metaStorageManager.get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, 0)));
+            assertThat(entryFut, willCompleteSuccessfully());
+
+            Entry e = entryFut.join();
+            return e.tombstone();
+        }, 1000));
+    }
+
+    private static void sql(String sql) {
+        CLUSTER.doInSession(0, session -> {
+            executeUpdate(sql, session);
+        });
     }
 
     private static Set<String> dataNodes(IgniteImpl ignite, int zoneId, HybridTimestamp ts) {

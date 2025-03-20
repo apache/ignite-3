@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
@@ -55,7 +56,8 @@ public class CatalogSystemViewDescriptorSerializers {
             int id = input.readVarIntAsInt();
             int schemaId = input.readVarIntAsInt();
             String name = input.readUTF();
-            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             List<CatalogTableColumnDescriptor> columns = readList(columnSerializer, input);
 
@@ -90,7 +92,8 @@ public class CatalogSystemViewDescriptorSerializers {
             int id = input.readVarIntAsInt();
             int schemaId = input.readVarIntAsInt();
             String name = input.readUTF();
-            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
 

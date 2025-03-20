@@ -96,7 +96,8 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(1, schema.updateTimestamp());
+        HybridTimestamp timestamp = metastore.timestampByRevisionLocally(1);
+        assertEquals(timestamp, schema.updateTimestamp());
 
         assertNull(schema.table(TABLE_NAME));
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
@@ -47,7 +48,8 @@ public class CatalogZoneDescriptorSerializers {
         public CatalogZoneDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             CatalogObjectSerializer<CatalogStorageProfilesDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_STORAGE_PROFILES.id());
@@ -106,7 +108,8 @@ public class CatalogZoneDescriptorSerializers {
         public CatalogZoneDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = input.readEntry(CatalogStorageProfilesDescriptor.class);
 

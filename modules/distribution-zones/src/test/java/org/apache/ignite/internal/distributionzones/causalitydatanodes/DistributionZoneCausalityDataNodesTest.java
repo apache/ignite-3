@@ -1596,14 +1596,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             Set<Node> newDataNodes = null;
 
-            long revision = 0;
             HybridTimestamp timestamp = HybridTimestamp.MIN_VALUE;
 
             for (EntryEvent event : evt.entryEvents()) {
                 Entry e = event.newEntry();
 
                 if (startsWith(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES)) {
-                    revision = e.revision();
                     timestamp = e.timestamp();
 
                     zoneId = extractZoneId(e.key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES);

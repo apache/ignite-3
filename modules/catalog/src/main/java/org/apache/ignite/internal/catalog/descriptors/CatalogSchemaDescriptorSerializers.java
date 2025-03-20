@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
@@ -59,7 +60,8 @@ public class CatalogSchemaDescriptorSerializers {
 
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             CatalogTableDescriptor[] tables = readArray(tableDescriptorSerializer, input, CatalogTableDescriptor.class);
             CatalogIndexDescriptor[] indexes = readArray(indexSerializeHelper, input, CatalogIndexDescriptor.class);
@@ -92,7 +94,8 @@ public class CatalogSchemaDescriptorSerializers {
         public CatalogSchemaDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            HybridTimestamp updateTimestamp = hybridTimestamp(input.readVarInt());
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             List<CatalogTableDescriptor> tables = input.readCompactEntryList(CatalogTableDescriptor.class);
             List<CatalogIndexDescriptor> indexes = input.readEntryList(CatalogIndexDescriptor.class);

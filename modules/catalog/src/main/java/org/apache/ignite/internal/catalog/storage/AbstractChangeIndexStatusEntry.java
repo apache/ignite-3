@@ -32,8 +32,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.S;
 
 /** Abstract entry for changing {@link CatalogIndexDescriptor#status() index status}. */
 abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
