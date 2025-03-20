@@ -684,7 +684,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         // Finish rebalance in tx state after all partitions have finished rebalance in order to guarantee that the snapshot meta
         // information stored in the TX storage consistently reflects the state of the partition storages.
-        return partitionsFinishRebalanceFuture.thenCompose(v -> partitionSnapshotStorage.txState().finishRebalance(meta));
+        return partitionsFinishRebalanceFuture.thenComposeAsync(
+                v -> partitionSnapshotStorage.txState().finishRebalance(meta),
+                partitionSnapshotStorage.getIncomingSnapshotsExecutor()
+        );
     }
 
     private CompletableFuture<Void> abortRebalance(Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId) {
