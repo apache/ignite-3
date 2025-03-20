@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -62,7 +61,7 @@ public class ClientTables implements IgniteTables {
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
         return ch.serviceAsync((ch) -> useQualifiedNames(ch) ? ClientOp.TABLES_GET_QUALIFIED : ClientOp.TABLES_GET,
-                ClientOperationType.TABLES_GET,
+                ClientOp.TABLES_GET,
                 null, r -> {
                     var in = r.in();
                     var cnt = in.unpackInt();
@@ -92,7 +91,7 @@ public class ClientTables implements IgniteTables {
         Objects.requireNonNull(name);
 
         return ch.serviceAsync((ch) -> useQualifiedNames(ch) ? ClientOp.TABLE_GET_QUALIFIED : ClientOp.TABLE_GET,
-                ClientOperationType.TABLE_GET,
+                ClientOp.TABLE_GET,
                 w -> {
                     if (useQualifiedNames(w.clientChannel())) {
                         w.out().packQualifiedName(name);

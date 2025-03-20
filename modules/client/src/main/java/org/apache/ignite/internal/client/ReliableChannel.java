@@ -272,7 +272,7 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public <T> CompletableFuture<T> serviceAsync(
             ToIntFunction<ClientChannel> opCodeFunc,
-            ClientOperationType retryOpType,
+            int retryOpType,
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader
     ) {
