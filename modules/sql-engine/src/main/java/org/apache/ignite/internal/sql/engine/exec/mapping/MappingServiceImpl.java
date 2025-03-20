@@ -78,7 +78,6 @@ public class MappingServiceImpl implements MappingService {
     private final ClockService clock;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
-    private final Cache<Integer, Set<Integer>> zoneToTableCache;
     private final PartitionPruner partitionPruner;
     private final Supplier<Long> logicalTopologyVerSupplier;
     private final ExecutionDistributionProvider distributionProvider;
@@ -109,7 +108,6 @@ public class MappingServiceImpl implements MappingService {
         this.clock = clock;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.mappingsCache = cacheFactory.create(cacheSize);
-        this.zoneToTableCache = cacheFactory.create(cacheSize);
         this.partitionPruner = partitionPruner;
         this.logicalTopologyVerSupplier = logicalTopologyVerSupplier;
         this.distributionProvider = distributionProvider;
@@ -119,27 +117,16 @@ public class MappingServiceImpl implements MappingService {
     public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         assert parameters != null;
 
+        int tableOrZoneId;
+
         if (parameters.groupId() instanceof ZonePartitionId) {
-            ZonePartitionId zonePartitionId = (ZonePartitionId) parameters.groupId();
-
-            int zoneId = zonePartitionId.zoneId();
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
-            Set<Integer> tables = zoneToTableCache.get(zoneId, key -> new HashSet<>());
-
-            for (int tableId : tables) {
-                mappingsCache.removeIfValue(value -> value.tableIds.contains(tableId));
-            }
-
-            zoneToTableCache.invalidate(zoneId);
-
-            return CompletableFutures.falseCompletedFuture();
+            tableOrZoneId = ((ZonePartitionId) parameters.groupId()).zoneId();
         } else {
-            int tabId = ((TablePartitionId) parameters.groupId()).tableId();
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
-            mappingsCache.removeIfValue(value -> value.tableIds.contains(tabId));
+            tableOrZoneId = ((TablePartitionId) parameters.groupId()).tableId();
         }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
+        mappingsCache.removeIfValue(value -> value.tabelOrZoneIds.contains(tableOrZoneId));
 
         return CompletableFutures.falseCompletedFuture();
     }
@@ -170,40 +157,32 @@ public class MappingServiceImpl implements MappingService {
             boolean mapOnBackups
     ) {
         if (val == null) {
-            IntSet tableIds = new IntOpenHashSet();
+            IntSet tableOrZoneIds = new IntOpenHashSet();
             boolean topologyAware = false;
 
             for (Fragment fragment : template.fragments) {
                 topologyAware = topologyAware || !fragment.systemViews().isEmpty();
-                for (IgniteDataSource source : fragment.tables().values()) {
+                for (IgniteTable source : fragment.tables().values()) {
                     if (enabledColocation) {
-                        updateZoneToTableCache(source);
+                        tableOrZoneIds.add(source.zoneId());
+                    } else {
+                        tableOrZoneIds.add(source.id());
                     }
-
-                    tableIds.add(source.id());
                 }
             }
 
             long topVer = topologyAware ? logicalTopologyVerSupplier.get() : Long.MAX_VALUE;
 
-            return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups, null));
+            return new MappingsCacheValue(topVer, tableOrZoneIds, mapFragments(template, mapOnBackups, null));
         }
 
         long topologyVer = logicalTopologyVerSupplier.get();
 
         if (val.topologyVersion < topologyVer) {
-            return new MappingsCacheValue(topologyVer, val.tableIds, mapFragments(template, mapOnBackups, null));
+            return new MappingsCacheValue(topologyVer, val.tabelOrZoneIds, mapFragments(template, mapOnBackups, null));
         }
 
         return val;
-    }
-
-    private void updateZoneToTableCache(IgniteDataSource source) {
-        if (source instanceof IgniteTable) {
-            var igniteTable = (IgniteTable) source;
-
-            zoneToTableCache.get(igniteTable.zoneId(), ignore -> new HashSet<>()).add(source.id());
-        }
     }
 
     CompletableFuture<DistributionHolder> composeDistributions(
@@ -424,12 +403,12 @@ public class MappingServiceImpl implements MappingService {
 
     private static class MappingsCacheValue {
         private final long topologyVersion;
-        private final IntSet tableIds;
+        private final IntSet tabelOrZoneIds;
         private final CompletableFuture<MappedFragments> mappedFragments;
 
-        MappingsCacheValue(long topologyVersion, IntSet tableIds, CompletableFuture<MappedFragments> mappedFragments) {
+        MappingsCacheValue(long topologyVersion, IntSet tabelOrZoneIds, CompletableFuture<MappedFragments> mappedFragments) {
             this.topologyVersion = topologyVersion;
-            this.tableIds = tableIds;
+            this.tabelOrZoneIds = tabelOrZoneIds;
             this.mappedFragments = mappedFragments;
         }
     }
