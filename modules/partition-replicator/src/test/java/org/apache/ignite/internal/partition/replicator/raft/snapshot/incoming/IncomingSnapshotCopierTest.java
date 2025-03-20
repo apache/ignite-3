@@ -287,7 +287,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         var expMvPartitionMeta = new MvPartitionMeta(
                 expSnapshotInfo.lastAppliedIndex(),
                 expSnapshotInfo.lastAppliedTerm(),
-                expSnapshotInfo.configuration(),
+                expSnapshotInfo.configurationBytes(),
                 expSnapshotInfo.leaseInfo(),
                 expSnapshotInfoBytes
         );

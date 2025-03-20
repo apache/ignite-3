@@ -35,7 +35,7 @@ public class PartitionSnapshotInfo {
     @Nullable
     private final LeaseInfo leaseInfo;
 
-    private final byte[] configuration;
+    private final byte[] configurationBytes;
 
     private final Set<Integer> tableIds;
 
@@ -44,21 +44,21 @@ public class PartitionSnapshotInfo {
      *
      * @param lastAppliedIndex Applied index at the moment when the snapshot was taken.
      * @param lastAppliedTerm Applied term at the moment when the snapshot was taken.
-     * @param leaseInfo Lease information.
-     * @param configuration Raft group configuration.
+     * @param leaseInfo Lease information or {@code null} if no lease has been issued for this storage yet.
+     * @param configurationBytes Serialized representation of Raft group configuration.
      * @param tableIds IDs of tables that were part of the Raft group when the snapshot was taken.
      */
     public PartitionSnapshotInfo(
             long lastAppliedIndex,
             long lastAppliedTerm,
             @Nullable LeaseInfo leaseInfo,
-            byte[] configuration,
+            byte[] configurationBytes,
             Set<Integer> tableIds
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.leaseInfo = leaseInfo;
-        this.configuration = configuration;
+        this.configurationBytes = configurationBytes;
         this.tableIds = tableIds;
     }
 
@@ -75,8 +75,8 @@ public class PartitionSnapshotInfo {
         return leaseInfo;
     }
 
-    public byte[] configuration() {
-        return configuration;
+    public byte[] configurationBytes() {
+        return configurationBytes;
     }
 
     public Set<Integer> tableIds() {
@@ -91,7 +91,7 @@ public class PartitionSnapshotInfo {
 
         PartitionSnapshotInfo that = (PartitionSnapshotInfo) o;
         return lastAppliedIndex == that.lastAppliedIndex && lastAppliedTerm == that.lastAppliedTerm && Objects.equals(leaseInfo,
-                that.leaseInfo) && Arrays.equals(configuration, that.configuration) && tableIds.equals(that.tableIds);
+                that.leaseInfo) && Arrays.equals(configurationBytes, that.configurationBytes) && tableIds.equals(that.tableIds);
     }
 
     @Override
@@ -99,7 +99,7 @@ public class PartitionSnapshotInfo {
         int result = Long.hashCode(lastAppliedIndex);
         result = 31 * result + Long.hashCode(lastAppliedTerm);
         result = 31 * result + Objects.hashCode(leaseInfo);
-        result = 31 * result + Arrays.hashCode(configuration);
+        result = 31 * result + Arrays.hashCode(configurationBytes);
         result = 31 * result + tableIds.hashCode();
         return result;
     }

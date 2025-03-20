@@ -40,7 +40,7 @@ public class PartitionSnapshotInfoSerializer extends VersionedSerializer<Partiti
 
         writeNullableObject(snapshotInfo.leaseInfo(), LeaseInfoSerializer.INSTANCE, out);
 
-        writeByteArray(snapshotInfo.configuration(), out);
+        writeByteArray(snapshotInfo.configurationBytes(), out);
 
         writeVarIntSet(snapshotInfo.tableIds(), out);
     }
