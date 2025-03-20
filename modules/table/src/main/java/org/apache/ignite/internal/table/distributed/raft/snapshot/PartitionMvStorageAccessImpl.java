@@ -222,7 +222,8 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
     @Override
     public CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta) {
         return mvTableStorage.finishRebalancePartition(partitionId(), partitionMeta)
-                .thenAccept(unused -> mvGc.addStorage(tablePartitionId(), gcUpdateHandler));
+                .thenAccept(v -> mvGc.addStorage(tablePartitionId(), gcUpdateHandler))
+                .thenCompose(v -> getMvPartitionStorage().flush());
     }
 
     @Override
