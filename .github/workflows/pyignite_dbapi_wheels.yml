@@ -29,6 +29,8 @@ jobs:
 
       - name: Build wheels
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
+        env:
+          CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
 
       - uses: actions/upload-artifact@v4
         with:
