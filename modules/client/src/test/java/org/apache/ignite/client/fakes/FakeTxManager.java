@@ -142,7 +142,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public UUID coordinatorId() {
-                return null;
+                return id;
             }
 
             @Override
@@ -276,6 +276,11 @@ public class FakeTxManager implements TxManager {
     @Override
     public int pending() {
         return 0;
+    }
+
+    @Override
+    public ClusterNode localNode() {
+        return null;
     }
 
     @Override

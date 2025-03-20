@@ -236,6 +236,8 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Boolean> kill(UUID txId);
 
+    ClusterNode localNode();
+
     /**
      * Returns a number of finished transactions.
      *

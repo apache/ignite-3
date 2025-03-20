@@ -113,6 +113,15 @@ public interface InternalTransaction extends Transaction {
     boolean implicit();
 
     /**
+     * Gets the transaction remote flag.
+     *
+     * @return True if the transaction is remotely coordinated, false otherwise.
+     */
+    default boolean remote() {
+        return false;
+    }
+
+    /**
      * Finishes a read-only transaction with a specific execution timestamp.
      *
      * @param commit Commit flag. The flag is ignored for read-only transactions.

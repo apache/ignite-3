@@ -30,7 +30,6 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -70,7 +69,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         // +1 because logical time is incremented on every call to nowLong - on client handler start.
         assertEquals(
                 (currentServerTimestamp.get() << LOGICAL_TIME_BITS_SIZE) + 1,
-                ch.observableTimestamp(),
+                ch.observableTimestamp().get().longValue(),
                 "Handshake should initialize observable timestamp");
 
         // RW TX does not propagate timestamp.
@@ -99,7 +98,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         assertEquals(11, lastObservableTimestamp(ch));
     }
 
-    private static @Nullable Long lastObservableTimestamp(ReliableChannel ch) {
-        return ch.observableTimestamp() >> LOGICAL_TIME_BITS_SIZE;
+    private static Long lastObservableTimestamp(ReliableChannel ch) {
+        return ch.observableTimestamp().get().longValue() >> LOGICAL_TIME_BITS_SIZE;
     }
 }

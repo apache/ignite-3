@@ -158,7 +158,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(97, len);
+            assertEquals(98, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);

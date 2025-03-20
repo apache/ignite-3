@@ -318,6 +318,7 @@ public class ClientCompute implements IgniteCompute {
                 ClientCompute::unpackSubmitTaskResult,
                 null,
                 null,
+                null,
                 true
         );
     }
@@ -333,6 +334,7 @@ public class ClientCompute implements IgniteCompute {
                 },
                 ClientCompute::unpackSubmitResult,
                 node.name(),
+                null,
                 null,
                 true
         );
@@ -363,7 +365,7 @@ public class ClientCompute implements IgniteCompute {
         return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, outputChannel.out(), TuplePart.KEY),
-                ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key),
+                ClientTupleSerializer.getPartitionAwarenessProvider(keyMapper, key),
                 descriptor,
                 arg
         );
@@ -378,7 +380,7 @@ public class ClientCompute implements IgniteCompute {
         return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true),
-                ClientTupleSerializer.getPartitionAwarenessProvider(null, key),
+                ClientTupleSerializer.getPartitionAwarenessProvider(key),
                 descriptor,
                 arg
         );
@@ -393,7 +395,7 @@ public class ClientCompute implements IgniteCompute {
     ) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
-                (schema, outputChannel) -> {
+                (schema, outputChannel, unused) -> {
                     ClientMessagePacker w = outputChannel.out();
 
                     w.packInt(t.tableId());
@@ -434,7 +436,7 @@ public class ClientCompute implements IgniteCompute {
         int partitionId = ((HashPartition) partition).partitionId();
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_PARTITIONED,
-                (schema, outputChannel) -> {
+                (schema, outputChannel, unused) -> {
                     ClientMessagePacker w = outputChannel.out();
 
                     w.packInt(t.tableId());

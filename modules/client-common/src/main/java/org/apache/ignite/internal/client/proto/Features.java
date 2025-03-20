@@ -15,21 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.replication;
+package org.apache.ignite.internal.client.proto;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.message.TableAware;
+import java.util.BitSet;
+import java.util.EnumSet;
 
 /**
- * Read-write single-row replica request.
+ * Currently implemented features.
+ * Important: avoid reordering items in the enum.
  */
-@Transferable(PartitionReplicationMessageGroup.RW_SINGLE_ROW_REPLICA_REQUEST)
-public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaRequest, ReadWriteReplicaRequest, TableAware {
+public enum Features {
+    DIRECT_MAPPING; // Direct mapping request to primary replicas from a client.
+
     /**
-     * Disable delayed ack optimization.
+     * Gets enabled features.
      *
-     * @return {@code True} to disable the delayed ack optimization.
+     * @return Features.
      */
-    boolean skipDelayedAck();
+    public static BitSet enabledFeatures() {
+        EnumSet<Features> all = EnumSet.allOf(Features.class);
+
+        BitSet set = new BitSet(all.size());
+
+        for (Features feature : all) {
+            set.set(feature.ordinal());
+        }
+
+        return set;
+    }
+
+    public static boolean hasFeature(BitSet container, Features feature) {
+        return container.get(feature.ordinal());
+    }
 }

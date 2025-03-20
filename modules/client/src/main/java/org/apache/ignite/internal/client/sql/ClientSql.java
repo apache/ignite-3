@@ -246,7 +246,7 @@ public class ClientSql implements IgniteSql {
         Objects.requireNonNull(statement);
 
         PayloadWriter payloadWriter = w -> {
-            writeTx(transaction, w);
+            writeTx(transaction, w, null);
 
             w.out().packString(statement.defaultSchema());
             w.out().packInt(statement.pageSize());
@@ -261,7 +261,7 @@ public class ClientSql implements IgniteSql {
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
 
-            w.out().packLong(ch.observableTimestamp());
+            w.out().packLong(ch.observableTimestamp().get().longValue());
 
             if (cancellationToken != null) {
                 addCancelAction(cancellationToken, w.requestId());
@@ -294,7 +294,7 @@ public class ClientSql implements IgniteSql {
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         PayloadWriter payloadWriter = w -> {
-            writeTx(transaction, w);
+            writeTx(transaction, w, null);
 
             w.out().packString(statement.defaultSchema());
             w.out().packInt(statement.pageSize());
@@ -306,7 +306,7 @@ public class ClientSql implements IgniteSql {
 
             w.out().packString(statement.query());
             w.out().packBatchedArgumentsAsBinaryTupleArray(batch);
-            w.out().packLong(ch.observableTimestamp());
+            w.out().packLong(ch.observableTimestamp().get().longValue());
         };
 
         PayloadReader<long[]> payloadReader = r -> {
@@ -348,7 +348,7 @@ public class ClientSql implements IgniteSql {
 
             w.out().packString(query);
             w.out().packObjectArrayAsBinaryTuple(arguments);
-            w.out().packLong(ch.observableTimestamp());
+            w.out().packLong(ch.observableTimestamp().get().longValue());
 
             if (cancellationToken != null) {
                 addCancelAction(cancellationToken, w.requestId());
