@@ -23,11 +23,16 @@ jobs:
 
       - name: Build source distribution
         working-directory: modules/platforms/python
-        run: python setup.py sdist --formats=gztar,zip --dist-dir ./dist
+        run: python setup.py sdist --formats=gztar --dist-dir ./dist
 
       - uses: actions/upload-artifact@v4
         with:
           name: source-distributions
+          path: modules/platforms/python/dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dbapi-all-artifacts
           path: modules/platforms/python/dist/*
 
   build_wheels:
@@ -50,7 +55,7 @@ jobs:
 
       - name: Install UnixODBC on macOS
         if: runner.os == 'macOS'
-        run: brew install unixodbc
+        run: brew install --quiet unixodbc
 
       - name: Build wheels macOS 14
         if: matrix.os == 'macos-14'
@@ -92,5 +97,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: modules/platforms/python/wheels/*.whl
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dbapi-all-artifacts
           path: modules/platforms/python/wheels/*.whl
 
