@@ -2,14 +2,27 @@ name: "Build Python DB API Driver Wheels"
 
 on:
   workflow_dispatch:
-  pull_request:
-    types:
-      - opened
-    paths:
-      - 'modules/platforms/python/**.py'
-      - 'modules/platforms/cpp/**'
 
 jobs:
+  build_source_dist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build source distribution
+        run: python modules/platforms/python/setup.py sdist --formats=gztar,zip --dist-dir /dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-distributions
+          path: modules/platforms/python/dist/*
+
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -23,7 +36,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13' 
+          python-version: '3.13'
 
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.23.1
@@ -50,7 +63,7 @@ jobs:
         if: runner.os == 'Linux'
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
         env:
-          CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+          CIBW_BUILD: cp39-manylinux* cp31{0,1,2,3}-manylinux*
           CIBW_ARCHS: auto64
           CIBW_BEFORE_ALL: yum -y install unixODBC-devel openssl-devel
 
