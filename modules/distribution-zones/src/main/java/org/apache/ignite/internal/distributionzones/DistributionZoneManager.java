@@ -280,16 +280,12 @@ public class DistributionZoneManager extends
      * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
      * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
-     * @param causalityToken Causality token.
+     * @param timestamp Timestamp.
      * @param catalogVersion Catalog version.
      * @param zoneId Zone id.
      * @return The future with data nodes for the zoneId.
      */
-    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
-        if (causalityToken < 1) {
-            throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
-        }
-
+    public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
         if (catalogVersion < 0) {
             throw new IllegalArgumentException("catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
         }
@@ -297,8 +293,6 @@ public class DistributionZoneManager extends
         if (zoneId < 0) {
             throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
         }
-
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -209,6 +210,7 @@ public class DistributionZoneRebalanceEngineV2 {
             }
 
             long revision = evt.entryEvent().newEntry().revision();
+            HybridTimestamp timestamp = evt.entryEvent().newEntry().timestamp();
 
             Set<String> aliveNodes = distributionZoneManager.logicalTopology(revision)
                     .stream()
@@ -219,6 +221,7 @@ public class DistributionZoneRebalanceEngineV2 {
                     zoneDescriptor,
                     filteredDataNodes,
                     revision,
+                    timestamp,
                     metaStorageManager,
                     busyLock,
                     assignmentsTimestamp,
@@ -231,6 +234,7 @@ public class DistributionZoneRebalanceEngineV2 {
         return recalculateAssignmentsAndTriggerZonePartitionsRebalance(
                 parameters.zoneDescriptor(),
                 parameters.causalityToken(),
+                parameters.zoneDescriptor().updateTimestamp(),
                 parameters.catalogVersion()
         );
     }
@@ -241,15 +245,17 @@ public class DistributionZoneRebalanceEngineV2 {
      *
      * @param zoneDescriptor Zone descriptor.
      * @param causalityToken Causality token.
+     * @param timestamp Timestamp corresponding to the causality token.
      * @param catalogVersion Catalog version.
      * @return The future, which completes when the all metastore updates done.
      */
     private CompletableFuture<Void> recalculateAssignmentsAndTriggerZonePartitionsRebalance(
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
+            HybridTimestamp timestamp,
             int catalogVersion
     ) {
-        return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+        return distributionZoneManager.dataNodes(timestamp, catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
                     if (dataNodes.isEmpty()) {
                         return nullCompletedFuture();
@@ -266,6 +272,7 @@ public class DistributionZoneRebalanceEngineV2 {
                             zoneDescriptor,
                             dataNodes,
                             causalityToken,
+                            timestamp,
                             metaStorageManager,
                             busyLock,
                             catalog.time(),
@@ -286,12 +293,15 @@ public class DistributionZoneRebalanceEngineV2 {
         if (recoveryRevision > 0) {
             Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
+            HybridTimestamp recoveryTimestamp = metaStorageManager.timestampByRevisionLocally(recoveryRevision);
+
             List<CompletableFuture<Void>> zonesRecoveryFutures = catalog.zones()
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndTriggerZonePartitionsRebalance(
                                     zoneDesc,
                                     recoveryRevision,
+                                    recoveryTimestamp,
                                     catalog.version()
                             )
                     )

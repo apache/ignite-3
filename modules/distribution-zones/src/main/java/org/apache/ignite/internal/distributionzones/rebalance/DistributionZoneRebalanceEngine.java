@@ -49,6 +49,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -165,12 +166,15 @@ public class DistributionZoneRebalanceEngine {
     // TODO: And then run the remote invoke, only if needed.
     private CompletableFuture<Void> recoveryRebalanceTrigger(long recoveryRevision, int catalogVersion) {
         if (recoveryRevision > 0) {
+            HybridTimestamp recoveryTimestamp = metaStorageManager.timestampByRevisionLocally(recoveryRevision);
+
             List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.catalog(catalogVersion).zones()
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndScheduleRebalance(
                                     zoneDesc,
                                     recoveryRevision,
+                                    recoveryTimestamp,
                                     catalogVersion
                             )
                     )
@@ -268,6 +272,7 @@ public class DistributionZoneRebalanceEngine {
 
             return triggerPartitionsRebalanceForAllTables(
                     evt.entryEvent().newEntry().revision(),
+                    evt.entryEvent().newEntry().timestamp(),
                     zoneDescriptor,
                     filteredDataNodes,
                     tableDescriptors,
@@ -280,6 +285,7 @@ public class DistributionZoneRebalanceEngine {
         return recalculateAssignmentsAndScheduleRebalance(
                 parameters.zoneDescriptor(),
                 parameters.causalityToken(),
+                parameters.zoneDescriptor().updateTimestamp(),
                 parameters.catalogVersion()
         );
     }
@@ -289,16 +295,18 @@ public class DistributionZoneRebalanceEngine {
      *
      * @param zoneDescriptor Zone descriptor.
      * @param causalityToken Causality token.
+     * @param timestamp Timestamp corresponding to the causality token.
      * @param catalogVersion Catalog version.
      * @return The future, which completes when the all metastore updates done.
      */
     private CompletableFuture<Void> recalculateAssignmentsAndScheduleRebalance(
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
+            HybridTimestamp timestamp,
             int catalogVersion
     ) {
 
-        return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+        return distributionZoneManager.dataNodes(timestamp, catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> {
                     if (dataNodes.isEmpty()) {
                         return nullCompletedFuture();
@@ -310,6 +318,7 @@ public class DistributionZoneRebalanceEngine {
 
                     return triggerPartitionsRebalanceForAllTables(
                             causalityToken,
+                            timestamp,
                             zoneDescriptor,
                             dataNodes,
                             tableDescriptors,
@@ -320,6 +329,7 @@ public class DistributionZoneRebalanceEngine {
 
     private CompletableFuture<Void> triggerPartitionsRebalanceForAllTables(
             long revision,
+            HybridTimestamp timestamp,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             List<CatalogTableDescriptor> tableDescriptors,
@@ -338,6 +348,7 @@ public class DistributionZoneRebalanceEngine {
                     zoneDescriptor,
                     dataNodes,
                     revision,
+                    timestamp,
                     metaStorageManager,
                     assignmentsTimestamp,
                     aliveNodes

@@ -132,7 +132,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, partNum + 1, replicas);
     private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, partNum + 1, replicas);
 
-    private static final long expectedPendingChangeTriggerKey = 10L;
+    private static final HybridTimestamp expectedPendingChangeTimestampKey = hybridTimestamp(1000L);
 
     private long assignmentsTimestamp;
 
@@ -313,7 +313,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 nodesForNewAssignments,
                 partNum + 1,
                 replicas,
-                expectedPendingChangeTriggerKey,
+                10L,
+                expectedPendingChangeTimestampKey,
                 metaStorageManager,
                 partNum,
                 tableCfgAssignments,
@@ -344,7 +345,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         }
 
         byte[] pendingChangeTriggerKey = keyValueStorage.get(RebalanceUtil.pendingChangeTriggerKey(tablePartitionId).bytes()).value();
-        long actualPendingChangeTrigger = bytesToLongKeepingOrder(pendingChangeTriggerKey);
+        HybridTimestamp actualPendingChangeTimestamp = hybridTimestamp(bytesToLongKeepingOrder(pendingChangeTriggerKey));
 
         LOG.info("stableAssignments {}", actualStableAssignments);
         LOG.info("pendingAssignments {}", actualPendingAssignments);
@@ -371,6 +372,6 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             assertNull(actualPlannedBytes);
         }
 
-        assertEquals(expectedPendingChangeTriggerKey, actualPendingChangeTrigger);
+        assertEquals(expectedPendingChangeTimestampKey, actualPendingChangeTimestamp);
     }
 }
