@@ -50,6 +50,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -62,6 +63,9 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.CoalescedHeartbeatRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,12 +87,17 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
     private static final TestReplicationGroupId RAFT_GROUP_NAME = new TestReplicationGroupId("part1");
 
+    private static final TestReplicationGroupId SYS_RAFT_GROUP_NAME = new TestReplicationGroupId("sys");
+
     private static final NodeFinder NODE_FINDER = new StaticNodeFinder(findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + NODES_CNT));
 
     private final List<TestNode> nodes = new ArrayList<>();
 
     @Mock
     private RaftGroupEventsListener eventsListener;
+
+    @Mock
+    private RaftGroupEventsListener sysEventsListener;
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
@@ -207,10 +216,73 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
     }
 
+    @Test
+    public void testSystemRaftGroupHeartbeat() throws InterruptedException {
+        PeersAndLearners configuration = nodes.stream()
+                .map(TestNode::name)
+                .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
+
+        nodes.forEach(node -> node.startSystemRaftGroup(configuration));
+
+        assertThat(nodes.get(0).sysRaftGroupService.refreshLeader(), willCompleteSuccessfully());
+
+        String leaderName = nodes.get(0).sysRaftGroupService.leader().consistentId();
+
+        TestNode leader = nodes.stream().filter(testNode -> testNode.name().equals(leaderName)).findFirst().orElseThrow();
+
+        var msgSrv = ((DefaultMessagingService) leader.sysRaftGroupService.clusterService().messagingService());
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        msgSrv.dropMessages((s, networkMessage) -> {
+            if (networkMessage instanceof AppendEntriesRequest) {
+                var appendEntriesRequest = (AppendEntriesRequest) networkMessage;
+
+                if (JRaftUtils.isHeartbeatRequest(appendEntriesRequest) && appendEntriesRequest.equals(SYS_RAFT_GROUP_NAME.toString())) {
+                    latch.countDown();
+                }
+            }
+
+            return false;
+        });
+
+        latch.await(10, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testRaftGroupHeartbeat() throws InterruptedException {
+        assertThat(nodes.get(0).raftGroupService.refreshLeader(), willCompleteSuccessfully());
+
+        String leaderName = nodes.get(0).raftGroupService.leader().consistentId();
+
+        TestNode leader = nodes.stream().filter(testNode -> testNode.name().equals(leaderName)).findFirst().orElseThrow();
+
+        var msgSrv = ((DefaultMessagingService) leader.raftGroupService.clusterService().messagingService());
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        msgSrv.dropMessages((s, networkMessage) -> {
+            if (networkMessage instanceof CoalescedHeartbeatRequest) {
+                var coalescedHeartbeatRequest = (CoalescedHeartbeatRequest) networkMessage;
+
+                for (AppendEntriesRequest appendEntriesRequest : coalescedHeartbeatRequest.messages()) {
+                    if (JRaftUtils.isHeartbeatRequest(appendEntriesRequest) && appendEntriesRequest.equals(RAFT_GROUP_NAME.toString())) {
+                        latch.countDown();
+                    }
+                }
+            }
+
+            return false;
+        });
+
+        latch.await(10, TimeUnit.SECONDS);
+    }
+
     private class TestNode {
         private final ClusterService clusterService;
         private final Loza loza;
         private RaftGroupService raftGroupService;
+        private RaftGroupService sysRaftGroupService;
         private final LogStorageFactory partitionsLogStorageFactory;
         private final ComponentWorkingDir partitionsWorkDir;
 
@@ -236,6 +308,30 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
         void start() {
             assertThat(startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, loza), willCompleteSuccessfully());
+        }
+
+        void startSystemRaftGroup(PeersAndLearners configuration) {
+            String nodeName = clusterService.topologyService().localMember().name();
+
+            Peer serverPeer = configuration.peer(nodeName);
+
+            var sysNodeId = new RaftNodeId(SYS_RAFT_GROUP_NAME, serverPeer == null ? configuration.learner(nodeName) : serverPeer);
+
+            try {
+                sysRaftGroupService = loza.startSystemRaftGroupNodeAndWaitNodeReady(
+                        sysNodeId,
+                        configuration,
+                        mock(RaftGroupListener.class),
+                        sysEventsListener,
+                        null,
+                        RaftGroupOptionsConfigHelper.configureProperties(
+                                partitionsLogStorageFactory,
+                                partitionsWorkDir.metaPath()
+                        )
+                );
+            } catch (NodeStoppingException e) {
+                fail(e);
+            }
         }
 
         void startRaftGroup(PeersAndLearners configuration) {
@@ -269,7 +365,10 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             Stream<AutoCloseable> shutdownService = Stream.of(
                     raftGroupService == null
                             ? null
-                            : (AutoCloseable) () -> raftGroupService.shutdown()
+                            : (AutoCloseable) () -> raftGroupService.shutdown(),
+                    sysRaftGroupService == null
+                            ? null
+                            : (AutoCloseable) () -> sysRaftGroupService.shutdown()
             );
 
             Stream<AutoCloseable> stopRaftGroups = loza.localNodes().stream().map(id -> () -> loza.stopRaftNode(id));
