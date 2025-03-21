@@ -1655,7 +1655,7 @@ public class Replicator implements ThreadId.OnError {
             rb.entriesList(entries);
 
             // TODO: IGNITE-24856 вот тут надо починить, если коммит индекс изменился все равно посылать сообщение
-            if (entries == null) {
+            if (entries.isEmpty()) {
                 if (nextSendingIndex < this.options.getLogManager().getFirstLogIndex()) {
                     installSnapshot();
                     return false;
