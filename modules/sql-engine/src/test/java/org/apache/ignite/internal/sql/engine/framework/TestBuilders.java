@@ -376,6 +376,13 @@ public class TestBuilders {
         ClusterBuilder operationKillHandlers(OperationKillHandler... handlers);
 
         /**
+         * Creates a new builder for defining and adding a zone to the cluster.
+         *
+         * @return An instance of the {@link ClusterZoneBuilder}, enabling the construction of a new zone.
+         */
+        ClusterZoneBuilder addZone();
+
+        /**
          * Creates a table builder to add to the cluster.
          *
          * @return An instance of table builder.
@@ -625,7 +632,8 @@ public class TestBuilders {
         }
     }
 
-    private static class ClusterBuilderImpl implements ClusterBuilder {
+    static class ClusterBuilderImpl implements ClusterBuilder {
+        private final List<ClusterZoneBuilder> zoneBuilders = new ArrayList<>();
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
         private final List<SystemView<?>> systemViews = new ArrayList<>();
@@ -663,6 +671,11 @@ public class TestBuilders {
             this.killHandlers = handlers;
 
             return this;
+        }
+
+        @Override
+        public ClusterZoneBuilder addZone() {
+            return new ClusterZoneBuilderImpl(this);
         }
 
         /** {@inheritDoc} */
@@ -846,6 +859,10 @@ public class TestBuilders {
         }
 
         private void initAction(CatalogManager catalogManager) {
+            List<CatalogCommand> initialZones = zoneBuilders.stream()
+                    .map(ClusterZoneBuilder::build)
+                    .collect(Collectors.toList());
+
             List<CatalogCommand> initialSchema = tableBuilders.stream()
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
@@ -876,8 +893,20 @@ public class TestBuilders {
             };
             catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
 
+            // Init zones
+            await(catalogManager.execute(initialZones));
+
             // Init schema.
             await(catalogManager.execute(initialSchema));
+        }
+
+        /**
+         * Retrieves a list of {@link ClusterZoneBuilder} instances already defined for the test cluster.
+         *
+         * @return A list of {@link ClusterZoneBuilder} instances representing the predefined zones for the test cluster.
+         */
+        List<ClusterZoneBuilder> zoneBuilders() {
+            return zoneBuilders;
         }
     }
 
@@ -911,6 +940,11 @@ public class TestBuilders {
         public TableBuilder name(String name) {
             this.name = name;
 
+            return this;
+        }
+
+        @Override
+        public TableBuilder zoneName(String zoneName) {
             return this;
         }
 
@@ -1078,6 +1112,8 @@ public class TestBuilders {
 
         private String name;
 
+        private String zoneName;
+
         private ClusterTableBuilderImpl(ClusterBuilderImpl parent) {
             this.parent = parent;
         }
@@ -1086,6 +1122,13 @@ public class TestBuilders {
         @Override
         public ClusterTableBuilder name(String name) {
             this.name = name;
+
+            return this;
+        }
+
+        @Override
+        public ClusterTableBuilder zoneName(String zoneName) {
+            this.zoneName = zoneName;
 
             return this;
         }
@@ -1151,6 +1194,7 @@ public class TestBuilders {
                     CreateTableCommand.builder()
                             .schemaName(schemaName)
                             .tableName(name)
+                            .zone(zoneName)
                             .columns(columns)
                             .primaryKey(primaryKey)
                             .build()
@@ -1392,6 +1436,9 @@ public class TestBuilders {
         /** Sets the name of the table. */
         ChildT name(String name);
 
+        /** Sets the zone name of the table. */
+        ChildT zoneName(String zoneName);
+
         /** Adds a key column to the table. */
         ChildT addKeyColumn(String name, NativeType type);
 
@@ -1466,7 +1513,7 @@ public class TestBuilders {
      * </pre>
      */
     @FunctionalInterface
-    private interface NestedBuilder<ParentT> {
+    interface NestedBuilder<ParentT> {
         /**
          * Notifies the builder's chain of the nested builder that we need to return back to the previous layer.
          *

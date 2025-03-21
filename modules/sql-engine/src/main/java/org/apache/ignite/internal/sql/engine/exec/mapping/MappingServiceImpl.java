@@ -117,18 +117,16 @@ public class MappingServiceImpl implements MappingService {
     public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         assert parameters != null;
 
-        assert enabledColocation ? parameters.groupId() instanceof ZonePartitionId : parameters.groupId() instanceof TablePartitionId
-                : parameters.groupId();
+        int tableOrZoneId;
 
-        if (parameters.groupId() instanceof ZonePartitionId) {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-24679 - remove mappings from cache for zone partitions.
-            return CompletableFutures.falseCompletedFuture();
+        if (enabledColocation) {
+            tableOrZoneId = ((ZonePartitionId) parameters.groupId()).zoneId();
+        } else {
+            tableOrZoneId = ((TablePartitionId) parameters.groupId()).tableId();
         }
 
-        int tabId = ((TablePartitionId) parameters.groupId()).tableId();
-
         // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
-        mappingsCache.removeIfValue(value -> value.tableIds.contains(tabId));
+        mappingsCache.removeIfValue(value -> value.tabelOrZoneIds.contains(tableOrZoneId));
 
         return CompletableFutures.falseCompletedFuture();
     }
@@ -146,36 +144,45 @@ public class MappingServiceImpl implements MappingService {
         } else {
             mappedFragments = mappingsCache.compute(
                     new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
-                    (key, val) -> {
-                        if (val == null) {
-                            IntSet tableIds = new IntOpenHashSet();
-                            boolean topologyAware = false;
-
-                            for (Fragment fragment : template.fragments) {
-                                topologyAware = topologyAware || !fragment.systemViews().isEmpty();
-                                for (IgniteDataSource source : fragment.tables().values()) {
-                                    tableIds.add(source.id());
-                                }
-                            }
-
-                            long topVer = topologyAware ? logicalTopologyVerSupplier.get() : Long.MAX_VALUE;
-
-                            assert nodeExclusionFilter == null;
-
-                            return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups, null));
-                        }
-
-                        long topologyVer = logicalTopologyVerSupplier.get();
-
-                        if (val.topologyVersion < topologyVer) {
-                            return new MappingsCacheValue(topologyVer, val.tableIds, mapFragments(template, mapOnBackups, null));
-                        }
-
-                        return val;
-                    }).mappedFragments;
+                    (key, val) -> computeMappingCacheKey(val, template, mapOnBackups)
+            ).mappedFragments;
         }
 
         return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
+    }
+
+    private MappingsCacheValue computeMappingCacheKey(
+            MappingsCacheValue val,
+            FragmentsTemplate template,
+            boolean mapOnBackups
+    ) {
+        if (val == null) {
+            IntSet tableOrZoneIds = new IntOpenHashSet();
+            boolean topologyAware = false;
+
+            for (Fragment fragment : template.fragments) {
+                topologyAware = topologyAware || !fragment.systemViews().isEmpty();
+                for (IgniteTable source : fragment.tables().values()) {
+                    if (enabledColocation) {
+                        tableOrZoneIds.add(source.zoneId());
+                    } else {
+                        tableOrZoneIds.add(source.id());
+                    }
+                }
+            }
+
+            long topVer = topologyAware ? logicalTopologyVerSupplier.get() : Long.MAX_VALUE;
+
+            return new MappingsCacheValue(topVer, tableOrZoneIds, mapFragments(template, mapOnBackups, null));
+        }
+
+        long topologyVer = logicalTopologyVerSupplier.get();
+
+        if (val.topologyVersion < topologyVer) {
+            return new MappingsCacheValue(topologyVer, val.tabelOrZoneIds, mapFragments(template, mapOnBackups, null));
+        }
+
+        return val;
     }
 
     CompletableFuture<DistributionHolder> composeDistributions(
@@ -396,12 +403,12 @@ public class MappingServiceImpl implements MappingService {
 
     private static class MappingsCacheValue {
         private final long topologyVersion;
-        private final IntSet tableIds;
+        private final IntSet tabelOrZoneIds;
         private final CompletableFuture<MappedFragments> mappedFragments;
 
-        MappingsCacheValue(long topologyVersion, IntSet tableIds, CompletableFuture<MappedFragments> mappedFragments) {
+        MappingsCacheValue(long topologyVersion, IntSet tabelOrZoneIds, CompletableFuture<MappedFragments> mappedFragments) {
             this.topologyVersion = topologyVersion;
-            this.tableIds = tableIds;
+            this.tabelOrZoneIds = tabelOrZoneIds;
             this.mappedFragments = mappedFragments;
         }
     }
