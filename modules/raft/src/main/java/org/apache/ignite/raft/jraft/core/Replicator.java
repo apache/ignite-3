@@ -71,7 +71,8 @@ import org.apache.ignite.raft.jraft.util.RecycleUtil;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
+import org.apache.ignite.raft.jraft.util.internal.ThrowUtil
+;import org.jetbrains.annotations.Nullable;
 
 /**
  * Replicator for replicating log entry from leader to followers.
@@ -83,6 +84,8 @@ public class Replicator implements ThreadId.OnError {
     private final RaftClientService rpcService;
     // Next sending log index
     private volatile long nextIndex;
+    // Previous sending commit index
+    private volatile long previousCommitIndex;
     private int consecutiveErrorTimes = 0;
     private boolean hasSucceeded;
     private long timeoutNowIndex;
@@ -359,6 +362,8 @@ public class Replicator implements ThreadId.OnError {
         final int count;
         // Start log index
         final long startIndex;
+        // Commit index
+        final long commitIndex;
         // Entries size in bytes
         final int size;
         // RPC future
@@ -367,21 +372,23 @@ public class Replicator implements ThreadId.OnError {
         // Request sequence.
         final int seq;
 
-        Inflight(final RequestType requestType, final long startIndex, final int count, final int size,
+        Inflight(final RequestType requestType, final long startIndex, final long commitIndex, final int count, final int size,
             final int seq, final Future<Message> rpcFuture) {
             super();
             this.seq = seq;
             this.requestType = requestType;
             this.count = count;
             this.startIndex = startIndex;
+            this.commitIndex = commitIndex;
             this.size = size;
             this.rpcFuture = rpcFuture;
         }
 
         @Override
         public String toString() {
-            return "Inflight [count=" + this.count + ", startIndex=" + this.startIndex + ", size=" + this.size
-                + ", rpcFuture=" + this.rpcFuture + ", requestType=" + this.requestType + ", seq=" + this.seq + "]";
+            return "Inflight [count=" + this.count + ", startIndex=" + this.startIndex + ", commitIndex=" + commitIndex
+                + ", size=" + this.size + ", rpcFuture=" + this.rpcFuture + ", requestType=" + this.requestType + ", seq=" + this.seq
+                + "]";
         }
 
         boolean isSendingLogEntries() {
@@ -544,32 +551,33 @@ public class Replicator implements ThreadId.OnError {
      * @param count count if request
      * @param size size in bytes
      */
-    private void addInflight(final RequestType reqType, final long startIndex, final int count, final int size,
+    private void addInflight(final RequestType reqType, final long startIndex, final long commitIndex, final int count, final int size,
         final int seq, final Future<Message> rpcInfly) {
-        this.rpcInFly = new Inflight(reqType, startIndex, count, size, seq, rpcInfly);
+        this.rpcInFly = new Inflight(reqType, startIndex, commitIndex, count, size, seq, rpcInfly);
         this.inflights.add(this.rpcInFly);
         this.nodeMetrics.recordSize(name(this.metricName, "replicate-inflights-count"), this.inflights.size());
     }
 
     /**
-     * Returns the next in-flight sending index, return -1 when can't send more in-flight requests.
-     *
-     * @return next in-flight sending index
+     * Returns the next in-flight sending index, return {@code null} when can't send more in-flight requests.
      */
-    long getNextSendIndex() {
+    @Nullable AppendEntriesSendIndexes getNextSendIndexes() {
         // Fast path
         if (this.inflights.isEmpty()) {
-            return this.nextIndex;
+            return new AppendEntriesSendIndexes(this.nextIndex, this.previousCommitIndex);
         }
         // Too many in-flight requests.
         if (this.inflights.size() > this.raftOptions.getMaxReplicatorInflightMsgs()) {
-            return -1L;
+            return null;
         }
         // Last request should be a AppendEntries request and has some entries.
         if (this.rpcInFly != null && this.rpcInFly.isSendingLogEntries()) {
-            return this.rpcInFly.startIndex + this.rpcInFly.count;
+            return new AppendEntriesSendIndexes(
+                    this.rpcInFly.startIndex + this.rpcInFly.count,
+                    this.rpcInFly.commitIndex
+            );
         }
-        return -1L;
+        return null;
     }
 
     private Inflight pollInflight() {
@@ -666,7 +674,7 @@ public class Replicator implements ThreadId.OnError {
                             stateVersion, monotonicSendTimeMs);
                     }
                 });
-            addInflight(RequestType.Snapshot, this.nextIndex, 0, 0, seq, rpcFuture);
+            addInflight(RequestType.Snapshot, this.nextIndex, this.previousCommitIndex, 0, 0, seq, rpcFuture);
         }
         finally {
             if (doUnlock) {
@@ -798,7 +806,7 @@ public class Replicator implements ThreadId.OnError {
 
                     });
 
-                addInflight(RequestType.AppendEntries, this.nextIndex, 0, 0, seq, rpcFuture);
+                addInflight(RequestType.AppendEntries, this.nextIndex, request.committedIndex(), 0, 0, seq, rpcFuture);
             }
             LOG.debug("Node {} send HeartbeatRequest to {} term {} lastCommittedIndex {}", this.options.getNode()
                 .getNodeId(), this.options.getPeerId(), this.options.getTerm(), request.committedIndex());
@@ -1492,6 +1500,7 @@ public class Replicator implements ThreadId.OnError {
                 LOG.debug("LastLogIndex at peer={} is {}", r.options.getPeerId(), response.lastLogIndex());
                 // The peer contains less logs than leader
                 r.nextIndex = response.lastLogIndex() + 1;
+                r.previousCommitIndex = request.committedIndex();
             }
             else {
                 // The peer contains logs from old term which should be truncated,
@@ -1539,6 +1548,7 @@ public class Replicator implements ThreadId.OnError {
         r.setState(State.Replicate);
         r.blockTimer = null;
         r.nextIndex += entriesSize;
+        r.previousCommitIndex = request.committedIndex();
         r.hasSucceeded = true;
         r.notifyOnCaughtUp(RaftError.SUCCESS.getNumber(), false);
         // dummy_id is unlock in _send_entries
@@ -1597,12 +1607,12 @@ public class Replicator implements ThreadId.OnError {
     void sendEntries() {
         boolean doUnlock = true;
         try {
-            long prevSendIndex = -1;
+            AppendEntriesSendIndexes prevSendIndexes = null;
             while (true) {
-                final long nextSendingIndex = getNextSendIndex();
-                if (nextSendingIndex > prevSendIndex) {
-                    if (sendEntries(nextSendingIndex)) {
-                        prevSendIndex = nextSendingIndex;
+                final AppendEntriesSendIndexes nextSendingIndexes = getNextSendIndexes();
+                if (nextSendingIndexes != null && (prevSendIndexes == null || nextSendingIndexes.nextIndex > prevSendIndexes.nextIndex)) {
+                    if (sendEntries(nextSendingIndexes.nextIndex, nextSendingIndexes.previousCommitIndex)) {
+                        prevSendIndexes = nextSendingIndexes;
                     }
                     else {
                         doUnlock = false;
@@ -1626,10 +1636,11 @@ public class Replicator implements ThreadId.OnError {
     /**
      * Send log entries to follower, returns true when success, otherwise false and unlock the id.
      *
-     * @param nextSendingIndex next sending index
-     * @return send result.
+     * @param nextSendingIndex Next sending index.
+     * @param previousCommitIndex Previous sent commit index.
+     * @return Send result.
      */
-    private boolean sendEntries(final long nextSendingIndex) {
+    private boolean sendEntries(final long nextSendingIndex, final long previousCommitIndex) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, nextSendingIndex - 1, false)) {
             // unlock id in installSnapshot
@@ -1654,8 +1665,8 @@ public class Replicator implements ThreadId.OnError {
 
             rb.entriesList(entries);
 
-            // TODO: IGNITE-24856 вот тут надо починить, если коммит индекс изменился все равно посылать сообщение
-            if (entries.isEmpty()) {
+            // We must send one more AppendEntries if the commit index of leader has changed, even if no entries have been added.
+            if (entries.isEmpty() && previousCommitIndex == rb.committedIndex()) {
                 if (nextSendingIndex < this.options.getLogManager().getFirstLogIndex()) {
                     installSnapshot();
                     return false;
@@ -1717,7 +1728,7 @@ public class Replicator implements ThreadId.OnError {
             RecycleUtil.recycle(recyclable);
             ThrowUtil.throwException(t);
         }
-        addInflight(RequestType.AppendEntries, nextSendingIndex, Utils.size(request.entriesList()),
+        addInflight(RequestType.AppendEntries, nextSendingIndex, request.committedIndex(), Utils.size(request.entriesList()),
             request.data() == null ? 0 : request.data().capacity(), seq, rpcFuture);
 
         return true;
@@ -1932,4 +1943,14 @@ public class Replicator implements ThreadId.OnError {
         this.id.unlock();
     }
 
+    static class AppendEntriesSendIndexes {
+        final long nextIndex;
+
+        final long previousCommitIndex;
+
+        AppendEntriesSendIndexes(long nextIndex, long previousCommitIndex) {
+            this.nextIndex = nextIndex;
+            this.previousCommitIndex = previousCommitIndex;
+        }
+    }
 }
