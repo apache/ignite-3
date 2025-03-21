@@ -28,17 +28,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.test.ItTransactionTestUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -348,6 +359,51 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(tx.isReadOnly());
 
         tx.rollback();
+    }
+
+    @Test
+    void testTxWithTimeout() throws InterruptedException {
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+        Transaction tx = client().transactions().begin(new TransactionOptions().timeoutMillis(450));
+
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        int k = 1;
+
+        Tuple k1 = key(k);
+        Tuple v1 = val(String.valueOf(k));
+        kvView.put(tx, k1, v1);
+
+        ClientTransaction tx0 = ClientLazyTransaction.get(tx).startedTx();
+
+        UUID txId = tx0.txId();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        TxStateMeta state0_0 = server0.txManager().stateMeta(txId);
+
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+        TxStateMeta state0_1 = server1.txManager().stateMeta(txId);
+
+        assertTrue(state0_0 == null ^ state0_1 == null, "Transaction expected to be collocated with enlistement");
+
+        do {
+            k++;
+            Tuple t = key(k);
+            Tuple v = val(String.valueOf(k));
+            kvView.put(tx, t, v);
+
+            // Stop then a tx enlisted on both nodes (in direct mapping mode).
+        } while (server0.txManager().stateMeta(txId) == null || server1.txManager().stateMeta(txId) == null);
+
+        TxStateMeta state1_0 = server0.txManager().stateMeta(txId);
+        TxStateMeta state1_1 = server1.txManager().stateMeta(txId);
+
+        Thread.sleep(1000);
+
+        TxStateMeta state2_0 = server0.txManager().stateMeta(txId);
+        TxStateMeta state2_1 = server1.txManager().stateMeta(txId);
+
+        System.out.println();
     }
 
     private KeyValueView<Integer, String> kvView() {

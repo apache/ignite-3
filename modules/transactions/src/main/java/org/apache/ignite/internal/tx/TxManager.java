@@ -254,4 +254,10 @@ public interface TxManager extends IgniteComponent {
      */
     @TestOnly
     int pending();
+
+    /**
+     * Registers a remote transaction.
+     * @param tx The transaction.
+     */
+    void registerRemote(InternalTransaction tx);
 }

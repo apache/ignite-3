@@ -159,11 +159,6 @@ public class RemoteReadWriteTransaction implements InternalTransaction {
     }
 
     @Override
-    public long getTimeoutOrDefault(long defaultTimeout) {
-        return 0;
-    }
-
-    @Override
     public CompletableFuture<Void> kill() {
         return null;
     }

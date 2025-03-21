@@ -179,11 +179,6 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public long getTimeoutOrDefault(long defaultTimeout) {
-                return 10_000;
-            }
-
-            @Override
             public CompletableFuture<Void> kill() {
                 return nullCompletedFuture();
             }
@@ -277,6 +272,11 @@ public class FakeTxManager implements TxManager {
     @Override
     public int pending() {
         return 0;
+    }
+
+    @Override
+    public void registerRemote(InternalTransaction tx) {
+        // No-op.
     }
 
     @Override

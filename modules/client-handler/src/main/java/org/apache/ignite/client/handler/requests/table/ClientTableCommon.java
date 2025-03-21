@@ -37,7 +37,6 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -421,7 +420,7 @@ public class ClientTableCommon {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientResourceRegistry resources,
-            ClusterNode localNode
+            @Nullable ClusterNode localNode
     ) {
         if (in.tryUnpackNil()) {
             return null;
@@ -478,6 +477,8 @@ public class ClientTableCommon {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
             // The direct transaction uses a current timestamp on the primary replica by definition.
             tx = startImplicitTx(out, txManager, null, readOnly);
+        } else if (tx.remote()) {
+            txManager.registerRemote(tx);
         }
 
         return tx;

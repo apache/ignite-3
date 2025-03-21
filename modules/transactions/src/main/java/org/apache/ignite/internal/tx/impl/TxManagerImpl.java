@@ -451,7 +451,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         boolean scheduleExpiration = !implicit;
 
         if (scheduleExpiration) {
-            transactionExpirationRegistry.register(transaction, physicalExpirationTimeMillis(beginTimestamp, timeout));
+            transactionExpirationRegistry.register(transaction);
         }
 
         return transaction;
@@ -499,7 +499,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean scheduleExpiration = !implicit;
 
             if (scheduleExpiration) {
-                transactionExpirationRegistry.register(transaction, physicalExpirationTimeMillis(beginTimestamp, timeout));
+                transactionExpirationRegistry.register(transaction);
             }
 
             txFuture.whenComplete((unused, throwable) -> {
@@ -515,24 +515,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         } catch (Throwable t) {
             lowWatermark.unlock(txId);
             throw t;
-        }
-    }
-
-    private static long physicalExpirationTimeMillis(HybridTimestamp beginTimestamp, long effectiveTimeoutMillis) {
-        return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
-    }
-
-    private static long sumWithSaturation(long a, long b) {
-        assert a >= 0 : a;
-        assert b >= 0 : b;
-
-        long sum = a + b;
-
-        if (sum < 0) {
-            // Overflow.
-            return Long.MAX_VALUE;
-        } else {
-            return sum;
         }
     }
 
@@ -886,6 +868,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public int pending() {
         return startedTxs.intValue() - finishedTxs.intValue();
+    }
+
+    @Override
+    public void registerRemote(InternalTransaction tx) {
+        // transactionExpirationRegistry.register(tx);
     }
 
     @Override

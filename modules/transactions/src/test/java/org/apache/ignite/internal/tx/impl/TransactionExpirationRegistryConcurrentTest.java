@@ -247,11 +247,6 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public long getTimeoutOrDefault(long defaultTimeout) {
-            return defaultTimeout;
-        }
-
-        @Override
         public CompletableFuture<Void> kill() {
             return null;
         }
