@@ -42,8 +42,6 @@ import org.jetbrains.annotations.TestOnly;
  * Otherwise, uses average checkpoint write speed and instant speed of marking pages as dirty.<br>
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
-    private static final int PARKING_UNIT = 10_000;
-
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
     /** The maximum time for a single {@link LockSupport#parkNanos(long)} call if we don't throttle the checkpoint buffer. */
