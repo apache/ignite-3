@@ -261,11 +261,12 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
             try {
-                return raftManager.startRaftGroupNodeAndWaitNodeReady(
+                return raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                         raftNodeId,
                         configuration,
                         listener,
                         RaftGroupEventsListener.noopLsnr,
+                        null,
                         partitionsRaftConfigurer
                 );
             } catch (NodeStoppingException e) {

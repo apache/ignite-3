@@ -115,7 +115,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         when(service.run(any(GetCurrentRevisionsCommand.class), anyLong()))
                 .thenAnswer(invocation -> completedFuture(new RevisionsInfo(remoteRevision, -1)));
 
-        when(raft.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
+        when(raft.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
                 .thenAnswer(invocation -> service);
 
         return raft;
