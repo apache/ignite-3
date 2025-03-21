@@ -32,6 +32,20 @@ for stream processing of the trade data and receiving processing results.
 * `ReceiverStreamProcessingWithTableUpdateExample` - demonstrates the usage of 
 the `DataStreamerTarget#streamData(Publisher, Function, Function, ReceiverDescriptor, Subscriber, DataStreamerOptions, Object)` API 
 for stream processing of the trade data and updating account data in the table.
+* `ComputeAsyncExample` - demonstrates the usage of the `IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)` API.
+* `ComputeBroadcastExample` - demonstrates the usage of the `IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)` API.
+* `ComputeCancellationExample` - demonstrates the usage of 
+the `IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object, CancellationToken)` API.
+* `ComputeColocatedExample` - demonstrates the usage of 
+the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)` API with colocated JobTarget.
+* `ComputeExample` - demonstrates the usage of the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)` API.
+* `ComputeJobPriorityExample` - demonstrates the usage of 
+the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)` API with different job priorities.
+* `ComputeMapReduceExample` - demonstrates the usage of the `IgniteCompute#executeMapReduce(TaskDescriptor, Object)` API.
+* `ComputeWithCustomResultMarshallerExample` - demonstrates the usage of the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)` API 
+with a custom result marshaller.
+* `ComputeWithResultExample` - demonstrates the usage of the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)`}` API 
+with a result return.
 
 ## Running examples with an Ignite node within a Docker container
 
