@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
@@ -32,7 +33,7 @@ class CatalogSchemaDescriptorTest {
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0],
                 new CatalogSystemViewDescriptor[0],
-                123
+                hybridTimestamp(123)
         );
 
         String toString = descriptor.toString();

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -50,7 +51,7 @@ public class DropSchemaEntry implements UpdateEntry {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         return new Catalog(
                 catalog.version(),
                 catalog.time(),

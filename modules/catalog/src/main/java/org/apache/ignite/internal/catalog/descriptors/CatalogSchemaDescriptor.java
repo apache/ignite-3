@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -54,8 +55,9 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor implements 
             CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
             CatalogSystemViewDescriptor[] systemViews,
-            long causalityToken) {
-        super(id, Type.SCHEMA, name, causalityToken);
+            HybridTimestamp timestamp
+    ) {
+        super(id, Type.SCHEMA, name, timestamp);
         this.tables = Objects.requireNonNull(tables, "tables");
         this.indexes = Objects.requireNonNull(indexes, "indexes");
         this.systemViews = Objects.requireNonNull(systemViews, "systemViews");

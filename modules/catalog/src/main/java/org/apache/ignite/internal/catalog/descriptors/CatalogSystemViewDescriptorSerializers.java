@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
 import java.util.List;
@@ -29,6 +31,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Serializers for {@link CatalogSystemViewDescriptor}.
@@ -53,14 +56,15 @@ public class CatalogSystemViewDescriptorSerializers {
             int id = input.readVarIntAsInt();
             int schemaId = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             List<CatalogTableColumnDescriptor> columns = readList(columnSerializer, input);
 
             byte sysViewTypeId = input.readByte();
             SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
 
-            return new CatalogSystemViewDescriptor(id, schemaId, name, columns, sysViewType, updateToken);
+            return new CatalogSystemViewDescriptor(id, schemaId, name, columns, sysViewType, updateTimestamp);
         }
 
         @Override
@@ -71,7 +75,7 @@ public class CatalogSystemViewDescriptorSerializers {
             output.writeVarInt(descriptor.id());
             output.writeVarInt(descriptor.schemaId());
             output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
             writeList(descriptor.columns(), columnSerializer, output);
             output.writeByte(descriptor.systemViewType().id());
         }
@@ -88,14 +92,15 @@ public class CatalogSystemViewDescriptorSerializers {
             int id = input.readVarIntAsInt();
             int schemaId = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
 
             byte sysViewTypeId = input.readByte();
             SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
 
-            return new CatalogSystemViewDescriptor(id, schemaId, name, columns, sysViewType, updateToken);
+            return new CatalogSystemViewDescriptor(id, schemaId, name, columns, sysViewType, updateTimestamp);
         }
 
         @Override
@@ -103,7 +108,7 @@ public class CatalogSystemViewDescriptorSerializers {
             output.writeVarInt(descriptor.id());
             output.writeVarInt(descriptor.schemaId());
             output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
             output.writeEntryList(descriptor.columns());
             output.writeByte(descriptor.systemViewType().id());
         }
