@@ -23,6 +23,7 @@ import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesRespons
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -66,6 +68,9 @@ import org.junit.jupiter.api.Test;
  * Test for disaster recovery REST commands.
  */
 @MicronautTest
+// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 

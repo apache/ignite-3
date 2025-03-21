@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.message;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
  * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
@@ -28,7 +29,5 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * // TODO: IGNITE-22522 remove the above mention of per-table case.
  */
 @Transferable(TxMessageGroup.TABLE_WRITE_INTENT_SWITCH_REQUEST)
-public interface TableWriteIntentSwitchReplicaRequest extends WriteIntentSwitchReplicaRequestBase {
-    /** ID of the table which this write intent switch concerns. */
-    int tableId();
+public interface TableWriteIntentSwitchReplicaRequest extends WriteIntentSwitchReplicaRequestBase, TableAware {
 }

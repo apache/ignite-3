@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -174,7 +175,8 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
+                mock(HybridTimestamp.class)
         );
     }
 
@@ -193,7 +195,8 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
+                mock(HybridTimestamp.class)
         );
     }
 

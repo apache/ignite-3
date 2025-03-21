@@ -344,7 +344,8 @@ class IndexBuildController implements ManuallyCloseable {
                             ((PartitionGroupId) primaryReplicaId).partitionId(),
                             indexDescriptor,
                             mvTableStorage,
-                            enlistmentConsistencyToken(replicaMeta)
+                            enlistmentConsistencyToken(replicaMeta),
+                            clockService.current()
                     );
                 } else if (indexDescriptor.status() == AVAILABLE) {
                     scheduleBuildIndexAfterDisasterRecovery(
@@ -387,7 +388,15 @@ class IndexBuildController implements ManuallyCloseable {
                 return;
             }
 
-            scheduleBuildIndex(zoneId, tableId, partitionId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
+            scheduleBuildIndex(
+                    zoneId,
+                    tableId,
+                    partitionId,
+                    indexDescriptor,
+                    mvTableStorage,
+                    enlistmentConsistencyToken(replicaMeta),
+                    clockService.current()
+            );
         });
     }
 
@@ -440,7 +449,8 @@ class IndexBuildController implements ManuallyCloseable {
             int partitionId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            HybridTimestamp initialOperationTimestamp
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
@@ -454,7 +464,8 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken
+                enlistmentConsistencyToken,
+                initialOperationTimestamp
         );
     }
 
@@ -479,7 +490,8 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken
+                enlistmentConsistencyToken,
+                clockService.current()
         );
     }
 

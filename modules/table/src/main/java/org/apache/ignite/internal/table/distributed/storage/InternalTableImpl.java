@@ -1862,6 +1862,7 @@ public class InternalTableImpl implements InternalTable {
                     .tableId(tableId)
                     .transactionId(txId)
                     .scanId(scanId)
+                    .timestamp(TransactionIds.beginTimestamp(txId))
                     .build();
 
             closeFut = replicaSvc.invoke(recipientConsistentId, scanCloseReplicaRequest);
@@ -2217,6 +2218,7 @@ public class InternalTableImpl implements InternalTable {
                             .groupId(partitionIdMessage)
                             .tableId(tableId)
                             .enlistmentConsistencyToken(enlistmentConsistencyToken(replicaMeta))
+                            .timestamp(now)
                             .build();
 
             invokeFutures[partId] = sendToPrimaryWithRetry(replicaGroupId, now, 5, requestFactory);

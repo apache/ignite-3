@@ -2237,6 +2237,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .groupId(serializedMsg)
                         .tableId(grpId.tableId())
                         .transactionId(targetTxId)
+                        .timestamp(beginTimestamp(targetTxId))
                         .scanId(1)
                         .build(),
                 localNode.id()
@@ -3330,6 +3331,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexId(indexId)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .rowIds(List.of())
+                .timestamp(clock.current())
                 .build();
 
         return invokeListener(request);

@@ -39,6 +39,7 @@ import org.apache.ignite.internal.partition.replicator.handlers.VacuumTxStateRep
 import org.apache.ignite.internal.partition.replicator.handlers.WriteIntentSwitchRequestHandler;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -66,7 +67,6 @@ import org.jetbrains.annotations.VisibleForTesting;
 public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
     // tableId -> tableProcessor.
     private final Map<Integer, ReplicaTableProcessor> replicas = new ConcurrentHashMap<>();
 
@@ -76,6 +76,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private final ZonePartitionId replicationGroupId;
 
     private final ReplicaPrimacyEngine replicaPrimacyEngine;
+
+    private final TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor;
 
     // Replica request handlers.
     private final TxFinishReplicaRequestHandler txFinishReplicaRequestHandler;
@@ -118,6 +120,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 localNode
         );
 
+        this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
+                clockService,
+                new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService),
+                schemaSyncService
+        );
+
         ReplicationRaftCommandApplicator raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
 
         TxRecoveryEngine txRecoveryEngine = new TxRecoveryEngine(
@@ -146,7 +154,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 catalogService,
                 txManager,
                 raftClient,
-                replicationGroupId
+                replicationGroupId,
+                tableAwareReplicaRequestPreProcessor
         );
 
         txStateCommitPartitionReplicaRequestHandler = new TxStateCommitPartitionReplicaRequestHandler(
@@ -205,7 +214,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                     .thenApply(res -> new ReplicaResult(res, null));
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
-            return writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
+              return  writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
         } else if (request instanceof TxStateCommitPartitionRequest) {
             return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request);
         } else if (request instanceof TxRecoveryMessage) {
@@ -230,10 +239,13 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 move assert to preProcessTableAwareRequest()
         assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
 
-        return replicas.get(((TableAware) request).tableId())
-                .process(request, replicaPrimacy, senderId);
+        int tableId = ((TableAware) request).tableId();
+
+        return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
+                .thenCompose(ignored -> replicas.get(tableId).process(request, replicaPrimacy, senderId));
     }
 
     /**
@@ -277,6 +289,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param tableId Table's identifier.
      */
     public void removeTableReplicaProcessor(int tableId) {
+        System.out.println("<><><> remove replica from replicas tableId=[" + tableId + ']');
         replicas.remove(tableId);
     }
 
