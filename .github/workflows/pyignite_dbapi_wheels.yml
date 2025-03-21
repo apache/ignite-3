@@ -1,4 +1,4 @@
-name: "Build pyignite-dbapi Mac wheels"
+name: "Build pyignite-dbapi wheels"
 
 on:
   workflow_dispatch:
@@ -10,14 +10,13 @@ on:
       - 'modules/platforms/cpp/**'
 
 jobs:
-  build_wheels_macos:
+  build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         # macos-13 is an intel runner, macos-14 is apple silicon
-        #os: [ubuntu-latest, windows-latest, macos-13, macos-14]
-        os: [macos-13, macos-14]
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v4
