@@ -146,11 +146,14 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
 
             sb.append(shortenedScalarMetricName)
                     .append(METRIC_DIVIDER)
-                    .append(m.value())
-                    .append(BUCKET_DIVIDER);
+                    .append(m.value());
+
+            if (i < scalarMetrics.size() - 1) {
+                sb.append(BUCKET_DIVIDER);
+            }
         }
 
-        sb.setCharAt(sb.length() - 1, ']');
+        sb.append(']');
 
         return sb.toString();
     }
