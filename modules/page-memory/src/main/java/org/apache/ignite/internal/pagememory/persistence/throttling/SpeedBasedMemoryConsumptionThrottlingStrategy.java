@@ -22,6 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 
@@ -191,14 +193,16 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         } else {
             return getParkTime(dirtyPagesRatio,
                     donePages,
-                    notEvictedPagesTotal(cpTotalPages),
+                    cpTotalPages,
                     threadIds.size(),
                     instantaneousMarkDirtySpeed,
                     avgCpWriteSpeed);
         }
     }
 
+    // TODO add Jira link
     private int notEvictedPagesTotal(int cpTotalPages) {
+        // I'm not sure about these evicted pages. Smells like bullshit. We need another Jira to figure this out.
         return Math.max(cpTotalPages - cpEvictedPages(), 0);
     }
 
@@ -268,6 +272,10 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         this.targetDirtyRatio = targetDirtyRatio;
     }
 
+    public static final AtomicInteger CNTR = new AtomicInteger();
+    public static final int NUM_LOGS = 2000;
+    public static final IgniteLogger LOG = Loggers.forClass(SpeedBasedMemoryConsumptionThrottlingStrategy.class);
+
     /**
      * Calculates speed needed to mark dirty all currently clean pages before the current checkpoint ends. May return 0 if the provided
      * parameters do not give enough information to calculate the speed, OR if the current dirty pages ratio is too high (higher than
@@ -294,6 +302,12 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             return 0;
         }
 
+//        if (CNTR.get() < NUM_LOGS && CNTR.getAndIncrement() < NUM_LOGS) {
+//            LOG.info("<$> calcSpeedToMarkAllSpaceTillEndOfCp ["
+//                    + "dirtyPagesRatio=" + dirtyPagesRatio + ", donePages=" + donePages + ", "
+//                    + "avgCpWriteSpeed=" + avgCpWriteSpeed + ", cpTotalPages=" + cpTotalPages + "]");
+//        }
+
         // IDEA: here, when calculating the count of clean pages, it includes the pages under checkpoint. It is kinda
         // legal because they can be written (using the Checkpoint Buffer to make a copy of the value to be
         // checkpointed), but the CP Buffer is usually not too big, and if it gets nearly filled, writes become
@@ -302,6 +316,14 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         double remainedCleanPages = (MAX_DIRTY_PAGES - dirtyPagesRatio) * pageMemTotalPages();
 
         double secondsTillCpEnd = 1.0 * (cpTotalPages - donePages) / avgCpWriteSpeed;
+
+        if (secondsTillCpEnd < 0) {
+            System.out.println("foo");
+        }
+
+        if (remainedCleanPages < 0) {
+            System.out.println("bar");
+        }
 
         return (long) (remainedCleanPages / secondsTillCpEnd);
     }
@@ -375,7 +397,13 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Returns counter for fsynced checkpoint pages.
      */
     int cpSyncedPages() {
-        AtomicInteger syncedPagesCounter = cpProgress.get().syncedPagesCounter();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        AtomicInteger syncedPagesCounter = progress.syncedPagesCounter();
 
         // Null-check simplifies testing, we don't have to mock this counter.
         return syncedPagesCounter == null ? 0 : syncedPagesCounter.get();
@@ -385,14 +413,26 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Return a number of pages in current checkpoint.
      */
     int cpTotalPages() {
-        return cpProgress.get().currentCheckpointPagesCount();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        return progress.currentCheckpointPagesCount();
     }
 
     /**
      * Returns a number of evicted pages.
      */
     int cpEvictedPages() {
-        AtomicInteger evictedPagesCounter = cpProgress.get().evictedPagesCounter();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        AtomicInteger evictedPagesCounter = progress.evictedPagesCounter();
 
         // Null-check simplifies testing, we don't have to mock this counter.
         return evictedPagesCounter == null ? 0 : evictedPagesCounter.get();
