@@ -44,7 +44,7 @@ import org.jetbrains.annotations.TestOnly;
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
-    /** Maximal time for a single {@link LockSupport#parkNanos(long)} call if we don't throttle the checkpoint buffer. */
+    /** The maximum time for a single {@link LockSupport#parkNanos(long)} call if we don't throttle the checkpoint buffer. */
     private static final int PARKING_UNIT = 10_000;
 
     /**
@@ -188,7 +188,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         }
 
         if (throttleParkTimeNs > LOGGING_THRESHOLD) {
-            LOG.warn("Parking thread=" + Thread.currentThread().getName() + " for timeout(ms)=" + (throttleParkTimeNs / 1_000_000));
+            LOG.warn("Parking thread={} for timeout(ms)={}", Thread.currentThread().getName(), throttleParkTimeNs / 1_000_000);
         }
 
         totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNs));
