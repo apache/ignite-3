@@ -28,9 +28,8 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /**
- * Set of tests to verify project correlate transpose optimization.
+ * Tests IgniteProjectCorrelateTransposeRule.
  */
-@SuppressWarnings("ConcatenationWithEmptyString")
 public class ProjectCorrelateTransposePlannerTest extends AbstractPlannerTest {
     @Test
     public void testProjectCorrelateTranspose() throws Exception {
@@ -45,6 +44,20 @@ public class ProjectCorrelateTransposePlannerTest extends AbstractPlannerTest {
         Predicate<RelNode> check =
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
                         .and(input(0, isTableScan("T0").and(n -> n.requiredColumns() != null))));
+
+        assertPlan(sql, publicSchema, check);
+    }
+
+    /** Test works of system_range function with correlate. */
+    @Test
+    public void testSystemRangeFunctionWithCorrelate() throws Exception {
+        IgniteSchema publicSchema = createSchemaFrom(tableA("T0"));
+        String sql = "SELECT t.jid FROM t0 t WHERE t.jid < 5 AND EXISTS "
+                + "(SELECT x FROM table(system_range(t.jid, t.jid)) WHERE mod(x, 2) = 0)";
+
+        Predicate<IgniteCorrelatedNestedLoopJoin> check =
+                isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(0, isTableScan("T0").and(n -> n.requiredColumns() != null)));
 
         assertPlan(sql, publicSchema, check);
     }
