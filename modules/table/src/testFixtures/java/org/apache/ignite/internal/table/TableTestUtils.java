@@ -78,11 +78,43 @@ public class TableTestUtils {
             List<ColumnParams> columns,
             List<String> pkColumns
     ) {
+        createTable(
+                catalogManager,
+                schemaName,
+                zoneName,
+                tableName,
+                columns,
+                pkColumns,
+                null
+        );
+    }
+
+    /**
+     * Creates table in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param zoneName Zone name or {@code null} to use default distribution zone.
+     * @param tableName Table name.
+     * @param columns Table columns.
+     * @param pkColumns Primary key columns.
+     * @param storageProfile Storage profile name.
+     */
+    public static void createTable(
+            CatalogManager catalogManager,
+            String schemaName,
+            @Nullable String zoneName,
+            String tableName,
+            List<ColumnParams> columns,
+            List<String> pkColumns,
+            @Nullable String storageProfile
+    ) {
         CatalogCommand command = CreateTableCommand.builder()
                 .schemaName(schemaName)
                 .zone(zoneName)
                 .tableName(tableName)
                 .columns(columns)
+                .storageProfile(storageProfile)
                 // Hash index for primary key is being used here,
                 // because such index only requests a list of column names.
                 .primaryKey(TableHashPrimaryKey.builder()

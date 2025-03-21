@@ -382,6 +382,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 sharedTxStateStorage,
                 txManager,
                 sm,
+                dsm,
                 outgoingSnapshotManager
         );
 
