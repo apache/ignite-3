@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -512,7 +513,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 schemaManager,
                 mock(IndexMetaStorage.class),
                 LOCAL_NODE.id(),
-                mock(MinimumRequiredTimeCollectorService.class)
+                mock(MinimumRequiredTimeCollectorService.class),
+                mock(Executor.class)
         );
 
         if (enabledColocation) {
@@ -522,7 +524,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     this.txManager,
                     safeTime,
                     storageIndexTracker,
-                    new NoOpPartitionsSnapshots()
+                    new NoOpPartitionsSnapshots(),
+                    mock(Executor.class)
             );
 
             zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);
