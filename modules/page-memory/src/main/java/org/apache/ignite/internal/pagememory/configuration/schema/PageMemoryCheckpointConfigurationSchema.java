@@ -66,5 +66,5 @@ public class PageMemoryCheckpointConfigurationSchema {
 
     /** Use an asynchronous file I/O operations provider. */
     @Value(hasDefault = true)
-    public boolean useAsyncFileIoFactory = false;
+    public boolean useAsyncFileIoFactory = true;
 }
