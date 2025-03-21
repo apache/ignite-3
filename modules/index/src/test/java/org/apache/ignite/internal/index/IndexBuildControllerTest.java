@@ -156,7 +156,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
 
@@ -169,7 +168,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
     }
@@ -193,7 +191,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
 
@@ -206,7 +203,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
     }
@@ -228,7 +224,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
 
@@ -241,7 +236,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
     }
@@ -263,7 +257,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
 
@@ -276,7 +269,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
     }
@@ -325,7 +317,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
 
@@ -338,7 +329,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                // TODO sanpwc
                 any()
         );
     }

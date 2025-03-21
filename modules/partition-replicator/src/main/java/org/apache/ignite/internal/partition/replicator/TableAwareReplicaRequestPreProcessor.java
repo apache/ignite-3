@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -70,11 +72,14 @@ public class TableAwareReplicaRequestPreProcessor {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
-        assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 add
+        //  assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
 
         HybridTimestamp opTs = getOperationTimestamp(request);
 
-        assert opTs != null : "Table aware operation timestamp must not be null [request=" + request + ']';
+        if (enabledColocation()) {
+            assert opTs != null : "Table aware operation timestamp must not be null [request=" + request + ']';
+        }
 
         @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
         @Nullable HybridTimestamp txTs = getTxStartTimestamp(request);
@@ -124,16 +129,29 @@ public class TableAwareReplicaRequestPreProcessor {
      * @param request The request.
      * @return The timestamp or {@code null} if not a tx operation request.
      */
-    private @Nullable HybridTimestamp getOperationTimestamp(ReplicaRequest request) {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove @Nullable and make it private.
+    public @Nullable HybridTimestamp getOperationTimestamp(ReplicaRequest request) {
         HybridTimestamp opStartTs;
 
-        if (request instanceof ReadOnlyReplicaRequest) {
-            opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
+        if (enabledColocation()) {
+            if (request instanceof ReadOnlyReplicaRequest) {
+                opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
+            } else {
+                // Timestamp is returned for all types of TableAware requests in order to enable schema sync mechanism that on it's turn
+                // eliminates the race between table processor publishing and request processing. Otherwise NPE may be thrown on retrieving
+                // table processor by tableId from ZonePartitionReplicaListener.replicas.
+                opStartTs = clockService.current();
+            }
         } else {
-            // Timestamp is returned for all types of TableAware requests in order to enable schema sync mechanizm that on it's turn
-            // eliminates the race between table processor publishing and request processing. Otherwise NPE may be thrown on retrieving
-            // table processor by tableId from ZonePartitionReplicaListener.replicas.
-            opStartTs = clockService.current();
+            if (request instanceof ReadWriteReplicaRequest) {
+                opStartTs = clockService.current();
+            } else if (request instanceof ReadOnlyReplicaRequest) {
+                opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
+            } else if (request instanceof ReadOnlyDirectReplicaRequest) {
+                opStartTs = clockService.current();
+            } else {
+                opStartTs = null;
+            }
         }
 
         return opStartTs;

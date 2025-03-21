@@ -575,14 +575,20 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
         }
 
-        @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
+        @Nullable HybridTimestamp opTs = tableAwareReplicaRequestPreProcessor.getOperationTimestamp(request);
         @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
         if (enabledColocation()) {
             return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo);
         } else {
-            return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
-                    .thenCompose(ignored ->
-                            processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo));
+            // Don't need to validate schema.
+            if (opTs == null) {
+                assert opTsIfDirectRo == null;
+                return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, null);
+            } else {
+                return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
+                        .thenCompose(ignored ->
+                                processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo));
+            }
         }
     }
 
@@ -638,36 +644,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         Assignments pendingAssignments = fromBytes(request.pendingAssignments());
 
         return fromAssignments(pendingAssignments.nodes());
-    }
-
-    /**
-     * Returns the txn operation timestamp.
-     *
-     * <ul>
-     *     <li>For a read/write in an RW transaction, it's 'now'</li>
-     *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
-     *     <li>For a direct read in an RO implicit transaction, it's the timestamp chosen (as 'now') to process the request</li>
-     * </ul>
-     *
-     * <p>For other requests, op timestamp is not applicable and the validation is skipped.
-     *
-     * @param request The request.
-     * @return The timestamp or {@code null} if not a tx operation request.
-     */
-    private @Nullable HybridTimestamp getTxOpTimestamp(ReplicaRequest request) {
-        HybridTimestamp opStartTs;
-
-        if (request instanceof ReadWriteReplicaRequest) {
-            opStartTs = clockService.current();
-        } else if (request instanceof ReadOnlyReplicaRequest) {
-            opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
-        } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            opStartTs = clockService.current();
-        } else {
-            opStartTs = null;
-        }
-
-        return opStartTs;
     }
 
     /**

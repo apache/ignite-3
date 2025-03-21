@@ -214,9 +214,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                     .thenApply(res -> new ReplicaResult(res, null));
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
-            // TODO sanpwc Fix
-//            return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
-//                    .thenCompose(ignored ->
               return  writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
         } else if (request instanceof TxStateCommitPartitionRequest) {
             return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request);
@@ -242,6 +239,9 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 move assert to preProcessTableAwareRequest()
+        assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
+
         int tableId = ((TableAware) request).tableId();
 
         return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
