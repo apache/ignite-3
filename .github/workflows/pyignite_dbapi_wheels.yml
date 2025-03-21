@@ -51,7 +51,7 @@ jobs:
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
         env:
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
-          CIBW_ARCHS: x86_64 aarch64
+          CIBW_ARCHS: auto64
           CIBW_BEFORE_ALL: yum -y install unixODBC-devel openssl-devel
 
       - name: Install Winget
@@ -60,7 +60,7 @@ jobs:
 
       - name: Install OpenSSL on Windows
         if: runner.os == 'Windows'
-        run: winget install --id=ShiningLight.OpenSSL.Dev -e --accept-source-agreements
+        run: winget install --id=ShiningLight.OpenSSL.Dev -e --accept-source-agreements --disable-interactivity
 
       - name: Build wheels Windows
         if: runner.os == 'Windows'
