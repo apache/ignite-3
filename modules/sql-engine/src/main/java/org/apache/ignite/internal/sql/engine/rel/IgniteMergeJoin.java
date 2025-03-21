@@ -22,9 +22,12 @@ import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 
+import it.unimi.dsi.fastutil.ints.IntArraySet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.IntPredicate;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -37,11 +40,13 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
@@ -156,10 +161,10 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         if (containsOrderless(leftCollation, joinInfo.leftKeys)) {
             // preserve left collation
-            rightCollation = leftCollation.apply(buildTransposeMapping(true));
+            rightCollation = buildDesiredCollation(joinInfo, leftCollation, true);
         } else if (containsOrderless(rightCollation, joinInfo.rightKeys)) {
             // preserve right collation
-            leftCollation = rightCollation.apply(buildTransposeMapping(false));
+            leftCollation = buildDesiredCollation(joinInfo, rightCollation, false);
         } else {
             // generate new collations
             leftCollation = RelCollations.of(joinInfo.leftKeys);
@@ -218,7 +223,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
             nodeCollation = collation;
             leftCollation = collation;
-            rightCollation = collation.apply(buildTransposeMapping(true));
+            rightCollation = buildDesiredCollation(joinInfo, leftCollation, true);
         } else if (containsOrderless(leftKeys, collation)) {
             if (joinType == RIGHT) {
                 return defaultCollationPair(required, left, right);
@@ -228,7 +233,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             // keys are sorted.
             nodeCollation = collation;
             leftCollation = extendCollation(collation, leftKeys);
-            rightCollation = leftCollation.apply(buildTransposeMapping(true));
+            rightCollation = buildDesiredCollation(joinInfo, leftCollation, true);
         } else if (containsOrderless(collation, leftKeys) && reqKeys.stream().allMatch(i -> i < leftInputFieldCount)) {
             if (joinType == RIGHT) {
                 return defaultCollationPair(required, left, right);
@@ -238,7 +243,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             // (order not matter), also sort keys are all from left join input.
             nodeCollation = collation;
             leftCollation = collation;
-            rightCollation = leftCollation.apply(buildTransposeMapping(true));
+            rightCollation = buildDesiredCollation(joinInfo, leftCollation, true);
         } else if (reqKeySet.equals(rightKeySet)) {
             if (joinType == LEFT) {
                 return defaultCollationPair(required, left, right);
@@ -246,7 +251,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
             nodeCollation = collation;
             rightCollation = RelCollations.shift(collation, -leftInputFieldCount);
-            leftCollation = rightCollation.apply(buildTransposeMapping(false));
+            leftCollation = buildDesiredCollation(joinInfo, rightCollation, false);
         } else if (containsOrderless(rightKeys, collation)) {
             if (joinType == LEFT) {
                 return defaultCollationPair(required, left, right);
@@ -254,7 +259,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
             nodeCollation = collation;
             rightCollation = RelCollations.shift(extendCollation(collation, rightKeys), -leftInputFieldCount);
-            leftCollation = rightCollation.apply(buildTransposeMapping(false));
+            leftCollation = buildDesiredCollation(joinInfo, rightCollation, false);
         } else {
             return defaultCollationPair(required, left, right);
         }
@@ -351,5 +356,43 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         }
 
         return RelCollations.of(fieldsForNewCollation);
+    }
+
+    /**
+     * The function builds desired collation for another join branch regarding provided join conditions information.
+     * It builds valid right collation for the given left collation and vice versa.
+     * Note: the function support complex many-to-many conditions, where a source matches multiple targets and vice versa.
+     */
+    private static RelCollation buildDesiredCollation(JoinInfo joinInfo, RelCollation collation, boolean left2Right) {
+        List<RelFieldCollation> source = collation.getFieldCollations();
+
+        List<IntPair> mapping = left2Right
+                ? new ArrayList<>(joinInfo.pairs())
+                : joinInfo.pairs().stream() // Build reverse mapping for right-to-left case.
+                        .map(p -> new IntPair(p.target, p.source))
+                        .collect(Collectors.toList());
+
+        IntPredicate isUnique = new IntArraySet(source.size())::add;
+        List<RelFieldCollation> target = new ArrayList<>(source.size());
+        for (RelFieldCollation fieldCollation : source) {
+            boolean found = false;
+
+            // Iterate over all conditions to support many-to-many mapping.
+            // Filter our target duplicates, because they don't affect the collation.
+            for (IntPair p : mapping) {
+                if (fieldCollation.getFieldIndex() == p.source) {
+                    found = true;
+                    if (isUnique.test(p.target)) {
+                        target.add(fieldCollation.withFieldIndex(p.target));
+                    }
+                }
+            }
+
+            if (!found) {
+                break; // Search for valid prefix only.
+            }
+        }
+
+        return RelCollations.of(target);
     }
 }
