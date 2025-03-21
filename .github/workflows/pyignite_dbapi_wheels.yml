@@ -1,4 +1,4 @@
-name: "Build pyignite-dbapi wheels"
+name: "Build Python DB API Driver Wheels"
 
 on:
   workflow_dispatch:
@@ -25,16 +25,12 @@ jobs:
         with:
           python-version: '3.13' 
 
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.23.1
+
       - name: Install UnixODBC on macOS
         if: runner.os == 'macOS'
         run: brew install unixodbc
-
-      - name: Install UnixODBC on Linux
-        if: runner.os == 'Linux'
-        run: sudo apt install unixodbc-dev libssl-dev
-
-      - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.23.1
 
       - name: Build wheels macOS 14
         if: matrix.os == 'macos-14'
@@ -43,12 +39,35 @@ jobs:
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
           MACOSX_DEPLOYMENT_TARGET: 14.0
 
-      - name: Build wheels
-        if: matrix.os != 'macos-14'
+      - name: Build wheels macOS 13
+        if: matrix.os == 'macos-13'
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
         env:
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
           MACOSX_DEPLOYMENT_TARGET: 13.0
+
+      - name: Build wheels Linux
+        if: runner.os == 'Linux'
+        run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
+        env:
+          CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+          CIBW_ARCHS: x86_64 aarch64
+          CIBW_BEFORE_ALL: yum -y install unixODBC-devel openssl-devel
+
+      - name: Install Winget
+        if: runner.os == 'Windows'
+        uses: Cyberboss/install-winget@v1
+
+      - name: Install OpenSSL on Windows
+        if: runner.os == 'Windows'
+        run: winget install --id=ShiningLight.OpenSSL.Dev -e --accept-source-agreements
+
+      - name: Build wheels Windows
+        if: runner.os == 'Windows'
+        run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
+        env:
+          CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+          CIBW_ARCHS: AMD64
 
       - uses: actions/upload-artifact@v4
         with:
