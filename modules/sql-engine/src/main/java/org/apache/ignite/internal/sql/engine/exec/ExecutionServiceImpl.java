@@ -53,7 +53,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -79,6 +78,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleString;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -896,7 +896,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             localFragments.add(node);
 
             if (!(node instanceof Outbox)) {
-                BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ectx, treeRoot.getRowType());
+                SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ectx,
+                        treeRoot.getRowType());
 
                 AsyncRootNode<RowT, InternalSqlRow> rootNode = new AsyncRootNode<>(
                         node,
@@ -1152,8 +1153,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     tx.assignCommitPartition(targetReplicationGroupId(tableId, zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
-                    for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
-                        ReplicationGroupId replicationGroupId = targetReplicationGroupId(tableId, zoneId, partWithToken.getKey());
+                    for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
+                        ReplicationGroupId replicationGroupId = targetReplicationGroupId(tableId, zoneId, partWithToken.getIntKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 

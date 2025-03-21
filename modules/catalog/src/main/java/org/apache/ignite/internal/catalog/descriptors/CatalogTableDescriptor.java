@@ -23,7 +23,6 @@ import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
@@ -232,7 +231,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
 
     /** Returns a column descriptor for column with given name, {@code null} if absent. */
     public @Nullable CatalogTableColumnDescriptor column(String name) {
-        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsMap.get(name);
         if (column != null) {
             return column.getValue();
         } else {
@@ -244,9 +243,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
      * Returns an index of a column with the given name, or {@code -1} if such column does not exist.
      */
     public int columnIndex(String name) {
-        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsMap.get(name);
         if (column != null) {
-            return column.getKey();
+            return column.getIntKey();
         } else {
             return -1;
         }

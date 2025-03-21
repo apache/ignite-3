@@ -29,6 +29,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
 import java.util.AbstractList;
@@ -36,7 +37,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -169,9 +169,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         super(opTab, catalogReader, typeFactory, config);
 
         this.dynamicParameters = new Int2ObjectArrayMap<>(parameters.size());
-        for (Map.Entry<Integer, Object> param : parameters.int2ObjectEntrySet()) {
+        for (Int2ObjectMap.Entry<Object> param : parameters.int2ObjectEntrySet()) {
             Object value = param.getValue();
-            dynamicParameters.put(param.getKey().intValue(), new DynamicParamState(value));
+            dynamicParameters.put(param.getIntKey(), new DynamicParamState(value));
         }
     }
 
@@ -588,7 +588,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                         targetField.getType());
             }
         }
-        final Set<Integer> assignedFields = new HashSet<>();
+        final IntSet assignedFields = new IntOpenHashSet(targetColumnList.size());
         final RelOptTable relOptTable = table instanceof RelOptTable
                 ? ((RelOptTable) table) : null;
         for (SqlNode node : targetColumnList) {

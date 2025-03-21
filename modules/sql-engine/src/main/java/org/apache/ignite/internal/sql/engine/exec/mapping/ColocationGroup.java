@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
@@ -37,7 +38,7 @@ import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 public class ColocationGroup implements Serializable {
     private static final long serialVersionUID = 1370403193139083025L;
 
-    private final List<Long> sourceIds;
+    private final LongList sourceIds;
 
     private final List<String> nodeNames;
 
@@ -46,7 +47,7 @@ public class ColocationGroup implements Serializable {
     private final Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode;
 
     /** Constructor. */
-    public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
+    public ColocationGroup(LongList sourceIds, List<String> nodeNames, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
         this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");
         this.nodeNames = Objects.requireNonNull(nodeNames, "nodeNames");
         this.assignments = Objects.requireNonNull(assignments, "assignments");
@@ -55,7 +56,7 @@ public class ColocationGroup implements Serializable {
 
     /** Constructor for colocation group with applied partition pruning. */
     public ColocationGroup(
-            List<Long> sourceIds,
+            LongList sourceIds,
             List<String> nodeNames,
             Int2ObjectMap<NodeWithConsistencyToken> assignments,
             Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode
@@ -69,7 +70,7 @@ public class ColocationGroup implements Serializable {
     /**
      * Get lists of colocation group sources.
      */
-    public List<Long> sourceIds() {
+    public LongList sourceIds() {
         return sourceIds;
     }
 

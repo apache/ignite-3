@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -507,7 +508,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     @Override
     protected FragmentDescription getFragmentDescription() {
-        ColocationGroup colocationGroup = new ColocationGroup(List.of(), List.of(), Int2ObjectMaps.emptyMap());
+        ColocationGroup colocationGroup = new ColocationGroup(LongList.of(), List.of(), Int2ObjectMaps.emptyMap());
         return new FragmentDescription(0, true, Long2ObjectMaps.singleton(SOURCE_ID, colocationGroup), null, null, null);
     }
 }

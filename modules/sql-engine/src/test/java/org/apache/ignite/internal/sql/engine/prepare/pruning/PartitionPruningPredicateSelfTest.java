@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -111,7 +112,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
         Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
-        ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
+        ColocationGroup group = new ColocationGroup(LongList.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, columns, new Object[0], group, val);
     }
@@ -159,7 +160,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
         Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
-        ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
+        ColocationGroup group = new ColocationGroup(LongList.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, columns, dynamicParameters, group, val);
     }

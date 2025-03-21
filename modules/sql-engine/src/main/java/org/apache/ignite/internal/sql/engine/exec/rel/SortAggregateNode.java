@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
@@ -195,16 +197,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private Group newGroup(RowT r) {
-        final Object[] grpKeys = new Object[grpSet.cardinality()];
-        List<Integer> fldIdxs = grpSet.asList();
+        RowHandler<RowT> rowHandler = rowFactory.handler();
+        ObjectArrayList<Object> grpKeys = new ObjectArrayList<>(grpSet.cardinality());
 
-        final RowHandler<RowT> rowHandler = rowFactory.handler();
+        grpSet.forEachInt(fldIdx -> grpKeys.add(rowHandler.get(fldIdx, r)));
 
-        for (int i = 0; i < grpKeys.length; ++i) {
-            grpKeys[i] = rowHandler.get(fldIdxs.get(i), r);
-        }
-
-        Group grp = new Group(grpKeys);
+        Group grp = new Group(grpKeys.elements());
 
         grp.add(r);
 
@@ -247,7 +245,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             AccumulatorsState state = new AccumulatorsState(accs.size());
 
-            Int2ObjectArrayMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
+            Int2ObjectMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
             for (int i = 0; i < accs.size(); i++) {
                 AccumulatorWrapper<RowT> acc = accs.get(i);
                 if (acc.isDistinct()) {

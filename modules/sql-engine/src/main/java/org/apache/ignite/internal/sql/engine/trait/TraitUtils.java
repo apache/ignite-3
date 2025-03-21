@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -400,6 +401,18 @@ public class TraitUtils {
             }
         }
         return processed;
+    }
+
+    /**
+     * Creates collations from provided keys.
+     *
+     * @param keys The keys to create collation from.
+     * @return New collation.
+     */
+    public static RelCollation createCollation(IntList keys) {
+        return RelCollations.of(
+                keys.intStream().mapToObj(TraitUtils::createFieldCollation).collect(Collectors.toList())
+        );
     }
 
     /**

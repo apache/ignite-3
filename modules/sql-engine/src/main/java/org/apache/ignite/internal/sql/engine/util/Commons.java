@@ -56,7 +56,6 @@ import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
 import org.apache.calcite.config.NullCollation;
-import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
@@ -473,8 +472,14 @@ public final class Commons {
      */
     public static Mapping trimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
         Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, sourceSize, requiredElements.cardinality());
-        for (Ord<Integer> ord : Ord.zip(requiredElements)) {
-            mapping.set(ord.e, ord.i);
+
+        int i = 0;
+        for (int idx = requiredElements.nextSetBit(0); idx >= 0; idx = requiredElements.nextSetBit(idx + 1)) {
+            mapping.set(idx, i++);
+
+            if (idx == Integer.MAX_VALUE) {
+                break;  // or (i+1) would overflow
+            }
         }
         return mapping;
     }
