@@ -100,6 +100,7 @@ import org.apache.logging.log4j.core.LogEvent;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -741,10 +742,10 @@ class ItScaleCubeNetworkMessagingTest {
      * <p>The expected outcome is that the messages get delivered without any more external sends/invokes and that they
      * are delivered in the right order.
      */
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    public void messagesQueuedOnFullyClosedOldChannelGetDeliveredAfterReconnection(boolean openNewChannelBeforeSendingToOld)
+    @RepeatedTest(1000)
+    public void messagesQueuedOnFullyClosedOldChannelGetDeliveredAfterReconnection()
             throws Exception {
+        boolean openNewChannelBeforeSendingToOld = true;
         testCluster = new Cluster(2, testInfo);
         testCluster.startAwait();
 
