@@ -21,21 +21,22 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.jetbrains.annotations.Nullable;
 
 /** Offset, fetch|limit support node. */
 public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /** Offset if its present, otherwise 0. */
-    private final int offset;
+    private final long offset;
 
     /** Fetch if its present, otherwise 0. */
-    private final int fetch;
+    private final long fetch;
 
     /** Already processed (pushed to upstream) rows count. */
-    private int rowsProcessed;
+    private long rowsProcessed;
 
     /** Fetch can be unset, in this case we need all rows. */
-    private @Nullable Supplier<Integer> fetchNode;
+    private final @Nullable Supplier<Number> fetchNode;
 
     /** Waiting results counter. */
     private int waiting;
@@ -47,13 +48,13 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
      */
     public LimitNode(
             ExecutionContext<RowT> ctx,
-            Supplier<Integer> offsetNode,
-            Supplier<Integer> fetchNode
+            @Nullable Supplier<Number> offsetNode,
+            @Nullable Supplier<Number> fetchNode
     ) {
         super(ctx);
 
-        offset = offsetNode == null ? 0 : offsetNode.get();
-        fetch = fetchNode == null ? 0 : fetchNode.get();
+        offset = offsetNode == null ? 0 : offsetNode.get().longValue();
+        fetch = fetchNode == null ? 0 : fetchNode.get().longValue();
         this.fetchNode = fetchNode;
     }
 
@@ -69,18 +70,17 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
             return;
         }
 
-        if (offset > 0 && rowsProcessed == 0) {
-            rowsCnt = offset + rowsCnt;
-        }
-
-        waiting = rowsCnt;
-
         if (fetch > 0) {
-            rowsCnt = Math.min(rowsCnt, (fetch + offset) - rowsProcessed);
+            long remain = IgniteMath.addExact(fetch, offset) - rowsProcessed;
+
+            rowsCnt = remain > rowsCnt ? rowsCnt : (int) remain;
         }
 
 
-        source().request(rowsCnt);
+        if (waiting == 0) {
+            waiting = rowsCnt;
+            source().request(rowsCnt);
+        }
     }
 
     /** {@inheritDoc} */
@@ -101,6 +101,8 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
 
         if (fetch > 0 && rowsProcessed == fetch + offset && waiting > 0) {
             end();
+        } else if (waiting == 0) {
+            source().request(waiting = inBufSize);
         }
     }
 
@@ -121,6 +123,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
+        waiting = 0;
         rowsProcessed = 0;
     }
 

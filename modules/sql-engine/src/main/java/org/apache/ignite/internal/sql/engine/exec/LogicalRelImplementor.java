@@ -638,15 +638,15 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteLimit rel) {
-        Supplier<Integer> offset = null;
+        Supplier<Number> offset = null;
         if (rel.offset() != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.offset());
+            SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(rel.offset());
             offset = () -> sqlScalar.get(ctx);
         }
 
-        Supplier<Integer> fetch = null;
+        Supplier<Number> fetch = null;
         if (rel.fetch() != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.fetch());
+            SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(rel.fetch());
             fetch = () -> sqlScalar.get(ctx);
         }
 
@@ -664,15 +664,15 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSort rel) {
         RelCollation collation = rel.getCollation();
 
-        Supplier<Integer> offset = null;
+        Supplier<Number> offset = null;
         if (rel.offset != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.offset);
+            SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(rel.offset);
             offset = () -> sqlScalar.get(ctx);
         }
 
-        Supplier<Integer> fetch = null;
+        Supplier<Number> fetch = null;
         if (rel.fetch != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.fetch);
+            SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(rel.fetch);
             fetch = () -> sqlScalar.get(ctx);
         }
 

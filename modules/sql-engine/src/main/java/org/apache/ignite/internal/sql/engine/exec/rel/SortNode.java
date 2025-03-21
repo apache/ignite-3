@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.util.BoundedPriorityQueue;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +45,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private final PriorityQueue<RowT> rows;
 
     /** SQL select limit. Negative if disabled. */
-    private final int limit;
+    private final long limit;
 
     /** Reverse-ordered rows in case of limited sort. */
     private List<RowT> reversed;
@@ -59,18 +60,18 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      */
     public SortNode(ExecutionContext<RowT> ctx,
             Comparator<RowT> comp,
-            @Nullable Supplier<Integer> offset,
-            @Nullable Supplier<Integer> fetch) {
+            @Nullable Supplier<Number> offset,
+            @Nullable Supplier<Number> fetch) {
         super(ctx);
-        assert fetch == null || fetch.get() >= 0;
-        assert offset == null || offset.get() >= 0;
+        assert fetch == null || fetch.get().longValue() >= 0;
+        assert offset == null || offset.get().longValue() >= 0;
 
-        limit = fetch == null ? -1 : fetch.get() + (offset == null ? 0 : offset.get());
+        limit = fetch == null ? -1 : IgniteMath.addExact(fetch.get().longValue(), (offset == null) ? 0 : offset.get().longValue());
 
-        if (limit < 1) {
+        if (limit < 1 || limit > Integer.MAX_VALUE) {
             rows = new PriorityQueue<>(comp);
         } else {
-            rows = new BoundedPriorityQueue<>(limit, comp == null ? (Comparator<RowT>) Comparator.reverseOrder() : comp.reversed());
+            rows = new BoundedPriorityQueue<>((int) limit, comp == null ? (Comparator<RowT>) Comparator.reverseOrder() : comp.reversed());
         }
     }
 
