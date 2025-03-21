@@ -127,6 +127,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
+        waiting = 0;
         rowsProcessed = 0;
     }
 
