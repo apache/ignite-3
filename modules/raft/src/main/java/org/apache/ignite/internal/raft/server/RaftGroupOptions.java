@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raft.server;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
@@ -42,9 +41,6 @@ public class RaftGroupOptions {
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
 
-    /** Configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
-    private @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
-
     /** Marshaller to marshall/unmarshall commands. */
     private @Nullable Marshaller commandsMarshaller;
 
@@ -62,6 +58,34 @@ public class RaftGroupOptions {
      * Max clock skew in the replication group in milliseconds.
      */
     private int maxClockSkewMs;
+
+    /**
+     * If the group is declared as a system group, significant threads are dedicated specifically for that one.
+     */
+    private boolean isSystemGroup = false;
+
+    /**
+     * Gets a system group flag.
+     *
+     * @return System group flag.
+     */
+    public boolean isSystemGroup() {
+        return isSystemGroup;
+    }
+
+    /**
+     * Sets a system flag.
+     * If the flag is true, some resources are used in an exclusive manner to avoid collision with data flow.
+     * Otherwise, the RAFT group shares resources to save physical machine capacity.
+     *
+     * @param systemGroup True for system group, false for client data.
+     * @return System group flag.
+     */
+    public RaftGroupOptions setSystemGroup(boolean systemGroup) {
+        isSystemGroup = systemGroup;
+
+        return this;
+    }
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -149,22 +173,6 @@ public class RaftGroupOptions {
      */
     public RaftGroupOptions raftMetaStorageFactory(RaftMetaStorageFactory raftMetaStorageFactory) {
         this.raftMetaStorageFactory = raftMetaStorageFactory;
-
-        return this;
-    }
-
-    /**
-     * Returns configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor.
-     */
-    public @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig() {
-        return ownFsmCallerExecutorDisruptorConfig;
-    }
-
-    /**
-     * Sets configuration of own striped disruptor for FSMCaller service of raft node.
-     */
-    public RaftGroupOptions ownFsmCallerExecutorDisruptorConfig(RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig) {
-        this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
 
         return this;
     }

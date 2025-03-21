@@ -468,6 +468,8 @@ public class JraftServerImpl implements RaftServer {
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
+            nodeOptions.setSystemGroup(groupOptions.isSystemGroup());
+
             // When a new election starts on a node, it has local physical time higher than last generated safe ts
             // because we wait out the clock skew.
             nodeOptions.setElectionTimeoutMs(Math.max(nodeOptions.getElectionTimeoutMs(), groupOptions.maxClockSkew()));
@@ -526,8 +528,7 @@ public class JraftServerImpl implements RaftServer {
                     nodeId.groupId().toString(),
                     PeerId.fromPeer(nodeId.peer()),
                     nodeOptions,
-                    rpcServer,
-                    groupOptions.ownFsmCallerExecutorDisruptorConfig()
+                    rpcServer
             );
 
             server.start();

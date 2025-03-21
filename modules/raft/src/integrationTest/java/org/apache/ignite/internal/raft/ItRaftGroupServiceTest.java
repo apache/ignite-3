@@ -54,6 +54,7 @@ import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -244,13 +245,20 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
             var nodeId = new RaftNodeId(RAFT_GROUP_NAME, serverPeer == null ? configuration.learner(nodeName) : serverPeer);
 
+            RaftGroupOptions ops = RaftGroupOptions.defaults();
+
+            RaftGroupOptionsConfigHelper.configureProperties(
+                    partitionsLogStorageFactory,
+                    partitionsWorkDir.metaPath()
+            ).configure(ops);
+
             try {
-                raftGroupService = loza.startRaftGroupNodeAndWaitNodeReady(
+                raftGroupService = loza.startRaftGroupNode(
                         nodeId,
                         configuration,
                         mock(RaftGroupListener.class),
                         eventsListener,
-                        RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath())
+                        ops
                 );
             } catch (NodeStoppingException e) {
                 fail(e);
