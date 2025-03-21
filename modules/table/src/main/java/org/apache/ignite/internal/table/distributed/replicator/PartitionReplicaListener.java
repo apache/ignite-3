@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
-import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -669,24 +668,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         }
 
         return opStartTs;
-    }
-
-    /**
-     * Returns timestamp of transaction start (for RW/timestamped RO requests) or @{code null} for other requests.
-     *
-     * @param request Replica request corresponding to the operation.
-     */
-    private static @Nullable HybridTimestamp getTxStartTimestamp(ReplicaRequest request) {
-        HybridTimestamp txStartTimestamp;
-
-        if (request instanceof ReadWriteReplicaRequest) {
-            txStartTimestamp = beginRwTxTs((ReadWriteReplicaRequest) request);
-        } else if (request instanceof ReadOnlyReplicaRequest) {
-            txStartTimestamp = ((ReadOnlyReplicaRequest) request).readTimestamp();
-        } else {
-            txStartTimestamp = null;
-        }
-        return txStartTimestamp;
     }
 
     /**

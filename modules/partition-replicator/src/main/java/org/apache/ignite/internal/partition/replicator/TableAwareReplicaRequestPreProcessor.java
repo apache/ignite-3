@@ -22,20 +22,23 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
-import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.jetbrains.annotations.Nullable;
 
-// TODO sanpwc javadoc.
-// TODO sanpwc rename TableAware
+/**
+ * TableAware requests pre processor.
+ */
 public class TableAwareReplicaRequestPreProcessor {
     private final ClockService clockService;
 
@@ -43,6 +46,7 @@ public class TableAwareReplicaRequestPreProcessor {
 
     private final SchemaSyncService schemaSyncService;
 
+    /** Constructor. */
     public TableAwareReplicaRequestPreProcessor(
             ClockService clockService,
             SchemaCompatibilityValidator schemaCompatValidator,
@@ -53,6 +57,14 @@ public class TableAwareReplicaRequestPreProcessor {
         this.schemaSyncService = schemaSyncService;
     }
 
+    /**
+     * Pre processes {@link TableAware} request.
+     *
+     * @param request Request to be processed.
+     * @param replicaPrimacy Replica primacy information.
+     * @param senderId Node sender id.
+     * @return Future with the result of the request.
+     */
     public CompletableFuture<Void> preProcessTableAwareRequest(
             ReplicaRequest request,
             ReplicaPrimacy replicaPrimacy,
@@ -60,10 +72,9 @@ public class TableAwareReplicaRequestPreProcessor {
     ) {
         assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
 
-        // TODO sanpwc not null. Change and add assert.
-        @Nullable HybridTimestamp opTs = getOperationTimestamp(request);
-        // TODO sanpwc add  assert message.
-        assert opTs != null;
+        HybridTimestamp opTs = getOperationTimestamp(request);
+
+        assert opTs != null : "Table aware operation timestamp must not be null [request=" + request + ']';
 
         @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
         @Nullable HybridTimestamp txTs = getTxStartTimestamp(request);
@@ -71,11 +82,14 @@ public class TableAwareReplicaRequestPreProcessor {
             txTs = opTsIfDirectRo;
         }
 
-        assert opTs == null || txTs == null || opTs.compareTo(txTs) >= 0 : "Tx started at " + txTs + ", but opTs precedes it: " + opTs
+        assert txTs == null || opTs.compareTo(txTs) >= 0 : "Tx started at " + txTs + ", but opTs precedes it: " + opTs
                 + "; request " + request;
 
-        // TODO sanpwc smart enable.
-//        assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
+        assert txTs == null
+                ? request instanceof GetEstimatedSizeRequest || request instanceof ScanCloseReplicaRequest
+                || request instanceof BuildIndexReplicaRequest || request instanceof TableWriteIntentSwitchReplicaRequest
+                : opTs.compareTo(txTs) >= 0 :
+                "Invalid request timestamps [request=" + request + ']';
 
         int tableId = ((TableAware) request).tableId();
 
@@ -99,29 +113,27 @@ public class TableAwareReplicaRequestPreProcessor {
         return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo);
     }
 
-
-    // TODO sanpwc adjust javadoc. Add todo for 22522 in order to adjust javadoc when colocation will be disabled.
     /**
      * Returns the txn operation timestamp.
      *
      * <ul>
-     *     <li>For a read/write in an RW transaction, it's 'now'</li>
      *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
-     *     <li>For a direct read in an RO implicit transaction, it's the timestamp chosen (as 'now') to process the request</li>
+     *     <li>For all other requests - clockService.current()</li>
      * </ul>
-     *
-     * <p>For other requests, op timestamp is not applicable and the validation is skipped.
      *
      * @param request The request.
      * @return The timestamp or {@code null} if not a tx operation request.
      */
     private @Nullable HybridTimestamp getOperationTimestamp(ReplicaRequest request) {
         HybridTimestamp opStartTs;
-        // TODO sanpwc add comment explaining why it's required to evaluate opStartTs for all transacions.
+
         if (request instanceof ReadOnlyReplicaRequest) {
             opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
         } else {
-            opStartTs = clockService.current();;
+            // Timestamp is returned for all types of TableAware requests in order to enable schema sync mechanizm that on it's turn
+            // eliminates the race between table processor publishing and request processing. Otherwise NPE may be thrown on retrieving
+            // table processor by tableId from ZonePartitionReplicaListener.replicas.
+            opStartTs = clockService.current();
         }
 
         return opStartTs;
@@ -132,7 +144,6 @@ public class TableAwareReplicaRequestPreProcessor {
      *
      * @param request Replica request corresponding to the operation.
      */
-    //TODO sanpwc rename
     private static @Nullable HybridTimestamp getTxStartTimestamp(ReplicaRequest request) {
         HybridTimestamp txStartTimestamp;
 
@@ -151,7 +162,7 @@ public class TableAwareReplicaRequestPreProcessor {
      *
      * @param request Read-write replica request.
      */
-    static HybridTimestamp beginRwTxTs(ReadWriteReplicaRequest request) {
+    private static HybridTimestamp beginRwTxTs(ReadWriteReplicaRequest request) {
         return TransactionIds.beginTimestamp(request.transactionId());
     }
 }
