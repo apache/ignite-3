@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import static org.apache.ignite.internal.catalog.sql.Option.schemaName;
-import static org.apache.ignite.internal.catalog.sql.Option.tableName;
-import static org.apache.ignite.internal.catalog.sql.QueryUtils.splitByComma;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -28,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.catalog.ColumnSorted;
@@ -45,11 +43,6 @@ import org.apache.ignite.table.QualifiedName;
  * Table definition information collector from system views.
  */
 class TableDefinitionCollector {
-    private static final List<String> TABLE_VIEW_COLUMNS = List.of("SCHEMA", "PK_INDEX_ID", "ZONE", "COLOCATION_KEY_INDEX");
-
-    private static final List<String> TABLE_COLUMNS_VIEW_COLUMNS = List.of("COLUMN_NAME", "TYPE", "LENGTH", "PREC", "SCALE",
-            "NULLABLE");
-
     private final QualifiedName tableName;
 
     private final IgniteSql sql;
@@ -70,35 +63,60 @@ class TableDefinitionCollector {
                     if (builder == null) {
                         return nullCompletedFuture();
                     } else {
-                        return collectIndexes(builder).thenCompose(this::collectColumns).thenApply(Builder::build);
+                        return collectIndexes(builder).thenApply(Builder::build);
                     }
                 });
     }
 
     private CompletableFuture<TableDefinitionBuilderWithIndexId> collectTableInfo() {
-        List<Option> options = List.of(
-                schemaName(tableName.schemaName()),
-                tableName(tableName.objectName())
-        );
+        String query = "SELECT "
+                + "pk_index_id, zone_name, column_name, column_type, column_precision, column_scale, column_length, is_nullable_column, "
+                + "column_ordinal, colocation_column_ordinal "
+                + "FROM system.tables t "
+                + "JOIN system.table_columns USING (table_id) "
+                + "WHERE t.schema_name=? AND t.table_name=? "
+                + "ORDER BY column_ordinal";
 
-        return new SelectFromView<>(sql, TABLE_VIEW_COLUMNS, "TABLES", options, row -> {
-            String schema = row.stringValue("SCHEMA");
-            int indexId = row.intValue("PK_INDEX_ID");
-            String zone = row.stringValue("ZONE");
-            String colocationColumns = row.stringValue("COLOCATION_KEY_INDEX");
-            Builder builder = TableDefinition.builder(tableName.objectName()).schema(schema)
-                    .zone(zone)
-                    .colocateBy(splitByComma(colocationColumns));
-            return new TableDefinitionBuilderWithIndexId(builder, indexId);
-        }).executeAsync().thenApply(definitions -> {
-            if (definitions.isEmpty()) {
-                return null;
-            }
+        return SelectFromView.collectResults(sql, query, Function.identity(), tableName.schemaName(), tableName.objectName())
+                .thenApply(list -> {
+                    if (list.isEmpty()) {
+                        return null;
+                    }
 
-            assert definitions.size() == 1;
+                    List<ColumnDefinition> columns = new ArrayList<>();
+                    int indexId = list.get(0).intValue("PK_INDEX_ID");
+                    String zoneName = list.get(0).stringValue("ZONE_NAME");
+                    TreeMap<Integer, String> colocationColumns = new TreeMap<>();
 
-            return definitions.get(0);
-        });
+                    for (SqlRow row : list) {
+                        String columnName = row.stringValue("COLUMN_NAME");
+                        String type = row.stringValue("COLUMN_TYPE");
+                        int length = row.intValue("COLUMN_LENGTH");
+                        int precision = row.intValue("COLUMN_PRECISION");
+                        int scale = row.intValue("COLUMN_SCALE");
+                        boolean nullable = row.booleanValue("IS_NULLABLE_COLUMN");
+                        Integer colocationOrd = row.value("COLOCATION_COLUMN_ORDINAL");
+
+                        if (colocationOrd != null) {
+                            colocationColumns.put(colocationOrd, columnName);
+                        }
+
+                        Class<?> typeClass = org.apache.ignite.sql.ColumnType.valueOf(type).javaClass();
+                        ColumnType<?> columnType = ColumnType.of(typeClass, length, precision, scale, nullable);
+                        ColumnDefinition column = ColumnDefinition.column(columnName, columnType);
+                        columns.add(column);
+                    }
+
+                    List<String> colocationColumnList = new ArrayList<>(colocationColumns.values());
+
+                    Builder builder = TableDefinition.builder(tableName.objectName())
+                            .schema(tableName.schemaName())
+                            .zone(zoneName)
+                            .columns(columns)
+                            .colocateBy(colocationColumnList);
+
+                    return new TableDefinitionBuilderWithIndexId(builder, indexId);
+                });
     }
 
     private CompletableFuture<Builder> collectIndexes(TableDefinitionBuilderWithIndexId definition) {
@@ -146,26 +164,6 @@ class TableDefinitionCollector {
 
                     return definition.builder;
                 });
-    }
-
-    private CompletableFuture<TableDefinition.Builder> collectColumns(TableDefinition.Builder builder) {
-        List<Option> options = List.of(
-                schemaName(tableName.schemaName()),
-                tableName(tableName.objectName())
-        );
-
-        return new SelectFromView<>(sql, TABLE_COLUMNS_VIEW_COLUMNS, "TABLE_COLUMNS", options,
-                row -> {
-                    String columnName = row.stringValue("COLUMN_NAME");
-                    String type = row.stringValue("TYPE");
-                    int length = row.intValue("LENGTH");
-                    int precision = row.intValue("PREC");
-                    int scale = row.intValue("SCALE");
-                    boolean nullable = row.booleanValue("NULLABLE");
-
-                    Class<?> typeClass = org.apache.ignite.sql.ColumnType.valueOf(type).javaClass();
-                    return ColumnDefinition.column(columnName, ColumnType.of(typeClass, length, precision, scale, nullable));
-                }).executeAsync().thenApply(builder::columns);
     }
 
     private static class TableDefinitionBuilderWithIndexId {

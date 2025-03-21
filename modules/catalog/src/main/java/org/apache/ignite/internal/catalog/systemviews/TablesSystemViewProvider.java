@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exposes information on tables.
@@ -125,6 +126,8 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("COLUMN_LENGTH", INT32, entry -> entry.columnDescriptor.length())
                 .addColumn("COLUMN_ORDINAL", INT32, ColumnMetadata::columnOrdinal)
                 .addColumn("SCHEMA_ID", INT32, entry -> entry.tableDescriptor.schemaId())
+                .addColumn("PK_COLUMN_ORDINAL", INT32, ColumnMetadata::pkColumnOrdinal)
+                .addColumn("COLOCATION_COLUMN_ORDINAL", INT32, ColumnMetadata::colocationColumnOrdinal)
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
                 //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("SCHEMA", STRING, entry -> entry.schema)
@@ -155,6 +158,16 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
 
         int columnOrdinal() {
             return tableDescriptor.columnIndex(columnDescriptor.name());
+        }
+
+        @Nullable Integer pkColumnOrdinal() {
+            int idx = tableDescriptor.primaryKeyColumns().indexOf(columnDescriptor.name());
+            return idx >= 0 ? idx : null;
+        }
+
+        @Nullable Integer colocationColumnOrdinal() {
+            int idx = tableDescriptor.colocationColumns().indexOf(columnDescriptor.name());
+            return idx >= 0 ? idx : null;
         }
     }
 
