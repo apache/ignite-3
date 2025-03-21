@@ -70,6 +70,10 @@ shadowJar {
     ].forEach {
         relocate(it, "${project.group}.shaded.$it")
     }
+    relocate('org.apache.ignite', "${project.group}.shaded.org.apache.ignite") {
+        exclude('org.apache.ignite.jdbc.*')
+        exclude('org.apache.ignite.internal.jdbc.*')
+    }
 }
 
 configurations {
