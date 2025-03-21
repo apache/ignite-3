@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
@@ -41,6 +42,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNumericLiteral;
+import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -116,6 +118,112 @@ public class SqlDdlParserTest extends AbstractParserTest {
         );
     }
 
+    @Test
+    public void createTableDefaultExpressionsPrimaryKey() {
+        // Expression
+        {
+            SqlNode node = parse("create table t(id int default (1 + 2) primary key, val int)");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("ID", SqlBasicCall.class, (expr) -> "1 + 2".equals(unparse(expr))));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER DEFAULT (1 + 2), "
+                    + "\"VAL\" INTEGER"
+                    + ")"
+            );
+        }
+
+        // Function call
+        {
+            SqlNode node = parse("create table t(id int default length('abcd') primary key, val int)");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("ID", SqlBasicCall.class,
+                    (expr) -> "\"LENGTH\"('abcd')".equals(unparse(expr))));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER DEFAULT (\"LENGTH\"('abcd')), "
+                    + "\"VAL\" INTEGER"
+                    + ")"
+            );
+        }
+
+        // Select
+        {
+            SqlNode node = parse("create table t(id int default (SELECT count(col) FROM t) primary key, val int)");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("ID", SqlSelect.class, (expr) -> true));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER DEFAULT ((SELECT COUNT(\"COL\")\n"
+                    + "    FROM \"T\")), "
+                    + "\"VAL\" INTEGER"
+                    + ")"
+            );
+        }
+    }
+
+    @Test
+    public void createTableDefaultExpressions() {
+        // Expression
+        {
+            SqlNode node = parse("create table t(id int primary key, val int default (1 + 2))");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("VAL", SqlBasicCall.class, (expr) -> "1 + 2".equals(unparse(expr))));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER, "
+                    + "\"VAL\" INTEGER DEFAULT (1 + 2)"
+                    + ")"
+            );
+        }
+
+        // Function call
+        {
+            SqlNode node = parse("create table t(id int primary key, val int default length('abcd'))");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("VAL", SqlBasicCall.class,
+                    (expr) -> "\"LENGTH\"('abcd')".equals(unparse(expr))));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER, "
+                    + "\"VAL\" INTEGER DEFAULT (\"LENGTH\"('abcd'))"
+                    + ")"
+            );
+        }
+
+        // Select
+        {
+            SqlNode node = parse("create table t(id int primary key, val int default (SELECT count(col) FROM t) )");
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(createTable.columnList(), hasColumnWithDefault("VAL", SqlSelect.class, (expr) -> true));
+
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER, "
+                    + "\"VAL\" INTEGER DEFAULT ((SELECT COUNT(\"COL\")\n"
+                    + "    FROM \"T\"))"
+                    + ")"
+            );
+        }
+    }
+
     /**
      * Parsing of CREATE TABLE with a literal as a default expression.
      */
@@ -170,12 +278,20 @@ public class SqlDdlParserTest extends AbstractParserTest {
             Class<? extends SqlLiteral> literalType,
             String literalValue
     ) {
+        return hasColumnWithDefault(columnName, literalType, (lit) -> literalValue.equals(lit.toValue()));
+    }
+
+    private <T extends SqlNode> Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
+            String columnName,
+            Class<T> nodeType,
+            Predicate<T> valCheck
+    ) {
         return hasItem(ofTypeMatching(
                 "Column with literal as default: columnName=" + columnName,
                 SqlColumnDeclaration.class,
                 col -> columnName.equals(col.name.getSimple())
-                        && literalType.isInstance(col.expression)
-                        && literalValue.equals(((SqlLiteral) col.expression).toValue())
+                        && nodeType.isInstance(col.expression)
+                        && valCheck.test(nodeType.cast(col.expression))
         ));
     }
 

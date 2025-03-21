@@ -223,14 +223,13 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
         // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR)");
 
         assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"rand_uuid\"",
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
                 () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT rand_uuid")
         );
     }
