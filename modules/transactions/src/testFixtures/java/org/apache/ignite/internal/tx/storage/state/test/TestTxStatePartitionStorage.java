@@ -60,6 +60,8 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
     @Nullable
     private volatile LeaseInfo leaseInfo;
 
+    private volatile byte @Nullable [] snapshotInfo;
+
     private final AtomicReference<CompletableFuture<Void>> rebalanceFutureReference = new AtomicReference<>();
 
     private volatile boolean closed;
@@ -260,14 +262,8 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
                     lastAppliedIndex = partitionMeta.lastAppliedIndex();
                     lastAppliedTerm = partitionMeta.lastAppliedTerm();
                     config = partitionMeta.groupConfig();
-
-                    if (partitionMeta.primaryReplicaNodeId() != null) {
-                        leaseInfo = new LeaseInfo(
-                                partitionMeta.leaseStartTime(),
-                                partitionMeta.primaryReplicaNodeId(),
-                                partitionMeta.primaryReplicaNodeName()
-                        );
-                    }
+                    leaseInfo = partitionMeta.leaseInfo();
+                    snapshotInfo = partitionMeta.snapshotInfo();
                 });
     }
 
@@ -287,6 +283,7 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
         lastAppliedTerm = 0;
         config = null;
         leaseInfo = null;
+        snapshotInfo = null;
     }
 
     @Override
@@ -317,6 +314,21 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
     @Override
     public @Nullable LeaseInfo leaseInfo() {
         return leaseInfo;
+    }
+
+    @Override
+    public void snapshotInfo(byte[] snapshotInfo, long index, long term) {
+        checkStorageClosedOrInProgressOfRebalance();
+
+        this.snapshotInfo = snapshotInfo;
+
+        lastAppliedIndex = index;
+        lastAppliedTerm = term;
+    }
+
+    @Override
+    public byte @Nullable [] snapshotInfo() {
+        return snapshotInfo;
     }
 
     @Override

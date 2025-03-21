@@ -683,7 +683,9 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
         SqlComparator<Object[]> comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nulls);
 
-        return MergeJoinNode.create(ctx, leftType, rightType, joinType, (r1, r2) -> comp.compare(ctx, r1, r2));
+        return MergeJoinNode.create(
+                ctx, leftType, rightType, joinType, (r1, r2) -> comp.compare(ctx, r1, r2), createIdentityProjectionIfNeeded(joinType)
+        );
     }
 
     /**

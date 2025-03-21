@@ -35,11 +35,8 @@ import static org.apache.ignite.internal.partitiondistribution.Assignments.fromB
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
-import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
-import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -50,10 +47,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
@@ -87,12 +82,8 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -197,9 +188,7 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableUtils;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
@@ -338,15 +327,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     /** Prevents double stopping. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Read-write transaction operation tracker for building indexes. */
-    private final IndexBuilderTxRwOperationTracker txRwOperationTracker = new IndexBuilderTxRwOperationTracker();
-
-    /** Listener for {@link CatalogEvent#INDEX_BUILDING}. */
-    private final EventListener<CatalogEventParameters> indexBuildingCatalogEventListener = this::onIndexBuilding;
+    /**
+     * Processor that handles catalog events {@link CatalogEvent#INDEX_BUILDING} and
+     * tracks read-write transaction operations for building indexes.
+     */
+    private final PartitionReplicaBuildIndexProcessor indexBuildingProcessor;
 
     private final SchemaRegistry schemaRegistry;
-
-    private final IndexMetaStorage indexMetaStorage;
 
     private final LowWatermark lowWatermark;
 
@@ -433,13 +420,14 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         this.catalogService = catalogService;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.schemaRegistry = schemaRegistry;
-        this.indexMetaStorage = indexMetaStorage;
         this.lowWatermark = lowWatermark;
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.tableLockKey = new TablePartitionId(tableId, replicationGroupId.partitionId());
 
         this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+
+        indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService);
 
         replicaPrimacyEngine = new ReplicaPrimacyEngine(placementDriver, clockService, replicationGroupId, localNode);
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
@@ -483,13 +471,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(
                 indexMetaStorage,
-                txRwOperationTracker,
+                indexBuildingProcessor.tracker(),
                 safeTime,
                 raftCommandApplicator);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24665
-        // Consider extracting the following code to a separate class BuildIndexEventListener.
-        prepareIndexBuilderTxRwOperationTracker();
     }
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
@@ -538,9 +522,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24526
-        // Need to move the necessary part of request processing to ZonePartitionReplicaListener
-
         boolean hasSchemaVersion = request instanceof SchemaVersionAwareReplicaRequest;
 
         if (hasSchemaVersion) {
@@ -3549,9 +3530,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         busyLock.block();
 
-        catalogService.removeListener(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
-
-        txRwOperationTracker.close();
+        indexBuildingProcessor.onShutdown();
     }
 
     private int partId() {
@@ -3568,7 +3547,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             ReplicaPrimacy replicaPrimacy,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
-        incrementRwOperationCountIfNeeded(request);
+        indexBuildingProcessor.incrementRwOperationCountIfNeeded(request);
 
         UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
 
@@ -3576,7 +3555,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             return processOperationRequest(senderId, request, replicaPrimacy, opStartTsIfDirectRo)
                     .whenComplete((unused, throwable) -> {
                         unlockLwmIfNeeded(txIdLockingLwm, request);
-                        decrementRwOperationCountIfNeeded(request);
+                        indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
                     });
         } catch (Throwable e) {
             try {
@@ -3586,31 +3565,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             }
 
             try {
-                decrementRwOperationCountIfNeeded(request);
+                indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
             } catch (Throwable decrementProblem) {
                 e.addSuppressed(decrementProblem);
             }
             throw e;
-        }
-    }
-
-    private void incrementRwOperationCountIfNeeded(ReplicaRequest request) {
-        if (request instanceof ReadWriteReplicaRequest) {
-            int rwTxActiveCatalogVersion = rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request);
-
-            // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
-            // otherwise there may be races/errors and the index will not be able to start building.
-            if (!txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion)) {
-                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
-            }
-        }
-    }
-
-    private void decrementRwOperationCountIfNeeded(ReplicaRequest request) {
-        if (request instanceof ReadWriteReplicaRequest) {
-            txRwOperationTracker.decrementOperationCount(
-                    rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request)
-            );
         }
     }
 
@@ -3685,47 +3644,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     private void unlockLwmIfNeeded(@Nullable UUID txIdToUnlockLwm, ReplicaRequest request) {
         if (txIdToUnlockLwm != null && request instanceof ReadOnlyDirectReplicaRequest) {
             lowWatermark.unlock(txIdToUnlockLwm);
-        }
-    }
-
-    private void prepareIndexBuilderTxRwOperationTracker() {
-        // Expected to be executed on the metastore thread.
-        CatalogIndexDescriptor indexDescriptor = latestIndexDescriptorInBuildingStatus(catalogService, tableId());
-
-        if (indexDescriptor != null) {
-            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
-
-            assert indexMeta != null : indexDescriptor.id();
-
-            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexMeta.statusChange(REGISTERED).catalogVersion());
-        }
-
-        catalogService.listen(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
-    }
-
-    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters) {
-        if (!busyLock.enterBusy()) {
-            return trueCompletedFuture();
-        }
-
-        try {
-            int indexId = ((StartBuildingIndexEventParameters) parameters).indexId();
-
-            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-
-            assert indexMeta != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
-
-            MetaIndexStatusChange registeredStatusChange = indexMeta.statusChange(REGISTERED);
-
-            if (indexMeta.tableId() == tableId()) {
-                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(registeredStatusChange.catalogVersion());
-            }
-
-            return falseCompletedFuture();
-        } catch (Throwable t) {
-            return failedFuture(t);
-        } finally {
-            busyLock.leaveBusy();
         }
     }
 

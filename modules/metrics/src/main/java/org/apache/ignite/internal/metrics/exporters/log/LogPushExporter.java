@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters.log;
 
 import com.google.auto.service.AutoService;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.metrics.Metric;
@@ -34,6 +35,9 @@ import org.apache.ignite.internal.util.CollectionUtils;
 public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
     public static final String EXPORTER_NAME = "logPush";
 
+    /** Padding for individual metric output. */
+    private static final String PADDING = "  ";
+
     @Override
     protected long period() {
         return configuration().period();
@@ -41,17 +45,20 @@ public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
 
     @Override
     public void report() {
-        if (CollectionUtils.nullOrEmpty(metrics().get1().values())) {
+        Collection<MetricSet> metricSets = metrics().get1().values();
+
+        if (CollectionUtils.nullOrEmpty(metricSets)) {
             return;
         }
 
         var report = new StringBuilder("Metric report: \n");
 
-        for (MetricSet metricSet : metrics().get1().values()) {
+        for (MetricSet metricSet : metricSets) {
             report.append(metricSet.name()).append(":\n");
 
             StreamSupport.stream(metricSet.spliterator(), false).sorted(Comparator.comparing(Metric::name)).forEach(metric ->
-                    report.append(metric.name())
+                    report.append(PADDING)
+                            .append(metric.name())
                             .append(':')
                             .append(metric.getValueAsString())
                             .append('\n'));

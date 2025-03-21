@@ -82,6 +82,8 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
+import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
+import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
@@ -99,9 +101,11 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -121,6 +125,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -183,9 +188,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private final long expLastAppliedTerm = 100L;
     private final RaftGroupConfiguration expLastGroupConfig = generateRaftGroupConfig();
 
-    private final long expLeaseStartTime = 3000000;
-    private final UUID expPrimaryReplicaNodeId = new UUID(1, 2);
-    private final String expPrimaryReplicaNodeName = "primary";
+    private final LeaseInfo expLeaseInfo = new LeaseInfo(3000000, new UUID(1, 2), "primary");
 
     private final List<RowId> rowIds = generateRowIds();
     private final List<UUID> txIds = generateTxIds();
@@ -260,9 +263,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 raftGroupConfigurationConverter.toBytes(expLastGroupConfig),
                 outgoingMvPartitionStorage.committedGroupConfiguration()
         );
-        assertEquals(expLeaseStartTime, outgoingMvPartitionStorage.leaseStartTime());
-        assertEquals(expPrimaryReplicaNodeId, outgoingMvPartitionStorage.primaryReplicaNodeId());
-        assertEquals(expPrimaryReplicaNodeName, outgoingMvPartitionStorage.primaryReplicaNodeName());
+        assertEquals(expLeaseInfo, outgoingMvPartitionStorage.leaseInfo());
 
         assertEquals(expLastAppliedIndex, outgoingTxStatePartitionStorage.lastAppliedIndex());
         assertEquals(expLastAppliedTerm, outgoingTxStatePartitionStorage.lastAppliedTerm());
@@ -270,8 +271,28 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         assertEqualsMvRows(outgoingMvPartitionStorage, incomingMvPartitionStorage, rowIds);
         assertEqualsTxStates(outgoingTxStatePartitionStorage, incomingTxStatePartitionStorage, txIds);
 
-        verify(incomingMvTableStorage, times(1)).startRebalancePartition(eq(PARTITION_ID));
-        verify(incomingTxStatePartitionStorage, times(1)).startRebalance();
+        verify(incomingMvTableStorage).startRebalancePartition(PARTITION_ID);
+        verify(incomingTxStatePartitionStorage).startRebalance();
+
+        var expSnapshotInfo = new PartitionSnapshotInfo(
+                expLastAppliedIndex,
+                expLastAppliedTerm,
+                expLeaseInfo,
+                raftGroupConfigurationConverter.toBytes(expLastGroupConfig),
+                Set.of(TABLE_ID)
+        );
+
+        byte[] expSnapshotInfoBytes = VersionedSerialization.toBytes(expSnapshotInfo, PartitionSnapshotInfoSerializer.INSTANCE);
+
+        var expMvPartitionMeta = new MvPartitionMeta(
+                expSnapshotInfo.lastAppliedIndex(),
+                expSnapshotInfo.lastAppliedTerm(),
+                expSnapshotInfo.configurationBytes(),
+                expSnapshotInfo.leaseInfo(),
+                expSnapshotInfoBytes
+        );
+
+        verify(incomingTxStatePartitionStorage).finishRebalance(expMvPartitionMeta);
 
         verify(indexUpdateHandler).setNextRowIdToBuildIndex(eq(indexId), eq(nextRowIdToBuildIndex));
 
@@ -290,9 +311,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 expLastAppliedTerm,
                 expLastGroupConfig,
                 rowIds,
-                expLeaseStartTime,
-                expPrimaryReplicaNodeId,
-                expPrimaryReplicaNodeName
+                expLeaseInfo
         );
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
     }
@@ -355,9 +374,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                         expLastGroupConfig,
                         requiredCatalogVersion,
                         Map.of(indexId, nextRowIdToBuildIndex.uuid()),
-                        expLeaseStartTime,
-                        expPrimaryReplicaNodeId,
-                        expPrimaryReplicaNodeName
+                        expLeaseInfo
                 ))
                 .build();
     }
@@ -406,9 +423,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             long lastAppliedTerm,
             RaftGroupConfiguration raftGroupConfig,
             List<RowId> rowIds,
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
+            LeaseInfo leaseInfo
     ) {
         assertEquals(0, rowIds.size() % 2, "size=" + rowIds.size());
 
@@ -427,7 +442,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             storage.committedGroupConfiguration(raftGroupConfigurationConverter.toBytes(raftGroupConfig));
 
-            storage.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+            storage.updateLease(leaseInfo);
 
             return null;
         });

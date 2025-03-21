@@ -23,7 +23,6 @@ import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
-import static org.apache.ignite.internal.sql.engine.util.Commons.getFieldFromBiRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -507,7 +506,6 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         validateEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize);
         validateEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize + 1);
 
-        buffSize = 2 * DEFAULT_BUFFER_SIZE;
         validateEquiJoin(executionContext(buffSize), joinType, 2 * buffSize, 0);
         validateEquiJoin(executionContext(buffSize), joinType, 0, 2 * buffSize);
         validateEquiJoin(executionContext(buffSize), joinType, 2 * buffSize, 2 * buffSize);
@@ -548,10 +546,9 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         validateNonEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize);
         validateNonEquiJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize + 1);
 
-        buffSize = 2 * DEFAULT_BUFFER_SIZE;
-        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, 0);
-        validateNonEquiJoin(executionContext(buffSize), joinType, 0, buffSize);
-        validateNonEquiJoin(executionContext(buffSize), joinType, buffSize, buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 2 * buffSize, 0);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 0, 2 * buffSize);
+        validateNonEquiJoin(executionContext(buffSize), joinType, 2 * buffSize, 2 * buffSize);
     }
 
     private void validateEquiJoin(
@@ -569,8 +566,8 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                     ctx,
                     joinType,
                     null,
-                    IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
-                    IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                    () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
+                    () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
                     resultSize
             );
         }
@@ -584,8 +581,8 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                     ctx,
                     joinType,
                     null,
-                    IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
-                    IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                    () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
+                    () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
                     resultSize
             );
         }
@@ -606,8 +603,8 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 ctx,
                 joinType,
                 (l, r) -> true,
-                IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
-                IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
+                () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
                 resultSize
         );
 
@@ -615,8 +612,8 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 ctx,
                 joinType,
                 (l, r) -> false,
-                IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
-                IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
+                () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
                 0
         );
     }
@@ -705,10 +702,6 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        RelDataType outType = (joinType == ANTI || joinType == SEMI)
-                ? leftType
-                : TypeUtils.combinedRowType(tf, leftType, rightType);
-
         if (joinAlgo() == JoinAlgo.NESTED_LOOP) {
             RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -716,9 +709,9 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                     ? nonEquiCondition
                     : (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2);
 
-            return (T) NestedLoopJoinNode.create(ctx, outType, leftType, rightType, joinType, condition);
+            return (T) NestedLoopJoinNode.create(ctx, createIdentityProjectionIfNeeded(joinType), leftType, rightType, joinType, condition);
         } else {
-            return (T) HashJoinNode.create(ctx, outType, leftType, rightType, joinType,
+            return (T) HashJoinNode.create(ctx, createIdentityProjectionIfNeeded(joinType), leftType, rightType, joinType,
                     JoinInfo.of(ImmutableIntList.of(2), ImmutableIntList.of(0)), nonEquiCondition);
         }
     }

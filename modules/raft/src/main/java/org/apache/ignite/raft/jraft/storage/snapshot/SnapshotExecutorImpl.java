@@ -366,6 +366,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                     }
                     writer.setError(RaftError.ESTALE, "Installing snapshot is older than local snapshot");
                 }
+            } else {
+                LOG.error("Fail to save snapshot: {}.", st);
             }
         }
         finally {
@@ -374,7 +376,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
         if (ret == 0) {
             if (!writer.saveMeta(meta)) {
-                LOG.warn("Fail to save snapshot {}.", writer.getPath());
+                LOG.error("Fail to save snapshot {}: {}.", writer.getPath(), writer.getErrorMsg());
                 ret = RaftError.EIO.getNumber();
             }
         }

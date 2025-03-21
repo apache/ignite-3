@@ -31,6 +31,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -124,6 +125,11 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @see MvPartitionStorage#committedGroupConfiguration(byte[])
      */
     void committedGroupConfiguration(RaftGroupConfiguration config);
+
+    /**
+     * Returns the last saved RAFT group configuration or {@code null} if it has never been saved.
+     */
+    @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
@@ -230,36 +236,12 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     @Nullable BinaryRow vacuum(GcEntry entry);
 
     /**
-     * Updates the current lease start time in the storage.
-     *
-     * @param leaseStartTime Lease start time.
-     * @param primaryReplicaNodeId Primary replica node id.
-     * @param primaryReplicaNodeName Primary replica node name.
+     * Updates the current lease information in the storage.
      */
-    void updateLease(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    );
+    void updateLease(LeaseInfo leaseInfo);
 
     /**
-     * Return the start time of the known lease for this replication group.
-     *
-     * @return Lease start time.
+     * Return the information about the known lease for this replication group.
      */
-    long leaseStartTime();
-
-    /**
-     * Return the node id of the known lease for this replication group.
-     *
-     * @return Primary replica node id.
-     */
-    UUID primaryReplicaNodeId();
-
-    /**
-     * Return the node name of the known lease for this replication group.
-     *
-     * @return Primary replica node name.
-     */
-    String primaryReplicaNodeName();
+    @Nullable LeaseInfo leaseInfo();
 }

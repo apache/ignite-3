@@ -784,7 +784,9 @@ public class Node {
                 placementDriverManager.placementDriver(),
                 clusterService,
                 logicalTopologyService,
-                clockService
+                clockService,
+                failureManager,
+                lowWatermark
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);

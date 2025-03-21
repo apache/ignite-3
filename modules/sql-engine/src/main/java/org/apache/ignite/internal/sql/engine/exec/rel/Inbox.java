@@ -112,12 +112,10 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            this.execute(this::doPush);
+            this.execute(this::push);
         }
     }
 
@@ -164,6 +162,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param rows Rows.
      */
     public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<BinaryTupleMessage> rows) throws Exception {
+        checkState();
+
         RemoteSource<RowT> source = perNodeBuffers.get(srcNodeName);
 
         boolean waitingBefore = source.check() == State.WAITING;
@@ -179,12 +179,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         if (requested > 0 && waitingBefore && source.check() != State.WAITING) {
             push();
         }
-    }
-
-    private void doPush() throws Exception {
-        checkState();
-
-        push();
     }
 
     private void push() throws Exception {
@@ -255,8 +249,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         try {
             loop:
             while (requested > 0 && !heap.isEmpty()) {
-                checkState();
-
                 RemoteSource<RowT> source = heap.poll().right;
 
                 requested--;
@@ -281,7 +273,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
                 if (processed++ >= inBufSize) {
                     // Allow others to do their job.
-                    execute(this::doPush);
+                    execute(this::push);
 
                     return;
                 }
@@ -308,8 +300,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         inLoop = true;
         try {
             while (requested > 0 && !remoteSources.isEmpty()) {
-                checkState();
-
                 RemoteSource<RowT> source = remoteSources.get(idx);
 
                 switch (source.check()) {
@@ -342,7 +332,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
                 if (processed++ >= inBufSize) {
                     // Allow others to do their job.
-                    execute(this::doPush);
+                    execute(this::push);
 
                     return;
                 }
@@ -390,8 +380,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     }
 
     private void onNodeLeft0(String nodeName) throws Exception {
-        checkState();
-
         if (perNodeBuffers.get(nodeName).check() != State.END) {
             throw new NodeLeftException(nodeName);
         }

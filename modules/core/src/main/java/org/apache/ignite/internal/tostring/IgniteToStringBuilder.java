@@ -2042,8 +2042,8 @@ public class IgniteToStringBuilder {
                     && !type.isAnnotationPresent(IgniteToStringExclude.class)
             ) {
                 if (
-                        // Include only private non-static
-                        Modifier.isPrivate(f.getModifiers()) && !Modifier.isStatic(f.getModifiers())
+                        // Include only non-static fields.
+                        !Modifier.isStatic(f.getModifiers())
                                 // No direct objects & serializable.
                                 && Object.class != type
                                 && Serializable.class != type

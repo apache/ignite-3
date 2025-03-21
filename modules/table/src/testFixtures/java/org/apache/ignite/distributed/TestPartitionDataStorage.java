@@ -32,6 +32,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -109,6 +110,11 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+        return configurationConverter.fromBytes(partitionStorage.committedGroupConfiguration());
+    }
+
+    @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
         return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
@@ -159,26 +165,12 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void updateLease(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    ) {
-        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+    public void updateLease(LeaseInfo leaseInfo) {
+        partitionStorage.updateLease(leaseInfo);
     }
 
     @Override
-    public long leaseStartTime() {
-        return partitionStorage.leaseStartTime();
-    }
-
-    @Override
-    public UUID primaryReplicaNodeId() {
-        return partitionStorage.primaryReplicaNodeId();
-    }
-
-    @Override
-    public String primaryReplicaNodeName() {
-        return partitionStorage.primaryReplicaNodeName();
+    public @Nullable LeaseInfo leaseInfo() {
+        return partitionStorage.leaseInfo();
     }
 }

@@ -61,7 +61,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMetaMessage;
@@ -217,17 +216,13 @@ public class OutgoingSnapshot {
 
             assert config != null : "Configuration should never be null when installing a snapshot";
 
-            LeaseInfo leaseInfo = txState.leaseInfo();
-
             return snapshotMetaAt(
                     txState.lastAppliedIndex(),
                     txState.lastAppliedTerm(),
                     config,
                     catalogVersion,
                     nextRowIdToBuildByIndexId,
-                    leaseInfo == null ? 0 : leaseInfo.leaseStartTime(),
-                    leaseInfo == null ? null : leaseInfo.primaryReplicaNodeId(),
-                    leaseInfo == null ? null : leaseInfo.primaryReplicaNodeName()
+                    txState.leaseInfo()
             );
         } else {
             RaftGroupConfiguration config = partitionStorageWithMaxAppliedIndex.committedGroupConfiguration();
@@ -240,9 +235,7 @@ public class OutgoingSnapshot {
                     config,
                     catalogVersion,
                     nextRowIdToBuildByIndexId,
-                    partitionStorageWithMaxAppliedIndex.leaseStartTime(),
-                    partitionStorageWithMaxAppliedIndex.primaryReplicaNodeId(),
-                    partitionStorageWithMaxAppliedIndex.primaryReplicaNodeName()
+                    partitionStorageWithMaxAppliedIndex.leaseInfo()
             );
         }
     }

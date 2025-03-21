@@ -154,6 +154,7 @@ public class ScaleCubeClusterServiceFactory {
                         configView,
                         serializationService,
                         consistentId,
+                        launchId,
                         nettyBootstrapFactory,
                         staleIds,
                         clusterIdSupplier,

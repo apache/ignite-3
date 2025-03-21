@@ -36,11 +36,17 @@ As network latency can be unpredictable, some requests may take so long to arriv
 
 When the `cluster init` command is received by any node in the cluster, it starts the initialization process.
 
-First, the nodes specified in the `--cluster-management-group` argument form a RAFT group and take the role of *cluster management group* (CMG) - a group of nodes that handles cluster operation. If `--cluster-management-group` is not specified, the nodes listed in the `--metastorage-group` are used.
+First, the nodes specified in the `--cluster-management-group` argument form a RAFT group and take on the role of the *cluster management group* (CMG) -- a group responsible for managing cluster operations.
 
 image::images/lifecycle1.png[Cluster initialization]
 
-Then, the nodes specified in the `--metastorage-group` argument form a RAFT group and take the role of *metastorage group*. These nodes will hold the authoritative copy of cluster meta information.
+Next, the nodes specified in the `--metastorage-group` argument form a RAFT group and assume the role of the *metastorage group*. These nodes store the authoritative copy of the cluster's metadata.
+
+If only one of `--cluster-management-group` or `--metastorage-group` is specified, the specified value is used for both. If neither is specified, a set of nodes is automatically selected for both CMG and the metastorage group in alphabetical order. The number of selected nodes is determined as follows:
+
+- If the cluster size is 3 or fewer, all nodes are used for the metastorage group (CMG and metastorage).
+- If the cluster size is 4, three nodes are used to maintain an odd number, improving consensus efficiency.
+- If the cluster size is 5 or more, five nodes are used to balance fault tolerance and overhead.
 
 Once the 2 raft groups are started and elect their leaders, all other nodes in the topology are notified that the cluster is started, and they can join it. At this point, the cluster is considered *initialized* and can start receiving requests.
 
@@ -49,7 +55,6 @@ Each non-leader node receives the invitation from the CMG to join the cluster an
 The nodes are also added to the cluster *logical topology* - the nodes that are verified and accepted by CMG as part of the cluster. When nodes shut down or leave the physical topology for any other reason, the cluster logical topology is immediately adjusted.
 
 image::images/lifecycle2.png[Cluster initialized]
-
 
 === Cluster Management Group
 
