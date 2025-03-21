@@ -46,7 +46,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.client.proto.HandshakeUtils;
+import org.apache.ignite.internal.client.proto.Features;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -421,7 +421,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 connectionId,
                 primaryReplicaTracker,
                 partitionOperationsExecutor,
-                HandshakeUtils.EMPTY_FEATURES,
+                Features.enabledFeatures(),
                 Map.of(),
                 commonExecutor
         );

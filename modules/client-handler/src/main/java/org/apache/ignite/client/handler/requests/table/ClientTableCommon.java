@@ -34,10 +34,13 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -45,13 +48,16 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.RemoteReadWriteTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
@@ -376,6 +382,23 @@ public class ClientTableCommon {
     }
 
     /**
+     * Writes tx metadata for a direct mapping request.
+     *
+     * @param out Packer.
+     * @param clockService Clock service.
+     * @param tx The transaction.
+     */
+    public static void writeTxMeta(ClientMessagePacker out, @Nullable ClockService clockService, InternalTransaction tx) {
+        if (tx.remote()) {
+            // Remote tx carries operation enlistment info.
+            PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+            out.packString(token.primaryNodeConsistentId());
+            out.packLong(token.consistencyToken());
+            out.meta(clockService.current());
+        }
+    }
+
+    /**
      * Returns a new table id not found exception.
      *
      * @param tableId Table id.
@@ -391,24 +414,39 @@ public class ClientTableCommon {
      * @param in Unpacker.
      * @param out Packer.
      * @param resources Resource registry.
+     * @param localNode The local node.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            ClusterNode localNode
     ) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
-            var tx = resources.get(in.unpackLong()).get(InternalTransaction.class);
+            long id = in.unpackLong();
+            if (id == 0) {
+                long token = in.unpackLong();
+                UUID txId = in.unpackUuid();
+                int commitTableId = in.unpackInt();
+                int commitPart = in.unpackInt();
+                UUID coord = in.unpackUuid();
+
+                assert commitPart >= 0 && localNode != null : "Illegal condition for direct mapping";
+
+                return new RemoteReadWriteTransaction(txId, new TablePartitionId(commitTableId, commitPart), coord, token, localNode);
+            }
+
+            var tx = resources.get(id).get(InternalTransaction.class);
 
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
                 // use readTimestamp() instead of now().
-                out.meta(tx.readTimestamp());
+                out.meta(tx.readTimestamp()); // TODO REMOVE
             }
 
             return tx;
@@ -427,15 +465,14 @@ public class ClientTableCommon {
      * @param readOnly Read only flag.
      * @return Transaction.
      */
-    public static @Nullable InternalTransaction readOrStartImplicitTx(
+    public static InternalTransaction readOrStartImplicitTx(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             TxManager txManager,
             boolean readOnly
     ) {
-
-        InternalTransaction tx = readTx(in, out, resources);
+        InternalTransaction tx = readTx(in, out, resources, txManager.localNode());
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.

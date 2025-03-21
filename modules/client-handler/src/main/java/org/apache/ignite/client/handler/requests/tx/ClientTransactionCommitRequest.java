@@ -17,14 +17,26 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.internal.lang.IgniteTuple3;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.tx.TransactionException;
 
 /**
  * Client transaction commit request.
@@ -38,6 +50,8 @@ public class ClientTransactionCommitRequest {
      * @param resources Resources.
      * @param metrics Metrics.
      * @param clockService Clock service.
+     * @param igniteTables Tables.
+     * @param enableDirectMapping Enable direct mapping flag.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -45,11 +59,75 @@ public class ClientTransactionCommitRequest {
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
-            ClockService clockService
+            ClockService clockService,
+            IgniteTablesInternal igniteTables,
+            boolean enableDirectMapping
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
+        InternalTransaction tx = resources.remove(resourceId).get(InternalTransaction.class);
 
-        Transaction tx = resources.remove(resourceId).get(Transaction.class);
+        if (enableDirectMapping && !tx.isReadOnly()) {
+            // Attempt to merge server and client transactions.
+            long causality = in.unpackLong();
+
+            // Update causality.
+            clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
+
+            int cnt = in.unpackInt(); // Number of direct enlistments.
+
+            List<IgniteTuple3<TablePartitionId, String, Long>> list = new ArrayList<>();
+            for (int i = 0; i < cnt; i++) {
+                int tableId = in.unpackInt();
+                int partId = in.unpackInt();
+                String consistentId = in.unpackString();
+                long token = in.unpackLong();
+
+                list.add(new IgniteTuple3<>(new TablePartitionId(tableId, partId), consistentId, token));
+            }
+
+            Exception ex = null;
+
+            for (IgniteTuple3<TablePartitionId, String, Long> enlistment : list) {
+                TableViewInternal table = igniteTables.cachedTable(enlistment.get1().tableId());
+
+                if (table == null) {
+                    ex = new TransactionException(TX_COMMIT_ERR, "Table not found [id=" + enlistment.get1().tableId() + ']');
+                    break;
+                }
+
+                if (!table.internalTable()
+                        .mergeEnlistment(enlistment.get1().partitionId(), enlistment.get2(), enlistment.get3(), tx, true)) {
+                    ex = new TransactionException(TX_COMMIT_ERR, "Invalid enlistment token [id=" + enlistment.get1().tableId() + ']');
+                    break;
+                }
+            }
+
+            if (ex != null) {
+                // Perform enlistment for rollback.
+                for (IgniteTuple3<TablePartitionId, String, Long> enlistment : list) {
+                    TableViewInternal table = igniteTables.cachedTable(enlistment.get1().tableId());
+
+                    if (table == null) {
+                        continue;
+                    }
+
+                    table.internalTable()
+                            .mergeEnlistment(enlistment.get1().partitionId(), enlistment.get2(), enlistment.get3(), tx, false);
+                }
+
+                Exception finalEx = ex;
+
+                return tx.rollbackAsync().whenComplete((res, err) -> {
+                    if (err != null) {
+                        finalEx.addSuppressed(err);
+                    }
+
+                    metrics.transactionsActiveDecrement();
+
+                    ExceptionUtils.sneakyThrow(finalEx);
+                });
+            }
+        }
 
         return tx.commitAsync().whenComplete((res, err) -> {
             if (!tx.isReadOnly()) {

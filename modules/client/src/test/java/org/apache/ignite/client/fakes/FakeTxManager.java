@@ -39,6 +39,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -142,7 +143,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public UUID coordinatorId() {
-                return null;
+                return id;
             }
 
             @Override
@@ -276,6 +277,11 @@ public class FakeTxManager implements TxManager {
     @Override
     public int pending() {
         return 0;
+    }
+
+    @Override
+    public ClusterNode localNode() {
+        return null;
     }
 
     @Override

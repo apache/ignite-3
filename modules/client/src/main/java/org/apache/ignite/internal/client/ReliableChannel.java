@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -205,8 +206,8 @@ public final class ReliableChannel implements AutoCloseable {
         return clientCfg;
     }
 
-    public long observableTimestamp() {
-        return HybridTimestamp.hybridTimestampToLong(observableTimeTracker.get());
+    public HybridTimestampTracker observableTimestamp() {
+        return observableTimeTracker;
     }
 
     /**
@@ -241,6 +242,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @param <T>           response type.
      * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
      *                          it will be used to handle the request; otherwise, default connection will be used.
+     * @param fallbackNodeName Fallback node name.
      * @param retryPolicyOverride Retry policy override.
      * @return Future for the operation.
      */
@@ -249,11 +251,43 @@ public final class ReliableChannel implements AutoCloseable {
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader,
             @Nullable String preferredNodeName,
+            @Nullable String fallbackNodeName,
             @Nullable RetryPolicy retryPolicyOverride,
             boolean expectNotifications
     ) {
         return ClientFutureUtils.doWithRetryAsync(
-                () -> getChannelAsync(preferredNodeName)
+                () -> getChannelAsync(preferredNodeName, fallbackNodeName)
+                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
+                null,
+                ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
+    }
+
+    /**
+     * Sends request and handles response asynchronously.
+     *
+     * @param opCode        Operation code.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @param <T>           response type.
+     * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
+     *                          it will be used to handle the request; otherwise, default connection will be used.
+     * @param fallbackNodeName Fallback node name to connect if a preferred node connection is not available.
+     * @param retryPolicyOverride Retry policy override.
+     * @return Future for the operation.
+     */
+    public <T> CompletableFuture<T> serviceAsync(
+            int opCode,
+            Function<ClientChannel, CompletableFuture<Void>> channelReadyCb,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
+            @Nullable String preferredNodeName,
+            @Nullable String fallbackNodeName,
+            @Nullable RetryPolicy retryPolicyOverride,
+            boolean expectNotifications
+    ) {
+        return ClientFutureUtils.doWithRetryAsync(
+                () -> getChannelAsync(preferredNodeName, fallbackNodeName)
+                        .thenCompose(ch -> channelReadyCb.apply(ch).thenApply(ignored -> ch))
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
@@ -273,7 +307,7 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null, null, false);
+        return serviceAsync(opCode, payloadWriter, payloadReader, null, null, null, false);
     }
 
     /**
@@ -285,7 +319,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader, null, null, false);
+        return serviceAsync(opCode, null, payloadReader, null, null, null, false);
     }
 
     private <T> CompletableFuture<T> serviceAsyncInternal(
@@ -301,10 +335,14 @@ public final class ReliableChannel implements AutoCloseable {
         });
     }
 
-    private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName) {
+    private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName, @Nullable String fallbackNodeName) {
         // 1. Preferred node connection.
         if (preferredNodeName != null) {
             ClientChannelHolder holder = nodeChannelsByName.get(preferredNodeName);
+
+            if (fallbackNodeName != null && holder == null) {
+                holder = nodeChannelsByName.get(fallbackNodeName);
+            }
 
             if (holder != null) {
                 return holder.getOrCreateChannelAsync().thenCompose(ch -> {

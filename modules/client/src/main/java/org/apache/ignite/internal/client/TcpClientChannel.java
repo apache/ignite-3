@@ -57,6 +57,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ErrorExtensions;
+import org.apache.ignite.internal.client.proto.Features;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
@@ -634,7 +635,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         req.packInt(HandshakeUtils.CLIENT_TYPE_GENERAL);
 
-        HandshakeUtils.packFeatures(req, HandshakeUtils.EMPTY_FEATURES);
+        HandshakeUtils.packFeatures(req, Features.enabledFeatures());
 
         IgniteClientAuthenticator authenticator = cfg.clientConfiguration().authenticator();
         if (authenticator != null) {

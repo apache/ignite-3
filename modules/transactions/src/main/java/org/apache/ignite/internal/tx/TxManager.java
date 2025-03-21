@@ -27,6 +27,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -235,6 +236,8 @@ public interface TxManager extends IgniteComponent {
      * @return Future will be completed with value true if the transaction was started locally and completed by this call.
      */
     CompletableFuture<Boolean> kill(UUID txId);
+
+    ClusterNode localNode();
 
     /**
      * Returns a number of finished transactions.

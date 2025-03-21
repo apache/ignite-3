@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.client.proto.Features.DIRECT_MAPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
@@ -197,7 +198,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final ClockService clockService;
 
     /** Context. */
-    private ClientContext clientContext;
+    private ClientContext ctx;
 
     /** Current state. */
     private byte state = STATE_BEFORE_HANDSHAKE;
@@ -361,7 +362,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
 
             case STATE_HANDSHAKE_RESPONSE_SENT:
-                assert clientContext != null : "Client context != null";
+                assert this.ctx != null : "Client context != null";
                 processOperation(ctx, unpacker);
 
                 break;
@@ -404,7 +405,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         if (err != null) {
                             handshakeError(ctx, packer, err);
                         } else {
-                            clientContext = new ClientContext(clientVer, clientCode, features, user);
+                            this.ctx = new ClientContext(clientVer, clientCode, features, user);
 
                             sendHandshakeResponse(ctx, packer);
                         }
@@ -487,7 +488,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                    + clientContext);
+                    + this.ctx);
         }
     }
 
@@ -692,55 +693,55 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTableGetRequest.process(in, out, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
-                return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_GET:
-                return ClientTupleGetRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleGetRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_UPSERT_ALL:
-                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_GET_ALL:
-                return ClientTupleGetAllRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleGetAllRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
-                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_INSERT:
-                return ClientTupleInsertRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleInsertRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_INSERT_ALL:
-                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_REPLACE:
-                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_REPLACE_EXACT:
-                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
-                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_DELETE:
-                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_DELETE_ALL:
-                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_DELETE_EXACT:
-                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_DELETE_ALL_EXACT:
-                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_GET_AND_DELETE:
-                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_CONTAINS_KEY:
-                return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
-                return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager);
+                return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.JDBC_CONNECT:
                 return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
@@ -781,13 +782,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, out, txManager, resources, metrics);
+                return ClientTransactionBeginRequest.process(in, out, txManager, resources, metrics, ctx.hasFeature(DIRECT_MAPPING));
 
             case ClientOp.TX_COMMIT:
-                return ClientTransactionCommitRequest.process(in, out, resources, metrics, clockService);
+                return ClientTransactionCommitRequest.process(in, out, resources, metrics, clockService, igniteTables,
+                        ctx.hasFeature(DIRECT_MAPPING));
 
             case ClientOp.TX_ROLLBACK:
-                return ClientTransactionRollbackRequest.process(in, resources, metrics);
+                return ClientTransactionRollbackRequest.process(in, resources, metrics, igniteTables, ctx.hasFeature(DIRECT_MAPPING));
 
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, out, compute, clusterService, notificationSender(requestId));
@@ -1099,13 +1101,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private boolean currentUserAffected(AuthenticationProviderEventParameters parameters) {
-        return clientContext != null && clientContext.userDetails().providerName().equals(parameters.name());
+        return ctx != null && ctx.userDetails().providerName().equals(parameters.name());
     }
 
     private boolean currentUserAffected(UserEventParameters parameters) {
-        return clientContext != null
-                && clientContext.userDetails().providerName().equals(parameters.providerName())
-                && clientContext.userDetails().username().equals(parameters.username());
+        return ctx != null
+                && ctx.userDetails().providerName().equals(parameters.providerName())
+                && ctx.userDetails().username().equals(parameters.username());
     }
 
     private void closeConnection() {

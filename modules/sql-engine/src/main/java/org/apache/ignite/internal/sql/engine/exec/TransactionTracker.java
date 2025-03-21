@@ -24,7 +24,7 @@ import java.util.UUID;
  */
 public interface TransactionTracker {
     /** Registers given transaction within the tracker. */ 
-    boolean register(UUID txId, boolean readOnly);
+    boolean register(UUID txId, boolean readOnly); // TODO FORCE READ ONLY HERE
 
     /** De-registers given transaction from the tracker. */
     void unregister(UUID txId);

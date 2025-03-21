@@ -688,7 +688,7 @@ public class InternalTableImpl implements InternalTable {
             });
         } else {
             if (write) { // Track only write requests from explicit transactions.
-                if (!transactionInflights.addInflight(tx.id(), false)) {
+                if (!tx.remote() && !transactionInflights.addInflight(tx.id(), false)) {
                     int code = TX_ALREADY_FINISHED_ERR;
                     if (tx.isRolledBackWithTimeoutExceeded()) {
                         code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
@@ -708,7 +708,7 @@ public class InternalTableImpl implements InternalTable {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                    if (noWriteChecker.test(res, request)) {
+                    if (!tx.remote() && noWriteChecker.test(res, request)) {
                         transactionInflights.removeInflight(tx.id());
                     }
 
@@ -716,7 +716,9 @@ public class InternalTableImpl implements InternalTable {
                 }).handle((r, e) -> {
                     if (e != null) {
                         if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
-                            transactionInflights.removeInflight(tx.id()); // Will be retried.
+                            if (!tx.remote()) {
+                                transactionInflights.removeInflight(tx.id()); // Will be retried.
+                            }
 
                             return trackingInvoke(
                                     tx,
@@ -774,7 +776,7 @@ public class InternalTableImpl implements InternalTable {
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
-            if (full) {
+            if (full || tx0.remote()) {
                 return e != null ? failedFuture(e) : completedFuture(r);
             }
 
@@ -1172,6 +1174,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> false
         );
@@ -2241,6 +2244,20 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public StreamerReceiverRunner streamerReceiverRunner() {
         return streamerReceiverRunner;
+    }
+
+    @Override
+    public boolean mergeEnlistment(int partId, String consistentId, long token, InternalTransaction tx, boolean commit) {
+        ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
+        PendingTxPartitionEnlistment existing = tx.enlistedPartition(replicationGroupId);
+        if (existing == null) {
+            tx.enlist(replicationGroupId, tableId, consistentId, token);
+        } else {
+            // Enlistment tokens should be equal on commit.
+            return !commit || existing.consistencyToken() == token;
+        }
+
+        return true;
     }
 
     private <T> CompletableFuture<T> sendToPrimaryWithRetry(
