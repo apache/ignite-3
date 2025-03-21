@@ -30,11 +30,6 @@ jobs:
           name: source-distributions
           path: modules/platforms/python/dist/*
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: python-dbapi-all-artifacts
-          path: modules/platforms/python/dist/*
-
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -98,9 +93,12 @@ jobs:
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: modules/platforms/python/wheels/*.whl
-          
-      - uses: actions/upload-artifact@v4
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: [build_source_dist, build_wheels]
+    steps:
+      - name: Merge Artifacts
+        uses: actions/upload-artifact/merge@v4
         with:
           name: python-dbapi-all-artifacts
-          path: modules/platforms/python/wheels/*.whl
-
