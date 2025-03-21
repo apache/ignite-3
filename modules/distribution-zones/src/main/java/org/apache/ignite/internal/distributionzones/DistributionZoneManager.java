@@ -281,20 +281,15 @@ public class DistributionZoneManager extends
      * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
      * @param timestamp Timestamp.
-     * @param catalogVersion Catalog version.
      * @param zoneId Zone id.
      * @return The future with data nodes for the zoneId.
      */
     public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
-        if (catalogVersion < 0) {
-            throw new IllegalArgumentException("catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
-        }
-
         if (zoneId < 0) {
             throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
         }
 
-        return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
+        return dataNodesManager.dataNodes(zoneId, timestamp);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
