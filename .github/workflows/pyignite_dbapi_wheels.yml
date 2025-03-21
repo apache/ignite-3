@@ -15,8 +15,15 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Install setuptools
+        run: python -m pip install setuptools
+
+      - name: Copy C++ sources
+        run: cp -r modules/platforms/cpp modules/platforms/python/
+
       - name: Build source distribution
-        run: python modules/platforms/python/setup.py sdist --formats=gztar,zip --dist-dir /dist
+        working-directory: modules/platforms/python
+        run: python setup.py sdist --formats=gztar,zip --dist-dir ./dist
 
       - uses: actions/upload-artifact@v4
         with:
