@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
@@ -32,6 +31,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
+import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
@@ -150,7 +150,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         SqlProjection<RowT> projection = ctx.expressionFactory().project(expressions, getCountType);
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
-        BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
 
         return rowCount -> {
             RowSchema rowSchema = RowSchema.builder()

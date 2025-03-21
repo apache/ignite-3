@@ -25,7 +25,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
+import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
@@ -153,7 +153,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         SqlRowProvider<RowT> keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
 
         RelDataType resultType = lookupNode.getRowType();
-        BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
 
         operation = filter == null && projection == null ? new SimpleLookupExecution<>(scannableTable, rowHandler, rowFactory,
                 keySupplier, requiredColumns.toBitSet(), internalTypeConverter)
@@ -184,10 +184,10 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final RowFactory<RowT> tableRowFactory;
         private final SqlRowProvider<RowT> keySupplier;
         private final BitSet requiredColumns;
-        private final BiFunction<Integer, Object, Object> internalTypeConverter;
+        private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
         private SimpleLookupExecution(ScannableTable table, RowHandler<RowT> rowHandler, RowFactory<RowT> tableRowFactory,
-                SqlRowProvider<RowT> keySupplier, BitSet requiredColumns, BiFunction<Integer, Object, Object> internalTypeConverter) {
+                SqlRowProvider<RowT> keySupplier, BitSet requiredColumns, SchemaAwareConverter<Object, Object> internalTypeConverter) {
             this.table = table;
             this.rowHandler = rowHandler;
             this.tableRowFactory = tableRowFactory;
@@ -217,7 +217,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final @Nullable SqlPredicate<RowT> filter;
         private final @Nullable SqlProjection<RowT> projection;
         private final @Nullable BitSet requiredColumns;
-        private final BiFunction<Integer, Object, Object> internalTypeConverter;
+        private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
         private FilterableProjectableLookupExecution(
                 ScannableTable table,
@@ -227,7 +227,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 @Nullable SqlPredicate<RowT> filter,
                 @Nullable SqlProjection<RowT> projection,
                 @Nullable BitSet requiredColumns,
-                BiFunction<Integer, Object, Object> internalTypeConverter
+                SchemaAwareConverter<Object, Object> internalTypeConverter
         ) {
             this.table = table;
             this.rowHandler = rowHandler;
