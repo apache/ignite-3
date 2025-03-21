@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -382,7 +383,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             mock(SchemaRegistry.class),
                             mock(IndexMetaStorage.class),
                             clusterService.topologyService().localMember().id(),
-                            mock(MinimumRequiredTimeCollectorService.class)
+                            mock(MinimumRequiredTimeCollectorService.class),
+                            mock(Executor.class)
                     ) {
                         @Override
                         public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {

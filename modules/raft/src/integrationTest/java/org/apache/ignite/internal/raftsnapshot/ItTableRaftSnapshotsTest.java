@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -112,7 +114,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests how RAFT snapshots installation works for table partitions.
@@ -183,15 +185,39 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     /**
      * Tests that a leader successfully feeds a follower with a RAFT snapshot on any of the supported storage engines.
      */
-    // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
-    @ParameterizedTest
-    @ValueSource(strings = {
-            RocksDbStorageEngine.ENGINE_NAME,
-            PersistentPageMemoryStorageEngine.ENGINE_NAME,
-            VolatilePageMemoryStorageEngine.ENGINE_NAME
-    })
+    @ParameterizedTest(name = "engine = {0}")
+    @MethodSource("storageEngines")
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
         testLeaderFeedsFollowerWithSnapshot(storageEngine);
+    }
+
+    /**
+     * Tests that data can be recovered on node start after snapshot installation.
+     */
+    @ParameterizedTest(name = "engine = {0}")
+    @MethodSource("storageEngines")
+    void testDataRecoveryAfterSnapshot(String storageEngine) throws InterruptedException {
+        assumeFalse(
+                storageEngine.equals(VolatilePageMemoryStorageEngine.ENGINE_NAME),
+                "https://issues.apache.org/jira/browse/IGNITE-24857"
+        );
+
+        feedNode2WithSnapshotOfOneRow(storageEngine);
+
+        cluster.restartNode(2);
+
+        transferLeadershipOnSolePartitionTo(2);
+
+        assertThat(getFromNode(2, 1), is("one"));
+    }
+
+    // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
+    private static Stream<String> storageEngines() {
+        return Stream.of(
+                RocksDbStorageEngine.ENGINE_NAME,
+                PersistentPageMemoryStorageEngine.ENGINE_NAME,
+                VolatilePageMemoryStorageEngine.ENGINE_NAME
+        );
     }
 
     /**
@@ -208,9 +234,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         MvPartitionStorage partitionAtNode0 = mvPartitionAtNode(0);
         MvPartitionStorage partitionAtNode2 = mvPartitionAtNode(2);
 
-        assertThat(partitionAtNode2.leaseStartTime(), not(0L));
-        assertEquals(partitionAtNode0.primaryReplicaNodeId(), partitionAtNode2.primaryReplicaNodeId());
-        assertEquals(partitionAtNode0.primaryReplicaNodeName(), partitionAtNode2.primaryReplicaNodeName());
+        assertThat(partitionAtNode2.leaseInfo(), is(partitionAtNode0.leaseInfo()));
     }
 
     private @Nullable String getFromNode(int clusterNode, int key) {

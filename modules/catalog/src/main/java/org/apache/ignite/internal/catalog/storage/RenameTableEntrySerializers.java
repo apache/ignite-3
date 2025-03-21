@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link RenameTableEntry}.
@@ -33,7 +33,7 @@ public class RenameTableEntrySerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class RenameTableEntrySerializerV1 implements CatalogObjectSerializer<RenameTableEntry> {
         @Override
-        public RenameTableEntry readFrom(IgniteDataInput input) throws IOException {
+        public RenameTableEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int tableId = input.readVarIntAsInt();
             String newTableName = input.readUTF();
 
@@ -41,7 +41,27 @@ public class RenameTableEntrySerializers {
         }
 
         @Override
-        public void writeTo(RenameTableEntry entry, IgniteDataOutput output) throws IOException {
+        public void writeTo(RenameTableEntry entry, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(entry.tableId());
+            output.writeUTF(entry.newTableName());
+        }
+    }
+
+    /**
+     * Serializer for {@link RenameTableEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class RenameTableEntrySerializerV2 implements CatalogObjectSerializer<RenameTableEntry> {
+        @Override
+        public RenameTableEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int tableId = input.readVarIntAsInt();
+            String newTableName = input.readUTF();
+
+            return new RenameTableEntry(tableId, newTableName);
+        }
+
+        @Override
+        public void writeTo(RenameTableEntry entry, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(entry.tableId());
             output.writeUTF(entry.newTableName());
         }

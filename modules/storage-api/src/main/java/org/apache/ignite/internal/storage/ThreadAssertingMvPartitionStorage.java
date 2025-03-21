@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.worker.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
@@ -155,29 +156,15 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public void updateLease(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    ) {
+    public void updateLease(LeaseInfo leaseInfo) {
         assertThreadAllowsToWrite();
 
-        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+        partitionStorage.updateLease(leaseInfo);
     }
 
     @Override
-    public long leaseStartTime() {
-        return partitionStorage.leaseStartTime();
-    }
-
-    @Override
-    public @Nullable UUID primaryReplicaNodeId() {
-        return partitionStorage.primaryReplicaNodeId();
-    }
-
-    @Override
-    public @Nullable String primaryReplicaNodeName() {
-        return partitionStorage.primaryReplicaNodeName();
+    public @Nullable LeaseInfo leaseInfo() {
+        return partitionStorage.leaseInfo();
     }
 
     @Override

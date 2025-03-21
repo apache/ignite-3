@@ -367,8 +367,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                 IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "safeTime");
 
         logger().info("Partition data "
-                        + "[node={}, groupId={}, data={}, lastAppliedIndex={}, lastAppliedTerm={}, leaseStartTime={}, safeTime = {}]",
-                name, replicationGroupId, map, storage.lastAppliedIndex(), storage.lastAppliedTerm(), storage.leaseStartTime(),
+                        + "[node={}, groupId={}, data={}, lastAppliedIndex={}, lastAppliedTerm={}, leaseInfo={}, safeTime = {}]",
+                name, replicationGroupId, map, storage.lastAppliedIndex(), storage.lastAppliedTerm(), storage.leaseInfo(),
                 safeTime.current());
 
         Lazy<TableSchemaAwareIndexStorage> indexStorageLazy =

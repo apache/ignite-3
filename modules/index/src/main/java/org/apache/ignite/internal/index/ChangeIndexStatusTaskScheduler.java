@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -56,6 +57,8 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final FailureManager failureManager;
+
     private final Executor executor;
 
     private final Map<ChangeIndexStatusTaskId, ChangeIndexStatusTask> taskById = new ConcurrentHashMap<>();
@@ -71,6 +74,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
             ClockService clockService,
             PlacementDriver placementDriver,
             IndexMetaStorage indexMetaStorage,
+            FailureManager failureManager,
             Executor executor
     ) {
         this.catalogManager = catalogManager;
@@ -79,6 +83,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.indexMetaStorage = indexMetaStorage;
+        this.failureManager = failureManager;
         this.executor = executor;
     }
 
@@ -97,7 +102,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
      * Schedules a task for that will transfer the given index to the {@link CatalogIndexStatus#BUILDING} state.
      */
     void scheduleStartBuildingTask(CatalogIndexDescriptor indexDescriptor) {
-        assert indexDescriptor.status() == CatalogIndexStatus.REGISTERED;
+        assert indexDescriptor.status() == CatalogIndexStatus.REGISTERED : "Index must be REGISTERED " + indexDescriptor;
 
         LOG.info("Scheduling starting of index building. Index: {}", indexDescriptor);
 
@@ -117,6 +122,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 logicalTopologyService,
                 clockService,
                 indexMetaStorage,
+                failureManager,
                 executor,
                 busyLock
         ) {
@@ -151,6 +157,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 logicalTopologyService,
                 clockService,
                 indexMetaStorage,
+                failureManager,
                 executor,
                 busyLock
         ) {

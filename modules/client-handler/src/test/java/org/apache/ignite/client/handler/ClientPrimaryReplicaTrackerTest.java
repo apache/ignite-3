@@ -57,9 +57,12 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
         InternalTable internalTable = mock(InternalTable.class);
         when(internalTable.partitions()).thenReturn(PARTITIONS);
+        when(internalTable.tableId()).thenReturn(TABLE_ID);
+        when(internalTable.zoneId()).thenReturn(ZONE_ID);
 
         TableViewInternal table = mock(TableViewInternal.class);
         when(table.tableId()).thenReturn(TABLE_ID);
+        when(table.zoneId()).thenReturn(ZONE_ID);
         when(table.internalTable()).thenReturn(internalTable);
 
         IgniteTablesInternal tables = mock(IgniteTablesInternal.class);
@@ -69,7 +72,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
-                new FakeCatalogService(PARTITIONS),
+                new FakeCatalogService(PARTITIONS, tableId -> ZONE_ID),
                 new TestClockService(new TestHybridClock(currentTime::get)),
                 new AlwaysSyncedSchemaSyncService(),
                 new TestLowWatermark()

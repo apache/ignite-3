@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * Entry point for obtaining physical cluster topology information.
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
-public interface TopologyService extends ClusterNodeResolver {
+public interface TopologyService extends ClusterNodeResolver, JoinedNodes {
     /**
      * Returns information about the current node.
      *

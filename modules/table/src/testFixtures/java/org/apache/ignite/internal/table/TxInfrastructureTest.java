@@ -377,7 +377,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     }
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove TablePartitionId part.
-    private static ReplicationGroupId replicationGroupId(TableViewInternal tableViewInternal, int partitionIndex) {
+    protected static ReplicationGroupId replicationGroupId(TableViewInternal tableViewInternal, int partitionIndex) {
         return enabledColocation() ? new ZonePartitionId(tableViewInternal.internalTable().zoneId(), partitionIndex) :
                 new TablePartitionId(tableViewInternal.tableId(), partitionIndex);
     }

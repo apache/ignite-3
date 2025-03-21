@@ -64,7 +64,8 @@ def tokens = [
         PRODUCT_DISPLAY_NAME: 'Apache Ignite',
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
-        ADD_OPENS           : project.addOpens.join(' ')
+        ADD_OPENS           : project.addOpens.join(' '),
+        CONF_FILE           : 'ignite-config.conf',
 ]
 
 def tokensLin = tokens + [
@@ -85,6 +86,7 @@ def zipStartScriptTokensCommon = [
 ]
 
 def zipStartScriptTokensLin = tokensLin + [
+        WORK_DIR            : '${IGNITE_HOME}/work',
         LOG_DIR             : '${IGNITE_HOME}/log',
         LIB_DIR             : '${IGNITE_HOME}/lib',
         CONF_DIR            : '${IGNITE_HOME}/etc',
@@ -92,6 +94,7 @@ def zipStartScriptTokensLin = tokensLin + [
 ]
 
 def zipStartScriptTokensWin = tokensWin + [
+        WORK_DIR        : '%IGNITE_HOME%\\work',
         LOG_DIR         : '%IGNITE_HOME%\\log',
         LIB_DIR         : '%IGNITE_HOME%\\lib',
         CONF_DIR        : '%IGNITE_HOME%\\etc',
@@ -208,13 +211,12 @@ def packageTokens = tokens + tokensLin + [
         USERNAME            : 'ignite',
         GROUPNAME           : 'ignite',
         INSTALL_DIR         : '/usr/lib/ignite3db',
-        CONF_DIR            : '/etc/ignite3db',
+        WORK_DIR            : '/var/lib/ignite3db',
         LOG_DIR             : '/var/log/ignite3db',
+        LIB_DIR             : '/usr/lib/ignite3db/lib',
+        CONF_DIR            : '/etc/ignite3db',
         APP_LOG_DIR         : '/var/log/ignite3db',
         PID_DIR             : '/var/run/ignite3db',
-        LIB_DIR             : '/usr/lib/ignite3db/lib',
-        IGNITE_WORK_DIR     : '/var/lib/ignite3db',
-        IGNITE_CONF_FILE    : 'ignite-config.conf'
 ]
 
 

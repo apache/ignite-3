@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -34,11 +35,14 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link DisasterRecoveryManager} integration testing. */
+// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 // TODO https://issues.apache.org/jira/browse/IGNITE-22332 Add test cases.
 public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest {
     /** Table name. */

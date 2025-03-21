@@ -232,9 +232,9 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     @Override
     public String toString() {
-        String formattedTime = DATE_FORMATTER.format(Instant.ofEpochMilli(getPhysical()).atOffset(ZoneOffset.UTC));
+        String formattedPhysicalTime = DATE_FORMATTER.format(Instant.ofEpochMilli(getPhysical()).atOffset(ZoneOffset.UTC));
 
-        return String.format("HybridTimestamp [physical=%s, logical=%d, composite=%d]", formattedTime, getLogical(), time);
+        return "HybridTimestamp [physical=" + formattedPhysicalTime + ", logical=" + getLogical() + ", composite=" + time + "]";
     }
 
     /**

@@ -15,8 +15,27 @@
  * limitations under the License.
  */
 
-/**
- * Contains Communication plugin API classes and interfaces.
- */
+package org.apache.ignite.internal.catalog.storage;
 
-package org.apache.ignite.plugin.extensions.communication;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+
+/**
+ * Tests for catalog storage objects. Protocol version 1 read v1.
+ */
+public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSerializationCompatibilityTest {
+
+    @Override
+    protected int protocolVersion() {
+        return 1;
+    }
+
+    @Override
+    protected int entryVersion(MarshallableEntryType entryType) {
+        return 1;
+    }
+
+    @Override
+    protected boolean expectExactVersion() {
+        return true;
+    }
+}

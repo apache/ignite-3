@@ -27,7 +27,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.rocksdb.DBOptions;
@@ -52,7 +52,7 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
         RaftNodeId metastorageNodeId = findRaftNodeId(id -> id.groupId() == MetastorageGroupId.INSTANCE);
         assertFsyncIsAsExpectedOn(metastorageNodeId, true);
 
-        RaftNodeId partitionNodeId = findRaftNodeId(id -> id.groupId() instanceof TablePartitionId);
+        RaftNodeId partitionNodeId = findRaftNodeId(id -> id.groupId() instanceof PartitionGroupId);
         assertFsyncIsAsExpectedOn(partitionNodeId, fsyncInConfig);
     }
 

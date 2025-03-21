@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -40,10 +41,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
 /** Tests for disaster recovery manager reset partition command. */
+// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "PERSON";
 
