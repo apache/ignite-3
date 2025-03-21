@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.network;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.lang.ErrorGroups.Network;
 
 /**
  * Thrown when a send by consistent ID fails because there's a duplicate consistent ID in the physical topology.
  */
 public class DuplicateConsistentIdException extends IgniteInternalException {
     public DuplicateConsistentIdException(String msg) {
-        super(Network.DUPLICATE_CONSISTENT_ID_ERR, msg);
+        super(INTERNAL_ERR, msg);
     }
 }
