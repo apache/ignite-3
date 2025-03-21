@@ -71,8 +71,8 @@ import org.apache.ignite.raft.jraft.util.RecycleUtil;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.internal.ThrowUtil
-;import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Replicator for replicating log entry from leader to followers.
