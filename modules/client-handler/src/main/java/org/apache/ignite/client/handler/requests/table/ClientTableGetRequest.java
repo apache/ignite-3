@@ -54,7 +54,6 @@ public class ClientTableGetRequest {
     }
 
     private static String quoteTableNameIfNotAllUpper(String name) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24301 use QualifiedName.toCanonicalForm() instead.
         for (int i = 0; i < name.length(); i++) {
             char ch = name.charAt(i);
 

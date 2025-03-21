@@ -46,7 +46,6 @@ import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery system views. */
@@ -62,11 +61,6 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     @Override
     protected int initialNodes() {
         return 2;
-    }
-
-    @BeforeAll
-    void beforeAll() {
-        assertThat(systemViewManager().completeRegistration(), willCompleteSuccessfully());
     }
 
     @AfterEach

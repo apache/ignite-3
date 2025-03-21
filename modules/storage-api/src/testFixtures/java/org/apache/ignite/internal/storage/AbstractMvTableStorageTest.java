@@ -671,7 +671,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
     private static MvPartitionMeta saneMvPartitionMeta(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
         var leaseInfo = new LeaseInfo(333, new UUID(1, 2), "primary");
 
-        return new MvPartitionMeta(lastAppliedIndex, lastAppliedTerm, groupConfig, leaseInfo);
+        return new MvPartitionMeta(lastAppliedIndex, lastAppliedTerm, groupConfig, leaseInfo, BYTE_EMPTY_ARRAY);
     }
 
     @Test

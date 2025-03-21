@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.client.proto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
+import java.util.BitSet;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,5 +58,47 @@ public class HandshakeUtilsTest {
                 assertEquals("identity", extensions.get(HandshakeExtension.AUTHENTICATION_IDENTITY));
             }
         }
+    }
+
+    @Test
+    public void supportedFeaturesIntersect() {
+        BitSet supported = new BitSet();
+        supported.set(1);
+        supported.set(199);
+        supported.set(58);
+        supported.set(42);
+
+        BitSet asked = new BitSet();
+        asked.set(42);
+        asked.set(887);
+        asked.set(58);
+
+        BitSet result = HandshakeUtils.supportedFeatures(supported, asked);
+        BitSet expected = new BitSet();
+        expected.set(42);
+        expected.set(58);
+        assertEquals(expected, result);
+
+        // Sanity check, checks that first argument is not modified
+        assertNotSame(supported, expected);
+    }
+
+    @Test
+    public void supportedFeaturesAreMutuallyExclusive() {
+        BitSet supported = new BitSet();
+        supported.set(1);
+        supported.set(199);
+        supported.set(87);
+
+        BitSet asked = new BitSet();
+        asked.set(887);
+        asked.set(58);
+
+        BitSet result = HandshakeUtils.supportedFeatures(supported, asked);
+        BitSet expected = new BitSet();
+        assertEquals(expected, result);
+
+        // Sanity check, checks that first argument is not modified
+        assertNotSame(supported, expected);
     }
 }
