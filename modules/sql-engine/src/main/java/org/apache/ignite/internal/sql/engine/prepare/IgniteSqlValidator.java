@@ -118,8 +118,8 @@ import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
 public class IgniteSqlValidator extends SqlValidatorImpl {
-    /** Decimal of Integer.MAX_VALUE for fetch/offset bounding. */
-    private static final BigDecimal DEC_INT_MAX = BigDecimal.valueOf(Integer.MAX_VALUE);
+    /** Decimal of Long.MAX_VALUE for fetch/offset bounding. */
+    private static final BigDecimal LIMIT_UPPER = BigDecimal.valueOf(Long.MAX_VALUE);
 
     public static final int MAX_LENGTH_OF_ALIASES = 256;
     public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
@@ -700,34 +700,48 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         if (n instanceof SqlLiteral) {
-            BigDecimal offFetchLimit = ((SqlLiteral) n).bigDecimalValue();
+            BigDecimal offsetFetchLimit = ((SqlLiteral) n).bigDecimalValue();
 
-            if (offFetchLimit.compareTo(DEC_INT_MAX) > 0 || offFetchLimit.compareTo(BigDecimal.ZERO) < 0) {
-                throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
-            }
+            checkLimitOffset(offsetFetchLimit, n, nodeName);
         } else if (n instanceof SqlDynamicParam) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) n;
-            RelDataType intType = typeFactory.createSqlType(INTEGER);
+            RelDataType dynParamType = typeFactory.createSqlType(SqlTypeName.BIGINT);
 
             // Validate value, if present.
             if (!isUnspecified(dynamicParam)) {
                 Object param = getDynamicParamValue(dynamicParam);
 
-                if (param instanceof Integer) {
-                    if ((Integer) param < 0) {
-                        throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
-                    }
-                } else {
-                    String actualType = deriveDynamicParamType(dynamicParam).toString();
-                    String expectedType = intType.toString();
+                if (param == null) {
+                    throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
+                }
 
-                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(expectedType, actualType);
-                    throw newValidationError(n, err);
+                if (param instanceof BigDecimal) {
+                    checkLimitOffset((BigDecimal) param, n, nodeName);
+                } else {
+                    dynParamType = deriveDynamicParamType(dynamicParam);
+
+                    if (!SqlTypeUtil.isNumeric(dynParamType)) {
+                        var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(SqlTypeName.DECIMAL.toString(),
+                                dynParamType.getSqlTypeName().toString());
+                        throw newValidationError(n, err);
+                    }
+
+                    long val = ((Number) param).longValue();
+
+                    if (val < 0) {
+                        throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
+                    }
                 }
             }
 
             // Dynamic parameters are nullable.
-            setDynamicParamType(dynamicParam, typeFactory.createTypeWithNullability(intType, true));
+            setDynamicParamType(dynamicParam, typeFactory.createTypeWithNullability(dynParamType, true));
+        }
+    }
+
+    private void checkLimitOffset(BigDecimal offsetFetchLimit, @Nullable SqlNode n, String nodeName) {
+        if (offsetFetchLimit.compareTo(LIMIT_UPPER) > 0 || offsetFetchLimit.signum() == -1) {
+            throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
         }
     }
 

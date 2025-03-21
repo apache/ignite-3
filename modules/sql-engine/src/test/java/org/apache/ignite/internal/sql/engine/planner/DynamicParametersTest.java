@@ -716,6 +716,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
             checker.table("t1", "c1", NativeTypes.INT32);
         };
 
+        BigDecimal moreThanUpperLong = new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(1));
+
         return Stream.of(
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 LIMIT ?", 1)
@@ -724,12 +726,12 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 LIMIT ?", Unspecified.UNKNOWN)
-                        .parameterTypes(nullable(NativeTypes.INT32))
+                        .parameterTypes(nullable(NativeTypes.INT64))
                         .ok(),
 
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 LIMIT ?", "a")
-                        .fails("Incorrect type of a dynamic parameter. Expected <INTEGER> but got <VARCHAR"),
+                        .fails("Incorrect type of a dynamic parameter. Expected <DECIMAL> but got <VARCHAR>"),
 
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 OFFSET ?", 1)
@@ -738,12 +740,44 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 OFFSET ?", Unspecified.UNKNOWN)
-                        .parameterTypes(nullable(NativeTypes.INT32))
+                        .parameterTypes(nullable(NativeTypes.INT64))
                         .ok(),
 
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 OFFSET ?", "a")
-                        .fails("Incorrect type of a dynamic parameter. Expected <INTEGER> but got <VARCHAR")
+                        .fails("Incorrect type of a dynamic parameter. Expected <DECIMAL> but got <VARCHAR>"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 LIMIT ?", moreThanUpperLong)
+                        .fails("Illegal value of fetch / limit"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 LIMIT ?", -1)
+                        .fails("Illegal value of fetch / limit"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 LIMIT ?", (Object) null)
+                        .fails("Illegal value of fetch / limit"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 OFFSET ? ROWS FETCH FIRST ? ROWS ONLY", -1, -1)
+                        .fails("Illegal value of fetch / limit"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 FETCH FIRST ? ROWS ONLY", -1)
+                        .fails("Illegal value of fetch / limit"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 OFFSET ? ROWS", (Object) null)
+                        .fails("Illegal value of offset"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 OFFSET ? ROWS", -1)
+                        .fails("Illegal value of offset"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 OFFSET ? ROWS", moreThanUpperLong)
+                        .fails("Illegal value of offset")
         );
     }
 

@@ -21,24 +21,28 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.jetbrains.annotations.Nullable;
 
 /** Offset, fetch|limit support node. */
 public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /** Offset if its present, otherwise 0. */
-    private final int offset;
+    private final long offset;
 
     /** Fetch if its present, otherwise 0. */
-    private final int fetch;
+    private final long fetch;
 
     /** Already processed (pushed to upstream) rows count. */
-    private int rowsProcessed;
+    private long rowsProcessed;
 
     /** Fetch can be unset, in this case we need all rows. */
-    private @Nullable Supplier<Integer> fetchNode;
+    private final @Nullable Supplier<Number> fetchNode;
 
     /** Waiting results counter. */
     private int waiting;
+
+    /** Upper requested rows. */
+    private int requested;
 
     /**
      * Constructor.
@@ -47,17 +51,25 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
      */
     public LimitNode(
             ExecutionContext<RowT> ctx,
-            Supplier<Integer> offsetNode,
-            Supplier<Integer> fetchNode
+            @Nullable Supplier<Number> offsetNode,
+            @Nullable Supplier<Number> fetchNode
     ) {
         super(ctx);
 
-        offset = offsetNode == null ? 0 : offsetNode.get();
-        fetch = fetchNode == null ? 0 : fetchNode.get();
+        offset = offsetNode == null ? 0 : offsetNode.get().longValue();
+        fetch = fetchNode == null ? 0 : fetchNode.get().longValue();
         this.fetchNode = fetchNode;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Several cases are need to be processed.
+     *
+     * <br><ol>
+     * <li> request = 512, limit = 1, offset = not defined: need to pass 1 row and call {@link #end()}. </li>
+     * <li> request = 512, limit = 512, offset = not defined: just need to pass all rows without {@link #end()} call. </li>
+     * <li> request = 512, limit = 512, offset = 1: need to request initially 512 and further 1 row. </li>
+     * </ol>
+     */
     @Override
     public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
@@ -69,16 +81,17 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
             return;
         }
 
-        if (offset > 0 && rowsProcessed == 0) {
-            rowsCnt = offset + rowsCnt;
+        requested = rowsCnt;
+
+        if (fetch > 0) {
+            long remain = IgniteMath.addExact(fetch, offset) - rowsProcessed;
+
+            rowsCnt = remain > rowsCnt ? rowsCnt : (int) remain;
         }
 
         waiting = rowsCnt;
 
-        if (fetch > 0) {
-            rowsCnt = Math.min(rowsCnt, (fetch + offset) - rowsProcessed);
-        }
-
+        checkState();
 
         source().request(rowsCnt);
     }
@@ -89,18 +102,25 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
         if (waiting == NOT_WAITING) {
             return;
         }
+
         ++rowsProcessed;
 
         --waiting;
 
         if (rowsProcessed > offset) {
             if (fetchNode == null || rowsProcessed <= fetch + offset) {
+                // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
+                --requested;
                 downstream().push(row);
             }
         }
 
-        if (fetch > 0 && rowsProcessed == fetch + offset && waiting > 0) {
+        if (fetch > 0 && rowsProcessed == fetch + offset && requested > 0) {
             end();
+        }
+
+        if (waiting == 0 && requested > 0) {
+            source().request(waiting = requested);
         }
     }
 
@@ -121,6 +141,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
+        waiting = 0;
         rowsProcessed = 0;
     }
 
