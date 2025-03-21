@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiPredicate;
@@ -38,7 +37,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -392,45 +390,26 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         ImmutableIntList rightKeys = rel.rightCollation().getKeys();
 
         // Convert conditions to using collation indexes instead of field indexes.
-        // This is required for dynamic programming algorithm to track already processed collation fields easily.
         List<IntPair> condIndexes = rel.analyzeCondition().pairs().stream()
                 .map(p -> IntPair.of(leftKeys.indexOf(p.source), rightKeys.indexOf(p.target)))
                 .collect(Collectors.toList());
 
+        // Columns with larger indexes should go last.
+        condIndexes.sort(Comparator.comparingInt((IntPair l) -> Math.max(l.source, l.target))
+                .thenComparingInt(l -> Math.min(l.source, l.target)));
+
         int conditions = condIndexes.size();
         List<RelFieldCollation> leftCollation = new ArrayList<>(conditions);
         List<RelFieldCollation> rightCollation = new ArrayList<>(conditions);
-        // Restore comparator collations from condition pairs.
-        // At each iteration emit collations for all non-processed condition pairs that are respect sources' collations.
-        for (int i = 0; i < conditions; i++) {
-            Iterator<IntPair> it = condIndexes.iterator();
-            while (it.hasNext()) {
-                IntPair pair = it.next();
-                // A reference to any previously processed field doesn't change the effective collation.
-                // So, the condition can be applied with keeping matching with source collation.
-                if (pair.source <= i && pair.target <= i) {
-                    leftCollation.add(rel.leftCollation().getFieldCollations().get(pair.source));
-                    rightCollation.add(rel.rightCollation().getFieldCollations().get(pair.target));
-                    it.remove();
-                }
-            }
-        }
+
+        condIndexes.forEach(pair -> {
+            leftCollation.add(rel.leftCollation().getFieldCollations().get(pair.source));
+            rightCollation.add(rel.rightCollation().getFieldCollations().get(pair.target));
+        });
 
         if (IgniteUtils.assertionsEnabled()) {
-            assert leftCollation.size() == conditions : "Left collation mismatch condition size.";
-            assert rightCollation.size() == conditions : "Right collation mismatch condition size.";
-
             ensureComparatorCollationSatisfiesSourceCollation(leftCollation, leftKeys, "Left");
             ensureComparatorCollationSatisfiesSourceCollation(rightCollation, rightKeys, "Right");
-
-            // Ensure we just resort the conditions.
-            assert Arrays.equals(
-                    rel.analyzeCondition().pairs().stream().sorted(IntPair.ORDERING).toArray(IntPair[]::new),
-                    IntStream.range(0, conditions)
-                            .mapToObj(i -> IntPair.of(leftCollation.get(i).getFieldIndex(), rightCollation.get(i).getFieldIndex()))
-                            .sorted(IntPair.ORDERING)
-                            .toArray(IntPair[]::new)) : "Condition pairs mismatch collation.";
-
         }
 
         SqlComparator<RowT> sqlComparator = expressionFactory.comparator(
