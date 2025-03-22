@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters.jmx;
 
+import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,8 +27,10 @@ import static org.mockito.Mockito.when;
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 import javax.management.AttributeNotFoundException;
 import javax.management.DynamicMBean;
 import javax.management.InstanceNotFoundException;
@@ -47,6 +50,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.AtomicDoubleMetric;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
+import org.apache.ignite.internal.metrics.CompositeMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.DoubleAdderMetric;
 import org.apache.ignite.internal.metrics.DoubleGauge;
@@ -64,6 +68,7 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,18 +96,22 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
     private static final MetricSet metricSet =
             new MetricSet(
                     SRC_NAME,
-                    Map.of(
-                            "intGauge", new IntGauge("intGauge", "", () -> 1),
-                            "longGauge", new LongGauge("longGauge", "", () -> 1L),
-                            "doubleGauge", new DoubleGauge("doubleGauge", "", () -> 1d),
-                            "atomicInt", new AtomicIntMetric("atomicInt", ""),
-                            "atomicLong", new AtomicLongMetric("atomicLong", ""),
-                            "atomicDouble", new AtomicDoubleMetric("atomicDouble", ""),
-                            "longAdder", new LongAdderMetric("longAdder", ""),
-                            "doubleAdder", new DoubleAdderMetric("doubleAdder", ""),
-                            "distributionMetric", new DistributionMetric("distributionMetric", "", new long[] {0, 1}),
-                            "hitRate", new HitRateMetric("hitRate", "", Long.MAX_VALUE)
-                    )
+                    Stream.of(
+                            new IgniteBiTuple<>("intGauge", new IntGauge("intGauge", "", () -> 1)),
+                            new IgniteBiTuple<>("longGauge", new LongGauge("longGauge", "", () -> 1L)),
+                            new IgniteBiTuple<>("doubleGauge", new DoubleGauge("doubleGauge", "", () -> 1d)),
+                            new IgniteBiTuple<>("atomicInt", new AtomicIntMetric("atomicInt", "")),
+                            new IgniteBiTuple<>("atomicLong", new AtomicLongMetric("atomicLong", "")),
+                            new IgniteBiTuple<>("atomicDouble", new AtomicDoubleMetric("atomicDouble", "")),
+                            new IgniteBiTuple<>("longAdder", new LongAdderMetric("longAdder", "")),
+                            new IgniteBiTuple<>("doubleAdder", new DoubleAdderMetric("doubleAdder", "")),
+                            new IgniteBiTuple<>("distributionMetric", new DistributionMetric("distributionMetric", "", new long[] {0, 1})),
+                            new IgniteBiTuple<>("hitRate", new HitRateMetric("hitRate", "", Long.MAX_VALUE)),
+                            new IgniteBiTuple<>("customIntMetric", new CustomIntMetric()),
+                            new IgniteBiTuple<>("customLongMetric", new CustomLongMetric()),
+                            new IgniteBiTuple<>("customDoubleMetric", new CustomDoubleMetric()),
+                            new IgniteBiTuple<>("customCompositeMetric", new CustomCompositeMetric())
+                    ).collect(toMap(IgniteBiTuple::getKey, IgniteBiTuple::getValue))
             );
 
     private ObjectName mbeanName;
@@ -195,6 +204,44 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
         assertEquals(1, mbean().getAttribute(MTRC_NAME));
     }
 
+    @Test
+    public void testCustomMetrics() throws Exception {
+        var intMetric = new CustomIntMetric();
+        var longMetric = new CustomLongMetric();
+        var doubleMetric = new CustomDoubleMetric();
+
+        String intMetricName = "customInt";
+        String longMetricName = "customLong";
+        String doubleMetricName = "customDouble";
+
+        MetricSet metricSet = new MetricSet(SRC_NAME, Map.of(
+                intMetricName, intMetric,
+                longMetricName, longMetric,
+                doubleMetricName, doubleMetric
+        ));
+
+        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(Map.of(metricSet.name(), metricSet), 1L));
+
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
+
+        assertEquals(42, mbean().getAttribute(intMetricName));
+        assertEquals(42L, mbean().getAttribute(longMetricName));
+        assertEquals(42.0, mbean().getAttribute(doubleMetricName));
+    }
+
+    @Test
+    public void testCustomCompositeMetric() throws Exception {
+        var metric = new CustomCompositeMetric();
+
+        MetricSet metricSet = new MetricSet(SRC_NAME, Map.of(MTRC_NAME, metric));
+
+        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(Map.of(metricSet.name(), metricSet), 1L));
+
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
+
+        assertEquals(metric.getValueAsString(), mbean().getAttribute(MTRC_NAME));
+    }
+
     /**
      * Check, that all MBean attributes has the same values as original metric values.
      */
@@ -215,6 +262,8 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
                 assertEquals(((DoubleMetric) metric).value(), beanAttribute, errorMsg);
             } else if (metric instanceof DistributionMetric) {
                 assertArrayEquals(((DistributionMetric) metric).value(), (long[]) beanAttribute, errorMsg);
+            } else if (metric instanceof CompositeMetric) {
+                assertEquals(metric.getValueAsString(), beanAttribute, errorMsg);
             }
         }
     }
@@ -225,5 +274,81 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
     private MBeanInfo getMbeanInfo() throws ReflectionException, InstanceNotFoundException, IntrospectionException {
         return ManagementFactory.getPlatformMBeanServer().getMBeanInfo(mbeanName);
+    }
+
+    private static class CustomIntMetric implements IntMetric {
+        @Override
+        public int value() {
+            return 42;
+        }
+
+        @Override public String name() {
+            return "customIntMetric";
+        }
+
+        @Override public @Nullable String description() {
+            return null;
+        }
+    }
+
+    private static class CustomLongMetric implements LongMetric {
+        @Override
+        public long value() {
+            return 42;
+        }
+
+        @Override
+        public String name() {
+            return "customLongMetric";
+        }
+
+        @Override
+        public @Nullable String description() {
+            return "";
+        }
+    }
+
+    private static class CustomDoubleMetric implements DoubleMetric {
+        @Override
+        public double value() {
+            return 42.0;
+        }
+
+        @Override
+        public String name() {
+            return "customDoubleMetric";
+        }
+
+        @Override
+        public @Nullable String description() {
+            return "";
+        }
+    }
+
+    private static class CustomCompositeMetric implements CompositeMetric {
+        static final List<Metric> SCALAR_METRICS = List.of(
+                new IntGauge("m1", "m1", () -> 1),
+                new IntGauge("m2", "m2", () -> 2)
+        );
+
+        @Override
+        public List<Metric> asScalarMetrics() {
+            return SCALAR_METRICS;
+        }
+
+        @Override
+        public String name() {
+            return "customCompositeMetric";
+        }
+
+        @Override
+        public @Nullable String description() {
+            return "";
+        }
+
+        @Override
+        public @Nullable String getValueAsString() {
+            return SCALAR_METRICS.toString();
+        }
     }
 }

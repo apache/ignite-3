@@ -28,6 +28,7 @@ import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanException;
 import javax.management.MBeanInfo;
 import javax.management.ReflectionException;
+import org.apache.ignite.internal.metrics.CompositeMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.IntMetric;
@@ -74,6 +75,9 @@ public class MetricSetMbean implements DynamicMBean {
             return ((LongMetric) metric).value();
         } else if (metric instanceof DistributionMetric) {
             return ((DistributionMetric) metric).value();
+        } else if (metric instanceof CompositeMetric) {
+            String value = metric.getValueAsString();
+            return value == null ? "" : value;
         }
 
         throw new AttributeNotFoundException("Unknown metric class " + metric.getClass());
@@ -174,6 +178,8 @@ public class MetricSetMbean implements DynamicMBean {
             return Long.class.getName();
         } else if (metric instanceof DistributionMetric) {
             return long[].class.getName();
+        } else if (metric instanceof CompositeMetric) {
+            return String.class.getName();
         }
 
         throw new IllegalArgumentException("Unknown metric class " + metric.getClass());
