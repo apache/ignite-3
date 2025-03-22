@@ -80,7 +80,7 @@ public class MetricSetMbean implements DynamicMBean {
             return value == null ? "" : value;
         }
 
-        throw new IllegalArgumentException("Unknown metric class " + metric.getClass());
+        throw new AttributeNotFoundException("Unknown metric class " + metric.getClass());
     }
 
     /**
