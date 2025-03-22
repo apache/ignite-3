@@ -112,7 +112,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -705,12 +704,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                     logicalNodes
             );
 
-            CompletableFuture<CompletableFuture<Void>> fut = IgniteTestUtils.runAsync(
-                    () -> {
-                        compactor.triggerCompaction(clockService.now());
+            compactor.triggerCompaction(clockService.now());
 
-                        return compactor.lastRunFuture();
-                    });
+            CompletableFuture<Void> fut = compactor.lastRunFuture();
 
             assertTrue(messageBlockLatch.await(5, TimeUnit.SECONDS));
 
