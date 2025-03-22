@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -293,41 +294,53 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private CompletableFuture<Void> startCompaction(HybridTimestamp lwm, LogicalTopologySnapshot topologySnapshot) {
-        LOG.info("Catalog compaction started [lowWaterMark={}].", lwm);
+        return CompletableFuture.supplyAsync(() -> {
+            LOG.info("Catalog compaction started [lowWaterMark={}].", lwm);
 
-        LocalMinTime localMinRequiredTime = getMinLocalTime(lwm);
-        long localMinTime = localMinRequiredTime.time;
-        Map<Integer, BitSet> localPartitions = localMinRequiredTime.availablePartitions;
+            return getMinLocalTime(lwm);
+        }).thenCompose(localMinRequiredTime -> {
+            long localMinTime = localMinRequiredTime.time;
+            Map<Integer, BitSet> localPartitions = localMinRequiredTime.availablePartitions;
 
-        return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinTime, localPartitions)
-                .thenComposeAsync(timeHolder -> {
+            return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinTime, localPartitions)
+                    .thenCompose(timeHolder -> {
 
-                    long minRequiredTime = timeHolder.minRequiredTime;
-                    long txMinRequiredTime = timeHolder.txMinRequiredTime;
-                    Map<String, Map<Integer, BitSet>> allPartitions = timeHolder.allPartitions;
+                        long minRequiredTime = timeHolder.minRequiredTime;
+                        long txMinRequiredTime = timeHolder.txMinRequiredTime;
+                        Map<String, Map<Integer, BitSet>> allPartitions = timeHolder.allPartitions;
 
-                    CompletableFuture<Boolean> catalogCompactionFut = tryCompactCatalog(
-                            minRequiredTime,
-                            topologySnapshot,
-                            lwm,
-                            allPartitions
-                    );
+                        CompletableFuture<Boolean> catalogCompactionFut = tryCompactCatalog(
+                                minRequiredTime,
+                                topologySnapshot,
+                                lwm,
+                                allPartitions
+                        );
 
-                    LOG.debug("Propagate minimum required tx time to replicas [timestamp={}].", txMinRequiredTime);
+                        LOG.debug("Propagate minimum required tx time to replicas [timestamp={}].", txMinRequiredTime);
 
-                    CompletableFuture<Void> propagateToReplicasFut =
-                            propagateTimeToNodes(txMinRequiredTime, topologySnapshot.nodes())
-                                    .whenComplete((ignore, ex) -> {
-                                        if (ex != null) {
-                                            LOG.warn("Failed to propagate minimum required tx time to replicas.", ex);
-                                        }
-                                    });
+                        CompletableFuture<Void> propagateToReplicasFut =
+                                propagateTimeToNodes(txMinRequiredTime, topologySnapshot.nodes())
+                                        .exceptionally((ex) -> {
+                                            throw new CompletionException("Failed to propagate minimum required tx time to replicas.", ex);
+                                        });
 
-                    return CompletableFuture.allOf(
-                            catalogCompactionFut,
-                            propagateToReplicasFut
-                    );
-                }, executor);
+                        return CompletableFuture.allOf(
+                                catalogCompactionFut,
+                                propagateToReplicasFut
+                        ).exceptionally(ex -> {
+                            // TODO add test
+                            if (catalogCompactionFut.isCompletedExceptionally() && propagateToReplicasFut.isCompletedExceptionally()) {
+                                ex.addSuppressed(propagateToReplicasFut.handle((r, t) -> t).join());
+                            }
+
+                            throw new CompletionException(ex);
+                        });
+                    });
+        }).whenComplete((ignore, ex) -> {
+            if (ex != null) {
+                LOG.warn("Catalog compaction iteration has failed [lwm={}].", ex, lwm);
+            }
+        });
     }
 
     @TestOnly
@@ -359,7 +372,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
 
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
-                .thenApply(ignore -> {
+                .thenApplyAsync(ignore -> {
                     long globalMinimumRequiredTime = localMinimumRequiredTime;
                     long globalMinimumTxRequiredTime = activeLocalTxMinimumRequiredTimeProvider.minimumRequiredTime();
 
@@ -384,7 +397,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     }
 
                     return new TimeHolder(globalMinimumRequiredTime, globalMinimumTxRequiredTime, allPartitions);
-                });
+                }, executor);
     }
 
     CompletableFuture<Void> propagateTimeToNodes(long timestamp, Collection<? extends ClusterNode> nodes) {
@@ -458,9 +471,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     return catalogManagerFacade.compactCatalog(catalog.version());
                 }).whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        LOG.warn("Catalog compaction has failed [timestamp={}].", ex, minRequiredTime);
-                    } else {
+                    if (ex == null) {
                         if (res) {
                             LOG.info("Catalog compaction completed successfully [timestamp={}].", minRequiredTime);
                         } else {
@@ -649,12 +660,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 case CatalogCompactionMessageGroup.MINIMUM_TIMES_REQUEST:
                     assert correlationId != null;
 
-                    handleMinimumTimesRequest(sender, correlationId);
+                    executor.execute(() -> handleMinimumTimesRequest(sender, correlationId));
 
                     break;
 
                 case CatalogCompactionMessageGroup.PREPARE_TO_UPDATE_TIME_ON_REPLICAS_MESSAGE:
-                    handlePrepareToUpdateTimeOnReplicasMessage(message);
+                    executor.execute(() -> handlePrepareToUpdateTimeOnReplicasMessage(message));
 
                     break;
 
