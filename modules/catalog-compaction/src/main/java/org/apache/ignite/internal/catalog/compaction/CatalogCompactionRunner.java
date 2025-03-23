@@ -38,7 +38,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -79,9 +82,11 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -124,7 +129,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final ClockService clockService;
 
-    private final Executor executor;
+    private final ExecutorService executor;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -170,7 +175,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             TopologyService topologyService,
-            Executor executor,
             ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
             MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService,
             RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
@@ -184,10 +188,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.topologyService = topologyService;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
-        this.executor = executor;
         this.activeLocalTxMinimumRequiredTimeProvider = activeLocalTxMinimumRequiredTimeProvider;
         this.localMinTimeCollectorService = minimumRequiredTimeCollectorService;
         this.rebalanceMinimumRequiredTimeProvider = rebalanceMinimumRequiredTimeProvider;
+        this.executor = createExecutor(localNodeName);
     }
 
     @Override
@@ -206,6 +210,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
 
         busyLock.block();
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         return CompletableFutures.nullCompletedFuture();
     }
@@ -590,6 +596,21 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         });
                     }
                 });
+    }
+
+    private static ExecutorService createExecutor(String localNodeName) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                1,
+                1,
+                10,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create(localNodeName, "catalog-compaction", LOG)
+        );
+
+        executor.allowCoreThreadTimeOut(true);
+
+        return executor;
     }
 
     private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
