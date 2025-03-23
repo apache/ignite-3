@@ -328,7 +328,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                 catalogCompactionFut,
                                 propagateToReplicasFut
                         ).exceptionally(ex -> {
-                            // TODO add test
                             if (catalogCompactionFut.isCompletedExceptionally() && propagateToReplicasFut.isCompletedExceptionally()) {
                                 ex.addSuppressed(propagateToReplicasFut.handle((r, t) -> t).join());
                             }
