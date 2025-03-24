@@ -704,6 +704,8 @@ public final class IgniteTestUtils {
 
     /**
      * Returns random string.
+     * The result string may differs on different JDK versions even for the same random seed, because of Character table changes.
+     * E.g. character for codePoint=42946 is defined in JDK 17, but undefined in JDK 11.
      *
      * @param rnd Random generator.
      * @param len String length.
@@ -713,6 +715,7 @@ public final class IgniteTestUtils {
         StringBuilder sb = new StringBuilder();
 
         while (sb.length() < len) {
+            // Casted value is always a valid codepoint. See Character.isValidCodepoint(int).
             char pt = (char) rnd.nextInt(Character.MAX_VALUE + 1);
 
             if (Character.isDefined(pt)
