@@ -71,7 +71,7 @@ class TableDefinitionCollector {
     private CompletableFuture<TableDefinitionBuilderWithIndexId> collectTableInfo() {
         String query = "SELECT "
                 + "pk_index_id, zone_name, column_name, column_type, column_precision, column_scale, column_length, is_nullable_column, "
-                + "column_ordinal, colocation_column_ordinal "
+                + "colocation_column_ordinal "
                 + "FROM system.tables t "
                 + "JOIN system.table_columns USING (table_id) "
                 + "WHERE t.schema_name=? AND t.table_name=? "
