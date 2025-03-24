@@ -410,7 +410,7 @@ public abstract class AbstractImmutableTupleTest {
                 Year year = Year.of(rnd.nextInt(10_000));
                 LocalDate localDate = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
                 LocalTime localTime = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                        rnd.nextInt(1_000)* 1000_000);
+                        rnd.nextInt(1_000) * 1000_000);
                 return LocalDateTime.of(localDate, localTime);
             }
             case TIMESTAMP:
