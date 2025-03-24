@@ -555,6 +555,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenAccept(tokenizedAssignments -> {
                     assert tokenizedAssignments.size() == replicationGroupIds.size();
 
+                    if (enabledColocation() && currentCatalog.table(table.id()) == null) {
+                        // Table no longer exists
+                        deletedTables.put(table.id(), true);
+
+                        return;
+                    }
+
                     for (int p = 0; p < partitions; p++) {
                         TokenizedAssignments assignment = tokenizedAssignments.get(p);
 
