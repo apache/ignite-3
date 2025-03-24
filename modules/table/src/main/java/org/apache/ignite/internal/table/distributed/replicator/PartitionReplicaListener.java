@@ -434,7 +434,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
-                new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService),
+                schemaCompatValidator,
                 schemaSyncService
         );
 
@@ -500,9 +500,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     @Override
     public CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
-        if (request instanceof BuildIndexReplicaRequest) {
-            System.out.println(">>> 3");
-        }
         return processRequestInContext(request, replicaPrimacy, senderId);
     }
 

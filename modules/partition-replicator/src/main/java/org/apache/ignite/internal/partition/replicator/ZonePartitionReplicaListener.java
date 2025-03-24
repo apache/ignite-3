@@ -239,9 +239,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 move assert to preProcessTableAwareRequest()
-        assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
-
         int tableId = ((TableAware) request).tableId();
 
         return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
@@ -289,7 +286,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param tableId Table's identifier.
      */
     public void removeTableReplicaProcessor(int tableId) {
-        System.out.println("<><><> remove replica from replicas tableId=[" + tableId + ']');
         replicas.remove(tableId);
     }
 

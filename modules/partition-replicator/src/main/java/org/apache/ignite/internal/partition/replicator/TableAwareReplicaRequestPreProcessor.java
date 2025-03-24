@@ -39,7 +39,8 @@ import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaReques
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TableAware requests pre processor.
+ * TableAware requests pre processor. Request processing logic that is common for all TableAware requests like schema sync processing goes
+ * here.
  */
 public class TableAwareReplicaRequestPreProcessor {
     private final ClockService clockService;
@@ -60,7 +61,8 @@ public class TableAwareReplicaRequestPreProcessor {
     }
 
     /**
-     * Pre processes {@link TableAware} request.
+     * Pre processes {@link TableAware} request. In other words perform general for all TableAware requests part of the logic like schema
+     * awaiting.
      *
      * @param request Request to be processed.
      * @param replicaPrimacy Replica primacy information.
@@ -72,8 +74,7 @@ public class TableAwareReplicaRequestPreProcessor {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 add
-        //  assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
+        assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
 
         HybridTimestamp opTs = getOperationTimestamp(request);
 
@@ -118,14 +119,20 @@ public class TableAwareReplicaRequestPreProcessor {
         return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo);
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Adjust javadoc.
     /**
-     * Returns the txn operation timestamp.
-     *
+     * Returns the operation timestamp. In case of colocation:
      * <ul>
      *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
      *     <li>For all other requests - clockService.current()</li>
      * </ul>
      *
+     * Otherwise:
+     * <ul>
+     *     <li>For a read/write in an RW transaction, it's 'now'</li>
+     *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
+     *     <li>For a direct read in an RO implicit transaction, it's the timestamp chosen (as 'now') to process the request</li>
+     * </ul>
      * @param request The request.
      * @return The timestamp or {@code null} if not a tx operation request.
      */
