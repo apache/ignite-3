@@ -16,16 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 
 public class SnapshotRequestProcessorTest extends AbstractCliRequestProcessorTest<SnapshotRequest> {
 
