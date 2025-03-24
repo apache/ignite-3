@@ -41,21 +41,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock: { "
-            + "oomBufferSizeBites=0, "
+            + "oomBufferSizeBytes=0, "
             + "dumpThreadsOnFailure=true,"
             + "dumpThreadsThrottlingTimeoutMillis=0,"
             + "handler {type=noop} }")
     private static FailureProcessorConfiguration enabledThreadDumpNoThrottlingConfiguration;
 
     @InjectConfiguration("mock: { "
-            + "oomBufferSizeBites=0, "
+            + "oomBufferSizeBytes=0, "
             + "dumpThreadsOnFailure=true,"
             + "dumpThreadsThrottlingTimeoutMillis=3000,"
             + "handler {type=noop} }")
     private static FailureProcessorConfiguration enabledThreadDumpWithThrottlingConfiguration;
 
     @InjectConfiguration("mock: { "
-            + "oomBufferSizeBites=0, "
+            + "oomBufferSizeBytes=0, "
             + "dumpThreadsOnFailure=false,"
             + "dumpThreadsThrottlingTimeoutMillis=0,"
             + "handler {type=noop} }")

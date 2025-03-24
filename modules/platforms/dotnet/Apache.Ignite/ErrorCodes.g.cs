@@ -85,6 +85,7 @@ namespace Apache.Ignite
             DisasterRecovery.GroupCode => DisasterRecovery.ErrorPrefix,
             Embedded.GroupCode => Embedded.ErrorPrefix,
             Marshalling.GroupCode => Marshalling.ErrorPrefix,
+            Rest.GroupCode => Rest.ErrorPrefix,
 
             _ => UnknownGroupName
         };
@@ -455,6 +456,9 @@ namespace Apache.Ignite
 
             /// <summary> AddressUnresolved error. </summary>
             public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> DuplicateConsistentId error. </summary>
+            public const int DuplicateConsistentId = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> NodeConfiguration errors. </summary>
@@ -723,16 +727,19 @@ namespace Apache.Ignite
             public const int Unmarshalling = (GroupCode << 16) | (3 & 0xFFFF);
         }
 
-        /// <summary> REST service errors. </summary>
+        /// <summary> Rest errors. </summary>
         public static class Rest
         {
-            /// <summary> REST service group code. </summary>
+            /// <summary> Rest group code. </summary>
             public const short GroupCode = 23;
 
-            /// <summary> REST service group name. </summary>
+            /// <summary> Rest group name. </summary>
             public const String GroupName = "REST";
 
-            /// <summary> Common error. </summary>
+            /// <summary> Rest error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
+            /// <summary> ClusterNotInit error. </summary>
             public const int ClusterNotInit = (GroupCode << 16) | (1 & 0xFFFF);
         }
     }

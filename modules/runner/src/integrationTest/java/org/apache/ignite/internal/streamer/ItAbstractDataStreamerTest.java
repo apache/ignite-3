@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -31,12 +32,18 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Subscriber;
@@ -554,6 +561,120 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
+    @Test
+    public void testReceiverWithTuples() {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<Tuple>();
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            // Tuple argument.
+            Tuple receiverArg = Tuple.create().set("arg1", "val1").set("arg2", 2);
+
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    Function.identity(),
+                    Function.identity(),
+                    ReceiverDescriptor.builder(TupleReceiver.class).build(),
+                    resultSubscriber,
+                    null,
+                    receiverArg
+            );
+
+            // Tuple payload.
+            publisher.submit(tuple(1, "foo1"));
+            publisher.submit(tuple(2, "foo2"));
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+        assertEquals(2, resultSubscriber.items.size());
+
+        // Tuple results.
+        for (Tuple item : resultSubscriber.items) {
+            assertEquals("foo" + item.intValue(0), item.stringValue(1));
+            assertEquals("val1", item.stringValue("arg1"));
+            assertEquals(2, item.intValue("arg2"));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testReceiverTupleRoundTripWithAllColumnTypes(boolean asArg) {
+        Tuple tuple = Tuple.create()
+                .set("bool", true)
+                .set("byte", (byte) 1)
+                .set("short", (short) 2)
+                .set("int", 3)
+                .set("long", 4L)
+                .set("float", 5.5f)
+                .set("double", 6.6)
+                .set("decimal", BigDecimal.valueOf(1, 1000))
+                .set("date", LocalDate.of(2021, 1, 1))
+                .set("time", LocalTime.of(1, 2, 3))
+                .set("datetime", LocalDateTime.of(2000, 1, 2, 3, 4, 5))
+                .set("uuid", new UUID(1, 2))
+                .set("string", "foo")
+                .set("binary", new byte[] {1, 2, 3})
+                .set("period", Period.ofMonths(3))
+                .set("duration", Duration.ofDays(4));
+
+        Tuple resTuple = receiverTupleRoundTrip(tuple, asArg);
+
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            Object origVal = tuple.value(i);
+            Object resVal = resTuple.value(i);
+
+            if (origVal instanceof byte[]) {
+                assertArrayEquals((byte[]) origVal, (byte[]) resVal);
+            } else {
+                assertEquals(origVal, resVal);
+            }
+        }
+    }
+
+    @Test
+    public void testReceiverNestedTupleRoundTrip() {
+        Tuple tuple = Tuple.create()
+                .set("int", 1)
+                .set("inner", Tuple.create()
+                        .set("string", "foo")
+                        .set("inner2", Tuple.create().set("int", 2)));
+
+        Tuple resTuple = receiverTupleRoundTrip(tuple, false);
+        assertEquals(1, resTuple.intValue("int"));
+
+        Tuple resTupleInner = resTuple.value("inner");
+        assertEquals("foo", resTupleInner.stringValue("string"));
+
+        Tuple resTupleInner2 = resTupleInner.value("inner2");
+        assertEquals(2, resTupleInner2.intValue("int"));
+    }
+
+    private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<Tuple>();
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            Tuple receiverArg = asArg ? tuple : Tuple.create();
+
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    Function.identity(),
+                    Function.identity(),
+                    ReceiverDescriptor.builder(TupleReceiver.class).build(),
+                    resultSubscriber,
+                    null,
+                    receiverArg
+            );
+
+            publisher.submit(asArg ? Tuple.create() : tuple);
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+        assertEquals(1, resultSubscriber.items.size());
+
+        return resultSubscriber.items.get(0);
+    }
+
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
@@ -656,7 +777,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     private static class TestSubscriber<T> implements Subscriber<T> {
-        Set<T> items = Collections.synchronizedSet(new HashSet<>());
+        List<T> items = Collections.synchronizedList(new ArrayList<>());
 
         @Override
         public void onSubscribe(Subscription subscription) {
@@ -674,6 +795,20 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         @Override
         public void onComplete() {
+        }
+    }
+
+    private static class TupleReceiver implements DataStreamerReceiver<Tuple, Tuple, Tuple> {
+        @Override
+        public @Nullable CompletableFuture<List<Tuple>> receive(List<Tuple> page, DataStreamerReceiverContext ctx, @Nullable Tuple arg) {
+            // Add all columns from arg to each tuple.
+            for (Tuple t : page) {
+                for (int colIdx = 0; colIdx < arg.columnCount(); colIdx++) {
+                    t.set(arg.columnName(colIdx), arg.value(colIdx));
+                }
+            }
+
+            return CompletableFuture.completedFuture(page);
         }
     }
 }

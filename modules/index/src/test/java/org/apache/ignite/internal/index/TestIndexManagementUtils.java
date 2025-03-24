@@ -49,7 +49,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -131,7 +131,7 @@ class TestIndexManagementUtils {
 
     static ReplicaMeta newPrimaryReplicaMeta(
             ClusterNode clusterNode,
-            TablePartitionId replicaGroupId,
+            ReplicationGroupId replicaGroupId,
             HybridTimestamp startTime,
             HybridTimestamp expirationTime
     ) {

@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -257,6 +258,32 @@ public final class ReliableChannel implements AutoCloseable {
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
+    }
+
+    /**
+     * Sends request and handles response asynchronously.
+     *
+     * @param opCodeFunc    Function that returns opCode.
+     * @param retryOpType   OpCode to use in retry.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @param <T>           response type.
+     * @return Future for the operation.
+     */
+    public <T> CompletableFuture<T> serviceAsync(
+            ToIntFunction<ClientChannel> opCodeFunc,
+            int retryOpType,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader
+    ) {
+        return ClientFutureUtils.doWithRetryAsync(
+                () -> getChannelAsync(null)
+                        .thenCompose(ch -> {
+                            int opCode = opCodeFunc.applyAsInt(ch);
+                            return serviceAsyncInternal(opCode, payloadWriter, payloadReader, false, ch);
+                        }),
+                null,
+                ctx -> shouldRetry(retryOpType, ctx, null));
     }
 
     /**

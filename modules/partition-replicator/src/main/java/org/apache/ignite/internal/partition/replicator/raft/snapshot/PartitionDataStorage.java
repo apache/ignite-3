@@ -127,6 +127,11 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     void committedGroupConfiguration(RaftGroupConfiguration config);
 
     /**
+     * Returns the last saved RAFT group configuration or {@code null} if it has never been saved.
+     */
+    @Nullable RaftGroupConfiguration committedGroupConfiguration();
+
+    /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
      * In details:
      * - if there is no uncommitted version, a new uncommitted version is added

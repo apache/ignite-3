@@ -136,10 +136,10 @@ public abstract class VersionedSerializer<T> {
         return result;
     }
 
-    protected static void writeVarIntSet(Set<Integer> partitionIds, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(partitionIds.size());
+    protected static void writeVarIntSet(Set<Integer> varIntSet, IgniteDataOutput out) throws IOException {
+        out.writeVarInt(varIntSet.size());
 
-        for (int partitionId : partitionIds) {
+        for (int partitionId : varIntSet) {
             out.writeVarInt(partitionId);
         }
     }

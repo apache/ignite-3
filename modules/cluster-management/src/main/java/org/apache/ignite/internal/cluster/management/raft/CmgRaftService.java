@@ -127,16 +127,6 @@ public class CmgRaftService implements ManuallyCloseable {
     }
 
     /**
-     * Updates the saved {@link ClusterState}.
-     *
-     * @param clusterState Cluster state.
-     * @return Future that will be resolved when the cluster state is updated.
-     */
-    public CompletableFuture<Void> updateClusterState(ClusterState clusterState) {
-        return raftService.run(msgFactory.updateClusterStateCommand().clusterState(clusterState).build());
-    }
-
-    /**
      * Sends a {@link JoinRequestCommand}, starting the validation procedure.
      *
      * @param clusterTag Cluster tag of the joining node.

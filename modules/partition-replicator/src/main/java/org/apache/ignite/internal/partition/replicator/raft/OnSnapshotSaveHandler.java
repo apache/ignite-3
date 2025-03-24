@@ -21,9 +21,10 @@ import static java.util.concurrent.CompletableFuture.allOf;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /**
  * Handler for the {@link RaftGroupListener#onSnapshotSave} event.
@@ -31,18 +32,17 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 public class OnSnapshotSaveHandler {
     private final TxStatePartitionStorage txStatePartitionStorage;
 
-    public OnSnapshotSaveHandler(TxStatePartitionStorage txStatePartitionStorage) {
+    private final Executor partitionOperationsExecutor;
+
+    public OnSnapshotSaveHandler(TxStatePartitionStorage txStatePartitionStorage, Executor partitionOperationsExecutor) {
         this.txStatePartitionStorage = txStatePartitionStorage;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
     /**
      * Called when {@link RaftGroupListener#onSnapshotSave} is triggered.
      */
-    public CompletableFuture<Void> onSnapshotSave(
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            Collection<RaftTableProcessor> tableProcessors
-    ) {
+    public CompletableFuture<Void> onSnapshotSave(PartitionSnapshotInfo snapshotInfo, Collection<RaftTableProcessor> tableProcessors) {
         // The max index here is required for local recovery and a possible scenario
         // of false node failure when we actually have all required data. This might happen because we use the minimal index
         // among storages on a node restart.
@@ -55,15 +55,27 @@ public class OnSnapshotSaveHandler {
         //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
         //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
         //      5) Node cannot finish local recovery.
-        tableProcessors.forEach(processor -> processor.lastApplied(lastAppliedIndex, lastAppliedTerm));
+        long lastAppliedIndex = snapshotInfo.lastAppliedIndex();
+        long lastAppliedTerm = snapshotInfo.lastAppliedTerm();
 
-        txStatePartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+        CompletableFuture<?>[] tableStorageFlushFutures = tableProcessors.stream()
+                .map(processor -> {
+                    processor.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-        Stream<CompletableFuture<?>> flushFutures = Stream.concat(
-                tableProcessors.stream().map(RaftTableProcessor::flushStorage),
-                Stream.of(txStatePartitionStorage.flush())
-        );
+                    return processor.flushStorage();
+                })
+                .toArray(CompletableFuture<?>[]::new);
 
-        return allOf(flushFutures.toArray(CompletableFuture[]::new));
+        // Flush the TX state storage last to guarantee that all data is flushed before the snapshot is saved.
+        return allOf(tableStorageFlushFutures)
+                .thenComposeAsync(v -> {
+                    txStatePartitionStorage.snapshotInfo(
+                            VersionedSerialization.toBytes(snapshotInfo, PartitionSnapshotInfoSerializer.INSTANCE),
+                            lastAppliedIndex,
+                            lastAppliedTerm
+                    );
+
+                    return txStatePartitionStorage.flush();
+                }, partitionOperationsExecutor);
     }
 }

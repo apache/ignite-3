@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link DropSchemaEntry}.
@@ -33,14 +33,32 @@ public class DropSchemaSerializers {
     @CatalogSerializer(version = 1, since = "3.0.0")
     static class DropSchemaSerializerV1 implements CatalogObjectSerializer<DropSchemaEntry> {
         @Override
-        public DropSchemaEntry readFrom(IgniteDataInput input) throws IOException {
+        public DropSchemaEntry readFrom(CatalogObjectDataInput input)throws IOException {
             int schemaId = input.readVarIntAsInt();
 
             return new DropSchemaEntry(schemaId);
         }
 
         @Override
-        public void writeTo(DropSchemaEntry entry, IgniteDataOutput output) throws IOException {
+        public void writeTo(DropSchemaEntry entry, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(entry.schemaId());
+        }
+    }
+
+    /**
+     * Serializer for {@link DropSchemaEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class DropSchemaSerializerV2 implements CatalogObjectSerializer<DropSchemaEntry> {
+        @Override
+        public DropSchemaEntry readFrom(CatalogObjectDataInput input)throws IOException {
+            int schemaId = input.readVarIntAsInt();
+
+            return new DropSchemaEntry(schemaId);
+        }
+
+        @Override
+        public void writeTo(DropSchemaEntry entry, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(entry.schemaId());
         }
     }

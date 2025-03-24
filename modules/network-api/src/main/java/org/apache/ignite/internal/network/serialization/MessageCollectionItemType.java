@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.plugin.extensions.communication;
+package org.apache.ignite.internal.network.serialization;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;

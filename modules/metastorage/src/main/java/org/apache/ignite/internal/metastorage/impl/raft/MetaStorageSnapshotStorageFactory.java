@@ -80,7 +80,7 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
     }
 
     @Override
-    public @Nullable SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         return new LocalSnapshotStorage(uri, raftOptions) {
             private final AtomicBoolean startupSnapshotOpened = new AtomicBoolean(false);
 
