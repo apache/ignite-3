@@ -146,13 +146,13 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
         return storageProfilesDescripptors;
     }
 
-    private static void logStorageProfilesStatusMessage(Node node, List<CatalogStorageProfileDescriptor> storageProfilesDescripptors) {
+    private static void logStorageProfilesStatusMessage(Node node, List<CatalogStorageProfileDescriptor> storageProfilesDescriptors) {
         StringBuilder logMsgBuilder = new StringBuilder("Storage engines that are presented: {");
 
-        int lastStorageProfileIndex = storageProfilesDescripptors.size() - 1;
+        int lastStorageProfileIndex = storageProfilesDescriptors.size() - 1;
 
         for (int storageProfileIdx = 0; storageProfileIdx <= lastStorageProfileIndex; storageProfileIdx++) {
-            String storageProfile = storageProfilesDescripptors.get(storageProfileIdx).storageProfile();
+            String storageProfile = storageProfilesDescriptors.get(storageProfileIdx).storageProfile();
 
             logMsgBuilder.append(storageProfile)
                     .append(": ");
