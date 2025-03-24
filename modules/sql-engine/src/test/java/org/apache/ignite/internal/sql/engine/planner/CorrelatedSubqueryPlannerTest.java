@@ -29,11 +29,13 @@ import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
@@ -68,7 +71,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
                 + "    OR c>d\n"
                 + " ORDER BY 1;";
 
-        IgniteRel rel = physicalPlan(sql, schema, "FilterTableScanMergeRule", "IgniteProjectCorrelateTransposeRule");
+        IgniteRel rel = physicalPlan(sql, schema, "FilterTableScanMergeRule");
 
         IgniteFilter filter = findFirstNode(rel, byClass(IgniteFilter.class)
                 .and(f -> RexUtils.hasCorrelation(((Filter) f).getCondition())));
@@ -82,10 +85,16 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
         );
 
         IgniteCorrelatedNestedLoopJoin join = findFirstNode(rel, byClass(IgniteCorrelatedNestedLoopJoin.class));
+        List<RelDataTypeField> joinLeftConditionFields = join.getLeft().getRowType().getFieldList();
+
+        List<RelDataTypeField> conditionFields = fieldAccess.getReferenceExpr().getType().getFieldList();
+
+        assertEquals(1, joinLeftConditionFields.size());
+        assertEquals(1, conditionFields.size());
 
         assertEquals(
-                fieldAccess.getReferenceExpr().getType(),
-                join.getLeft().getRowType()
+                conditionFields.get(0).getType(),
+                joinLeftConditionFields.get(0).getType()
         );
     }
 
