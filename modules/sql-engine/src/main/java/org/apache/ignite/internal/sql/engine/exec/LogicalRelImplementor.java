@@ -384,7 +384,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, rel.getRowType(), leftType.getFieldCount());
 
-        ImmutableBitSet nullCompAsEqual = evaluateNumCompAsEquals(rel, rel.analyzeCondition().leftSet());
+        ImmutableBitSet nullCompAsEqual = nullComparisonStrategyVector(rel, rel.analyzeCondition().leftSet());
 
         ImmutableIntList leftKeys = rel.leftCollation().getKeys();
         ImmutableIntList rightKeys = rel.rightCollation().getKeys();
@@ -1166,7 +1166,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return joinProjection;
     }
 
-    private static ImmutableBitSet evaluateNumCompAsEquals(IgniteMergeJoin rel, ImmutableBitSet leftKeys) {
+    /**
+     * Evaluate a null comparison strategy as a bitset for the case of NOT DISTINCT FROM syntax.
+     */
+    private static ImmutableBitSet nullComparisonStrategyVector(IgniteMergeJoin rel, ImmutableBitSet leftKeys) {
         ImmutableBitSet.Builder nullCompAsEqualBuilder = ImmutableBitSet.builder();
 
         RexShuttle shuttle = new RexShuttle() {

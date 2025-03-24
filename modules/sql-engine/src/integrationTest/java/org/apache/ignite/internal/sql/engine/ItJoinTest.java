@@ -1031,7 +1031,9 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
 
         gatherStatistics();
 
-        sql("SELECT * FROM tbl1 NATURAL JOIN tbl2 NATURAL JOIN tbl3");
+        assertQuery("SELECT * FROM tbl1 NATURAL JOIN tbl2 NATURAL JOIN tbl3")
+                .returns(1, 2, 3)
+                .check();
     }
 
     /** Check IS NOT DISTINCT execution correctness and IndexSpool presence. */
