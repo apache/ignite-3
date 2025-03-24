@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,16 +26,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.TestDefaultProfilesNames;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorage;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -54,6 +54,8 @@ import org.junit.jupiter.api.Test;
  * Set of tests that are checking how in-memory scenarios are working under zone colocation.
  */
 public class ItZoneInMemoryTest extends ItAbstractColocationTest {
+    private static IgniteLogger LOG = Loggers.forClass(ItZoneInMemoryTest.class);
+
     @Test
     void testMixedStorageProfilesZone() throws Exception {
         startCluster(1);
@@ -71,7 +73,7 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
                 TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME
         );
 
-        checkZoneConsistOfMixedStorageProfiles(node, zoneId);
+        checkZoneConsistsOfMixedStorageProfiles(node, zoneId);
 
         assertFalse(isRaftLogStorageVolatile(node, zoneId));
 
@@ -90,10 +92,11 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
                 zoneName,
                 1,
                 1,
+                TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME,
                 TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME
         );
 
-        checkZoneConsistOfVolatileOnlyStorageProfile(node, zoneId);
+        checkZoneConsistsOfVolatileOnlyStorageProfile(node, zoneId);
 
         assertTrue(isRaftLogStorageVolatile(node, zoneId));
 
@@ -136,30 +139,61 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
 
         assertNotNull(zoneDescriptor);
 
-        return zoneDescriptor.storageProfiles().profiles();
+        List<CatalogStorageProfileDescriptor> storageProfilesDescripptors = zoneDescriptor.storageProfiles().profiles();
+
+        logStorageProfilesStatusMessage(node, storageProfilesDescripptors);
+
+        return storageProfilesDescripptors;
+    }
+
+    private static void logStorageProfilesStatusMessage(Node node, List<CatalogStorageProfileDescriptor> storageProfilesDescripptors) {
+        StringBuilder logMsgBuilder = new StringBuilder("Storage engines that are presented: {");
+
+        int lastStorageProfileIndex = storageProfilesDescripptors.size() - 1;
+
+        for (int storageProfileIdx = 0; storageProfileIdx <= lastStorageProfileIndex; storageProfileIdx++) {
+            String storageProfile = storageProfilesDescripptors.get(storageProfileIdx).storageProfile();
+
+            logMsgBuilder.append(storageProfile)
+                    .append(": ");
+
+            StorageEngine engine = node.dataStorageManager().engineByStorageProfile(storageProfile);
+
+            if (engine == null) {
+                logMsgBuilder.append("null");
+            } else if (engine.isVolatile()) {
+                logMsgBuilder.append("volatile");
+            } else {
+                logMsgBuilder.append("persistent");
+            }
+
+            if (storageProfileIdx != lastStorageProfileIndex) {
+                logMsgBuilder.append(", ");
+            }
+        }
+
+        LOG.info(logMsgBuilder.append("}.").toString());
     }
 
     private static boolean isRaftLogStorageVolatile(Node node, int zoneId) {
-        RaftServer raftServer = node.raftManager.server();
-
-        ConcurrentMap<RaftNodeId, RaftGroupService> nodes = getFieldValue(raftServer, JraftServerImpl.class, "nodes");
-
         ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, 0);
 
         String singlePeerConsistentId = node.clusterService.topologyService().localMember().name();
 
         RaftNodeId raftNodeId = new RaftNodeId(zonePartitionId, new Peer(singlePeerConsistentId));
 
-        RaftGroupService raftService = nodes.get(raftNodeId);
+        JraftServerImpl raftServer = (JraftServerImpl) node.raftManager.server();
 
-        NodeImpl raftNode = getFieldValue(raftService, RaftGroupService.class, "node");
+        RaftGroupService raftService = raftServer.raftGroupService(raftNodeId);
 
-        LogStorage raftLogStorage = getFieldValue(raftNode, NodeImpl.class, "logStorage");
+        NodeImpl raftNode = (NodeImpl) raftService.getRaftNode();
+
+        LogStorage raftLogStorage = raftNode.logStorage();
 
         return raftLogStorage instanceof VolatileLogStorage;
     }
 
-    private static void checkZoneConsistOfMixedStorageProfiles(Node node, int zoneId) {
+    private static void checkZoneConsistsOfMixedStorageProfiles(Node node, int zoneId) {
         List<CatalogStorageProfileDescriptor> zoneProfiles = extractZoneProfiles(node, zoneId);
 
         assertEquals(2, zoneProfiles.size());
@@ -183,15 +217,17 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
         assertTrue(persistentEngineIsPresented);
     }
 
-    private static void checkZoneConsistOfVolatileOnlyStorageProfile(Node node, int zoneId) {
+    private static void checkZoneConsistsOfVolatileOnlyStorageProfile(Node node, int zoneId) {
         List<CatalogStorageProfileDescriptor> zoneProfiles = extractZoneProfiles(node, zoneId);
 
-        assertEquals(1, zoneProfiles.size());
+        assertEquals(2, zoneProfiles.size());
 
-        StorageEngine volatileEngine = node.dataStorageManager().engineByStorageProfile(zoneProfiles.get(0).storageProfile());
+        boolean areAllEnginesVolatile = zoneProfiles.stream().allMatch(profileDesc -> {
+            StorageEngine storageEngine = node.dataStorageManager().engineByStorageProfile(profileDesc.storageProfile());
 
-        assertNotNull(volatileEngine);
+            return storageEngine != null && storageEngine.isVolatile();
+        });
 
-        assertTrue(volatileEngine.isVolatile());
+        assertTrue(areAllEnginesVolatile);
     }
 }

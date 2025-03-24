@@ -256,7 +256,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param sharedTxStateStorage Shared tx state storage.
      * @param txManager Transaction manager.
      * @param schemaManager Schema manager.
-     * @param dataStorageManager Data storage manager for checking zones' storage profiles for volatile flag.
+     * @param dataStorageManager Data storage manager.
      * @param outgoingSnapshotsManager Outgoing snapshots manager.
      */
     public PartitionReplicaLifecycleManager(

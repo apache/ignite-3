@@ -137,7 +137,7 @@ import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;import org.jetbrains.annotations.TestOnly;
 
 /**
  * The raft replica node implementation.
@@ -4047,5 +4047,10 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.debug("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newConfiguration);
             }
         }
+    }
+
+    @TestOnly
+    public LogStorage logStorage() {
+        return logStorage;
     }
 }
