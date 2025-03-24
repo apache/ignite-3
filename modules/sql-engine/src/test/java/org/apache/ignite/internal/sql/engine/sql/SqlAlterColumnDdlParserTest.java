@@ -99,13 +99,6 @@ public class SqlAlterColumnDdlParserTest extends AbstractParserTest {
         alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT LENGTH('abcd')");
         checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"LENGTH\"('abcd')");
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"LENGTH\"('abcd')");
-
-        // Select
-        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT (SELECT count(col) FROM t)");
-        checkDefaultExpr(alterColumn.expression(), SqlSelect.class, "SELECT COUNT(\"COL\")\n"
-                + "FROM \"T\"");
-        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT SELECT COUNT(\"COL\")\n"
-                + "FROM \"T\"");
     }
 
     /**
@@ -162,13 +155,6 @@ public class SqlAlterColumnDdlParserTest extends AbstractParserTest {
         alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT \"LENGTH\"('abcd')");
         checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"LENGTH\"('abcd')");
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT \"LENGTH\"('abcd')");
-
-        // Select
-        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT (SELECT count(col) FROM t)");
-        checkDefaultExpr(alterColumn.expression(), SqlSelect.class, "SELECT COUNT(\"COL\")\n"
-                + "FROM \"T\"");
-        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT SELECT COUNT(\"COL\")\n"
-                + "FROM \"T\"");
     }
 
     private void expectDataType(IgniteSqlAlterColumn alterColumn,
