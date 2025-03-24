@@ -333,6 +333,18 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
         /** {@inheritDoc} */
         @Override
+        public byte[] bytesValue(String columnName) {
+            return (byte[]) row.get(columnIndexChecked(columnName));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public byte[] bytesValue(int columnIndex) {
+            return (byte[]) row.get(columnIndex);
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public UUID uuidValue(String columnName) {
             return (UUID) row.get(columnIndexChecked(columnName));
         }

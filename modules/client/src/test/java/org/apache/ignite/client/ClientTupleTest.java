@@ -187,6 +187,9 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
 
         assertEquals(BigDecimal.valueOf(1234, 3), tuple.decimalValue(13));
         assertEquals(BigDecimal.valueOf(1234, 3), tuple.decimalValue("decimal"));
+
+        assertArrayEquals(BYTE_ARRAY_VALUE, tuple.bytesValue(14));
+        assertArrayEquals(BYTE_ARRAY_VALUE, tuple.bytesValue("bytes"));
     }
 
     @SuppressWarnings("ThrowableNotThrown")
