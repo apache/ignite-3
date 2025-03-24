@@ -304,7 +304,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             LOG.info("Catalog compaction started [lowWaterMark={}].", lwm);
 
             return getMinLocalTime(lwm);
-        }).thenCompose(localMinRequiredTime -> {
+        }, executor).thenCompose(localMinRequiredTime -> {
             long localMinTime = localMinRequiredTime.time;
             Map<Integer, BitSet> localPartitions = localMinRequiredTime.availablePartitions;
 
