@@ -159,6 +159,7 @@ def run_setup():
             'Topic :: Database :: Front-Ends',
             'Topic :: Software Development :: Libraries :: Python Modules',
             'License :: Free for non-commercial use',
+            'Operating System :: MacOS',
             'Operating System :: Microsoft :: Windows',
             'Operating System :: POSIX :: Linux',
         ],
