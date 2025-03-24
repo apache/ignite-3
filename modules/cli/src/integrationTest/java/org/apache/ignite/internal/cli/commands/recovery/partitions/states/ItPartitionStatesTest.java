@@ -27,11 +27,13 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Base test class for Cluster Recovery partition states commands. */
 // TODO IGNITE-23617 refactor to use more flexible output matching.
+
+// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
