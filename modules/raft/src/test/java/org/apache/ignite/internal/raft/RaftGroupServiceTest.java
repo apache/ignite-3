@@ -101,7 +101,6 @@ import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -377,12 +376,12 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testSnapshotExecutionFailedResponse() {
+    public void testSnapshotRetriedOnException() {
         mockSnapshotRequest(true);
 
         RaftGroupService service = startRaftGroupService(NODES);
 
-        assertThat(service.snapshot(new Peer("localhost-8082"), false), willThrow(RaftException.class));
+        assertThat(service.snapshot(new Peer("localhost-8082"), false), willThrow(TimeoutException.class, "Send with retry timed out"));
     }
 
     @Test

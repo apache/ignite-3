@@ -441,7 +441,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .forced(forced)
                 .build();
 
-        return sendWithRetry(peer, -1, NO_DESCRIPTION, requestFactory)
+        return sendWithRetry(peer, requestFactory)
                 .thenAccept(resp -> {});
     }
 
