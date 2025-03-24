@@ -126,13 +126,13 @@ public class TableAwareReplicaRequestPreProcessor {
      *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
      *     <li>For all other requests - clockService.current()</li>
      * </ul>
-     *
      * Otherwise:
      * <ul>
      *     <li>For a read/write in an RW transaction, it's 'now'</li>
      *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
      *     <li>For a direct read in an RO implicit transaction, it's the timestamp chosen (as 'now') to process the request</li>
      * </ul>
+     *
      * @param request The request.
      * @return The timestamp or {@code null} if not a tx operation request.
      */
