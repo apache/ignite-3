@@ -549,8 +549,13 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
             )
             {
                 SqlIdentifier key = new SqlIdentifier(ZoneOptionEnum.STORAGE_PROFILES.name(), getPos());
-                IgniteSqlStorageProfile profiles = new IgniteSqlStorageProfile(key, storageProfiles, getPos());
-                return new IgniteSqlCreateZoneV2(s.end(this), ifNotExists, id, zoneOptions, profiles);
+                IgniteSqlZoneOption profilesOption = new IgniteSqlZoneOption(key, storageProfiles, getPos());
+                if (zoneOptions != null) {
+                    zoneOptions.add(profilesOption);
+                } else {
+                    zoneOptions = SqlNodeList.of(profilesOption);
+                }
+                return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, zoneOptions);
             }
         )
 }
@@ -629,27 +634,27 @@ void ZoneElement(List<SqlNode> zoneOptions) :
               <UP> option = UnsignedIntegerLiteral()
               {
                   key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
-                  zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
               }
               |
               <DOWN> option = UnsignedIntegerLiteral()
               {
                   key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
-                  zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
               }
           )
           |
           <ADJUST> option = UnsignedIntegerLiteral()
           {
               key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.name(), pos);
-              zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+              zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
           }
       )
       |
       <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
       {
           key = new SqlIdentifier(ZoneOptionEnum.PARTITIONS.name(), pos);
-          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
       }
       |
       <REPLICAS> { pos = getPos(); }
@@ -657,32 +662,32 @@ void ZoneElement(List<SqlNode> zoneOptions) :
           option = UnsignedIntegerLiteral()
           {
               key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
-              zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+              zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
           }
           |
           <ALL>
           {
               key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
-              zoneOptions.add(new IgniteSqlZoneOptionV2(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
+              zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
           }
       )
       |
       <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = UnquotedLiteral()
       {
           key = new SqlIdentifier(ZoneOptionEnum.DISTRIBUTION_ALGORITHM.name(), pos);
-          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
       }
       |
       <NODES> { pos = getPos(); } <FILTER> option = UnquotedLiteral()
       {
           key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_FILTER.name(), pos);
-          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
       }
       |
       <CONSISTENCY> { pos = getPos(); } <MODE> option = UnquotedLiteral()
       {
           key = new SqlIdentifier(ZoneOptionEnum.CONSISTENCY_MODE.name(), pos);
-          zoneOptions.add(new IgniteSqlZoneOptionV2(key, option, s.end(this)));
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
       }
   )
 }

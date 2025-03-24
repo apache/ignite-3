@@ -90,7 +90,7 @@ public class IgniteSqlStorageProfile extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-        writer.identifier(OPTIONS_MAPPING.get(ZoneOptionEnum.STORAGE_PROFILES), false);
+        writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.STORAGE_PROFILES));
 
         SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
         for (SqlNode c : values) {

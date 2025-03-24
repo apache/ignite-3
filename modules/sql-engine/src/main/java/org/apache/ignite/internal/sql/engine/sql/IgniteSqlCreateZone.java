@@ -29,6 +29,7 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -95,10 +96,34 @@ public class IgniteSqlCreateZone extends SqlCreate {
 
         name.unparse(writer, leftPrec, rightPrec);
 
-        if (createOptionList != null) {
-            writer.keyword("WITH");
+        IgniteSqlZoneOption storageProfiles = null;
 
-            createOptionList.unparse(writer, 0, 0);
+        if (createOptionList != null) {
+            for (SqlNode c : createOptionList) {
+                IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
+                if (opt.key().names.get(0).equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
+                    storageProfiles = opt;
+                    break;
+                }
+            }
+
+            if (storageProfiles == null || createOptionList.size() > 1) {
+                SqlWriter.Frame frame = writer.startList("(", ")");
+                for (SqlNode c : createOptionList) {
+                    IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
+                    if (opt.key().names.get(0).equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
+                        storageProfiles = opt;
+                        continue;
+                    }
+                    writer.sep(",");
+                    c.unparse(writer, 0, 0);
+                }
+                writer.endList(frame);
+            }
+        }
+
+        if (storageProfiles != null) {
+            storageProfiles.unparse(writer, leftPrec, rightPrec);
         }
     }
 

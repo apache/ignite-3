@@ -128,7 +128,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneV2;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchema;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchemaBehavior;
@@ -137,11 +136,9 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStorageProfile;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionV2;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
@@ -265,10 +262,6 @@ public class DdlSqlToCommandConverter {
 
         if (ddlNode instanceof IgniteSqlCreateZone) {
             return convertCreateZone((IgniteSqlCreateZone) ddlNode, ctx);
-        }
-
-        if (ddlNode instanceof IgniteSqlCreateZoneV2) {
-            return convertCreateZone((IgniteSqlCreateZoneV2) ddlNode, ctx);
         }
 
         if (ddlNode instanceof IgniteSqlAlterZoneRenameTo) {
@@ -717,7 +710,7 @@ public class DdlSqlToCommandConverter {
         return builder.build();
     }
 
-    private CatalogCommand convertCreateZone(IgniteSqlCreateZoneV2 createZoneNode, PlanningContext ctx) {
+/*    private CatalogCommand convertCreateZone(IgniteSqlCreateZoneV2 createZoneNode, PlanningContext ctx) {
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder();
 
         builder.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
@@ -752,7 +745,7 @@ public class DdlSqlToCommandConverter {
                 remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
 
         return builder.build();
-    }
+    }*/
 
     /**
      * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.
