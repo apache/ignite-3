@@ -321,7 +321,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
                 new PersonPojo(secondKey, " "),
                 new PersonPojo(zeroKey, " ")
         )));
-    }    
+    }
 
     @Test
     public void testUpsertAll() {
