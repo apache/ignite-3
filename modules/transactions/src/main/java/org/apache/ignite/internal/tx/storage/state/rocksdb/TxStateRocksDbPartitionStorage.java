@@ -504,6 +504,8 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
                 metaStorage.updateLease(writeBatch, leaseInfo);
             }
 
+            metaStorage.updateSnapshotInfo(writeBatch, partitionMeta.snapshotInfo());
+
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
 
             state.set(StorageState.RUNNABLE);
@@ -578,6 +580,28 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     @Override
     public LeaseInfo leaseInfo() {
         return metaStorage.leaseInfo();
+    }
+
+    @Override
+    public void snapshotInfo(byte[] snapshotInfo, long index, long term) {
+        updateData(writeBatch -> {
+            metaStorage.updateSnapshotInfo(writeBatch, snapshotInfo);
+
+            return null;
+        }, index, term);
+    }
+
+    @Override
+    public byte @Nullable [] snapshotInfo() {
+        try {
+            return metaStorage.snapshotInfo();
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(
+                    TX_STATE_STORAGE_REBALANCE_ERR,
+                    format("Failed to get snapshot info: [{}]", createStorageInfo()),
+                    e
+            );
+        }
     }
 
     private void clearStorageData(WriteBatch writeBatch) throws RocksDBException {

@@ -53,6 +53,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -120,7 +121,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 catalogManager,
                 clusterService,
                 placementDriver,
-                clockService
+                clockService,
+                new NoOpFailureManager()
         );
 
         indexBuildController.start();

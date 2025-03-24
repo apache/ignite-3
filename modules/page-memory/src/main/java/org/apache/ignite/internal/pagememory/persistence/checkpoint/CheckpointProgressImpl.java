@@ -56,6 +56,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     private volatile String reason;
 
     /** Number of dirty pages in current checkpoint at the beginning of checkpoint. */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24878 This field is initialized twice.
     private volatile int currCheckpointPagesCnt;
 
     /** Cause of fail, which has happened during the checkpoint or {@code null} if checkpoint was successful. */

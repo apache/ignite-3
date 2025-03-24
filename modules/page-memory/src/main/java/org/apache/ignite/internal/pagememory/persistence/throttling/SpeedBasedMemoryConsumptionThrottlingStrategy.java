@@ -142,8 +142,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             // number of pages in the current CP, so we calculate park time by only using information we have.
             return parkTimeToThrottleByJustCpSpeed(instantaneousMarkDirtySpeed, avgCpWriteSpeed);
         } else {
-            return speedBasedParkTime(cpWrittenPages, donePages, cpTotalPages, instantaneousMarkDirtySpeed,
-                    avgCpWriteSpeed);
+            return speedBasedParkTime(cpWrittenPages, donePages, cpTotalPages, instantaneousMarkDirtySpeed, avgCpWriteSpeed);
         }
     }
 
@@ -222,8 +221,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             long instantaneousMarkDirtySpeed,
             long avgCpWriteSpeed) {
 
-        long targetSpeedToMarkAll = calcSpeedToMarkAllSpaceTillEndOfCp(dirtyPagesRatio, donePages,
-                avgCpWriteSpeed, cpTotalPages);
+        long targetSpeedToMarkAll = calcSpeedToMarkAllSpaceTillEndOfCp(dirtyPagesRatio, donePages, avgCpWriteSpeed, cpTotalPages);
         double targetCurrentDirtyRatio = targetCurrentDirtyRatio(donePages, cpTotalPages);
 
         publishSpeedAndRatioForMetrics(targetSpeedToMarkAll, targetCurrentDirtyRatio);
