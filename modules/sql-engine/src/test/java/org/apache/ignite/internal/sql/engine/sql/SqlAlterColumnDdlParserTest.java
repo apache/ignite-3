@@ -28,7 +28,6 @@ import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
