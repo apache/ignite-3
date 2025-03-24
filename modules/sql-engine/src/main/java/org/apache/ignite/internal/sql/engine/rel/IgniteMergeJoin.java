@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.IntPredicate;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -359,18 +358,25 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
     }
 
     /**
-     * The function builds desired collation for another join branch regarding provided join conditions information.
-     * It builds valid right collation for the given left collation and vice versa.
-     * Note: the function support complex many-to-many conditions, where a source matches multiple targets and vice versa.
+     * The function builds desired collation for the another join branch regarding provided join conditions.
+     *
+     * <p>It builds valid right collation for the given left collation and vice versa.
+     *
+     * <p>Note: the function support complex many-to-many conditions, where a source matches multiple targets and vice versa.
      */
     private static RelCollation buildDesiredCollation(JoinInfo joinInfo, RelCollation collation, boolean left2Right) {
         List<RelFieldCollation> source = collation.getFieldCollations();
 
-        List<IntPair> mapping = left2Right
-                ? new ArrayList<>(joinInfo.pairs())
-                : joinInfo.pairs().stream() // Build reverse mapping for right-to-left case.
-                        .map(p -> new IntPair(p.target, p.source))
-                        .collect(Collectors.toList());
+        List<IntPair> conditionPairs = joinInfo.pairs();
+        List<IntPair> mapping = new ArrayList<>(conditionPairs.size());
+
+        if (left2Right) {
+            mapping.addAll(conditionPairs);
+        } else { // Build reverse mapping for right-to-left case.
+            for (IntPair pair : conditionPairs) {
+                mapping.add(IntPair.of(pair.target, pair.source));
+            }
+        }
 
         IntPredicate isUnique = new IntArraySet(source.size())::add;
         List<RelFieldCollation> target = new ArrayList<>(source.size());

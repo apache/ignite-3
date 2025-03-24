@@ -36,7 +36,6 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -159,6 +158,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     private static final EnumSet<JoinRelType> JOIN_NEEDS_PROJECTION = EnumSet.of(
             JoinRelType.INNER, JoinRelType.LEFT, JoinRelType.FULL, JoinRelType.RIGHT
     );
+
+    private static final Comparator<IntPair> CONDITION_PAIRS_COMPARATOR = Comparator.comparingInt(
+                    (IntPair l) -> Math.max(l.source, l.target)).thenComparingInt(l -> Math.min(l.source, l.target));
 
     public static final String CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG =
             "only INNER and LEFT join supported by IgniteCorrelatedNestedLoop";
@@ -389,23 +391,24 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         ImmutableIntList leftKeys = rel.leftCollation().getKeys();
         ImmutableIntList rightKeys = rel.rightCollation().getKeys();
 
-        // Convert conditions to using collation indexes instead of field indexes.
-        List<IntPair> condIndexes = rel.analyzeCondition().pairs().stream()
-                .map(p -> IntPair.of(leftKeys.indexOf(p.source), rightKeys.indexOf(p.target)))
-                .collect(Collectors.toList());
+        // Convert conditions to use collation indexes instead of field indexes.
+        List<IntPair> conditionPairs = rel.analyzeCondition().pairs();
+        List<IntPair> condIndexes = new ArrayList<>(conditionPairs.size());
+        for (IntPair pair : conditionPairs) {
+            condIndexes.add(IntPair.of(leftKeys.indexOf(pair.source), rightKeys.indexOf(pair.target)));
+        }
 
         // Columns with larger indexes should go last.
-        condIndexes.sort(Comparator.comparingInt((IntPair l) -> Math.max(l.source, l.target))
-                .thenComparingInt(l -> Math.min(l.source, l.target)));
+        condIndexes.sort(CONDITION_PAIRS_COMPARATOR);
 
         int conditions = condIndexes.size();
         List<RelFieldCollation> leftCollation = new ArrayList<>(conditions);
         List<RelFieldCollation> rightCollation = new ArrayList<>(conditions);
 
-        condIndexes.forEach(pair -> {
+        for (IntPair pair : condIndexes) {
             leftCollation.add(rel.leftCollation().getFieldCollations().get(pair.source));
             rightCollation.add(rel.rightCollation().getFieldCollations().get(pair.target));
-        });
+        }
 
         if (IgniteUtils.assertionsEnabled()) {
             ensureComparatorCollationSatisfiesSourceCollation(leftCollation, leftKeys, "Left");
@@ -428,7 +431,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         return node;
     }
-
 
     /** {@inheritDoc} */
     @Override
