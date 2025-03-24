@@ -1055,8 +1055,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 // So the test changes them to 5 secs. As a result,
                 // implicit RW transactions have 5 secs timeout.
                 // But we want explicit transaction to be longer that implicit one,
-                // so here we set timeout to 10 seconds.
-                new TransactionOptions().timeoutMillis(10_000).readOnly(readOnly)
+                // so here we set timeout to 30 seconds.
+                new TransactionOptions().timeoutMillis(30_000).readOnly(readOnly)
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
