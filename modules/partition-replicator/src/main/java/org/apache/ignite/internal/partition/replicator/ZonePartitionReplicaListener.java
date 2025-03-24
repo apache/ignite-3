@@ -214,7 +214,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request)
                     .thenApply(res -> new ReplicaResult(res, null));
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
-              return  writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
+            return writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
         } else if (request instanceof TxStateCommitPartitionRequest) {
             return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request);
         } else if (request instanceof TxRecoveryMessage) {

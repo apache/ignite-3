@@ -88,7 +88,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-
+/**
+ * Tests for SQL API.
+ * Tests will be run through synchronous, asynchronous API and client entry points.
+ * By default, any SQL API test should be added to the base class and use special provided methods to interact
+ * with the API in a API-type-independent manner. For any API-specific test, should be used the appropriate subclass.
+ */
 public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected static final int ROW_COUNT = 16;
 
