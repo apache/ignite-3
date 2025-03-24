@@ -316,6 +316,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 doUnlock = false;
                 this.lock.unlock();
                 this.logManager.clearBufferedLogs();
+                // Client should retry request if it needs snapshot to be done, but log was not updated yet.
                 Status status = forced
                     ? new Status(RaftError.EAGAIN, "No new logs since last snapshot.")
                     : Status.OK();
