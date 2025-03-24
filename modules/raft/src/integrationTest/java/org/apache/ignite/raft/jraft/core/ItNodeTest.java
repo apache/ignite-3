@@ -2641,11 +2641,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         leader = cluster.waitAndGetLeader();
         assertEquals(follower, leader.getNodeId().getPeerId());
 
-        CountDownLatch latch = new CountDownLatch(1);
-        leader.snapshot(new ExpectClosure(latch));
-        waitLatch(latch);
-        latch = new CountDownLatch(1);
-        leader.snapshot(new ExpectClosure(latch));
+        var latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch), true);
         waitLatch(latch);
 
         // start the last peer which should be recover with snapshot.

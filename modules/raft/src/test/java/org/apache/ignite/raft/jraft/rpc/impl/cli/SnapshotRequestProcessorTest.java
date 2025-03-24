@@ -25,6 +25,7 @@ import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 
 public class SnapshotRequestProcessorTest extends AbstractCliRequestProcessorTest<SnapshotRequest> {
 
@@ -44,7 +45,7 @@ public class SnapshotRequestProcessorTest extends AbstractCliRequestProcessorTes
     @Override
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
         assertEquals(SnapshotRequest.class.getName(), interest);
-        Mockito.verify(node).snapshot(doneArg.capture());
+        Mockito.verify(node).snapshot(doneArg.capture(), anyBoolean());
         assertNotNull(doneArg.getValue());
     }
 
