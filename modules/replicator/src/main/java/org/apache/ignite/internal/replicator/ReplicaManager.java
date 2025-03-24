@@ -126,7 +126,7 @@ import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
+import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
@@ -155,7 +155,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final IgniteThrottledLogger throttledLog;
 
     /** Busy lock to stop synchronously. */
-    private final IgniteStripedReadWriteLock busyLock = new IgniteStripedReadWriteLock();
+    private final IgniteStripedBusyLock busyLock = new IgniteStripedBusyLock();
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -1729,14 +1729,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private boolean enterBusy() {
-        return !busyLock.isWriteLockedByCurrentThread() && busyLock.readLock().tryLock();
+        return busyLock.enterBusy();
     }
 
     private void leaveBusy() {
-        busyLock.readLock().unlock();
+        busyLock.leaveBusy();
     }
 
     private void blockBusy() {
-        busyLock.writeLock().lock();
+        busyLock.block();
     }
 }
