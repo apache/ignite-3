@@ -112,15 +112,17 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
         SnapshotWriter writer;
         Closure done;
+        boolean forced;
         SnapshotMeta meta;
         Executor executor;
 
-        SaveSnapshotDone(final SnapshotWriter writer, final Closure done, final SnapshotMeta meta,
+        SaveSnapshotDone(final SnapshotWriter writer, final Closure done, final SnapshotMeta meta, boolean forced,
             Executor executor) {
             super();
             this.writer = writer;
             this.done = done;
             this.meta = meta;
+            this.forced = forced;
             this.executor = executor;
         }
 
@@ -130,7 +132,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
 
         void continueRun(final Status st) {
-            final int ret = onSnapshotSaveDone(st, this.meta, this.writer);
+            final int ret = onSnapshotSaveDone(st, this.meta, this.writer, forced);
             if (ret != 0 && st.isOk()) {
                 st.setError(ret, "node call onSnapshotSaveDone failed");
             }
@@ -285,6 +287,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     @Override
     public void doSnapshot(final Closure done) {
+        doSnapshot(done, false);
+    }
+
+    @Override
+    public void doSnapshot(final Closure done, boolean forced) {
         boolean doUnlock = true;
         this.lock.lock();
         try {
@@ -309,12 +316,16 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 doUnlock = false;
                 this.lock.unlock();
                 this.logManager.clearBufferedLogs();
-                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done);
+                if (forced) {
+                    Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EAGAIN, "No new logs since last snapshot."));
+                } else {
+                    Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done);
+                }
                 return;
             }
 
             final long distance = this.fsmCaller.getLastAppliedIndex() - this.lastSnapshotIndex;
-            if (distance < this.node.getOptions().getSnapshotLogIndexMargin()) {
+            if (!forced && distance < this.node.getOptions().getSnapshotLogIndexMargin()) {
                 // If state machine's lastAppliedIndex value minus lastSnapshotIndex value is
                 // less than snapshotLogIndexMargin value, then directly return.
                 if (this.node != null) {
@@ -335,7 +346,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 return;
             }
             this.savingSnapshot = true;
-            final SaveSnapshotDone saveSnapshotDone = new SaveSnapshotDone(writer, done, null, this.node.getOptions().getCommonExecutor());
+            final SaveSnapshotDone saveSnapshotDone = new SaveSnapshotDone(writer, done, null, forced, this.node.getOptions().getCommonExecutor());
             if (!this.fsmCaller.onSnapshotSave(saveSnapshotDone)) {
                 Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EHOSTDOWN, "The raft node is down."));
                 return;
@@ -350,7 +361,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     }
 
-    int onSnapshotSaveDone(final Status st, final SnapshotMeta meta, final SnapshotWriter writer) {
+    int onSnapshotSaveDone(final Status st, final SnapshotMeta meta, final SnapshotWriter writer, boolean forced) {
         int ret;
         this.lock.lock();
         try {
@@ -366,8 +377,6 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                     }
                     writer.setError(RaftError.ESTALE, "Installing snapshot is older than local snapshot");
                 }
-            } else {
-                LOG.error("Fail to save snapshot: {}.", st);
             }
         }
         finally {
@@ -400,7 +409,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 this.lastSnapshotTerm = meta.lastIncludedTerm();
                 doUnlock = false;
                 this.lock.unlock();
-                this.logManager.setSnapshot(meta); // should be out of lock
+                this.logManager.setSnapshot(meta, forced); // should be out of lock
                 doUnlock = true;
                 this.lock.lock();
             }
@@ -431,7 +440,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 this.lastSnapshotTerm = this.loadingSnapshotMeta.lastIncludedTerm();
                 doUnlock = false;
                 this.lock.unlock();
-                this.logManager.setSnapshot(this.loadingSnapshotMeta); // should be out of lock
+                this.logManager.setSnapshot(this.loadingSnapshotMeta, false); // should be out of lock
                 doUnlock = true;
                 this.lock.lock();
             }

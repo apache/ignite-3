@@ -40,7 +40,6 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemoveLearnersRequest
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 import java.io.IOException;
@@ -49,7 +48,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -436,26 +434,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> snapshot(Peer peer) {
-        SnapshotRequest req = factory.snapshotRequest()
+    public CompletableFuture<Void> snapshot(Peer peer, boolean forced) {
+        Function<Peer, ? extends NetworkMessage> requestFactory = (peer1) -> factory.snapshotRequest()
                 .peerId(peerId(peer))
                 .groupId(groupId)
+                .forced(forced)
                 .build();
 
-        // Disable the timeout for a snapshot request.
-        return resolvePeer(peer)
-                .thenCompose(node -> cluster.messagingService().invoke(node, req, Integer.MAX_VALUE))
-                .thenAccept(resp -> {
-                    if (resp != null) {
-                        RpcRequests.ErrorResponse resp0 = (RpcRequests.ErrorResponse) resp;
-
-                        if (resp0.errorCode() != RaftError.SUCCESS.getNumber()) {
-                            var ex = new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg());
-
-                            throw new CompletionException(ex);
-                        }
-                    }
-                });
+        return sendWithRetry(peer, -1, NO_DESCRIPTION, requestFactory)
+                .thenAccept(resp -> {});
     }
 
     @Override

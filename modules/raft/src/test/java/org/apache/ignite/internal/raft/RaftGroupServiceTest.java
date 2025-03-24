@@ -373,7 +373,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = startRaftGroupService(NODES);
 
-        assertThat(service.snapshot(new Peer("localhost-8082")), willThrow(IgniteInternalException.class));
+        assertThat(service.snapshot(new Peer("localhost-8082"), false), willThrow(IgniteInternalException.class));
     }
 
     @Test
@@ -382,7 +382,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = startRaftGroupService(NODES);
 
-        assertThat(service.snapshot(new Peer("localhost-8082")), willThrow(RaftException.class));
+        assertThat(service.snapshot(new Peer("localhost-8082"), false), willThrow(RaftException.class));
     }
 
     @Test
