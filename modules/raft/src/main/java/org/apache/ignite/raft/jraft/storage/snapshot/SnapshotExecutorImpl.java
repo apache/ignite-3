@@ -376,6 +376,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                     }
                     writer.setError(RaftError.ESTALE, "Installing snapshot is older than local snapshot");
                 }
+            } else {
+                LOG.error("Fail to save snapshot: {}.", st);
             }
         }
         finally {
