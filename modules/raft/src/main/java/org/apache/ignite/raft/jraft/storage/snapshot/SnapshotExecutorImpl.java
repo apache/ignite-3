@@ -316,11 +316,10 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 doUnlock = false;
                 this.lock.unlock();
                 this.logManager.clearBufferedLogs();
-                if (forced) {
-                    Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EAGAIN, "No new logs since last snapshot."));
-                } else {
-                    Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done);
-                }
+                Status status = forced
+                    ? new Status(RaftError.EAGAIN, "No new logs since last snapshot.")
+                    : Status.OK();
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, status);
                 return;
             }
 
