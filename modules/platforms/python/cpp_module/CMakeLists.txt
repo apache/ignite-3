@@ -35,11 +35,6 @@ set(LIBRARIES
     ignite-protocol
     ignite3-odbc-obj
 )
-if (APPLE)
-    if (NOT ${USE_LOCAL_DEPS})
-        list(APPEND LIBRARIES epoll-shim)
-    endif()
-endif()
 
 add_library(${TARGET} SHARED ${SOURCES})
 
