@@ -418,6 +418,8 @@ public class Checkpointer extends IgniteWorker {
             failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
             throw e;
+        } finally {
+            currentCheckpointProgressForThrottling = null;
         }
     }
 
@@ -780,8 +782,8 @@ public class Checkpointer extends IgniteWorker {
     }
 
     public @Nullable CheckpointProgress currentCheckpointProgressForThrottling() {
-        return currentCheckpointProgress;
-//        return currentCheckpointProgressForThrottling;
+//        return currentCheckpointProgress;
+        return currentCheckpointProgressForThrottling;
     }
 
     /**

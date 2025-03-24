@@ -216,6 +216,7 @@ public class PersistentPageMemory implements PageMemory {
 
     /** Checkpoint timeout lock. */
     private final CheckpointTimeoutLock checkpointTimeoutLock;
+    private int checkpointBufLimit;
 
     /**
      * Constructor.
@@ -334,6 +335,7 @@ public class PersistentPageMemory implements PageMemory {
             DirectMemoryRegion checkpointRegion = regions.get(regs - 1);
 
             checkpointPool = new PagePool(regs - 1, checkpointRegion, sysPageSize, rwLock);
+            checkpointBufLimit = (int) (checkpointPool.pages() * CP_BUF_FILL_THRESHOLD);
 
             long checkpointBufferSize = checkpointRegion.size();
 
@@ -1857,7 +1859,7 @@ public class PersistentPageMemory implements PageMemory {
     private void releaseCheckpointBufferPage(long tmpBufPtr) {
         int resultCounter = checkpointPool.releaseFreePage(tmpBufPtr);
 
-        if (writeThrottle != null && resultCounter == checkpointPool.pages() / 2) {
+        if (writeThrottle != null && resultCounter == checkpointBufLimit - 5) {
             writeThrottle.wakeupThrottledThreads();
         }
     }

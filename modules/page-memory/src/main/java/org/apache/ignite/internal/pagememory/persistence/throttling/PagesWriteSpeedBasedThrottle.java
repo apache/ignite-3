@@ -66,7 +66,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
      * {@link IntervalBasedMeasurement#getSpeedOpsPerSec(long)} returns pages marked/second.
      * {@link IntervalBasedMeasurement#getAverage()} returns average throttle time.
      * */
-    private final IntervalBasedMeasurement markSpeedAndAvgParkTime = new IntervalBasedMeasurement(30, 25);
+    private final IntervalBasedMeasurement markSpeedAndAvgParkTime = new IntervalBasedMeasurement(250, 3);
 
     private final CheckpointLockStateChecker cpLockStateChecker;
 
