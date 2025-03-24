@@ -19,10 +19,8 @@ package org.apache.ignite.internal.rest.transaction;
 
 import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -39,11 +37,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
-import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -58,11 +54,6 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
     @Inject
     @Client("http://localhost:10300" + TRANSACTIONURL)
     HttpClient client;
-
-    @BeforeAll
-    void beforeAll() {
-        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
-    }
 
     @Test
     void shouldReturnAllTransactions() {

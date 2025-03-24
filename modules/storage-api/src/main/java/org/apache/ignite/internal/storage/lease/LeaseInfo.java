@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.lease;
 
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 
 /** Represents information about partition lease. */
 public class LeaseInfo {
@@ -61,5 +62,10 @@ public class LeaseInfo {
         result = 31 * result + primaryReplicaNodeId.hashCode();
         result = 31 * result + primaryReplicaNodeName.hashCode();
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

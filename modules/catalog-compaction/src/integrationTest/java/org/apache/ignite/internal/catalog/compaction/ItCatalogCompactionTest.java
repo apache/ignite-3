@@ -46,7 +46,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
-import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
@@ -122,8 +121,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     void setup() {
         List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
         assertEquals(initialNodes(), nodes.size());
-
-        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
     }
 
     @BeforeEach

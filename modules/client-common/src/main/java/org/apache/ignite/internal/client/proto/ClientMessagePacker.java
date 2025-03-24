@@ -31,6 +31,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -771,6 +772,16 @@ public class ClientMessagePacker implements AutoCloseable {
             packString(unit.name());
             packString(unit.version().render());
         }
+    }
+
+    /**
+     * Packs qualified name.
+     *
+     * @param name Qualified name.
+     */
+    public void packQualifiedName(QualifiedName name) {
+        packString(name.schemaName());
+        packString(name.objectName());
     }
 
     /**
