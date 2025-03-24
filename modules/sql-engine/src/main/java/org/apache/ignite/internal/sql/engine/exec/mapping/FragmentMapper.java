@@ -813,7 +813,6 @@ class FragmentMapper {
             List<String> nodes = context.targetFactory().resolveNodes(target);
             Int2ObjectMap<NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(target);
 
-
             return List.of(
                     new ColocationGroup(
                             new LongArrayList(sourceIds),
