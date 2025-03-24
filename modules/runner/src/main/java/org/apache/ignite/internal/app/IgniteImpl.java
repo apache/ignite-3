@@ -1534,6 +1534,7 @@ public class IgniteImpl implements Ignite {
                 }, joinExecutor)
                 .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), joinExecutor)
                 .thenCompose(ignored -> catalogManager.catalogInitializationFuture())
+                .thenCompose(ignored -> systemViewManager.completeRegistration())
                 .thenRunAsync(() -> {
                     try {
                         // Enable watermark events.
