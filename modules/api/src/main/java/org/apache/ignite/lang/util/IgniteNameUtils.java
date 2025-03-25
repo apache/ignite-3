@@ -108,6 +108,29 @@ public final class IgniteNameUtils {
         return identifier;
     }
 
+    /**
+     * Returns {@code true} if given string is valid identifier, {@code false} otherwise.
+     */
+    public static boolean isValidIdentifier(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
+            return false;
+        }
+
+        int codePoint = identifier.codePointAt(0);
+        if (!identifierStart(codePoint)) {
+            return false;
+        }
+
+        for (int pos = 1; pos < identifier.length(); pos++) {
+            codePoint = identifier.codePointAt(pos);
+            if (!(identifierStart(codePoint) || identifierExtend(codePoint))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /** An {@code identifier start} is any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”. */
     private static boolean identifierStart(int codePoint) {
         return Character.isAlphabetic(codePoint) || codePoint == '_';
