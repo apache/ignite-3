@@ -84,6 +84,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -139,6 +140,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -228,6 +231,8 @@ public class PartitionReplicaLifecycleManager extends
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
+    private final DataStorageManager dataStorageManager;
+
     private final ZoneResourcesManager zoneResourcesManager;
 
     private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
@@ -251,6 +256,8 @@ public class PartitionReplicaLifecycleManager extends
      * @param sharedTxStateStorage Shared tx state storage.
      * @param txManager Transaction manager.
      * @param schemaManager Schema manager.
+     * @param dataStorageManager Data storage manager.
+     * @param outgoingSnapshotsManager Outgoing snapshots manager.
      */
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
@@ -269,6 +276,7 @@ public class PartitionReplicaLifecycleManager extends
             TxStateRocksDbSharedStorage sharedTxStateStorage,
             TxManager txManager,
             SchemaManager schemaManager,
+            DataStorageManager dataStorageManager,
             OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         this(
@@ -287,6 +295,7 @@ public class PartitionReplicaLifecycleManager extends
                 systemDistributedConfiguration,
                 txManager,
                 schemaManager,
+                dataStorageManager,
                 new ZoneResourcesManager(
                         sharedTxStateStorage,
                         txManager,
@@ -315,6 +324,7 @@ public class PartitionReplicaLifecycleManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxManager txManager,
             SchemaManager schemaManager,
+            DataStorageManager dataStorageManager,
             ZoneResourcesManager zoneResourcesManager
     ) {
         this.catalogService = catalogService;
@@ -331,6 +341,7 @@ public class PartitionReplicaLifecycleManager extends
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
         this.txManager = txManager;
         this.schemaManager = schemaManager;
+        this.dataStorageManager = dataStorageManager;
         this.zoneResourcesManager = zoneResourcesManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -491,7 +502,13 @@ public class PartitionReplicaLifecycleManager extends
             return getOrCreateAssignments(zoneDescriptor, causalityToken, catalogVersion)
                     .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, assignments))
                     .thenCompose(
-                            assignments -> createZoneReplicationNodes(zoneId, assignments, causalityToken, zoneDescriptor.partitions())
+                            assignments -> createZoneReplicationNodes(
+                                    zoneId,
+                                    assignments,
+                                    causalityToken,
+                                    catalogVersion,
+                                    zoneDescriptor.partitions()
+                            )
                     );
         });
     }
@@ -499,7 +516,8 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Void> createZoneReplicationNodes(
             int zoneId,
             List<Assignments> assignments,
-            long revision,
+            long causalityToken,
+            int catalogVersion,
             int partitionCount
     ) {
         return inBusyLockAsync(busyLock, () -> {
@@ -518,13 +536,34 @@ public class PartitionReplicaLifecycleManager extends
                         zonePartitionId,
                         localMemberAssignment,
                         zoneAssignment,
-                        revision,
-                        partitionCount
+                        causalityToken,
+                        partitionCount,
+                        isVolatileZoneForCatalogVersion(zoneId, catalogVersion)
                 );
             }
 
             return allOf(partitionsStartFutures);
         });
+    }
+
+    private boolean isVolatileZoneForCatalogVersion(int zoneId, int catalogVersion) {
+        CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersion).zone(zoneId);
+
+        assert zoneDescriptor != null;
+
+        return isVolatileZone(zoneDescriptor);
+    }
+
+    private boolean isVolatileZone(CatalogZoneDescriptor zoneDescriptor) {
+        return zoneDescriptor.storageProfiles()
+                .profiles()
+                .stream()
+                .map(CatalogStorageProfileDescriptor::storageProfile)
+                .allMatch(storageProfile -> {
+                    StorageEngine storageEngine = dataStorageManager.engineByStorageProfile(storageProfile);
+
+                    return storageEngine != null && storageEngine.isVolatile();
+                });
     }
 
     /**
@@ -543,7 +582,8 @@ public class PartitionReplicaLifecycleManager extends
             @Nullable Assignment localMemberAssignment,
             Assignments stableAssignments,
             long revision,
-            int partitionCount
+            int partitionCount,
+            boolean isVolatileZone
     ) {
         if (localMemberAssignment == null) {
             return nullCompletedFuture();
@@ -607,8 +647,7 @@ public class PartitionReplicaLifecycleManager extends
                                     stablePeersAndLearners,
                                     zoneResources.raftListener(),
                                     raftGroupEventsListener,
-                                    // TODO: IGNITE-24371 - pass real isVolatile flag
-                                    false,
+                                    isVolatileZone,
                                     busyLock,
                                     storageIndexTracker
                             );
@@ -1124,7 +1163,8 @@ public class PartitionReplicaLifecycleManager extends
                     localMemberAssignment,
                     computedStableAssignments,
                     revision,
-                    zoneDescriptor.partitions()
+                    zoneDescriptor.partitions(),
+                    isVolatileZone(zoneDescriptor)
             );
         } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
