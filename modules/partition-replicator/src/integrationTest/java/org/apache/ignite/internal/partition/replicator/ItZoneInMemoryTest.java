@@ -26,11 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestDefaultProfilesNames;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -139,40 +140,24 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
 
         assertNotNull(zoneDescriptor);
 
-        List<CatalogStorageProfileDescriptor> storageProfilesDescriptors = zoneDescriptor.storageProfiles().profiles();
-
-        logStorageProfilesStatusMessage(node, storageProfilesDescriptors);
-
-        return storageProfilesDescriptors;
+        return zoneDescriptor.storageProfiles().profiles();
     }
 
-    private static void logStorageProfilesStatusMessage(Node node, List<CatalogStorageProfileDescriptor> storageProfilesDescriptors) {
-        StringBuilder logMsgBuilder = new StringBuilder("Storage engines that are presented: {");
+    private static String logStorageProfilesStatusMessage(Node node, List<CatalogStorageProfileDescriptor> storageProfilesDescriptors) {
+        return IgniteStringFormatter.format("Storage engines that are present: {}", storageProfilesDescriptors.stream()
+                .map(storageProfilesDescriptor -> {
+                    String storageProfile = storageProfilesDescriptor.storageProfile();
 
-        int lastStorageProfileIndex = storageProfilesDescriptors.size() - 1;
+                    StorageEngine storageEngine = node.dataStorageManager().engineByStorageProfile(storageProfile);
 
-        for (int storageProfileIdx = 0; storageProfileIdx <= lastStorageProfileIndex; storageProfileIdx++) {
-            String storageProfile = storageProfilesDescriptors.get(storageProfileIdx).storageProfile();
-
-            logMsgBuilder.append(storageProfile)
-                    .append(": ");
-
-            StorageEngine engine = node.dataStorageManager().engineByStorageProfile(storageProfile);
-
-            if (engine == null) {
-                logMsgBuilder.append("null");
-            } else if (engine.isVolatile()) {
-                logMsgBuilder.append("volatile");
-            } else {
-                logMsgBuilder.append("persistent");
-            }
-
-            if (storageProfileIdx != lastStorageProfileIndex) {
-                logMsgBuilder.append(", ");
-            }
-        }
-
-        LOG.info(logMsgBuilder.append("}.").toString());
+                    if (storageEngine == null) {
+                        return storageProfile + ": null";
+                    } else if (storageEngine.isVolatile()) {
+                        return storageProfile + ": volatile";
+                    } else {
+                        return storageProfile + ": persistent";
+                    }
+                }).collect(Collectors.toList()));
     }
 
     private static boolean isRaftLogStorageVolatile(Node node, int zoneId) {
@@ -213,8 +198,10 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
             }
         }
 
-        assertTrue(volatileEngineIsPresent);
-        assertTrue(persistentEngineIsPresent);
+        String assertionMessage = logStorageProfilesStatusMessage(node, zoneProfiles);
+
+        assertTrue(volatileEngineIsPresent, assertionMessage);
+        assertTrue(persistentEngineIsPresent, assertionMessage);
     }
 
     private static void checkZoneConsistsOfVolatileOnlyStorageProfile(Node node, int zoneId) {
@@ -228,6 +215,6 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
             return storageEngine != null && storageEngine.isVolatile();
         });
 
-        assertTrue(areAllEnginesVolatile);
+        assertTrue(areAllEnginesVolatile, logStorageProfilesStatusMessage(node, zoneProfiles));
     }
 }
