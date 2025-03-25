@@ -69,7 +69,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -239,6 +238,7 @@ import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurat
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -1110,7 +1110,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
+    public void metastorageRecoveryTest(boolean useSnapshot) throws Exception {
         List<IgniteImpl> nodes = startNodes(2);
         IgniteImpl main = nodes.get(0);
 
@@ -1170,7 +1170,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertEquals(mainVersion, secondRestartedVersion);
     }
 
-    private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws InterruptedException {
+    private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws Exception {
         // Force log truncation, so that restarting node would request a snapshot.
         JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
         List<Peer> peers = server.localPeers(MetastorageGroupId.INSTANCE);
@@ -1182,19 +1182,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var nodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, learnerPeer);
         RaftGroupService raftGroupService = server.raftGroupService(nodeId);
 
-        for (int i = 0; i < 2; i++) {
-            // Log must be truncated twice.
-            CountDownLatch snapshotLatch = new CountDownLatch(1);
-            AtomicReference<Status> snapshotStatus = new AtomicReference<>();
+        CompletableFuture<Status> fut = new CompletableFuture<>();
+        raftGroupService.getRaftNode().snapshot(fut::complete, true);
 
-            raftGroupService.getRaftNode().snapshot(status -> {
-                snapshotStatus.set(status);
-                snapshotLatch.countDown();
-            });
-
-            assertTrue(snapshotLatch.await(10, TimeUnit.SECONDS), "Snapshot was not finished in time");
-            assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
-        }
+        assertThat(fut, willCompleteSuccessfully());
+        assertEquals(RaftError.SUCCESS, fut.get().getRaftError());
     }
 
     /**
@@ -1578,7 +1570,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
-    public void testCorrectPartitionRecoveryOnSnapshot() throws InterruptedException {
+    public void testCorrectPartitionRecoveryOnSnapshot() throws Exception {
         int nodesCount = 3;
         List<IgniteImpl> nodes = startNodes(nodesCount);
 
@@ -1862,7 +1854,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
-    public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
+    public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws Exception {
         IgniteImpl node0 = startNode(0);
         IgniteImpl node1 = startNode(1);
 

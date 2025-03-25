@@ -669,7 +669,7 @@ public class NodeImpl implements Node, RaftServerService {
             this.writeLock.unlock();
         }
         // do_snapshot in another thread to avoid blocking the timer thread.
-        Utils.runInThread(this.getOptions().getCommonExecutor(), () -> doSnapshot(null));
+        Utils.runInThread(this.getOptions().getCommonExecutor(), () -> doSnapshot(null, false));
     }
 
     private void handleElectionTimeout() {
@@ -963,7 +963,7 @@ public class NodeImpl implements Node, RaftServerService {
                 return false;
             }
             final SynchronizedClosure snapshotDone = new SynchronizedClosure();
-            this.snapshotExecutor.doSnapshot(snapshotDone);
+            this.snapshotExecutor.doSnapshot(snapshotDone, false);
             if (!snapshotDone.await().isOk()) {
                 LOG.error("Fail to save snapshot, status={}.", snapshotDone.getStatus());
                 return false;
@@ -3618,12 +3618,17 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public void snapshot(final Closure done) {
-        doSnapshot(done);
+        doSnapshot(done, false);
     }
 
-    private void doSnapshot(final Closure done) {
+    @Override
+    public void snapshot(final Closure done, boolean forced) {
+        doSnapshot(done, forced);
+    }
+
+    private void doSnapshot(final Closure done, boolean forced) {
         if (this.snapshotExecutor != null) {
-            this.snapshotExecutor.doSnapshot(done);
+            this.snapshotExecutor.doSnapshot(done, forced);
         }
         else {
             if (done != null) {

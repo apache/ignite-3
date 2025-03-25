@@ -24,7 +24,7 @@ setup_directories() {
   [ -d '@CONF_DIR@' ] ||  install -d '@CONF_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
   [ -d '@PID_DIR@' ] ||  install -d '@PID_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
   [ -d '@LOG_DIR@' ] ||  install -d '@LOG_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
-  [ -d '@IGNITE_WORK_DIR@' ] ||  install -d '@IGNITE_WORK_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
+  [ -d '@WORK_DIR@' ] ||  install -d '@WORK_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
 
   /bin/chown -R "${USERNAME}:${GROUPNAME}" '@INSTALL_DIR@'
   /bin/chown -R "${USERNAME}:${GROUPNAME}" '@LOG_DIR@'

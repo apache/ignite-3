@@ -422,7 +422,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         // Do the snapshot.
-        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName())));
+        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName()), false));
 
         // Restart nodes in order to trigger idempotent volatile cache initialization from snapshot.
         for (Node node : nodes) {

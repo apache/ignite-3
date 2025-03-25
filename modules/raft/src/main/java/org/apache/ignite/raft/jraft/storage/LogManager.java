@@ -125,8 +125,9 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
      * Notify the log manager about the latest snapshot, which indicates the logs which can be safely truncated.
      *
      * @param meta snapshot metadata
+     * @param useLastSnapshotIndex if {@code True} truncates log until last snapshot saved index
      */
-    void setSnapshot(final SnapshotMeta meta);
+    void setSnapshot(final SnapshotMeta meta, boolean useLastSnapshotIndex);
 
     /**
      * We don't delete all the logs before last snapshot to avoid installing snapshot on slow replica. Call this method

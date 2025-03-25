@@ -86,7 +86,9 @@ public class NodeManager implements Lifecycle<NodeOptions> {
 
     @Override
     public void shutdown() {
-        stopGuard.compareAndSet(false, true);
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
 
         rpcClient.shutdown();
     }

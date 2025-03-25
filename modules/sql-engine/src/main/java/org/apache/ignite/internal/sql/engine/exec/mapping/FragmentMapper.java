@@ -815,7 +815,7 @@ class FragmentMapper {
 
             return List.of(
                     new ColocationGroup(
-                            List.copyOf(sourceIds),
+                            new LongArrayList(sourceIds),
                             nodes,
                             assignments
                     )
