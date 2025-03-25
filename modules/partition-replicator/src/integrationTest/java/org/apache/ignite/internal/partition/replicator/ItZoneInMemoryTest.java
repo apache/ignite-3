@@ -139,11 +139,11 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
 
         assertNotNull(zoneDescriptor);
 
-        List<CatalogStorageProfileDescriptor> storageProfilesDescripptors = zoneDescriptor.storageProfiles().profiles();
+        List<CatalogStorageProfileDescriptor> storageProfilesDescriptors = zoneDescriptor.storageProfiles().profiles();
 
-        logStorageProfilesStatusMessage(node, storageProfilesDescripptors);
+        logStorageProfilesStatusMessage(node, storageProfilesDescriptors);
 
-        return storageProfilesDescripptors;
+        return storageProfilesDescriptors;
     }
 
     private static void logStorageProfilesStatusMessage(Node node, List<CatalogStorageProfileDescriptor> storageProfilesDescriptors) {
@@ -198,8 +198,8 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
 
         assertEquals(2, zoneProfiles.size());
 
-        boolean volatileEngineIsPresented = false;
-        boolean persistentEngineIsPresented = false;
+        boolean volatileEngineIsPresent = false;
+        boolean persistentEngineIsPresent = false;
 
         for (CatalogStorageProfileDescriptor profile : zoneProfiles) {
             StorageEngine engine = node.dataStorageManager().engineByStorageProfile(profile.storageProfile());
@@ -207,14 +207,14 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
             assertNotNull(engine);
 
             if (engine.isVolatile()) {
-                volatileEngineIsPresented = true;
+                volatileEngineIsPresent = true;
             } else {
-                persistentEngineIsPresented = true;
+                persistentEngineIsPresent = true;
             }
         }
 
-        assertTrue(volatileEngineIsPresented);
-        assertTrue(persistentEngineIsPresented);
+        assertTrue(volatileEngineIsPresent);
+        assertTrue(persistentEngineIsPresent);
     }
 
     private static void checkZoneConsistsOfVolatileOnlyStorageProfile(Node node, int zoneId) {
