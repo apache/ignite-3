@@ -22,6 +22,8 @@ import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 
+import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import java.util.ArrayList;
 import java.util.List;
@@ -367,35 +369,33 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
     private static RelCollation buildDesiredCollation(JoinInfo joinInfo, RelCollation collation, boolean left2Right) {
         List<RelFieldCollation> source = collation.getFieldCollations();
 
+        // Build index for futher sorting join conditions
+        Int2IntMap collationIndex = new Int2IntArrayMap(source.size());
+        for (int i = 0; i < source.size(); i++) {
+            collationIndex.put(source.get(i).getFieldIndex(), i);
+        }
+
         List<IntPair> conditionPairs = joinInfo.pairs();
         List<IntPair> mapping = new ArrayList<>(conditionPairs.size());
 
         if (left2Right) {
-            mapping.addAll(conditionPairs);
+            for (IntPair pair : conditionPairs) {
+                mapping.add(IntPair.of(collationIndex.get(pair.source), pair.target));
+            }
         } else { // Build reverse mapping for right-to-left case.
             for (IntPair pair : conditionPairs) {
-                mapping.add(IntPair.of(pair.target, pair.source));
+                mapping.add(IntPair.of(collationIndex.get(pair.target), pair.source));
             }
         }
+        // Sort conditions in order of given source collation.
+        mapping.sort(IntPair.ORDERING);
 
-        IntPredicate isUnique = new IntArraySet(source.size())::add;
-        List<RelFieldCollation> target = new ArrayList<>(source.size());
-        for (RelFieldCollation fieldCollation : source) {
-            boolean found = false;
-
-            // Iterate over all conditions to support many-to-many mapping.
-            // Filter our target duplicates, because they don't affect the collation.
-            for (IntPair p : mapping) {
-                if (fieldCollation.getFieldIndex() == p.source) {
-                    found = true;
-                    if (isUnique.test(p.target)) {
-                        target.add(fieldCollation.withFieldIndex(p.target));
-                    }
-                }
-            }
-
-            if (!found) {
-                break; // Search for valid prefix only.
+        // Build target collation filtering our duplicates, because they don't affect the collation.
+        IntPredicate isUnique = new IntArraySet(mapping.size())::add;
+        List<RelFieldCollation> target = new ArrayList<>(mapping.size());
+        for (IntPair pair : mapping) {
+            if (isUnique.test(pair.target)) {
+                target.add(source.get(pair.source).withFieldIndex(pair.target));
             }
         }
 
