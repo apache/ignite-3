@@ -249,9 +249,9 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
             );
 
             assertThrowsSqlException(
-                    STMT_PARSE_ERR,
-                    "Failed to parse query: Encountered \"/\"",
-                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT 1/0, primary key (id) )", col))
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT 1/0", col))
             );
 
             assertThrowsSqlException(
@@ -296,9 +296,9 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
             );
 
             assertThrowsSqlException(
-                    STMT_PARSE_ERR,
-                    "Failed to parse query: Encountered \"/\"",
-                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT 1/0, primary key (id) )", col))
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT 1/0", col))
             );
 
             assertThrowsSqlException(

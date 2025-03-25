@@ -768,6 +768,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "a.b.c; Unsupported default expression: A.B.C",
             "rand_int(); Unsupported default expression: `RAND_INT`()",
             "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
             "(1+2); Unsupported default expression: 1 + 2"
     })
     public void testCreateTableRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
@@ -784,6 +785,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "a.b.c; Unsupported default expression: A.B.C",
             "rand_int(); Unsupported default expression: `RAND_INT`()",
             "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
             "(1+2); Unsupported default expression: 1 + 2"
     })
     public void testAddColumnRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
@@ -801,6 +803,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "a.b.c; Unsupported default expression: A.B.C",
             "rand_int(); Unsupported default expression: `RAND_INT`()",
             "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
             "(1+2); Unsupported default expression: 1 + 2"
     })
     public void testAlterColumnSetDataTypeRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
@@ -818,6 +821,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "a.b.c; Unsupported default expression: A.B.C",
             "rand_int(); Unsupported default expression: `RAND_INT`()",
             "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
             "(1+2); Unsupported default expression: 1 + 2"
     })
     public void testAlterColumnSetDefaultRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {

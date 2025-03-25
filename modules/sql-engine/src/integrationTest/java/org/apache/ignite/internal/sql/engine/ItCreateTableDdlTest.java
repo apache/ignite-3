@@ -709,8 +709,8 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         );
 
         assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"/\"",
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: 1 / 0",
                 () -> sql("CREATE TABLE test (id INT, val INT DEFAULT 1/0, primary key (id) )")
         );
 

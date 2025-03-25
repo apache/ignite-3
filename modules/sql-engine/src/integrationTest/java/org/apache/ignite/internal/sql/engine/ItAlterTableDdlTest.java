@@ -466,8 +466,8 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         );
 
         assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"/\"",
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: 1 / 0",
                 () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT 1/0")
         );
 
