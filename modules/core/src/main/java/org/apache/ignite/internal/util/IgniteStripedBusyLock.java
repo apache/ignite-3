@@ -33,7 +33,7 @@ public class IgniteStripedBusyLock {
      * @return {@code true} if entered to busy state.
      */
     public boolean enterBusy() {
-        if (blocked || !lock.readLock().tryLock()) {
+        if (!lock.readLock().tryLock()) {
             return false;
         }
 
