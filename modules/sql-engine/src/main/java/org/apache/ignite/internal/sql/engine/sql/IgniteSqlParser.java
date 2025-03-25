@@ -318,6 +318,10 @@ public final class IgniteSqlParser  {
         @Override
         public @Nullable SqlNode visit(SqlIdentifier id) {
             for (String segment : id.names) {
+                if (segment.isEmpty() && id.isStar()) {
+                    continue;
+                }
+
                 validateIdentifier(id.getParserPosition(), segment);
             }
 
