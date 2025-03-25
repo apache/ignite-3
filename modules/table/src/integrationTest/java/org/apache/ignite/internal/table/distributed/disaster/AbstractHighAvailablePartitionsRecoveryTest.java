@@ -350,7 +350,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     final void createScZoneWithTable() {
         executeSql(String.format(
-                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, CONSISTENCY MODE='STRONG_CONSISTENCY') STORAGE PROFILES ['%s']",
+                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, CONSISTENCY MODE 'STRONG_CONSISTENCY') STORAGE PROFILES ['%s']",
                 SC_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
         ));
 

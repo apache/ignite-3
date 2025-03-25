@@ -76,8 +76,8 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
      */
     @Test
     public void testCompaction() throws InterruptedException {
-        String zoneSql = "create zone " + ZONE_NAME + " (partitions 1) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']"
-                + ", data_nodes_auto_adjust_scale_down=0";
+        String zoneSql = "create zone " + ZONE_NAME + " (partitions 1, auto scale down 0) storage profiles ['"
+                + DEFAULT_STORAGE_PROFILE + "']";
 
         CLUSTER.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
