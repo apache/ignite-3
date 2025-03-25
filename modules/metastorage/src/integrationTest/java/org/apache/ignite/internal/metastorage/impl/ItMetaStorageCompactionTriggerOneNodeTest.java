@@ -70,7 +70,7 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
 
         // Let's wait until the compaction on revision of FOO_KEY creation happens.
         long fooRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
-        assertTrue(waitForCondition(() -> metaStorageManager.getCompactionRevisionLocally() >= fooRevision, 10, 1_000));
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedCompactionRevision() >= fooRevision, 10, 1_000));
 
         log.info("Latest revision for key: [key={}, revision={}]", FOO_KEY, fooRevision);
 
@@ -80,7 +80,7 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
 
         long latestFooRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
 
-        long latestCompactionRevision = metaStorageManager.getCompactionRevisionLocally();
+        long latestCompactionRevision = metaStorageManager.appliedCompactionRevision();
         // Let's change the properties before restarting so that a new scheduled compaction does not start after the node starts.
         changeCompactionProperties(node, Long.MAX_VALUE, Long.MAX_VALUE);
 
@@ -90,7 +90,7 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
 
         // Let's make sure that after the restart the correct revision of the compaction is restored and the compaction itself will be at
         // the latest compaction revision.
-        assertEquals(latestCompactionRevision, restartedMetaStorageManager.getCompactionRevisionLocally());
+        assertEquals(latestCompactionRevision, restartedMetaStorageManager.appliedCompactionRevision());
         assertTrue(waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(cluster, FOO_KEY, latestFooRevision), 10, 1_000));
     }
 

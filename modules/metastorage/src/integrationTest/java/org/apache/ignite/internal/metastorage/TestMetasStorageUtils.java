@@ -115,7 +115,7 @@ public class TestMetasStorageUtils {
     public static Map<String, Long> collectCompactionRevisionForAllNodesLocally(Cluster cluster) {
         return cluster.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
-                .collect(Collectors.toMap(IgniteImpl::name, ignite -> ignite.metaStorageManager().getCompactionRevisionLocally()));
+                .collect(Collectors.toMap(IgniteImpl::name, ignite -> ignite.metaStorageManager().appliedCompactionRevision()));
     }
 
     private static Set<Long> collectRevisionsLocally(MetaStorageManager metaStorageManager, ByteArray key) {

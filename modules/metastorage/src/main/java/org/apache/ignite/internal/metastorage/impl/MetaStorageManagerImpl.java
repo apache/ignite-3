@@ -172,6 +172,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     private volatile long appliedRevision = 0;
 
+    private volatile long appliedCompactionRevision = -1;
+
     private volatile MetaStorageConfiguration metaStorageConfiguration;
 
     private final List<ElectionListener> electionListeners = new CopyOnWriteArrayList<>();
@@ -354,6 +356,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                         long recoveryRevision = revisions.revision();
 
                         appliedRevision = recoveryRevision;
+                        appliedCompactionRevision = revisions.compactionRevision();
 
                         if (recoveryRevision > 0) {
                             clusterTime.updateSafeTime(storage.timestampByRevision(recoveryRevision));
@@ -795,6 +798,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
+    public long appliedCompactionRevision() {
+        return appliedCompactionRevision;
+    }
+
+    @Override
     public void registerPrefixWatch(ByteArray key, WatchListener listener) {
         storage.watchRange(key.bytes(), storage.nextKey(key.bytes()), appliedRevision() + 1, listener);
     }
@@ -832,6 +840,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                             @Override
                             public void onRevisionApplied(long revision) {
                                 MetaStorageManagerImpl.this.onRevisionApplied(revision);
+                            }
+
+                            @Override
+                            public void onCompactionRevisionApplied(long compactionRevision) {
+                                MetaStorageManagerImpl.this.onCompactionRevisionApplied(compactionRevision);
                             }
                         });
                     }))
@@ -1079,6 +1092,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         appliedRevision = revision;
     }
 
+    /** Saves processed Meta Storage compaction revision to the {@link #appliedCompactionRevision}. */
+    private void onCompactionRevisionApplied(long compactionRevision) {
+        appliedCompactionRevision = compactionRevision;
+    }
+
     @Override
     public ClusterTime clusterTime() {
         return clusterTime;
@@ -1245,11 +1263,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    @Override
-    public long getCompactionRevisionLocally() {
-        return inBusyLock(busyLock, storage::getCompactionRevision);
-    }
-
     @TestOnly
     public KeyValueStorage storage() {
         return storage;
@@ -1257,7 +1270,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(Supplier<CompletableFuture<T>> readFromLeader) {
         long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
-        long compactionRevision = storage.getCompactionRevision();
+        long compactionRevision = appliedCompactionRevision;
 
         readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);
 
@@ -1274,7 +1287,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(Supplier<Publisher<Entry>> readFromLeader) {
         long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
-        long compactionRevision = storage.getCompactionRevision();
+        long compactionRevision = appliedCompactionRevision;
 
         readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);
 
