@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.List;
 import java.util.Map;
@@ -51,10 +52,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -112,7 +113,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests how RAFT snapshots installation works for table partitions.
@@ -183,15 +184,39 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     /**
      * Tests that a leader successfully feeds a follower with a RAFT snapshot on any of the supported storage engines.
      */
-    // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
-    @ParameterizedTest
-    @ValueSource(strings = {
-            RocksDbStorageEngine.ENGINE_NAME,
-            PersistentPageMemoryStorageEngine.ENGINE_NAME,
-            VolatilePageMemoryStorageEngine.ENGINE_NAME
-    })
+    @ParameterizedTest(name = "engine = {0}")
+    @MethodSource("storageEngines")
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
         testLeaderFeedsFollowerWithSnapshot(storageEngine);
+    }
+
+    /**
+     * Tests that data can be recovered on node start after snapshot installation.
+     */
+    @ParameterizedTest(name = "engine = {0}")
+    @MethodSource("storageEngines")
+    void testDataRecoveryAfterSnapshot(String storageEngine) throws Exception {
+        assumeFalse(
+                storageEngine.equals(VolatilePageMemoryStorageEngine.ENGINE_NAME),
+                "https://issues.apache.org/jira/browse/IGNITE-24857"
+        );
+
+        feedNode2WithSnapshotOfOneRow(storageEngine);
+
+        cluster.restartNode(2);
+
+        transferLeadershipOnSolePartitionTo(2);
+
+        assertThat(getFromNode(2, 1), is("one"));
+    }
+
+    // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
+    private static Stream<String> storageEngines() {
+        return Stream.of(
+                RocksDbStorageEngine.ENGINE_NAME,
+                PersistentPageMemoryStorageEngine.ENGINE_NAME,
+                VolatilePageMemoryStorageEngine.ENGINE_NAME
+        );
     }
 
     /**
@@ -227,11 +252,11 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         return mvPartition;
     }
 
-    private void feedNode2WithSnapshotOfOneRow() throws InterruptedException {
+    private void feedNode2WithSnapshotOfOneRow() throws Exception {
         feedNode2WithSnapshotOfOneRow(DEFAULT_STORAGE_ENGINE);
     }
 
-    private void feedNode2WithSnapshotOfOneRow(String storageEngine) throws InterruptedException {
+    private void feedNode2WithSnapshotOfOneRow(String storageEngine) throws Exception {
         prepareClusterForInstallingSnapshotToNode2(storageEngine);
 
         reanimateNode2AndWaitForSnapshotInstalled();
@@ -241,7 +266,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * Transfer the cluster to a state in which, when node 2 is reanimated from being knocked-out, the only partition
      * of the only table (called TEST) is transferred to it using RAFT snapshot installation mechanism.
      */
-    private void prepareClusterForInstallingSnapshotToNode2() throws InterruptedException {
+    private void prepareClusterForInstallingSnapshotToNode2() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE);
     }
 
@@ -251,7 +276,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      *
      * @param storageEngine Storage engine for the TEST table.
      */
-    private void prepareClusterForInstallingSnapshotToNode2(String storageEngine) throws InterruptedException {
+    private void prepareClusterForInstallingSnapshotToNode2(String storageEngine) throws Exception {
         prepareClusterForInstallingSnapshotToNode2(storageEngine, theCluster -> {});
     }
 
@@ -265,7 +290,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     private void prepareClusterForInstallingSnapshotToNode2(
             String storageEngine,
             Consumer<Cluster> doOnClusterAfterInit
-    ) throws InterruptedException {
+    ) throws Exception {
         doOnClusterAfterInit.accept(cluster);
 
         createTestTableWith3Replicas(storageEngine);
@@ -355,25 +380,23 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * with AppendEntries (because the leader does not already have the index that is required to send AppendEntries
      * to the lagging follower), so the leader will have to send InstallSnapshot instead.
      */
-    private void causeLogTruncationOnSolePartitionLeader(int expectedLeaderNodeIndex) throws InterruptedException {
-        // Doing this twice because first snapshot creation does not trigger log truncation.
-        doSnapshotOnSolePartitionLeader(expectedLeaderNodeIndex);
-        doSnapshotOnSolePartitionLeader(expectedLeaderNodeIndex);
+    private void causeLogTruncationOnSolePartitionLeader(int expectedLeaderNodeIndex) throws Exception {
+        doSnapshotOnSolePartitionLeader(expectedLeaderNodeIndex, true);
     }
 
     /**
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
-    private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex) throws InterruptedException {
+    private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex, boolean forced) throws Exception {
         TablePartitionId tablePartitionId = cluster.solePartitionId();
 
-        doSnapshotOn(tablePartitionId, expectedLeaderNodeIndex);
+        doSnapshotOn(tablePartitionId, expectedLeaderNodeIndex, forced);
     }
 
     /**
      * Takes a RAFT snapshot on the leader of the RAFT group corresponding to the given table partition.
      */
-    private void doSnapshotOn(TablePartitionId tablePartitionId, int expectedLeaderNodeIndex) throws InterruptedException {
+    private void doSnapshotOn(TablePartitionId tablePartitionId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
         RaftGroupService raftGroupService = cluster.leaderServiceFor(tablePartitionId);
 
         assertThat(
@@ -381,17 +404,11 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
                 raftGroupService.getServerId().getConsistentId(), is(cluster.node(expectedLeaderNodeIndex).name())
         );
 
-        CountDownLatch snapshotLatch = new CountDownLatch(1);
-        AtomicReference<Status> snapshotStatus = new AtomicReference<>();
+        CompletableFuture<Status> fut = new CompletableFuture<>();
+        raftGroupService.getRaftNode().snapshot(fut::complete, forced);
 
-        raftGroupService.getRaftNode().snapshot(status -> {
-            snapshotStatus.set(status);
-            snapshotLatch.countDown();
-        });
-
-        assertTrue(snapshotLatch.await(10, TimeUnit.SECONDS), "Snapshot was not finished in time");
-
-        assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
+        assertThat(fut, willCompleteSuccessfully());
+        assertEquals(RaftError.SUCCESS, fut.get().getRaftError());
     }
 
     /**

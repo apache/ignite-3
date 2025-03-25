@@ -77,6 +77,6 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets the code as string.
         /// </summary>
-        public string CodeAsString => ErrorPrefix + '-' + GroupName + '-' + ErrorCode;
+        public string CodeAsString => ErrorPrefix + '-' + GroupName + '-' + unchecked((ushort)ErrorCode);
     }
 }

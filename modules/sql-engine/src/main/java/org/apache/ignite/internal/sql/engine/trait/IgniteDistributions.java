@@ -120,7 +120,7 @@ public class IgniteDistributions {
      * @return Identity distribution.
      */
     public static IgniteDistribution identity(int key) {
-        return canonize(new DistributionTrait(List.of(key), DistributionFunction.identity()));
+        return canonize(new DistributionTrait(ImmutableIntList.of(key), DistributionFunction.identity()));
     }
 
     /**

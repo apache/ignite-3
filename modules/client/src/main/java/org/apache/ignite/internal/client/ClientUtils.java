@@ -45,9 +45,11 @@ public class ClientUtils {
                 return null;
 
             case ClientOp.TABLES_GET:
+            case ClientOp.TABLES_GET_QUALIFIED:
                 return ClientOperationType.TABLES_GET;
 
             case ClientOp.TABLE_GET:
+            case ClientOp.TABLE_GET_QUALIFIED:
                 return ClientOperationType.TABLE_GET;
 
             case ClientOp.SCHEMAS_GET:

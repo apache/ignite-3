@@ -38,6 +38,7 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -86,7 +87,8 @@ public class IndexBuildingManager implements IgniteComponent {
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
-            FailureManager failureManager
+            FailureManager failureManager,
+            LowWatermark lowWatermark
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -113,7 +115,8 @@ public class IndexBuildingManager implements IgniteComponent {
                 catalogManager,
                 clusterService,
                 placementDriver,
-                clockService
+                clockService,
+                failureManager
         );
 
         var indexTaskScheduler = new ChangeIndexStatusTaskScheduler(
@@ -131,6 +134,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 catalogManager,
                 placementDriver,
                 clusterService,
+                lowWatermark,
                 indexTaskScheduler
         );
     }

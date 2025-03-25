@@ -24,11 +24,11 @@ import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Serializers for {@link NewColumnsEntry}.
@@ -46,7 +46,7 @@ public class NewColumnsEntrySerializers {
         }
 
         @Override
-        public NewColumnsEntry readFrom(IgniteDataInput in) throws IOException {
+        public NewColumnsEntry readFrom(CatalogObjectDataInput in) throws IOException {
             CatalogObjectSerializer<CatalogTableColumnDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
 
@@ -57,11 +57,31 @@ public class NewColumnsEntrySerializers {
         }
 
         @Override
-        public void writeTo(NewColumnsEntry entry, IgniteDataOutput out) throws IOException {
+        public void writeTo(NewColumnsEntry entry, CatalogObjectDataOutput out) throws IOException {
             CatalogObjectSerializer<CatalogTableColumnDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id());
 
             writeList(entry.descriptors(), serializer, out);
+            out.writeVarInt(entry.tableId());
+        }
+    }
+
+    /**
+     * Serializer for {@link NewColumnsEntry}.
+     */
+    @CatalogSerializer(version = 2, since = "3.1.0")
+    static class NewColumnsEntrySerializerV2 implements CatalogObjectSerializer<NewColumnsEntry> {
+        @Override
+        public NewColumnsEntry readFrom(CatalogObjectDataInput in) throws IOException {
+            List<CatalogTableColumnDescriptor> columns = in.readEntryList(CatalogTableColumnDescriptor.class);
+            int tableId = in.readVarIntAsInt();
+
+            return new NewColumnsEntry(tableId, columns);
+        }
+
+        @Override
+        public void writeTo(NewColumnsEntry entry, CatalogObjectDataOutput out) throws IOException {
+            out.writeEntryList(entry.descriptors());
             out.writeVarInt(entry.tableId());
         }
     }

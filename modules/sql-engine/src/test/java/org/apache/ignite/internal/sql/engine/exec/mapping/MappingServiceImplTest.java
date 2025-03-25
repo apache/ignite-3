@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
@@ -41,21 +42,23 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
@@ -65,8 +68,10 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -75,6 +80,9 @@ import org.mockito.Mockito;
  */
 @SuppressWarnings("ThrowFromFinallyBlock")
 public class MappingServiceImplTest extends BaseIgniteAbstractTest {
+    private static final String ZONE_NAME_1 = "zone1";
+    private static final String ZONE_NAME_2 = "zone2";
+
     private static final MultiStepPlan PLAN;
     private static final MultiStepPlan PLAN_WITH_SYSTEM_VIEW;
     private static final TestCluster cluster;
@@ -88,13 +96,21 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // @formatter:off
         cluster = TestBuilders.cluster()
                 .nodes("N1")
+                .addZone()
+                        .name(ZONE_NAME_1)
+                        .end()
+                .addZone()
+                        .name(ZONE_NAME_2)
+                        .end()
                 .addTable()
                         .name("T1")
+                        .zoneName(ZONE_NAME_1)
                         .addKeyColumn("ID", NativeTypes.INT32)
                         .addColumn("VAL", NativeTypes.INT32)
                         .end()
                 .addTable()
                         .name("T2")
+                        .zoneName(ZONE_NAME_2)
                         .addKeyColumn("ID", NativeTypes.INT32)
                         .addColumn("VAL", NativeTypes.INT32)
                         .end()
@@ -127,7 +143,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
         // Initialize mapping service.
-        Supplier<Long> logicalTopologyVerSupplier = createChangingTopologySupplier();
+        LongSupplier logicalTopologyVerSupplier = createChangingTopologySupplier();
         TestExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
@@ -196,7 +212,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
-        Supplier<Long> logicalTopologyVerSupplier = createTriggeredTopologySupplier();
+        LongSupplier logicalTopologyVerSupplier = createTriggeredTopologySupplier();
         TestExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
@@ -234,11 +250,11 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         verify(execProvider, times(2)).forSystemView(any());
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test.
+    // The colocation case is covered by {@link #testCacheInvalidationOnPrimaryZoneExpiration()}.
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testCacheInvalidationOnPrimaryExpiration() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-24679 - remove this assumption.
-        assumeFalse(IgniteSystemProperties.enabledColocation());
-
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
@@ -258,7 +274,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         };
 
         // Initialize mapping service.
-        Supplier<Long> logicalTopologyVerSupplier = createStableTopologySupplier();
+        LongSupplier logicalTopologyVerSupplier = createStableTopologySupplier();
         ExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
@@ -286,12 +302,59 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         verify(execProvider, times(2)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
     }
 
+    @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    public void testCacheInvalidationOnPrimaryZoneExpiration() {
+        String localNodeName = "NODE";
+        List<String> nodeNames = List.of(localNodeName, "NODE1");
+
+        Function<String, PrimaryReplicaEventParameters> prepareEvtParams = (name) -> {
+            CatalogService catalogService = cluster.catalogManager();
+            Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+
+            @Nullable CatalogZoneDescriptor zoneDescriptor = catalog.zone(name);
+
+            assertNotNull(zoneDescriptor);
+
+            return new PrimaryReplicaEventParameters(
+                    0, new ZonePartitionId(zoneDescriptor.id(), 0), new UUID(0, 0), "ignored", HybridTimestamp.MIN_VALUE);
+        };
+
+        // Initialize mapping service.
+        LongSupplier logicalTopologyVerSupplier = createStableTopologySupplier();
+        ExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
+
+        MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
+                localNodeName,
+                CLOCK_SERVICE,
+                CaffeineCacheFactory.INSTANCE,
+                100,
+                PARTITION_PRUNER,
+                logicalTopologyVerSupplier,
+                execProvider
+        ));
+
+        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN, PARAMS));
+        verify(execProvider, times(1)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
+
+        // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
+        await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply(ZONE_NAME_2)));
+        assertSame(mappedFragments, await(mappingService.map(PLAN, PARAMS)));
+
+        verify(mappingService, times(1)).composeDistributions(anySet(), anySet(), anyBoolean());
+
+        // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
+        await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply(ZONE_NAME_1)));
+        assertNotSame(mappedFragments, await(mappingService.map(PLAN, PARAMS)));
+        verify(execProvider, times(2)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
+    }
+
     private MappingServiceImpl createMappingServiceNoCache(String localNodeName, List<String> nodeNames) {
         return createMappingService(localNodeName, nodeNames, 0);
     }
 
     private MappingServiceImpl createMappingService(String localNodeName, List<String> nodeNames, int cacheSize) {
-        Supplier<Long> logicalTopologyVerSupplier = createChangingTopologySupplier();
+        LongSupplier logicalTopologyVerSupplier = createChangingTopologySupplier();
         ExecutionDistributionProvider execProvider = new TestExecutionDistributionProvider(nodeNames);
 
         return new MappingServiceImpl(
@@ -342,15 +405,15 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static Supplier<Long> createStableTopologySupplier() {
+    private static LongSupplier createStableTopologySupplier() {
         return () -> 1L;
     }
 
-    private Supplier<Long> createTriggeredTopologySupplier() {
+    private LongSupplier createTriggeredTopologySupplier() {
         return () -> topologyChange ? ++topologyVer : topologyVer;
     }
 
-    private Supplier<Long> createChangingTopologySupplier() {
+    private LongSupplier createChangingTopologySupplier() {
         return () -> topologyVer++;
     }
 }

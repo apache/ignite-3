@@ -49,6 +49,9 @@ import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterService;
@@ -98,6 +101,8 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final ClockService clockService;
 
+    private final FailureManager failureManager;
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -113,7 +118,8 @@ class IndexBuildController implements ManuallyCloseable {
             CatalogService catalogService,
             ClusterService clusterService,
             PlacementDriver placementDriver,
-            ClockService clockService
+            ClockService clockService,
+            FailureManager failureManager
     ) {
         this.indexBuilder = indexBuilder;
         this.indexManager = indexManager;
@@ -121,6 +127,7 @@ class IndexBuildController implements ManuallyCloseable {
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+        this.failureManager = failureManager;
     }
 
     /** Starts component. */
@@ -147,8 +154,8 @@ class IndexBuildController implements ManuallyCloseable {
         placementDriver.listen(PRIMARY_REPLICA_ELECTED, EventListener.fromConsumer(this::onPrimaryReplicaElected));
     }
 
-    private CompletableFuture<?> onIndexBuilding(StartBuildingIndexEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onIndexBuilding(StartBuildingIndexEventParameters parameters) {
+        inBusyLockAsync(busyLock, () -> {
             Catalog catalog = catalogService.catalog(parameters.catalogVersion());
 
             assert catalog != null : "Failed to find a catalog for the specified version [version=" +  parameters.catalogVersion()
@@ -209,26 +216,36 @@ class IndexBuildController implements ManuallyCloseable {
                                             primaryReplicationGroupId,
                                             indexDescriptor,
                                             mvTableStorage,
-                                            replicaMeta)));
+                                            replicaMeta
+                                    ))
+                            );
 
                     startBuildIndexFutures.add(startBuildIndexFuture);
                 }
             }
 
             return CompletableFutures.allOf(startBuildIndexFutures);
+        }).whenComplete((res, ex) -> {
+            if (ex != null) {
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
+            }
         });
     }
 
-    private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onIndexRemoved(RemoveIndexEventParameters parameters) {
+        inBusyLockAsync(busyLock, () -> {
             indexBuilder.stopBuildingIndexes(parameters.indexId());
 
             return nullCompletedFuture();
+        }).whenComplete((res, ex) -> {
+            if (ex != null) {
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
+            }
         });
     }
 
-    private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
+        inBusyLockAsync(busyLock, () -> {
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-22522
                 // Need to remove TablePartitionId check here and below.
@@ -265,7 +282,9 @@ class IndexBuildController implements ManuallyCloseable {
                                                         tableDescriptor,
                                                         primaryReplicaId,
                                                         mvTableStorage,
-                                                        replicaMeta)));
+                                                        replicaMeta
+                                                ))
+                                        );
 
                         indexFutures.add(future);
                     }
@@ -296,6 +315,10 @@ class IndexBuildController implements ManuallyCloseable {
 
                 return nullCompletedFuture();
             }
+        }).whenComplete((res, ex) -> {
+            if (ex != null) {
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
+            }
         });
     }
 
@@ -321,7 +344,9 @@ class IndexBuildController implements ManuallyCloseable {
                             ((PartitionGroupId) primaryReplicaId).partitionId(),
                             indexDescriptor,
                             mvTableStorage,
-                            enlistmentConsistencyToken(replicaMeta));
+                            enlistmentConsistencyToken(replicaMeta),
+                            clockService.current()
+                    );
                 } else if (indexDescriptor.status() == AVAILABLE) {
                     scheduleBuildIndexAfterDisasterRecovery(
                             tableDescriptor.zoneId(),
@@ -363,7 +388,15 @@ class IndexBuildController implements ManuallyCloseable {
                 return;
             }
 
-            scheduleBuildIndex(zoneId, tableId, partitionId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
+            scheduleBuildIndex(
+                    zoneId,
+                    tableId,
+                    partitionId,
+                    indexDescriptor,
+                    mvTableStorage,
+                    enlistmentConsistencyToken(replicaMeta),
+                    clockService.current()
+            );
         });
     }
 
@@ -416,7 +449,8 @@ class IndexBuildController implements ManuallyCloseable {
             int partitionId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            HybridTimestamp initialOperationTimestamp
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
@@ -430,7 +464,8 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken
+                enlistmentConsistencyToken,
+                initialOperationTimestamp
         );
     }
 
@@ -455,7 +490,8 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken
+                enlistmentConsistencyToken,
+                clockService.current()
         );
     }
 

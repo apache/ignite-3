@@ -31,4 +31,8 @@ public class CatalogMarshallerException extends IgniteInternalException {
     CatalogMarshallerException(@Nullable Throwable cause) {
         super(Common.INTERNAL_ERR, cause);
     }
+
+    CatalogMarshallerException(String message) {
+        super(Common.INTERNAL_ERR, message);
+    }
 }

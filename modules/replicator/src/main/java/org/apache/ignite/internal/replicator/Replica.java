@@ -87,9 +87,10 @@ public interface Replica {
      * Creates a snapshot on a given group member.
      *
      * @param targetMember Group member that will create a snapshot.
+     * @param forced {@code True} to force snapshot and log truncation.
      * @return Future that gets completed when the target member creates a snapshot.
      */
-    CompletableFuture<Void> createSnapshotOn(Member targetMember);
+    CompletableFuture<Void> createSnapshotOn(Member targetMember, boolean forced);
 
     /**
      * Transfers leadership from the current group leader to the target group member.

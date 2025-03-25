@@ -57,6 +57,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
@@ -619,12 +620,7 @@ public class PartitionReplicaLifecycleManager extends
                         replicationGroupIds.add(zonePartitionId);
 
                         return trueCompletedFuture();
-                    }))
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
-                        }
-                    });
+                    }));
         };
 
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
@@ -956,7 +952,7 @@ public class PartitionReplicaLifecycleManager extends
                     ? Assignments.EMPTY
                     : AssignmentsQueue.fromBytes(pendingAssignmentsFromMetaStorage).poll();
 
-            return stopAndDestroyPartitionAndUpdateClients(
+            return stopAndMaybeDestroyPartitionAndUpdateClients(
                     zonePartitionId,
                     stableAssignments,
                     pendingAssignments,
@@ -988,7 +984,7 @@ public class PartitionReplicaLifecycleManager extends
         }));
     }
 
-    private CompletableFuture<Void> stopAndDestroyPartitionAndUpdateClients(
+    private CompletableFuture<Void> stopAndMaybeDestroyPartitionAndUpdateClients(
             ZonePartitionId zonePartitionId,
             Set<Assignment> stableAssignments,
             Assignments pendingAssignments,
@@ -1509,6 +1505,12 @@ public class PartitionReplicaLifecycleManager extends
                 replicaWasStopped -> {
                     if (replicaWasStopped) {
                         zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
+
+                        try {
+                            replicaMgr.destroyReplicationProtocolStorages(zonePartitionId, false);
+                        } catch (NodeStoppingException e) {
+                            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
+                        }
                     }
                 },
                 LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,

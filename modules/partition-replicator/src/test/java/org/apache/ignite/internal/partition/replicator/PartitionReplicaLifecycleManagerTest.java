@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.when;
 
@@ -166,7 +167,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockService, () -> TEST_DELAY_DURATION);
 
-        replicaManager = new ReplicaManager(
+        replicaManager = spy(new ReplicaManager(
                 nodeName,
                 clusterService,
                 cmgManager,
@@ -183,7 +184,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 logStorageFactoryCreator,
                 executorService,
                 groupId -> nullCompletedFuture()
-        );
+        ));
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
@@ -243,9 +244,10 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
-        InOrder inOrder = inOrder(raftManager, zoneResourcesManager);
+        InOrder inOrder = inOrder(raftManager, zoneResourcesManager, replicaManager);
 
         inOrder.verify(raftManager, timeout(1_000)).stopRaftNodes(zonePartitionId);
         inOrder.verify(zoneResourcesManager, timeout(1_000)).destroyZonePartitionResources(zonePartitionId);
+        inOrder.verify(replicaManager, timeout(1_000)).destroyReplicationProtocolStorages(zonePartitionId, false);
     }
 }
