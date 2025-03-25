@@ -123,7 +123,7 @@ public class ExecutionManager {
      */
     public CompletableFuture<@Nullable JobState> stateAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
-        if (execution != null) {
+        if (execution != null && !(execution instanceof RemoteJobExecution)) {
             return execution.stateAsync();
         }
         return nullCompletedFuture();
@@ -138,7 +138,7 @@ public class ExecutionManager {
      */
     public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
         CancellableJobExecution<?> execution = executions.get(jobId);
-        if (execution != null) {
+        if (execution != null && !(execution instanceof RemoteJobExecution)) {
             return execution.cancelAsync();
         }
         return nullCompletedFuture();
@@ -153,7 +153,7 @@ public class ExecutionManager {
      */
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
         JobExecution<?> execution = executions.get(jobId);
-        if (execution != null) {
+        if (execution != null && !(execution instanceof RemoteJobExecution)) {
             return execution.changePriorityAsync(newPriority);
         }
         return nullCompletedFuture();
