@@ -110,7 +110,7 @@ public final class IgniteNameUtils {
 
     /** An {@code identifier start} is any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”. */
     private static boolean identifierStart(int codePoint) {
-        return Character.isAlphabetic(codePoint);
+        return Character.isAlphabetic(codePoint) || codePoint == '_';
     }
 
     /** An {@code identifier extend} is U+00B7, or any character in the Unicode General Category classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.*/
