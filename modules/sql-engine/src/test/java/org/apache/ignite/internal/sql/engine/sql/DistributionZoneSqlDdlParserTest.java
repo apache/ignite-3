@@ -82,6 +82,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\" STORAGE PROFILES['p']");
     }
 
+    /** Parse CREATE ZONE ... statement. */
     @Test
     public void createZoneWithOptions() {
         IgniteSqlCreateZone createZone = parseCreateZone(
@@ -123,7 +124,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     }
 
     /**
-     * Parse CREATE ZONE ... statement.
+     * Parse CREATE ZONE WITH ... statement.
      */
     @Test
     public void createZoneWithOptionsWith() {

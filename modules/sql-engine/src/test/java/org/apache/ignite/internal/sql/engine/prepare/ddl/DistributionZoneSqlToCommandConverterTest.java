@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionV2.OPTIONS_MAPPING;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption.OPTIONS_MAPPING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -78,7 +78,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     );
 
     @BeforeAll
-    public static void setUp() throws Exception {
+    public static void setUp() {
         assertThat(OPTIONS_MAPPING.size(), is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
     }
 
@@ -93,23 +93,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
-        NewZoneEntry newZoneEntry = invokeAndGetFirstEntry(cmd, NewZoneEntry.class);
-
-        assertThat(newZoneEntry.descriptor().name(), equalTo("TEST"));
-    }
-
-    @ParameterizedTest(name = "with syntax = {0}")
-    @ValueSource(booleans = {true, false})
-    public void testCreateZoneWithConsistencyModeNotSet(boolean withPresent) throws SqlParseException {
-        SqlNode node = parse(withPresent
-                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'"
-                : "CREATE ZONE test STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
-
-        assertThat(node, instanceOf(SqlDdl.class));
-
-        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
-
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
+
+        assertThat(desc.name(), equalTo("TEST"));
 
         assertThat(desc.consistencyMode(), equalTo(ConsistencyMode.STRONG_CONSISTENCY));
     }

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionV2.OPTIONS_MAPPING;
-
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.sql.SqlCall;
@@ -38,7 +36,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** An AST node representing option in CREATE ZONE and ALTER ZONE statements. */
 public class IgniteSqlZoneOption extends SqlCall {
-    private static final Map<ZoneOptionEnum, String> OPTIONS_MAPPING = Map.of(
+    public static final Map<ZoneOptionEnum, String> OPTIONS_MAPPING = Map.of(
             ZoneOptionEnum.PARTITIONS, "PARTITIONS",
             ZoneOptionEnum.REPLICAS, "REPLICAS",
             ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "DISTRIBUTION ALGORITHM",
