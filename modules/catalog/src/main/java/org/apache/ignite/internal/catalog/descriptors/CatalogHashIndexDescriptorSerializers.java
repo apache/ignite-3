@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readStringCollection;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
@@ -46,15 +47,18 @@ public class CatalogHashIndexDescriptorSerializers {
         public CatalogHashIndexDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateTimestampLong = input.readVarInt();
-            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
+
+            // Read the update token.
+            input.readVarInt();
+
             int tableId = input.readVarIntAsInt();
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
             boolean isCreatedWithTable = input.readBoolean();
             List<String> columns = readStringCollection(input, ArrayList::new);
 
-            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateTimestamp, isCreatedWithTable);
+            // Here we use the initial timestamp because it's old storage. This value will be processed by data nodes manager.
+            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, INITIAL_TIMESTAMP, isCreatedWithTable);
         }
 
         @Override

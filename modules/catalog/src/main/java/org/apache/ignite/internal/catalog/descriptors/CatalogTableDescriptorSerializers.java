@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
@@ -52,8 +53,9 @@ public class CatalogTableDescriptorSerializers {
         public CatalogTableDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateTimestampLong = input.readVarInt();
-            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
+
+            // Read the update token.
+            input.readVarInt();
 
             CatalogObjectSerializer<CatalogTableSchemaVersions> schemaVerSerializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS.id());
@@ -103,7 +105,8 @@ public class CatalogTableDescriptorSerializers {
                     colocationColumns,
                     schemaVersions,
                     storageProfile,
-                    updateTimestamp
+                    // Here we use the initial timestamp because it's old storage. This value will be processed by data nodes manager.
+                    INITIAL_TIMESTAMP
             );
         }
 

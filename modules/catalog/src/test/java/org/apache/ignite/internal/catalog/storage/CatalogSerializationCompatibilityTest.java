@@ -36,7 +36,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.assertj.core.api.BDDAssertions;
@@ -47,6 +46,7 @@ import org.junit.jupiter.api.Test;
  * Tests for catalog storage objects. Protocol version 1.
  */
 public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTest {
+    private static final String UPDATE_TIMESTAMP_FIELD_REGEX = ".*updateTimestamp";
 
     private final TestDescriptorState state = new TestDescriptorState(42);
 
@@ -64,7 +64,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
         SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        compareSnapshotEntry(snapshotEntry, "SnapshotEntry", entryVersion(MarshallableEntryType.SNAPSHOT));
+        compareSnapshotEntry(snapshotEntry, "SnapshotEntry", entryVersion());
     }
 
     @Test
@@ -80,14 +80,14 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
         SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", entryVersion(MarshallableEntryType.SNAPSHOT));
+        compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", entryVersion());
     }
 
     @Test
     public void objectIdUpdate() {
         List<UpdateEntry> entries = List.of(new ObjectIdGenUpdateEntry(23431), new ObjectIdGenUpdateEntry(1204));
 
-        compareEntries(entries, "ObjectIdGenUpdateEntry", entryVersion(MarshallableEntryType.ID_GENERATOR));
+        compareEntries(entries, "ObjectIdGenUpdateEntry", entryVersion());
     }
 
     // Zones
@@ -97,7 +97,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
         List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
         List<UpdateEntry> entries = zones.stream().map(NewZoneEntry::new).collect(Collectors.toList());
 
-        compareEntries(entries, "NewZoneEntry", entryVersion(MarshallableEntryType.NEW_ZONE));
+        compareEntries(entries, "NewZoneEntry", entryVersion());
     }
 
     @Test
@@ -108,7 +108,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new AlterZoneEntry(zones.get(2))
         );
 
-        compareEntries(entries, "AlterZoneEntry", entryVersion(MarshallableEntryType.ALTER_ZONE));
+        compareEntries(entries, "AlterZoneEntry", entryVersion());
     }
 
     @Test
@@ -118,7 +118,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new SetDefaultZoneEntry(state.id())
         );
 
-        compareEntries(entries, "SetDefaultZoneEntry", entryVersion(MarshallableEntryType.SET_DEFAULT_ZONE));
+        compareEntries(entries, "SetDefaultZoneEntry", entryVersion());
     }
 
     @Test
@@ -128,7 +128,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropZoneEntry(state.id())
         );
 
-        compareEntries(entries, "DropZoneEntry", entryVersion(MarshallableEntryType.DROP_ZONE));
+        compareEntries(entries, "DropZoneEntry", entryVersion());
     }
 
     // Schemas
@@ -140,7 +140,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewSchemaEntry::new)
                 .collect(Collectors.toList());
 
-        compareEntries(entries, "NewSchemaEntry", entryVersion(MarshallableEntryType.NEW_SCHEMA));
+        compareEntries(entries, "NewSchemaEntry", entryVersion());
     }
 
     @Test
@@ -150,7 +150,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropSchemaEntry(state.id())
         );
 
-        compareEntries(entries, "DropSchemaEntry", entryVersion(MarshallableEntryType.DROP_SCHEMA));
+        compareEntries(entries, "DropSchemaEntry", entryVersion());
     }
 
     // Tables
@@ -162,7 +162,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewTableEntry::new)
                 .collect(Collectors.toList());
 
-        compareEntries(entries, "NewTableEntry", entryVersion(MarshallableEntryType.NEW_TABLE));
+        compareEntries(entries, "NewTableEntry", entryVersion());
     }
 
     @Test
@@ -172,7 +172,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new RenameTableEntry(state.id(), "NEW_NAME2")
         );
 
-        compareEntries(entries, "RenameTableEntry", entryVersion(MarshallableEntryType.RENAME_TABLE));
+        compareEntries(entries, "RenameTableEntry", entryVersion());
     }
 
     @Test
@@ -182,7 +182,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropTableEntry(state.id())
         );
 
-        compareEntries(entries, "DropTableEntry", entryVersion(MarshallableEntryType.DROP_TABLE));
+        compareEntries(entries, "DropTableEntry", entryVersion());
     }
 
     // Columns
@@ -206,14 +206,14 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
         Collections.shuffle(entries, state.random());
 
-        compareEntries(entries, "NewIndexEntry", entryVersion(MarshallableEntryType.NEW_INDEX));
+        compareEntries(entries, "NewIndexEntry", entryVersion());
     }
 
     @Test
     public void renameIndex() {
         List<UpdateEntry> entries = List.of(new RenameIndexEntry(state.id(), "NEW_NAME"));
 
-        compareEntries(entries, "RenameIndexEntry", entryVersion(MarshallableEntryType.RENAME_INDEX));
+        compareEntries(entries, "RenameIndexEntry", entryVersion());
     }
 
     @Test
@@ -223,7 +223,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new RemoveIndexEntry(state.id())
         );
 
-        compareEntries(entries, "RemoveIndexEntry", entryVersion(MarshallableEntryType.REMOVE_INDEX));
+        compareEntries(entries, "RemoveIndexEntry", entryVersion());
     }
 
     @Test
@@ -233,7 +233,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new MakeIndexAvailableEntry(state.id())
         );
 
-        compareEntries(entries, "MakeIndexAvailableEntry", entryVersion(MarshallableEntryType.MAKE_INDEX_AVAILABLE));
+        compareEntries(entries, "MakeIndexAvailableEntry", entryVersion());
     }
 
     @Test
@@ -243,7 +243,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new StartBuildingIndexEntry(state.id())
         );
 
-        compareEntries(entries, "StartBuildingIndexEntry", entryVersion(MarshallableEntryType.START_BUILDING_INDEX));
+        compareEntries(entries, "StartBuildingIndexEntry", entryVersion());
     }
 
     @Test
@@ -253,7 +253,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropIndexEntry(state.id())
         );
 
-        compareEntries(entries, "DropIndexEntry", entryVersion(MarshallableEntryType.DROP_INDEX));
+        compareEntries(entries, "DropIndexEntry", entryVersion());
     }
 
     // Columns
@@ -271,7 +271,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new NewColumnsEntry(state.id(), columns2)
         );
 
-        compareEntries(entries, "NewColumnsEntry", entryVersion(MarshallableEntryType.NEW_COLUMN));
+        compareEntries(entries, "NewColumnsEntry", entryVersion());
     }
 
     @Test
@@ -283,7 +283,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new AlterColumnEntry(state.id(), columns.get(0)),
                 new AlterColumnEntry(state.id(), columns.get(1))
         );
-        compareEntries(entries, "AlterColumnsEntry", entryVersion(MarshallableEntryType.ALTER_COLUMN));
+        compareEntries(entries, "AlterColumnsEntry", entryVersion());
     }
 
     @Test
@@ -298,7 +298,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropColumnsEntry(state.id(), Set.of("C1", "C2")),
                 new DropColumnsEntry(state.id(), Set.of("C3"))
         );
-        compareEntries(entries, "DropColumnsEntry", entryVersion(MarshallableEntryType.DROP_COLUMN));
+        compareEntries(entries, "DropColumnsEntry", entryVersion());
     }
 
     // System views
@@ -310,7 +310,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 .map(NewSystemViewEntry::new)
                 .collect(Collectors.toList());
 
-        compareEntries(entries, "NewSystemViewEntry", entryVersion(MarshallableEntryType.NEW_SYS_VIEW));
+        compareEntries(entries, "NewSystemViewEntry", entryVersion());
     }
 
     protected void compareSnapshotEntry(SnapshotEntry expectedEntry, String fileName, int version) {
@@ -321,7 +321,15 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
         assertEquals(expectedEntry.objectIdGenState(), actualEntry.objectIdGenState(), "objectIdGenState");
         assertEquals(expectedEntry.defaultZoneId(), actualEntry.defaultZoneId(), "defaultZoneId");
 
-        BDDAssertions.assertThat(expectedEntry.snapshot()).usingRecursiveComparison().isEqualTo(actualEntry.snapshot());
+        var assertion = BDDAssertions.assertThat(expectedEntry.snapshot())
+                .usingRecursiveComparison();
+
+        if (entryVersion() == 1) {
+            // Ignoring update timestamp for version 1.
+            assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
+        }
+
+        assertion.isEqualTo(actualEntry.snapshot());
     }
 
     protected void compareEntries(List<UpdateEntry> entries, String fileName, int version) {
@@ -332,7 +340,15 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
             UpdateEntry expectedEntry = entries.get(i);
             UpdateEntry actualEntry = actual.get(i);
 
-            BDDAssertions.assertThat(actualEntry).as("entry#" + i).usingRecursiveComparison().isEqualTo(expectedEntry);
+            var assertion = BDDAssertions.assertThat(actualEntry).as("entry#" + i)
+                    .usingRecursiveComparison();
+
+            if (entryVersion() == 1) {
+                // Ignoring update timestamp for version 1.
+                assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
+            }
+
+            assertion.isEqualTo(expectedEntry);
         }
     }
 
@@ -352,7 +368,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
         return 1;
     }
 
-    protected int entryVersion(MarshallableEntryType entryType) {
+    protected int entryVersion() {
         return 1;
     }
 

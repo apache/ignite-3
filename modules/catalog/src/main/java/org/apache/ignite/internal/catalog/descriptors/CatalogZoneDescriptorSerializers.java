@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
@@ -48,8 +49,9 @@ public class CatalogZoneDescriptorSerializers {
         public CatalogZoneDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateTimestampLong = input.readVarInt();
-            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
+
+            // Read the update token.
+            input.readVarInt();
 
             CatalogObjectSerializer<CatalogStorageProfilesDescriptor> serializer =
                     serializers.get(1, MarshallableEntryType.DESCRIPTOR_STORAGE_PROFILES.id());
@@ -74,7 +76,8 @@ public class CatalogZoneDescriptorSerializers {
                     dataNodesAutoAdjustScaleDown,
                     filter,
                     catalogStorageProfilesDescriptor,
-                    updateTimestamp,
+                    // Here we use the initial timestamp because it's old storage. This value will be processed by data nodes manager.
+                    INITIAL_TIMESTAMP,
                     consistencyMode
             );
         }
