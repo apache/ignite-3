@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.util;
 
 /**
- * Busy lock implementation based on {@link IgniteStripedBusyLock}. API is analogous to {@link IgniteSpinBusyLock}, but without the ability
- * to unblock it.
+ * Busy lock implementation based on {@link IgniteStripedReadWriteLock}. API is analogous to {@link IgniteSpinBusyLock}, but without the
+ * ability to unblock it.
  */
 public class IgniteStripedBusyLock {
     /** Underlying read-write lock. */
@@ -54,7 +54,7 @@ public class IgniteStripedBusyLock {
     }
 
     /**
-     * Blocks current thread till all activities left "busy" state and prevents them from further entering to "busy" state.
+     * Blocks current thread till all activities left "busy" state and prevents them from further entering the "busy" state.
      */
     public void block() {
         lock.writeLock().lock();
