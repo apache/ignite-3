@@ -140,7 +140,7 @@ public class DistributionZoneManager extends
     /**
      * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
      * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-19491 properly clean up this map
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-24608 properly clean up this map
      *
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
@@ -268,16 +268,14 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Gets data nodes of the zone using causality token and catalog version. {@code causalityToken} must be agreed
-     * with the {@code catalogVersion}, meaning that for the provided {@code causalityToken} actual {@code catalogVersion} must be provided.
-     * For example, if you are in the meta storage watch thread and {@code causalityToken} is the revision of the watch event, it is
+     * Gets data nodes of the zone using causality token and catalog version. {@code timestamp} must be agreed
+     * with the {@code catalogVersion}, meaning that for the provided {@code timestamp} actual {@code catalogVersion} must be provided.
+     * For example, if you are in the meta storage watch thread and {@code timestamp} is the timestamp of the watch event, it is
      * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
      * because {@link CatalogManager#latestCatalogVersion()} won't be updated in a watch thread.
-     * The same is applied for {@link CatalogEventParameters}, it is safe to take {@link CatalogEventParameters#causalityToken()}
-     * as a {@code causalityToken} and {@link CatalogEventParameters#catalogVersion()} as a {@code catalogVersion}.
      *
      * <p>Return data nodes or throw the exception:
-     * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
+     * {@link IllegalArgumentException} if zoneId is not valid.
      * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
      * @param timestamp Timestamp.

@@ -133,8 +133,10 @@ final class TestCatalogObjectDescriptors {
                 hybridTimestamp(1232L),
                 "S1")
         );
-        list.add(list.get(list.size() - 1).newDescriptor(table1.name() + "_2", 3, columns(state).subList(0, 20), hybridTimestamp(21232L),
-                "S1"));
+        list.add(
+                list.get(list.size() - 1)
+                        .newDescriptor(table1.name() + "_2", 3, columns(state).subList(0, 20), hybridTimestamp(21232L), "S1")
+        );
 
         CatalogTableDescriptor table2 = new CatalogTableDescriptor(
                 state.id(),

@@ -58,7 +58,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      * Returns {@code true} if zone upgrade will lead to assignments recalculation.
      */
     public static boolean updateRequiresAssignmentsRecalculation(CatalogZoneDescriptor oldDescriptor, CatalogZoneDescriptor newDescriptor) {
-        if (oldDescriptor.updateTimestamp() == newDescriptor.updateTimestamp()) {
+        if (oldDescriptor.updateTimestamp().equals(newDescriptor.updateTimestamp())) {
             return false;
         }
 
