@@ -29,7 +29,7 @@ class ExponentialBackoffThrottlingStrategy {
     /**
      * Backoff ratio. Each next park will be this times longer.
      */
-    private static final double BACKOFF_RATIO = 1.05;
+    private static final double BACKOFF_RATIO = 1.005;
 
     /**
      * Exponential backoff used to throttle threads.
