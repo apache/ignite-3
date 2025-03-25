@@ -27,6 +27,7 @@ dependencies {
     implementation project(':ignite-marshaller-common')
     implementation project(':ignite-metrics')
     implementation project(':ignite-catalog-dsl')
+    implementation project(':ignite-table')
 
     implementation libs.jetbrains.annotations
     implementation libs.msgpack.core
