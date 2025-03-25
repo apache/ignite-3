@@ -54,7 +54,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     @BeforeEach
     void setUp() {
         executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s'",
+                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s) STORAGE PROFILES ['%s']",
                 ZONE_NAME, initialNodes(), initialNodes(), DEFAULT_STORAGE_PROFILE
         ));
 

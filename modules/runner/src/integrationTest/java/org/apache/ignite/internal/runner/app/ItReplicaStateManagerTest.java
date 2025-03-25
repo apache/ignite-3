@@ -74,7 +74,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         String tableName = "TEST";
 
         node0.sql().execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES '%s'",
                         ZONE_NAME, 3, 1, DEFAULT_STORAGE_PROFILE));
 
         node0.sql().execute(null,

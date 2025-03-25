@@ -182,7 +182,7 @@ class ItSchemaSyncMultiNodeTest extends ClusterPerTestIntegrationTest {
 
         try {
             cluster.doInSession(NODE_0_INDEX, session -> {
-                executeUpdate("CREATE ZONE test_zone WITH STORAGE_PROFILES='default'", session);
+                executeUpdate("CREATE ZONE test_zone STORAGE PROFILES ['default']", session);
             });
 
             CompletableFuture<Void> tableCreationFuture = runAsync(() -> cluster.doInSession(NODE_1_INDEX, session -> {

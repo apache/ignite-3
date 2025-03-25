@@ -35,7 +35,6 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.Litmus;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.jetbrains.annotations.NotNull;
 
 /** An AST node representing option in CREATE ZONE and ALTER ZONE statements. */
 public class IgniteSqlZoneOption extends SqlCall {

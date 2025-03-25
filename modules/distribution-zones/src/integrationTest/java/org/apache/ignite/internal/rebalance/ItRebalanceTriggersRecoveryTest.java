@@ -96,8 +96,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=2, DATA_NODES_FILTER='$[?(@.region == \"US\")]', "
-                    + "STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+            session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 2, NODES FILTER '$[?(@.region == \"US\")]') "
+                    + "STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
             session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });
@@ -142,8 +142,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, "
-                    + "DATA_NODES_FILTER='$[?(@.zone == \"global\")]', STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+            session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1, "
+                    + "NODES FILTER '$[?(@.zone == \"global\")]') STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
             session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });
@@ -190,8 +190,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(3);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, "
-                    + "DATA_NODES_FILTER='$[?(@.region == \"US\")]', STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+            session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1, "
+                    + "NODES FILTER '$[?(@.region == \"US\")]') STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
             session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });

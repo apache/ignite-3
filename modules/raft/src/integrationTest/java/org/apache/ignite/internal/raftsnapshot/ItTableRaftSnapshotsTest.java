@@ -338,7 +338,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         String storageProfile =
                 DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? DEFAULT_STORAGE_PROFILE : "default_" + storageEngine.toLowerCase();
 
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + storageProfile + "';";
+        String zoneSql = "create zone test_zone (partitions 1, replicas 3) storage profiles ['" + storageProfile + "'];";
 
         String sql = "create table test (key int primary key, val varchar(20))"
                 + " zone TEST_ZONE storage profile '" + storageProfile + "';";

@@ -89,8 +89,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
     private void createZoneAndTableWith1Partition(int replicas) {
         executeUpdate(
-                "CREATE ZONE " + ZONE_NAME + " WITH REPLICAS = " + replicas + ", PARTITIONS = 1, STORAGE_PROFILES = '"
-                        + DEFAULT_AIPERSIST_PROFILE_NAME + "'"
+                "CREATE ZONE " + ZONE_NAME + " (REPLICAS " + replicas + ", PARTITIONS 1) STORAGE PROFILES ['"
+                        + DEFAULT_AIPERSIST_PROFILE_NAME + "']"
         );
         executeUpdate("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR) ZONE test_zone");
     }

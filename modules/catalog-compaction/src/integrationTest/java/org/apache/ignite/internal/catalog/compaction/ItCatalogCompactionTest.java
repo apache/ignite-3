@@ -212,7 +212,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testCompactionRun() throws InterruptedException {
-        sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
+        sql(format("create zone if not exists test (partitions {}, replicas {}) storage profiles ['default']",
                 CLUSTER_SIZE, CLUSTER_SIZE)
         );
 

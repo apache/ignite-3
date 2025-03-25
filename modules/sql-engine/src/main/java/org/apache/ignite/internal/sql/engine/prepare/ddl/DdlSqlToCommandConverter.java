@@ -700,6 +700,24 @@ public class DdlSqlToCommandConverter {
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
+            if (option.key().names.get(0).equals(STORAGE_PROFILES.name())) {
+                if (option.value() instanceof SqlNodeList) {
+                    SqlNodeList values = (SqlNodeList) option.value();
+                    List<String> profileNames = new ArrayList<>(((SqlNodeList) option.value()).getList().size());
+
+                    SqlCharStringLiteral literal;
+                    for (SqlNode node : values) {
+                        literal = (SqlCharStringLiteral) node;
+                        profileNames.add(literal.getValueAs(String.class));
+                    }
+
+                    String profilesJoined = String.join(",", profileNames);
+
+                    literal = SqlLiteral.createCharString(profilesJoined, values.getParserPosition());
+                    option = new IgniteSqlZoneOption(option.key(), literal, option.getParserPosition());
+                }
+            }
+
             updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
         }
 
@@ -709,43 +727,6 @@ public class DdlSqlToCommandConverter {
 
         return builder.build();
     }
-
-/*    private CatalogCommand convertCreateZone(IgniteSqlCreateZoneV2 createZoneNode, PlanningContext ctx) {
-        CreateZoneCommandBuilder builder = CreateZoneCommand.builder();
-
-        builder.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
-        builder.ifNotExists(createZoneNode.ifNotExists());
-
-        Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
-
-        if (createZoneNode.createOptionList() != null) {
-            for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
-                IgniteSqlZoneOptionV2 option = (IgniteSqlZoneOptionV2) optionNode;
-
-                updateZoneOption(option, remainingKnownOptions, zoneOptionInfos,
-                        createReplicasOptionInfo, ctx, builder);
-            }
-        }
-
-        IgniteSqlStorageProfile profiles = (IgniteSqlStorageProfile) createZoneNode.storageProfiles();
-
-        List<String> profileNames = new ArrayList<>(profiles.value().size());
-
-        SqlCharStringLiteral literal;
-        for (SqlNode node : profiles.value()) {
-            literal = (SqlCharStringLiteral) node;
-            profileNames.add(literal.getValueAs(String.class));
-        }
-
-        String profilesJoined = String.join(",", profileNames);
-
-        literal = SqlLiteral.createCharString(profilesJoined, profiles.getParserPosition());
-
-        updateZoneOption(new IgniteSqlZoneOptionV2(profiles.key(), literal, profiles.getParserPosition()),
-                remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
-
-        return builder.build();
-    }*/
 
     /**
      * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.

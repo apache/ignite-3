@@ -294,9 +294,9 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             String zoneName, List<String> tableNames, String filter, String storageProfiles, Set<String> targetNodes
     ) throws InterruptedException {
         executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
-                        + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
-                zoneName, targetNodes.size(), PARTITIONS_NUMBER, storageProfiles, filter
+                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, CONSISTENCY MODE 'HIGH_AVAILABILITY', NODES FILTER '%s') "
+                        + "STORAGE PROFILES ['%s']",
+                zoneName, targetNodes.size(), PARTITIONS_NUMBER, filter, storageProfiles
         ));
 
         Set<Integer> tableIds = new HashSet<>();
@@ -350,7 +350,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     final void createScZoneWithTable() {
         executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
+                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, CONSISTENCY MODE='STRONG_CONSISTENCY') STORAGE PROFILES ['%s']",
                 SC_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
         ));
 

@@ -974,7 +974,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Ignite table.
      */
     private static TableViewInternal getOrCreateTable() {
-        sql("CREATE ZONE IF NOT EXISTS ZONE1 WITH REPLICAS=1, PARTITIONS=1, STORAGE_PROFILES='test'");
+        sql("CREATE ZONE IF NOT EXISTS ZONE1 (REPLICAS 1, PARTITIONS 1) STORAGE PROFILES ['test']");
 
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
                 + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) ZONE ZONE1;");

@@ -528,7 +528,6 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
         final SqlIdentifier id;
         SqlNodeList optionList = null;
         SqlNodeList storageProfiles = null;
-        SqlNodeList zoneOptions = null;
 }
 {
     <ZONE> { s.add(this); }
@@ -541,7 +540,7 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
             }
             |
             (
-                [ zoneOptions = ZoneOptionsList() ]
+                [ optionList = ZoneOptionsList() ]
 
                 <STORAGE> <PROFILES> {
                     storageProfiles = StorageProfiles();
@@ -550,12 +549,12 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
             {
                 SqlIdentifier key = new SqlIdentifier(ZoneOptionEnum.STORAGE_PROFILES.name(), getPos());
                 IgniteSqlZoneOption profilesOption = new IgniteSqlZoneOption(key, storageProfiles, getPos());
-                if (zoneOptions != null) {
-                    zoneOptions.add(profilesOption);
+                if (optionList != null) {
+                    optionList.add(profilesOption);
                 } else {
-                    zoneOptions = SqlNodeList.of(profilesOption);
+                    optionList = SqlNodeList.of(profilesOption);
                 }
-                return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, zoneOptions);
+                return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
             }
         )
 }

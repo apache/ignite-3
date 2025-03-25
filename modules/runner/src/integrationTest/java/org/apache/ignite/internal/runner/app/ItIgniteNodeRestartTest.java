@@ -1698,7 +1698,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteSql sql = node.sql();
 
-        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                 zoneName, nodesCount, 1, DEFAULT_STORAGE_PROFILE));
 
         sql.execute(null, "CREATE TABLE " + TABLE_NAME + "(id INT PRIMARY KEY, name VARCHAR) ZONE " + zoneName + ";");
@@ -1801,7 +1801,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Create table, all nodes are lagging.
         IgniteSql sql = node0.sql();
 
-        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                 zoneName, 2, 1, DEFAULT_STORAGE_PROFILE));
 
         nodeInhibitor0.startInhibit();
@@ -1869,7 +1869,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String zoneName = "ZONE_TEST";
 
         node0.sql().execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                         zoneName, 2, 1, DEFAULT_STORAGE_PROFILE));
 
         int catalogVersionBeforeTable = node0.catalogManager().latestCatalogVersion();
@@ -2119,7 +2119,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         IgniteSql sql = nodes.get(0).sql();
 
         sql.execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                         name, replicas, partitions, DEFAULT_STORAGE_PROFILE));
         sql.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                 + "(id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_" + name + ";");
@@ -2142,7 +2142,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         IgniteSql sql = ignite.sql();
 
         sql.execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                         name, replicas, partitions, DEFAULT_STORAGE_PROFILE));
         sql.execute(null, "CREATE TABLE " + name
                 + "(id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_" + name + ";");

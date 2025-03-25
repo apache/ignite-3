@@ -68,7 +68,8 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     @Language("HOCON")
     private static final String NODE_ATTRIBUTES = "{region = US, storage = SSD}";
 
-    private static final String STORAGE_PROFILES = String.format("'%s, %s'", DEFAULT_ROCKSDB_PROFILE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME);
+    private static final String STORAGE_PROFILES =
+            String.format("'%s', '%s'", DEFAULT_ROCKSDB_PROFILE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME);
 
     @Language("HOCON")
     private static final String STORAGE_PROFILES_CONFIGS = String.format(
@@ -477,16 +478,16 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
             String storageProfiles,
             ConsistencyMode consistencyMode
     ) {
-        String sqlFormat = "CREATE ZONE \"%s\" WITH "
-                + "\"REPLICAS\" = %s, "
-                + "\"PARTITIONS\" = %s, "
-                + "\"DATA_NODES_FILTER\" = '%s', "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %s, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %s, "
-                + "\"STORAGE_PROFILES\" = %s, "
-                + "\"CONSISTENCY_MODE\" = '%s'";
+        String sqlFormat = "CREATE ZONE %s ("
+                + "REPLICAS %s, "
+                + "PARTITIONS %s, "
+                + "NODES FILTER '%s', "
+                + "AUTO SCALE UP %s, "
+                + "AUTO SCALE DOWN %s, "
+                + "CONSISTENCY MODE '%s') "
+                + "STORAGE PROFILES [%s]";
 
-        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, storageProfiles, consistencyMode);
+        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, consistencyMode, storageProfiles);
     }
 
     private static String alterZoneSql(String filter) {

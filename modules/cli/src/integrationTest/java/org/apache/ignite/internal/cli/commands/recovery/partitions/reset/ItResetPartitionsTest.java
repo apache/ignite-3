@@ -40,7 +40,7 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
 
     @BeforeAll
     public void createTables() {
-        sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" storage profiles['%s']", ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
     }
 

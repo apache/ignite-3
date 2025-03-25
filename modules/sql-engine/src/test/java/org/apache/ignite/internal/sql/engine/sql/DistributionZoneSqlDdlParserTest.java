@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -124,7 +123,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     }
 
     /**
-     * Parse CREATE ZONE WITH ... statement.
+     * Parse CREATE ZONE ... statement.
      */
     @Test
     public void createZoneWithOptionsWith() {
