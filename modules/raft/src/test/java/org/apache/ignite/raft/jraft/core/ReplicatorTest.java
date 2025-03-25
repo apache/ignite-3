@@ -29,7 +29,6 @@ import static org.mockito.ArgumentMatchers.same;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -40,7 +39,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
-import org.apache.ignite.raft.jraft.core.Replicator.AppendEntriesSendIndexes;
 import org.apache.ignite.raft.jraft.core.Replicator.RequestType;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -234,8 +232,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .lastLogIndex(12)
             .term(2)
             .build();
-        AppendEntriesSendIndexes nextSendIndexes = Optional.ofNullable(r.getNextSendIndexes()).orElse(new AppendEntriesSendIndexes(-1, -1));
-        r.getInflights().add(new Replicator.Inflight(RequestType.AppendEntries, nextSendIndexes.nextIndex, nextSendIndexes.previousCommitIndex, 0, 0, 1, null));
+        r.getInflights().add(new Replicator.Inflight(RequestType.AppendEntries, r.getNextSendIndex(), 0, 0, 1, null));
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
             response, 1, 1, Utils.monotonicMs());
         assertEquals(Replicator.RunningState.BLOCKING, r.statInfo.runningState);
@@ -244,8 +241,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         assertSame(timer, r.getBlockTimer());
 
         Thread.sleep(r.getOpts().getDynamicHeartBeatTimeoutMs() * 2);
-        AppendEntriesSendIndexes nextSendIndexes1 = Optional.ofNullable(r.getNextSendIndexes()).orElse(new AppendEntriesSendIndexes(-1, -1));
-        r.getInflights().add(new Replicator.Inflight(RequestType.AppendEntries, nextSendIndexes1.nextIndex, nextSendIndexes1.previousCommitIndex, 0, 0, 1, null));
+        r.getInflights().add(new Replicator.Inflight(RequestType.AppendEntries, r.getNextSendIndex(), 0, 0, 1, null));
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
             response, 1, 2, Utils.monotonicMs());
         assertEquals(Replicator.RunningState.BLOCKING, r.statInfo.runningState);
@@ -815,16 +811,12 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
     }
 
     private void mockSendEntries(@SuppressWarnings("SameParameterValue") final int n) {
-        mockSendEntries(n, 0);
-    }
-
-    private void mockSendEntries(@SuppressWarnings("SameParameterValue") final int n, final long commitIndex) {
-        final RpcRequests.AppendEntriesRequest request = createEntriesRequest(n, commitIndex);
+        final RpcRequests.AppendEntriesRequest request = createEntriesRequest(n);
         Mockito.lenient().when(this.rpcService.appendEntries(eq(this.peerId), eq(request), eq(-1), Mockito.any()))
-                .thenReturn(new CompletableFuture<>());
+            .thenReturn(new CompletableFuture<>());
     }
 
-    private RpcRequests.AppendEntriesRequest createEntriesRequest(final int n, final long commitIndex) {
+    private RpcRequests.AppendEntriesRequest createEntriesRequest(final int n) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory()
             .appendEntriesRequest()
             .groupId("test")
@@ -833,7 +825,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .term(1)
             .prevLogIndex(10)
             .prevLogTerm(1)
-            .committedIndex(commitIndex);
+            .committedIndex(0);
 
         List<RaftOutter.EntryMeta> entries = new ArrayList<>();
 
@@ -859,14 +851,12 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
     @Test
     public void testGetNextSendIndex() {
         final Replicator r = getReplicator();
-        assertNull( r.getNextSendIndexes());
+        assertEquals(-1, r.getNextSendIndex());
         r.resetInflights();
-        assertEquals(11, r.getNextSendIndexes().nextIndex);
-        assertEquals(0, r.getNextSendIndexes().previousCommitIndex);
+        assertEquals(11, r.getNextSendIndex());
         mockSendEntries(3);
         r.sendEntries();
-        assertEquals(14, r.getNextSendIndexes().nextIndex);
-        assertEquals(0, r.getNextSendIndexes().previousCommitIndex);
+        assertEquals(14, r.getNextSendIndex());
     }
 
     private RpcRequests.InstallSnapshotRequest createInstallSnapshotRequest() {
