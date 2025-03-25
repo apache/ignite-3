@@ -6,6 +6,7 @@ include README.md
 include LICENSE
 include NOTICE
 include pyignite_dbapi/_version.txt
+include pyignite_dbapi/*.dylib
 include CMakeLists.txt
 recursive-include cpp_module *
 recursive-include cpp *

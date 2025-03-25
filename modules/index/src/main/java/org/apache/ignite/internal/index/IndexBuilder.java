@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -108,7 +109,8 @@ class IndexBuilder implements ManuallyCloseable {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ClusterNode node,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            HybridTimestamp initialOperationTimestamp
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -132,7 +134,8 @@ class IndexBuilder implements ManuallyCloseable {
                     node,
                     listeners,
                     enlistmentConsistencyToken,
-                    false
+                    false,
+                    initialOperationTimestamp
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);
@@ -171,7 +174,8 @@ class IndexBuilder implements ManuallyCloseable {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ClusterNode node,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            HybridTimestamp initialOperationTimestamp
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -191,7 +195,8 @@ class IndexBuilder implements ManuallyCloseable {
                     node,
                     listeners,
                     enlistmentConsistencyToken,
-                    true
+                    true,
+                    initialOperationTimestamp
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);

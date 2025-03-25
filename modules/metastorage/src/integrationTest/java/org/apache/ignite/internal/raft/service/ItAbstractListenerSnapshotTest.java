@@ -279,12 +279,12 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         logStorageFactories.remove(stopIdx);
         // Create a snapshot of the raft group
-        service.snapshot(service.leader()).get();
+        service.snapshot(service.leader(), false).get();
 
         afterFollowerStop(service, toStop, stopIdx);
 
         // Create another raft snapshot
-        service.snapshot(service.leader()).get();
+        service.snapshot(service.leader(), false).get();
 
         if (testData.deleteFolder) {
             // Delete a stopped node's raft directory and key-value storage directory

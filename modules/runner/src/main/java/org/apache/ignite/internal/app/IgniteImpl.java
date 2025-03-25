@@ -176,6 +176,7 @@ import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.JoinedNodes;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -677,6 +678,7 @@ public class IgniteImpl implements Ignite {
         );
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        logicalTopology.addEventListener(logicalTopologyJoinedNodesListener(clusterSvc.topologyService()));
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
@@ -1251,6 +1253,20 @@ public class IgniteImpl implements Ignite {
         );
     }
 
+    private static LogicalTopologyEventListener logicalTopologyJoinedNodesListener(JoinedNodes joinedNodes) {
+        return new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+                joinedNodes.onJoined(joinedNode);
+            }
+
+            @Override
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+                joinedNodes.onLeft(leftNode);
+            }
+        };
+    }
+
     private static ClusterInfo clusterInfo(ClusterStateStorageManager clusterStateStorageManager) {
         // It is safe to read cluster state from CMG state as it can only be read when the node is initialized and fully started,
         // and in those moments the cluster state is already available in the CMG state storage.
@@ -1517,6 +1533,7 @@ public class IgniteImpl implements Ignite {
                 }, joinExecutor)
                 .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), joinExecutor)
                 .thenCompose(ignored -> catalogManager.catalogInitializationFuture())
+                .thenCompose(ignored -> systemViewManager.completeRegistration())
                 .thenRunAsync(() -> {
                     try {
                         // Enable watermark events.

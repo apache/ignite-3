@@ -277,7 +277,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
-        return sendViaNetwork(recipient.name(), type, recipientAddress, message);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message);
     }
 
     private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
@@ -320,13 +320,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendViaNetwork(recipient.name(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
     }
 
     /**
      * Sends network object.
      *
-     * @param consistentId Target consistent ID. Can be {@code null} if the node has not been added to the topology.
+     * @param nodeId Target node ID.
      * @param type Channel type for send.
      * @param addr Target address.
      * @param message Message.
@@ -334,13 +334,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> sendViaNetwork(
-            @Nullable String consistentId,
+            UUID nodeId,
             ChannelType type,
             InetSocketAddress addr,
             NetworkMessage message
     ) {
         if (isInNetworkThread()) {
-            return CompletableFuture.supplyAsync(() -> sendViaNetwork(consistentId, type, addr, message), outboundExecutor)
+            return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message), outboundExecutor)
                     .thenCompose(Function.identity());
         }
 
@@ -352,15 +352,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
-        return connectionManager.channel(consistentId, type, addr)
+        return connectionManager.channel(nodeId, type, addr)
                 .thenComposeToCompletable(sender -> sender.send(
                         new OutNetworkObject(message, descriptors),
-                        () -> triggerChannelCreation(consistentId, type, addr)
+                        () -> triggerChannelCreation(nodeId, type, addr)
                 ));
     }
 
-    private void triggerChannelCreation(@Nullable String consistentId, ChannelType type, InetSocketAddress addr) {
-        connectionManager.channel(consistentId, type, addr);
+    private void triggerChannelCreation(UUID nodeId, ChannelType type, InetSocketAddress addr) {
+        connectionManager.channel(nodeId, type, addr);
     }
 
     private List<ClassDescriptorMessage> prepareMarshal(NetworkMessage msg) throws Exception {
@@ -743,7 +743,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
         // Node name is {@code null} if the node has not been added to the topology.
         if (recipientNode.name() != null) {
-            return connectionManager.consistentId().equals(recipientNode.name()) ? null : getFromCacheOrCreateResolved(recipientNode);
+            return connectionManager.nodeId().equals(recipientNode.id()) ? null : getFromCacheOrCreateResolved(recipientNode);
         }
 
         InetSocketAddress localAddress = connectionManager.localAddress();

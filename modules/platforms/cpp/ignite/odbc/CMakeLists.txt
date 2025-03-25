@@ -90,7 +90,7 @@ foreach(_target_lib IN LISTS _target_libs)
         if (MSVC_VERSION GREATER_EQUAL 1900)
             list(APPEND LIBRARIES legacy_stdio_definitions)
         endif()
-    else()
+    elseif(NOT APPLE)
         list(APPEND LIBRARIES odbcinst)
     endif()
 

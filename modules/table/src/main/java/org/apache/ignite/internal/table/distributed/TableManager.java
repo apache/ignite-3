@@ -919,7 +919,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     table.schemaView(),
                     indexMetaStorage,
                     topologyService.localMember().id(),
-                    minTimeCollectorService
+                    minTimeCollectorService,
+                    partitionOperationsExecutor
             );
 
             var partitionStorageAccess = new PartitionMvStorageAccessImpl(
@@ -1336,7 +1337,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             table.schemaView(),
                             indexMetaStorage,
                             topologyService.localMember().id(),
-                            minTimeCollectorService
+                            minTimeCollectorService,
+                            partitionOperationsExecutor
                     );
 
                     minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
@@ -2457,7 +2459,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
-                            + ", stable=" + stableAssignments
+                            + "stable=" + stableAssignments
                             + ", pending=" + pendingAssignments
                             + ", localName=" + localNode().name() + "].";
 
