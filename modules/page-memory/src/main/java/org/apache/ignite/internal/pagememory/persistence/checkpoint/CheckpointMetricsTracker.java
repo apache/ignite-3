@@ -68,6 +68,8 @@ public class CheckpointMetricsTracker {
 
     private final Duration splitAndSortCheckpointPagesDuration = new Duration();
 
+    private final Duration waitPageReplacement = new Duration();
+
     /**
      * Increments counter if copy on write page was written.
      *
@@ -336,5 +338,32 @@ public class CheckpointMetricsTracker {
      */
     public long beforeWriteLockDuration(TimeUnit timeUnit) {
         return timeUnit.convert(writeLockWaitDuration.startNanos() - checkpointDuration.startNanos(), NANOSECONDS);
+    }
+
+    /**
+     * Callback to start waiting for page replacement to complete for all pages.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onWaitPageReplacementStart() {
+        waitPageReplacement.onStart();
+    }
+
+    /**
+     * Callback on end waiting for page replacement to complete for all pages.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onWaitPageReplacementEnd() {
+        fsyncDuration.onEnd();
+    }
+
+    /**
+     * Returns checkpoint waiting page replacement to complete duration in the given time unit.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public long waitPageReplacementDuration(TimeUnit timeUnit) {
+        return fsyncDuration.duration(timeUnit);
     }
 }
