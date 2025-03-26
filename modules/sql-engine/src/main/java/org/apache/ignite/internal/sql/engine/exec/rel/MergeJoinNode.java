@@ -101,6 +101,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     pushLeft(row);
                 }
 
+                @Override
+                public void push(List<RowT> batch) throws Exception {
+                    pushLeft(batch);
+                }
+
                 /** {@inheritDoc} */
                 @Override
                 public void end() throws Exception {
@@ -119,6 +124,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 @Override
                 public void push(RowT row) throws Exception {
                     pushRight(row);
+                }
+
+                @Override
+                public void push(List<RowT> batch) throws Exception {
+                    pushRight(batch);
                 }
 
                 /** {@inheritDoc} */
@@ -151,6 +161,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    private void pushLeft(List<RowT> row) throws Exception {
+        assert downstream() != null;
+        assert waitingLeft > 0;
+
+        waitingLeft -= row.size();
+
+        leftInBuf.addAll(row);
+
+        join();
+    }
+
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
@@ -162,6 +183,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         if (waitingRight == 0 && waitingLeft <= 0) {
             join();
         }
+    }
+
+    private void pushRight(List<RowT> row) throws Exception {
+        assert downstream() != null;
+        assert waitingRight > 0;
+
+        waitingRight -= row.size();
+
+        rightInBuf.addAll(row);
+
+        join();
     }
 
     private void endLeft() throws Exception {

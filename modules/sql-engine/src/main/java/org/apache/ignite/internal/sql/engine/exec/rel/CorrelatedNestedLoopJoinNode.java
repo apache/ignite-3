@@ -145,6 +145,11 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                     pushLeft(row);
                 }
 
+                @Override
+                public void push(List<RowT> batch) throws Exception {
+                    pushLeft(batch);
+                }
+
                 /** {@inheritDoc} */
                 @Override
                 public void end() throws Exception {
@@ -163,6 +168,11 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 @Override
                 public void push(RowT row) throws Exception {
                     pushRight(row);
+                }
+
+                @Override
+                public void push(List<RowT> batch) throws Exception {
+                    pushRight(batch);
                 }
 
                 /** {@inheritDoc} */
@@ -197,6 +207,21 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         onPushLeft();
     }
 
+    private void pushLeft(List<RowT> batch) throws Exception {
+        assert downstream() != null;
+        assert waitingLeft > 0;
+
+        waitingLeft -= batch.size();
+
+        if (leftInBuf == null) {
+            leftInBuf = newBatch(leftInBufferSize);
+        }
+
+        leftInBuf.addAll(batch);
+
+        onPushLeft();
+    }
+
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
@@ -208,6 +233,21 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         }
 
         rightInBuf.add(row);
+
+        onPushRight();
+    }
+
+    private void pushRight(List<RowT> batch) throws Exception {
+        assert downstream() != null;
+        assert waitingRight > 0;
+
+        waitingRight -= batch.size();
+
+        if (rightInBuf == null) {
+            rightInBuf = newBatch(rightInBufferSize);
+        }
+
+        rightInBuf.addAll(batch);
 
         onPushRight();
     }

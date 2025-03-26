@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
@@ -114,6 +115,17 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         idx.push(row);
 
         waiting--;
+
+        if (waiting == 0) {
+            source().request(waiting = inBufSize);
+        }
+    }
+
+    @Override
+    public void push(List<RowT> batch) throws Exception {
+        idx.pushAll(batch);
+
+        waiting -= batch.size();
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -145,6 +146,26 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             inBuff.offer(row);
 
             if (inBuff.size() == inBufSize) {
+                cond.signalAll();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void push(List<RowT> batch) throws Exception {
+        lock.lock();
+        try {
+            assert waiting > 0;
+
+            waiting -= batch.size();
+
+            for (RowT row : batch) {
+                inBuff.offer(row);
+            }
+
+            if (inBuff.size() >= inBufSize) {
                 cond.signalAll();
             }
         } finally {

@@ -21,10 +21,12 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -48,7 +50,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     /** All keys with null-fields are mapped to this object. */
     private static final Key NULL_KEY = new Key();
 
-    final Map<Key, TouchedCollection<RowT>> hashStore = new Object2ObjectOpenHashMap<>(INITIAL_CAPACITY);
+    final Object2ObjectOpenHashMap<Key, TouchedCollection<RowT>> hashStore = new Object2ObjectOpenHashMap<>(INITIAL_CAPACITY);
+    final ObjectArrayList<List<RowT>> buffers = new ObjectArrayList<>();
 
     private final int[] leftJoinPositions;
     private final int[] rightJoinPositions;
@@ -86,6 +89,9 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         rightIt = Collections.emptyIterator();
 
         hashStore.clear();
+        hashStore.trim(INITIAL_CAPACITY);
+        buffers.clear();
+        buffers.trim(inBufSize);
 
         super.rewindInternal();
     }
@@ -847,6 +853,27 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
         waitingRight--;
 
+        putToHashtable(row);
+
+        if (waitingRight == 0) {
+            rightSource().request(waitingRight = inBufSize);
+        }
+    }
+
+    @Override
+    protected void pushRight(List<RowT> batch) throws Exception {
+        assert downstream() != null;
+        assert waitingRight > 0;
+
+        waitingRight-= batch.size();
+        buffers.add(batch);
+
+        if (waitingRight == 0) {
+            rightSource().request(waitingRight = inBufSize);
+        }
+    }
+
+    private void putToHashtable(RowT row) {
         Key key = extractKey(row, rightJoinPositions);
 
         // No need to store the row in hashStore, if it contains NULL,
@@ -855,10 +882,29 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             TouchedCollection<RowT> raw = hashStore.computeIfAbsent(key, k -> new TouchedCollection<>());
             raw.add(row);
         }
+    }
 
-        if (waitingRight == 0) {
-            rightSource().request(waitingRight = inBufSize);
+    @Override
+    public void endRight() throws Exception {
+        assert downstream() != null;
+        assert waitingRight > 0;
+
+        waitingRight = NOT_WAITING;
+
+        if (!buffers.isEmpty()) {
+            int size = buffers.stream().mapToInt(List::size).sum();
+            hashStore.ensureCapacity(size);
+
+            for (int i = buffers.size() - 1; i >= 0; i--) {
+                List<RowT> batch = buffers.remove(i);
+                for (RowT row : batch) {
+                    putToHashtable(row);
+                }
+            }
+            buffers.clear();
         }
+
+        join();
     }
 
     private Key extractKey(RowT row, int[] mapping) {

@@ -85,6 +85,11 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
     }
 
     @Override
+    public void pushAll(List<RowT> batch) {
+        batch.forEach(this::push);
+    }
+
+    @Override
     public void close() {
         rows.clear();
     }

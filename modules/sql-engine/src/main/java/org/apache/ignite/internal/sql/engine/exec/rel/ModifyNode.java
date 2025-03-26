@@ -181,6 +181,24 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         requestNextBatchIfNeeded();
     }
 
+    @Override
+    public void push(List<RowT> batch) throws Exception {
+        assert downstream() != null;
+        assert waiting > 0;
+
+        waiting -= batch.size();
+
+        rows.addAll(batch);
+
+        assert batch.size() <= MODIFY_BATCH_SIZE;
+
+        if (needToFlush()) {
+            flushTuples();
+        }
+
+        requestNextBatchIfNeeded();
+    }
+
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {

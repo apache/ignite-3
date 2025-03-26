@@ -154,6 +154,25 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         }
     }
 
+    @Override
+    public void push(List<RowT> batch) throws Exception {
+        assert downstream() != null;
+        assert waiting > 0;
+
+        waiting -= batch.size();
+
+        rows.addAll(batch);
+
+
+        if (waiting == 0) {
+            source().request(waiting = inBufSize);
+        }
+
+        if (requested > 0 && rowIdx < rows.size()) {
+            doPush();
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {

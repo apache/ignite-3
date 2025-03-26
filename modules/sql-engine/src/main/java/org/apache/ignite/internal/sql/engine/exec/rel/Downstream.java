@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import java.util.List;
+
 /**
  * Represents an abstract data consumer.
  *
@@ -29,7 +31,14 @@ public interface Downstream<RowT> {
      *
      * @param row Data row.
      */
+    @Deprecated
     void push(RowT row) throws Exception;
+
+    default void push(List<RowT> batch) throws Exception {
+        for (RowT row : batch) {
+            push(row);
+        }
+    }
 
     /**
      * Signals that data is over.

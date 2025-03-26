@@ -71,6 +71,13 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
         rows.add(r);
     }
 
+    @Override
+    public void pushAll(List<RowT> batch) {
+        assert rows.isEmpty() || comp.compare(batch.get(0), rows.get(rows.size() - 1)) >= 0 : "Not sorted input";
+
+        rows.addAll(batch);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() {

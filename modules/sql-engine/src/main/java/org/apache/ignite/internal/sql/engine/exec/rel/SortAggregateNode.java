@@ -109,7 +109,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            execute(this::doFlush);
+            execute(this::flush);
         }
     }
 
@@ -121,6 +121,18 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         waiting--;
 
+        if (!addToGroup(row)){
+            flush();
+        }
+
+        if (waiting == 0 && requested > 0) {
+            waiting = inBufSize;
+
+            source().request(inBufSize);
+        }
+    }
+
+    private boolean addToGroup(RowT row) {
         if (grp != null) {
             int cmp = comp.compare(row, prevRow);
 
@@ -136,14 +148,34 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 outBuf.add(grp.row());
 
                 grp = newGroup(row);
+                prevRow = row;
 
-                flush();
+                return true;
             }
         } else {
             grp = newGroup(row);
         }
 
         prevRow = row;
+
+        return false;
+    }
+
+    @Override
+    public void push(List<RowT> batch) throws Exception {
+        assert downstream() != null;
+        assert waiting > 0;
+
+        waiting -= batch.size();
+        assert waiting >= 0;
+
+        for (RowT row : batch) {
+            addToGroup(row);
+        }
+
+        if (outBuf.size() >= inBufSize) {
+            flush();
+        }
 
         if (waiting == 0 && requested > 0) {
             waiting = inBufSize;
@@ -207,10 +239,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         grp.add(r);
 
         return grp;
-    }
-
-    private void doFlush() throws Exception {
-        flush();
     }
 
     private void flush() throws Exception {

@@ -137,6 +137,21 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         }
     }
 
+    @Override
+    public void push(List<RowT> batch) throws Exception {
+        assert downstream() != null;
+        assert waiting > 0;
+        assert reversed == null || reversed.isEmpty();
+
+        waiting -= batch.size();
+
+        rows.addAll(batch);
+
+        if (waiting == 0) {
+            source().request(waiting = inBufSize);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {
