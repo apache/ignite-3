@@ -317,12 +317,13 @@ public final class IgniteSqlParser  {
     private static class ValidateSqlIdentifiers extends SqlShuttle {
         @Override
         public @Nullable SqlNode visit(SqlIdentifier id) {
-            for (String segment : id.names) {
-                if (segment.isEmpty() && id.isStar()) {
+            for (int i = 0; i < id.names.size(); i++) {
+                String segment = id.names.get(i);
+
+                if (segment.isEmpty() && id.getComponent(i).isStar()) {
                     continue;
                 }
-
-                validateIdentifier(id.getParserPosition(), segment);
+                validateIdentifier(id.getComponentParserPosition(i), segment);
             }
 
             return super.visit(id);
@@ -370,7 +371,7 @@ public final class IgniteSqlParser  {
                 throw SqlUtil.newContextException(pos, RESOURCE.identifierTooLong(segment, maxLength));
             }
 
-            if (!IgniteNameUtils.isValidIdentifier(segment)) {
+            if (!pos.isQuoted() && !IgniteNameUtils.isValidIdentifier(segment)) {
                 throw new SqlException(STMT_VALIDATION_ERR,
                         format("Malformed identifier. At line {}, column {}", pos.getLineNum(), pos.getColumnNum()));
             }
