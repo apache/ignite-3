@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
@@ -106,7 +106,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         new CatalogTableDescriptor[0],
                         new CatalogIndexDescriptor[0],
                         new CatalogSystemViewDescriptor[0],
-                        INITIAL_CAUSALITY_TOKEN
+                        INITIAL_TIMESTAMP
                 )),
                 null
         );
@@ -198,7 +198,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         UpdateContext updateContext = new UpdateContext(catalog);
         for (CatalogCommand command : commandsToApply) {
             for (UpdateEntry updates : command.get(updateContext)) {
-                updateContext.updateCatalog(catalog0 -> updates.applyUpdate(catalog0, INITIAL_CAUSALITY_TOKEN));
+                updateContext.updateCatalog(catalog0 -> updates.applyUpdate(catalog0, INITIAL_TIMESTAMP));
             }
         }
 
@@ -226,7 +226,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         tables,
                         indexes,
                         systemViews,
-                        INITIAL_CAUSALITY_TOKEN
+                        INITIAL_TIMESTAMP
                 )),
                 DEFAULT_ZONE.id());
     }

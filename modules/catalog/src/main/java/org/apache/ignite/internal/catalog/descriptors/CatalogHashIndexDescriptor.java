@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
 
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /** Hash index descriptor. */
@@ -40,7 +41,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
     public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        this(id, name, tableId, unique, CatalogIndexStatus.REGISTERED, columns, INITIAL_CAUSALITY_TOKEN, false);
+        this(id, name, tableId, unique, CatalogIndexStatus.REGISTERED, columns, INITIAL_TIMESTAMP, false);
     }
 
     /**
@@ -65,7 +66,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             List<String> columns,
             boolean isCreatedWithTable
     ) {
-        this(id, name, tableId, unique, status, columns, INITIAL_CAUSALITY_TOKEN, isCreatedWithTable);
+        this(id, name, tableId, unique, status, columns, INITIAL_TIMESTAMP, isCreatedWithTable);
     }
 
     /**
@@ -77,7 +78,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param unique Unique flag.
      * @param status Index status.
      * @param columns A list of indexed columns. Must not contains duplicates.
-     * @param causalityToken Token of the update of the descriptor.
+     * @param timestamp Timestamp of the update of the descriptor.
      * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      *
      * @throws IllegalArgumentException If columns list contains duplicates.
@@ -89,10 +90,10 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             boolean unique,
             CatalogIndexStatus status,
             List<String> columns,
-            long causalityToken,
+            HybridTimestamp timestamp,
             boolean isCreatedWithTable
     ) {
-        super(CatalogIndexDescriptorType.HASH, id, name, tableId, unique, status, causalityToken, isCreatedWithTable);
+        super(CatalogIndexDescriptorType.HASH, id, name, tableId, unique, status, timestamp, isCreatedWithTable);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }

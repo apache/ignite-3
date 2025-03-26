@@ -99,7 +99,7 @@ class CatalogZoneDescriptorTest {
         var alterZoneCommand = (AlterZoneCommand) alter.apply(AlterZoneCommand.builder().zoneName(oldZone.name())).build();
 
         var alterZoneEntry = (AlterZoneEntry) alterZoneCommand.get(new UpdateContext(catalog)).get(0);
-        alterZoneEntry.applyUpdate(catalog, oldZone.updateToken() + 1);
+        alterZoneEntry.applyUpdate(catalog, oldZone.updateTimestamp().addPhysicalTime(1));
 
         CatalogZoneDescriptor newZone = alterZoneEntry.descriptor();
 

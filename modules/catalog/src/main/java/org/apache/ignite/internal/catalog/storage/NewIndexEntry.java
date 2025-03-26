@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -69,11 +70,11 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, descriptor.tableId());
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        descriptor.updateToken(causalityToken);
+        descriptor.updateTimestamp(timestamp);
 
         return new Catalog(
                 catalog.version(),
@@ -86,7 +87,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
                         schema.tables(),
                         ArrayUtils.concat(schema.indexes(), descriptor),
                         schema.systemViews(),
-                        causalityToken
+                        timestamp
                 ), catalog.schemas()),
                 defaultZoneIdOpt(catalog)
         );
