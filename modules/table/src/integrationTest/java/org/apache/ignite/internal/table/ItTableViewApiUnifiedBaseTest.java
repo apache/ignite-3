@@ -118,6 +118,20 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
         }
     }
 
+    static List<String> quoteIfNeeded(List<Column> columns) {
+        return columns.stream()
+                .map(col -> {
+                    String quotedName = IgniteNameUtils.quoteIfNeeded(col.name());
+
+                    if (quotedName.equals(col.name())) {
+                        return col.name().toLowerCase();
+                    }
+
+                    return quotedName;
+                })
+                .collect(Collectors.toUnmodifiableList());
+    }
+
     private static List<String> getClientAddresses(List<Ignite> nodes) {
         return nodes.stream()
                 .map(ignite -> unwrapIgniteImpl(ignite).clientAddress().port())

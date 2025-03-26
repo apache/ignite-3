@@ -25,10 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -38,6 +38,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.hamcrest.Matchers;
@@ -51,7 +52,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Integration tests for binary record view API.
  */
 public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
-    private static final String TABLE_NAME = "test";
+    private static final String TABLE_NAME_API_TEST = "test_api";
+
+    private static final String TABLE_NAME_API_TEST_QUOTED = "\"#%\"\"$\\@?!^.[table1]\"";
 
     private static final String TABLE_NAME_WITH_DEFAULT_VALUES = "test_defaults";
 
@@ -65,22 +68,24 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     private static final String TABLE_BYTE_TYPE_MATCH = "test_byte_type_match";
 
-    private final SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("ID", NativeTypes.INT64, false)},
-            new Column[]{new Column("VAL", NativeTypes.INT64, true)}
-    );
+    private Map<String, TestTableDefinition> schemaAwareTestTables;
 
     @BeforeAll
     void createTable() {
-        List<TestTableDefinition> tables = new ArrayList<>();
-
         Column[] valueColumns = {new Column("VAL", NativeTypes.INT64, true)};
 
-        tables.add(
-                new TestTableDefinition(TABLE_NAME, DEFAULT_KEY, valueColumns)
+        TestTableDefinition testApiTable1 = new TestTableDefinition(TABLE_NAME_API_TEST, DEFAULT_KEY, valueColumns, true);
+
+        TestTableDefinition testApiTable2 = new TestTableDefinition(
+                TABLE_NAME_API_TEST_QUOTED,
+                new Column[]{new Column("_-#$%/\"\"\\@?!^.[key]", NativeTypes.INT64, false)},
+                new Column[]{new Column("_-#$%/\"\"\\@?!^.[val]", NativeTypes.INT64, true)},
+                true
         );
-        tables.add(
+
+        List<TestTableDefinition> tablesToCreate = List.of(
+                testApiTable1,
+                testApiTable2,
                 new TestTableDefinition(
                         TABLE_COMPOUND_KEY,
                         new Column[]{
@@ -88,9 +93,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                                 new Column("AFFID", NativeTypes.INT64, false)
                         },
                         valueColumns
-                )
-        );
-        tables.add(
+                ),
                 new TestTableDefinition(
                         TABLE_TYPE_MISMATCH,
                         DEFAULT_KEY,
@@ -98,16 +101,12 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                                 new Column("VALSTRING", NativeTypes.stringOf(3), true),
                                 new Column("VALBYTES", NativeTypes.blobOf(3), true)
                         }
-                )
-        );
-        tables.add(
+                ),
                 new TestTableDefinition(
                         TABLE_STRING_TYPE_MATCH,
                         DEFAULT_KEY,
                         new Column[]{new Column("VALSTRING", NativeTypes.stringOf(3), true)}
-                )
-        );
-        tables.add(
+                ),
                 new TestTableDefinition(
                         TABLE_BYTE_TYPE_MATCH,
                         DEFAULT_KEY,
@@ -115,9 +114,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                                 new Column("VALUNLIMITED", NativeTypes.BYTES, true),
                                 new Column("VALLIMITED", NativeTypes.blobOf(2), true)
                         }
-                )
-        );
-        tables.add(
+                ),
                 new TestTableDefinition(
                         TABLE_NAME_FOR_SCHEMA_VALIDATION,
                         DEFAULT_KEY,
@@ -129,72 +126,94 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                 )
         );
 
-        createTables(tables);
+        createTables(tablesToCreate);
 
-        sql("CREATE TABLE " + TABLE_NAME_WITH_DEFAULT_VALUES + " ("
+        TestTableDefinition testApiTable3 = new TestTableDefinition(
+                TABLE_NAME_WITH_DEFAULT_VALUES,
+                DEFAULT_KEY,
+                new Column[]{
+                        new Column("VAL", NativeTypes.INT64, true),
+                        new Column("STR", NativeTypes.stringOf(3), true),
+                        new Column("BLOB", NativeTypes.blobOf(3), true)
+                }
+        );
+
+        sql("CREATE TABLE " + testApiTable3.name + " ("
                 + "ID BIGINT PRIMARY KEY, "
                 + "VAL BIGINT DEFAULT 28, "
                 + "STR VARCHAR(3) DEFAULT 'ABC', "
                 + "BLOB VARBINARY(3) DEFAULT X'000102'"
                 + ")");
+
+        schemaAwareTestTables = Map.of(
+                testApiTable1.name, testApiTable1,
+                testApiTable2.name, testApiTable2,
+                testApiTable3.name, testApiTable3
+        );
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void upsert(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void upsert(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
-        Tuple nonExistedTuple = Tuple.create().set("id", 2L);
+        Tuple tuple = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple newTuple = Tuple.create().set(keyName, 1L).set(valName, 22L);
+        Tuple nonExistedTuple = Tuple.create().set(keyName, 2L);
 
-        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         // Insert new tuple.
         tbl.upsert(null, tuple);
 
-        assertEqualsRows(tuple, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsRows(testCase.schema(), tuple, tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         // Update exited row.
         tbl.upsert(null, newTuple);
 
-        assertEqualsRows(newTuple, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsRows(testCase.schema(), newTuple, tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         assertNull(tbl.get(null, nonExistedTuple));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void getAndUpsert(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void getAndUpsert(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
+        Tuple tuple = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple newTuple = Tuple.create().set(keyName, 1L).set(valName, 22L);
 
-        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         // Insert new tuple.
         assertNull(tbl.getAndUpsert(null, tuple));
 
-        assertEqualsRows(tuple, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsRows(testCase.schema(), tuple, tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         // Update exited row.
-        assertEqualsRows(tuple, tbl.getAndUpsert(null, newTuple));
+        assertEqualsRows(testCase.schema(), tuple, tbl.getAndUpsert(null, newTuple));
 
-        assertEqualsRows(newTuple, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsRows(testCase.schema(), newTuple, tbl.get(null, Tuple.create().set(keyName, 1L)));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void remove(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void remove(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        tbl.upsert(null, Tuple.create().set("id", 1L).set("val", 11L));
+        tbl.upsert(null, Tuple.create().set(keyName, 1L).set(valName, 11L));
 
-        Tuple keyTuple = Tuple.create().set("id", 1L);
+        Tuple keyTuple = Tuple.create().set(keyName, 1L);
 
         // Delete not existed keyTuple.
-        assertFalse(tbl.delete(null, Tuple.create().set("id", 2L)));
+        assertFalse(tbl.delete(null, Tuple.create().set(keyName, 2L)));
 
         // Delete existed keyTuple.
         assertTrue(tbl.delete(null, keyTuple));
@@ -205,29 +224,31 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void removeExact(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void removeExact(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple keyTuple = Tuple.create().set("id", 1L);
-        Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
-        Tuple nonExistedTuple = Tuple.create().set("id", 2L).set("val", 22L);
+        Tuple keyTuple = Tuple.create().set(keyName, 1L);
+        Tuple tuple = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple tuple2 = Tuple.create().set(keyName, 1L).set(valName, 22L);
+        Tuple nonExistedTuple = Tuple.create().set(keyName, 2L).set(valName, 22L);
 
         tbl.insert(null, tuple);
 
-        assertEqualsRows(tuple, tbl.get(null, keyTuple));
+        assertEqualsRows(testCase.schema(), tuple, tbl.get(null, keyTuple));
 
         // Fails to delete not existed tuple.
         assertFalse(tbl.deleteExact(null, nonExistedTuple));
-        assertEqualsRows(tuple, tbl.get(null, keyTuple));
+        assertEqualsRows(testCase.schema(), tuple, tbl.get(null, keyTuple));
 
         // Fails to delete tuple with unexpected value.
         assertFalse(tbl.deleteExact(null, tuple2));
-        assertEqualsRows(tuple, tbl.get(null, keyTuple));
+        assertEqualsRows(testCase.schema(), tuple, tbl.get(null, keyTuple));
 
         assertFalse(tbl.deleteExact(null, keyTuple));
-        assertEqualsRows(tuple, tbl.get(null, keyTuple));
+        assertEqualsRows(testCase.schema(), tuple, tbl.get(null, keyTuple));
 
         // Delete tuple with expected value.
         assertTrue(tbl.deleteExact(null, tuple));
@@ -239,7 +260,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         // Insert new.
         tbl.insert(null, tuple2);
-        assertEqualsRows(tuple2, tbl.get(null, keyTuple));
+        assertEqualsRows(testCase.schema(), tuple2, tbl.get(null, keyTuple));
 
         // Delete tuple with expected value.
         assertTrue(tbl.deleteExact(null, tuple2));
@@ -247,13 +268,15 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void replace(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void replace(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple keyTuple = Tuple.create().set("id", 1L);
-        Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
+        Tuple keyTuple = Tuple.create().set(keyName, 1L);
+        Tuple tuple = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple tuple2 = Tuple.create().set(keyName, 1L).set(valName, 22L);
 
         assertNull(tbl.get(null, keyTuple));
 
@@ -268,17 +291,19 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         // Replace existed row.
         assertTrue(tbl.replace(null, tuple2));
 
-        assertEqualsRows(tuple2, tbl.get(null, keyTuple));
+        assertEqualsRows(testCase.schema(), tuple2, tbl.get(null, keyTuple));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void replaceExact(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void replaceExact(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple keyTuple = Tuple.create().set("id", 1L);
-        Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
+        Tuple keyTuple = Tuple.create().set(keyName, 1L);
+        Tuple tuple = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple tuple2 = Tuple.create().set(keyName, 1L).set(valName, 22L);
 
         assertNull(tbl.get(null, keyTuple));
 
@@ -292,7 +317,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         // Replace existed row.
         assertTrue(tbl.replace(null, tuple, tuple2));
 
-        assertEqualsRows(tuple2, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsRows(testCase.schema(), tuple2, tbl.get(null, Tuple.create().set(keyName, 1L)));
     }
 
     @ParameterizedTest
@@ -326,7 +351,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("defaultValueTestCases")
-    void defaultValues(BinTestCase testCase) {
+    void defaultValues(BinApiTestCase testCase) {
         sql("DELETE FROM " + TABLE_NAME_WITH_DEFAULT_VALUES);
 
         RecordView<Tuple> tbl = testCase.view();
@@ -341,17 +366,19 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         tbl.insert(null, tuple0);
         tbl.insert(null, tuple1);
 
-        assertEqualsRows(tupleExpected0, tbl.get(null, keyTuple0));
-        assertEqualsRows(tuple1, tbl.get(null, keyTuple1));
+        assertEqualsRows(testCase.schema(), tupleExpected0, tbl.get(null, keyTuple0));
+        assertEqualsRows(testCase.schema(), tuple1, tbl.get(null, keyTuple1));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void getAll(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void getAll(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple rec3 = Tuple.create().set("id", 3L).set("val", 33L);
+        Tuple rec1 = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple rec3 = Tuple.create().set(keyName, 3L).set(valName, 33L);
 
         testCase.checkNullKeyRecsError(() -> tbl.getAll(null, null));
         testCase.checkNullKeyError(() -> tbl.getAll(null, Arrays.asList(rec1, null)));
@@ -363,63 +390,67 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         Collection<Tuple> res = tbl.getAll(
                 null,
                 List.of(
-                        Tuple.create().set("id", 1L),
-                        Tuple.create().set("id", 2L),
-                        Tuple.create().set("id", 3L)
+                        Tuple.create().set(keyName, 1L),
+                        Tuple.create().set(keyName, 2L),
+                        Tuple.create().set(keyName, 3L)
                 ));
 
         assertThat(res, Matchers.contains(rec1, null, rec3));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void contains(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void contains(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
         final long keyId = 1L;
         Tuple rec = Tuple.create()
-                .set("id", keyId)
-                .set("val", 11L);
+                .set(keyName, keyId)
+                .set(valName, 11L);
         Tuple keyRec = Tuple.create()
-                .set("id", keyId);
+                .set(keyName, keyId);
 
         tbl.insert(null, rec);
         assertTrue(tbl.contains(null, keyRec));
-        assertFalse(tbl.contains(null, Tuple.create().set("id", -1L)));
+        assertFalse(tbl.contains(null, Tuple.create().set(keyName, -1L)));
 
         tbl.delete(null, keyRec);
         assertFalse(tbl.contains(null, keyRec));
 
-        Tuple nullValRec = Tuple.create().set("id", 1L).set("val", null);
+        Tuple nullValRec = Tuple.create().set(keyName, 1L).set(valName, null);
         tbl.insert(null, nullValRec);
         assertTrue(tbl.contains(null, keyRec));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void containsAll(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void containsAll(BinApiTestCase testCase) {
         RecordView<Tuple> recordView = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
         long firstKey = 101L;
         Tuple firstKeyTuple = Tuple.create()
-                .set("id", firstKey);
+                .set(keyName, firstKey);
         Tuple firstValTuple = Tuple.create()
-                .set("id", firstKey)
-                .set("val", 201L);
+                .set(keyName, firstKey)
+                .set(valName, 201L);
 
         long secondKey = 102L;
         Tuple secondKeyTuple = Tuple.create()
-                .set("id", secondKey);
+                .set(keyName, secondKey);
         Tuple secondValTuple = Tuple.create()
-                .set("id", secondKey)
-                .set("val", 202L);
+                .set(keyName, secondKey)
+                .set(valName, 202L);
 
         long thirdKey = 103L;
         Tuple thirdKeyTuple = Tuple.create()
-                .set("id", thirdKey);
+                .set(keyName, thirdKey);
         Tuple thirdValTuple = Tuple.create()
-                .set("id", thirdKey)
-                .set("val", 203L);
+                .set(keyName, thirdKey)
+                .set(valName, 203L);
 
         testCase.checkNullRecsError(() -> recordView.insertAll(null, null));
         testCase.checkNullRecError(() -> recordView.insertAll(null, Arrays.asList(firstKeyTuple, null)));
@@ -437,56 +468,60 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         long missedKey = 0L;
         Tuple missedKeyTuple = Tuple.create()
-                .set("id", missedKey);
+                .set(keyName, missedKey);
 
         assertFalse(recordView.containsAll(null, List.of(missedKeyTuple)));
         assertFalse(recordView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, missedKeyTuple)));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void upsertAllAfterInsertAll(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void upsertAllAfterInsertAll(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple rec3 = Tuple.create().set("id", 3L).set("val", 33L);
+        Tuple rec1 = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple rec3 = Tuple.create().set(keyName, 3L).set(valName, 33L);
 
         tbl.insertAll(null, List.of(rec1, rec3));
 
         Collection<Tuple> res = tbl.getAll(
                 null,
                 List.of(
-                        Tuple.create().set("id", 1L),
-                        Tuple.create().set("id", 2L),
-                        Tuple.create().set("id", 3L)
+                        Tuple.create().set(keyName, 1L),
+                        Tuple.create().set(keyName, 2L),
+                        Tuple.create().set(keyName, 3L)
                 ));
 
         assertThat(res, Matchers.contains(rec1, null, rec3));
 
-        Tuple upRec1 = Tuple.create().set("id", 1L).set("val", 112L);
-        Tuple rec2 = Tuple.create().set("id", 2L).set("val", 22L);
-        Tuple upRec3 = Tuple.create().set("id", 3L).set("val", 332L);
+        Tuple upRec1 = Tuple.create().set(keyName, 1L).set(valName, 112L);
+        Tuple rec2 = Tuple.create().set(keyName, 2L).set(valName, 22L);
+        Tuple upRec3 = Tuple.create().set(keyName, 3L).set(valName, 332L);
 
         tbl.upsertAll(null, List.of(upRec1, rec2, upRec3));
 
         res = tbl.getAll(
                 null,
                 List.of(
-                        Tuple.create().set("id", 1L),
-                        Tuple.create().set("id", 2L),
-                        Tuple.create().set("id", 3L)
+                        Tuple.create().set(keyName, 1L),
+                        Tuple.create().set(keyName, 2L),
+                        Tuple.create().set(keyName, 3L)
                 ));
 
         assertThat(res, Matchers.contains(upRec1, rec2, upRec3));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void deleteVsDeleteExact(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void deleteVsDeleteExact(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple rec = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple recReplace = Tuple.create().set("id", 1L).set("val", 12L);
+        Tuple rec = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple recReplace = Tuple.create().set(keyName, 1L).set(valName, 12L);
 
         tbl.insert(null, rec);
 
@@ -497,64 +532,70 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         tbl.upsert(null, recReplace);
 
-        assertTrue(tbl.delete(null, Tuple.create().set("id", 1L)));
+        assertTrue(tbl.delete(null, Tuple.create().set(keyName, 1L)));
 
-        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, Tuple.create().set(keyName, 1L)));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void getAndReplace(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void getAndReplace(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
         long val = 0;
 
-        tbl.insert(null, Tuple.create().set("id", 1L).set("val", val));
+        tbl.insert(null, Tuple.create().set(keyName, 1L).set(valName, val));
 
         for (int i = 1; i < 10; i++) {
             val = i;
 
             assertEquals(
                     val - 1,
-                    tbl.getAndReplace(null, Tuple.create().set("id", 1L).set("val", val))
+                    tbl.getAndReplace(null, Tuple.create().set(keyName, 1L).set(valName, val))
                             .longValue(1)
             );
         }
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void getAndDelete(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void getAndDelete(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple tuple = Tuple.create().set("id", 1L).set("val", 1L);
+        Tuple tuple = Tuple.create().set(keyName, 1L).set(valName, 1L);
 
         tbl.insert(null, tuple);
 
-        Tuple removedTuple = tbl.getAndDelete(null, Tuple.create().set("id", 1L));
+        Tuple removedTuple = tbl.getAndDelete(null, Tuple.create().set(keyName, 1L));
 
         assertEquals(tuple, removedTuple);
 
-        assertNull(tbl.getAndDelete(null, Tuple.create().set("id", 1L)));
+        assertNull(tbl.getAndDelete(null, Tuple.create().set(keyName, 1L)));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void deleteAll(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void deleteAll(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple tuple2 = Tuple.create().set("id", 2L).set("val", 22L);
-        Tuple tuple3 = Tuple.create().set("id", 3L).set("val", 33L);
+        Tuple tuple1 = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple tuple2 = Tuple.create().set(keyName, 2L).set(valName, 22L);
+        Tuple tuple3 = Tuple.create().set(keyName, 3L).set(valName, 33L);
 
         tbl.insertAll(null, List.of(tuple1, tuple2, tuple3));
 
         Collection<Tuple> current = tbl.getAll(
                 null,
                 List.of(
-                        Tuple.create().set("id", 1L),
-                        Tuple.create().set("id", 2L),
-                        Tuple.create().set("id", 3L)
+                        Tuple.create().set(keyName, 1L),
+                        Tuple.create().set(keyName, 2L),
+                        Tuple.create().set(keyName, 3L)
                 ));
 
         assertEquals(3, current.size());
@@ -566,43 +607,45 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         Collection<Tuple> notRemovedTuples = tbl.deleteAll(
                 null,
                 List.of(
-                        Tuple.create().set("id", 1L),
-                        Tuple.create().set("id", 3L),
-                        Tuple.create().set("id", 4L)
+                        Tuple.create().set(keyName, 1L),
+                        Tuple.create().set(keyName, 3L),
+                        Tuple.create().set(keyName, 4L)
                 )
         );
 
         assertEquals(1, notRemovedTuples.size());
-        assertTrue(notRemovedTuples.contains(Tuple.create().set("id", 4L)));
+        assertTrue(notRemovedTuples.contains(Tuple.create().set(keyName, 4L)));
 
         current = tbl.getAll(
                 null,
                 List.of(
-                        Tuple.create().set("id", 1L),
-                        Tuple.create().set("id", 2L),
-                        Tuple.create().set("id", 3L)
+                        Tuple.create().set(keyName, 1L),
+                        Tuple.create().set(keyName, 2L),
+                        Tuple.create().set(keyName, 3L)
                 ));
 
         assertThat(current, Matchers.contains(null, tuple2, null));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void deleteExact(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void deleteExact(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11L);
-        Tuple tuple2 = Tuple.create().set("id", 2L).set("val", 22L);
-        Tuple tuple3 = Tuple.create().set("id", 3L).set("val", 33L);
+        Tuple tuple1 = Tuple.create().set(keyName, 1L).set(valName, 11L);
+        Tuple tuple2 = Tuple.create().set(keyName, 2L).set(valName, 22L);
+        Tuple tuple3 = Tuple.create().set(keyName, 3L).set(valName, 33L);
 
         tbl.insertAll(null, List.of(tuple1, tuple2, tuple3));
 
         Collection<Tuple> current = tbl.getAll(
                 null,
                 List.of(
-                        Tuple.create().set("id", 1L),
-                        Tuple.create().set("id", 2L),
-                        Tuple.create().set("id", 3L)
+                        Tuple.create().set(keyName, 1L),
+                        Tuple.create().set(keyName, 2L),
+                        Tuple.create().set(keyName, 3L)
                 ));
 
         assertEquals(3, current.size());
@@ -611,11 +654,11 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         assertTrue(current.contains(tuple2));
         assertTrue(current.contains(tuple3));
 
-        Tuple tuple3Upsert = Tuple.create().set("id", 3L).set("val", 44L);
+        Tuple tuple3Upsert = Tuple.create().set(keyName, 3L).set(valName, 44L);
 
         tbl.upsert(null, tuple3Upsert);
 
-        Tuple tuple4NotExists = Tuple.create().set("id", 4L).set("val", 55L);
+        Tuple tuple4NotExists = Tuple.create().set(keyName, 4L).set(valName, 55L);
 
         Collection<Tuple> notRemovedTuples = tbl.deleteAllExact(null,
                 List.of(tuple1, tuple2, tuple3, tuple4NotExists));
@@ -627,24 +670,26 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         current = tbl.getAll(
                 null,
                 List.of(
-                        Tuple.create().set("id", 1L),
-                        Tuple.create().set("id", 2L),
-                        Tuple.create().set("id", 3L)
+                        Tuple.create().set(keyName, 1L),
+                        Tuple.create().set(keyName, 2L),
+                        Tuple.create().set(keyName, 3L)
                 ));
 
         assertThat(current, Matchers.contains(null, null, tuple3Upsert));
     }
 
     @ParameterizedTest
-    @MethodSource("testCases")
-    void getAndReplaceVsGetAndUpsert(BinTestCase testCase) {
+    @MethodSource("apiTestCases")
+    void getAndReplaceVsGetAndUpsert(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11L);
+        Tuple tuple1 = Tuple.create().set(keyName, 1L).set(valName, 11L);
 
         assertNull(tbl.getAndUpsert(null, tuple1));
 
-        Tuple tuple = tbl.get(null, Tuple.create().set("id", 1L));
+        Tuple tuple = tbl.get(null, Tuple.create().set(keyName, 1L));
 
         assertNotNull(tuple);
 
@@ -654,7 +699,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         assertNull(tbl.getAndReplace(null, tuple));
 
-        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, Tuple.create().set(keyName, 1L)));
     }
 
     @ParameterizedTest
@@ -751,7 +796,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
      * @param expected Expected tuple.
      * @param actual Actual tuple.
      */
-    private void assertEqualsRows(Tuple expected, Tuple actual) {
+    private static void assertEqualsRows(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         assertEqualsKeys(schema, expected, actual);
         assertEqualsValues(schema, expected, actual);
     }
@@ -769,8 +814,8 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         for (int i = 0; i < schema.keyColumns().size(); i++) {
             Column col = schema.keyColumns().get(i);
 
-            Object val1 = expected.value(col.name());
-            Object val2 = actual.value(col.name());
+            Object val1 = expected.value(IgniteNameUtils.quoteIfNeeded(col.name()));
+            Object val2 = actual.value(IgniteNameUtils.quoteIfNeeded(col.name()));
 
             assertEquals(val1, val2, "Value columns equality check failed: " + col);
 
@@ -782,8 +827,13 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         assertTrue(nonNullKey > 0, "At least one non-null key column must exist.");
     }
 
-    private List<Arguments> testCases() {
-        return generateRecordViewTestArguments(TABLE_NAME, Tuple.class);
+    private List<Arguments> apiTestCases() {
+        List<Arguments> args1 = generateRecordViewTestArguments(TABLE_NAME_API_TEST, Tuple.class);
+        List<Arguments> args2 = generateRecordViewTestArguments(TABLE_NAME_API_TEST_QUOTED, Tuple.class, " (quoted names)");
+
+        args1.addAll(args2);
+
+        return args1;
     }
 
     private List<Arguments> schemaValidationTestCases() {
@@ -821,6 +871,10 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
                 if (async) {
                     view = new AsyncApiRecordViewAdapter<>(view);
+                }
+
+                if (schemaAwareTestTables.containsKey(name)) {
+                    return (TestCase<V>) new BinApiTestCase(async, thin, view, schemaAwareTestTables.get(name));
                 }
 
                 return (TestCase<V>) new BinTestCase(async, thin, view);
@@ -881,6 +935,34 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             } else {
                 IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
             }
+        }
+    }
+
+    static class BinApiTestCase extends BinTestCase {
+        final List<String> keyColumns;
+
+        final List<String> valueColumns;
+
+        final SchemaDescriptor schema;
+
+        String keyColumnName(int index) {
+            return keyColumns.get(index);
+        }
+
+        String valColumnName(int index) {
+            return valueColumns.get(index);
+        }
+
+        public SchemaDescriptor schema() {
+            return schema;
+        }
+
+        BinApiTestCase(boolean async, boolean thin, RecordView<Tuple> view, TestTableDefinition tableDefinition) {
+            super(async, thin, view);
+
+            this.keyColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.keyColumns());
+            this.valueColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.valueColumns());
+            this.schema = tableDefinition.schemaDescriptor;
         }
     }
 }

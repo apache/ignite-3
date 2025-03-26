@@ -40,7 +40,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
@@ -53,9 +52,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Integration tests for binary {@link KeyValueView} API.
  */
 public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
-    private static final String TEST_TABLE = "test_tuple";
+    private static final String TABLE_NAME_API_TEST = "test_api";
 
-    private static final String TEST_TABLE_QUOTED = "\"#%\"\"$\\@!^.[table1]\"";
+    private static final String TABLE_NAME_API_TEST_QUOTED = "\"#%\"\"$\\@?!^.[table1]\"";
 
     private static final String TABLE_COMPOUND_KEY = "test_tuple_compound_key";
 
@@ -68,12 +67,12 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         Column[] simpleKey = {new Column("ID", NativeTypes.INT64, false)};
         Column[] simpleValue = {new Column("VAL", NativeTypes.STRING, true)};
 
-        TestTableDefinition keyValueTable = new TestTableDefinition(TEST_TABLE, simpleKey, simpleValue, true);
+        TestTableDefinition keyValueTable = new TestTableDefinition(TABLE_NAME_API_TEST, simpleKey, simpleValue, true);
 
         TestTableDefinition simlpleQuotedKeyValueTable = new TestTableDefinition(
-                TEST_TABLE_QUOTED,
-                new Column[]{new Column("_-#$%/\"\"\\@!^.[key]", NativeTypes.INT64, false)},
-                new Column[]{new Column("_-#$%/\"\"\\@!^.[val]", NativeTypes.STRING, true)},
+                TABLE_NAME_API_TEST_QUOTED,
+                new Column[]{new Column("_-#$%/\"\"\\@?!^.[key]", NativeTypes.INT64, false)},
+                new Column[]{new Column("_-#$%/\"\"\\@?!^.[val]", NativeTypes.STRING, true)},
                 true
         );
 
@@ -581,8 +580,8 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     private List<Arguments> testCases() {
-        List<Arguments> args1 = generateKeyValueTestArguments(TEST_TABLE, Tuple.class, Tuple.class);
-        List<Arguments> args2 = generateKeyValueTestArguments(TEST_TABLE_QUOTED, Tuple.class, Tuple.class, " (quoted names)");
+        List<Arguments> args1 = generateKeyValueTestArguments(TABLE_NAME_API_TEST, Tuple.class, Tuple.class);
+        List<Arguments> args2 = generateKeyValueTestArguments(TABLE_NAME_API_TEST_QUOTED, Tuple.class, Tuple.class, " (quoted names)");
 
         args1.addAll(args2);
 
@@ -643,20 +642,6 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             this.keyColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.keyColumns());
             this.valueColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.valueColumns());
             this.schema = tableDefinition.schemaDescriptor;
-        }
-
-        private static List<String> quoteIfNeeded(List<Column> columns) {
-            return columns.stream()
-                    .map(col -> {
-                        String quotedName = IgniteNameUtils.quoteIfNeeded(col.name());
-
-                        if (quotedName.equals(col.name())) {
-                            return col.name().toLowerCase();
-                        }
-
-                        return quotedName;
-                    })
-                    .collect(Collectors.toUnmodifiableList());
         }
 
         @SuppressWarnings("ThrowableNotThrown")

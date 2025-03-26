@@ -67,7 +67,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         tables.add(new TestTableDefinition(TABLE_NAME_SIMPLE_TYPE, DEFAULT_KEY, nullableValue, true));
 
         tables.add(new TestTableDefinition(
-                TABLE_NAME_SIMPLE_TYPE,
+                TABLE_NAME_NON_NULLABLE_VALUE,
                 DEFAULT_KEY,
                 new Column[] {new Column("VAL", NativeTypes.INT64, false)},
                 true
@@ -75,8 +75,9 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
         for (NativeType type : SchemaTestUtils.ALL_TYPES) {
             String tableName = "T_" + type.spec().name();
+            Column[] values = {new Column("VAL", type, false)};
 
-            tables.add(new TestTableDefinition(tableName, DEFAULT_KEY, nullableValue));
+            tables.add(new TestTableDefinition(tableName, DEFAULT_KEY, values));
         }
 
         // Validate all types are tested.
