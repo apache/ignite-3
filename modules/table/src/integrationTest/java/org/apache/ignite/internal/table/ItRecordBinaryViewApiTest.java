@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -71,37 +72,64 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     );
 
     @BeforeAll
-    public void createTable() {
-        createTable(TABLE_NAME, schema.valueColumns());
+    void createTable() {
+        List<TestTableDefinition> tables = new ArrayList<>();
 
-        createTable(TABLE_COMPOUND_KEY, false,
-                List.of(new Column("ID", NativeTypes.INT64, false),
-                        new Column("AFFID", NativeTypes.INT64, false)),
-                schema.valueColumns());
+        Column[] valueColumns = {new Column("VAL", NativeTypes.INT64, true)};
 
-        createTable(TABLE_TYPE_MISMATCH, false,
-                List.of(new Column("ID", NativeTypes.INT64, false)),
-                List.of(new Column("VALSTRING", NativeTypes.stringOf(3), true),
-                        new Column("VALBYTES", NativeTypes.blobOf(3), true))
+        tables.add(
+                new TestTableDefinition(TABLE_NAME, DEFAULT_KEY, valueColumns)
+        );
+        tables.add(
+                new TestTableDefinition(
+                        TABLE_COMPOUND_KEY,
+                        new Column[]{
+                                new Column("ID", NativeTypes.INT64, false),
+                                new Column("AFFID", NativeTypes.INT64, false)
+                        },
+                        valueColumns
+                )
+        );
+        tables.add(
+                new TestTableDefinition(
+                        TABLE_TYPE_MISMATCH,
+                        DEFAULT_KEY,
+                        new Column[]{
+                                new Column("VALSTRING", NativeTypes.stringOf(3), true),
+                                new Column("VALBYTES", NativeTypes.blobOf(3), true)
+                        }
+                )
+        );
+        tables.add(
+                new TestTableDefinition(
+                        TABLE_STRING_TYPE_MATCH,
+                        DEFAULT_KEY,
+                        new Column[]{new Column("VALSTRING", NativeTypes.stringOf(3), true)}
+                )
+        );
+        tables.add(
+                new TestTableDefinition(
+                        TABLE_BYTE_TYPE_MATCH,
+                        DEFAULT_KEY,
+                        new Column[]{
+                                new Column("VALUNLIMITED", NativeTypes.BYTES, true),
+                                new Column("VALLIMITED", NativeTypes.blobOf(2), true)
+                        }
+                )
+        );
+        tables.add(
+                new TestTableDefinition(
+                        TABLE_NAME_FOR_SCHEMA_VALIDATION,
+                        DEFAULT_KEY,
+                        new Column[]{
+                                new Column("VAL", NativeTypes.INT64, true),
+                                new Column("STR", NativeTypes.stringOf(3), true),
+                                new Column("BLOB", NativeTypes.blobOf(3), true)
+                        }
+                )
         );
 
-        createTable(TABLE_STRING_TYPE_MATCH, false,
-                List.of(new Column("ID", NativeTypes.INT64, false)),
-                List.of(new Column("VALSTRING", NativeTypes.stringOf(3), true))
-        );
-
-        createTable(TABLE_BYTE_TYPE_MATCH, false,
-                List.of(new Column("ID", NativeTypes.INT64, false)),
-                List.of(new Column("VALUNLIMITED", NativeTypes.BYTES, true),
-                        new Column("VALLIMITED", NativeTypes.blobOf(2), true))
-        );
-
-        createTable(TABLE_NAME_FOR_SCHEMA_VALIDATION, false,
-                List.of(new Column("ID", NativeTypes.INT64, false)),
-                List.of(new Column("VAL", NativeTypes.INT64, true),
-                        new Column("STR", NativeTypes.stringOf(3), true),
-                        new Column("BLOB", NativeTypes.blobOf(3), true))
-        );
+        createTables(tables);
 
         sql("CREATE TABLE " + TABLE_NAME_WITH_DEFAULT_VALUES + " ("
                 + "ID BIGINT PRIMARY KEY, "
@@ -113,7 +141,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void upsert(BinTestCase testCase) {
+    void upsert(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
@@ -137,7 +165,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void getAndUpsert(BinTestCase testCase) {
+    void getAndUpsert(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
@@ -158,7 +186,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void remove(BinTestCase testCase) {
+    void remove(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         tbl.upsert(null, Tuple.create().set("id", 1L).set("val", 11L));
@@ -178,7 +206,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void removeExact(BinTestCase testCase) {
+    void removeExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple keyTuple = Tuple.create().set("id", 1L);
@@ -220,7 +248,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void replace(BinTestCase testCase) {
+    void replace(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple keyTuple = Tuple.create().set("id", 1L);
@@ -245,7 +273,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void replaceExact(BinTestCase testCase) {
+    void replaceExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple keyTuple = Tuple.create().set("id", 1L);
@@ -269,7 +297,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("schemaValidationTestCases")
-    public void validateSchema(BinTestCase testCase) {
+    void validateSchema(BinTestCase testCase) {
         sql("DELETE FROM " + TABLE_NAME_FOR_SCHEMA_VALIDATION);
 
         RecordView<Tuple> tbl = testCase.view();
@@ -298,7 +326,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("defaultValueTestCases")
-    public void defaultValues(BinTestCase testCase) {
+    void defaultValues(BinTestCase testCase) {
         sql("DELETE FROM " + TABLE_NAME_WITH_DEFAULT_VALUES);
 
         RecordView<Tuple> tbl = testCase.view();
@@ -319,7 +347,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void getAll(BinTestCase testCase) {
+    void getAll(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
@@ -345,7 +373,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void contains(BinTestCase testCase) {
+    void contains(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         final long keyId = 1L;
@@ -369,7 +397,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void containsAll(BinTestCase testCase) {
+    void containsAll(BinTestCase testCase) {
         RecordView<Tuple> recordView = testCase.view();
 
         long firstKey = 101L;
@@ -417,7 +445,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void upsertAllAfterInsertAll(BinTestCase testCase) {
+    void upsertAllAfterInsertAll(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
@@ -454,7 +482,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void deleteVsDeleteExact(BinTestCase testCase) {
+    void deleteVsDeleteExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple rec = Tuple.create().set("id", 1L).set("val", 11L);
@@ -476,7 +504,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void getAndReplace(BinTestCase testCase) {
+    void getAndReplace(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         long val = 0;
@@ -496,7 +524,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void getAndDelete(BinTestCase testCase) {
+    void getAndDelete(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple tuple = Tuple.create().set("id", 1L).set("val", 1L);
@@ -512,7 +540,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void deleteAll(BinTestCase testCase) {
+    void deleteAll(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11L);
@@ -560,7 +588,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void deleteExact(BinTestCase testCase) {
+    void deleteExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11L);
@@ -609,7 +637,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void getAndReplaceVsGetAndUpsert(BinTestCase testCase) {
+    void getAndReplaceVsGetAndUpsert(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11L);
@@ -631,7 +659,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("compoundPkTestCases")
-    public void schemaMismatch(BinTestCase testCase) {
+    void schemaMismatch(BinTestCase testCase) {
         RecordView<Tuple> recordView = testCase.view();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must throw exception
@@ -650,7 +678,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("typeMismatchTestCases")
-    public void typeMismatch(BinTestCase testCase) {
+    void typeMismatch(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         // Check not-nullable column.
@@ -672,7 +700,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("stringTypeMatchTestCases")
-    public void stringTypeMatch(BinTestCase testCase) {
+    void stringTypeMatch(BinTestCase testCase) {
         try {
             RecordView<Tuple> view = testCase.view();
 
@@ -696,7 +724,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("byteTypeMatchTestCases")
-    public void bytesTypeMatch(BinTestCase testCase) {
+    void bytesTypeMatch(BinTestCase testCase) {
         try {
             RecordView<Tuple> recordView = testCase.view();
 

@@ -53,7 +53,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @BeforeAll
     public void createTable() {
-        createTable(TABLE_NAME_COMPOSITE_TYPE, List.of(KeyValueTestUtils.ALL_TYPES_COLUMNS));
+        createTables(List.of(new TestTableDefinition(TABLE_NAME_COMPOSITE_TYPE, DEFAULT_KEY, KeyValueTestUtils.ALL_TYPES_COLUMNS, true)));
     }
 
     @BeforeEach

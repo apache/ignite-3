@@ -28,6 +28,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -37,6 +40,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
@@ -51,56 +55,78 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     private static final String TEST_TABLE = "test_tuple";
 
+    private static final String TEST_TABLE_QUOTED = "\"#%\"\"$\\@!^.[table1]\"";
+
     private static final String TABLE_COMPOUND_KEY = "test_tuple_compound_key";
 
     private static final String TABLE_NAME_FOR_SCHEMA_VALIDATION = "test_schema";
 
-    private final SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("ID", NativeTypes.INT64, false)},
-            new Column[]{new Column("VAL", NativeTypes.STRING, true)}
-    );
+    private Map<String, TestTableDefinition> createdTables;
 
     @BeforeAll
-    public void createTable() {
-        createTable(TEST_TABLE, schema.valueColumns());
+    void createTable() {
+        Column[] simpleKey = {new Column("ID", NativeTypes.INT64, false)};
+        Column[] simpleValue = {new Column("VAL", NativeTypes.STRING, true)};
 
-        createTable(TABLE_COMPOUND_KEY, false,
-                List.of(new Column("ID", NativeTypes.INT64, false),
-                        new Column("AFFID", NativeTypes.INT64, false)),
-                schema.valueColumns());
+        TestTableDefinition keyValueTable = new TestTableDefinition(TEST_TABLE, simpleKey, simpleValue, true);
 
-        createTable(TABLE_NAME_FOR_SCHEMA_VALIDATION, false,
-                List.of(new Column("ID", NativeTypes.INT64, false)),
-                List.of(new Column("VAL", NativeTypes.INT64, true),
-                        new Column("STR", NativeTypes.stringOf(3), true),
-                        new Column("BLOB", NativeTypes.blobOf(3), true))
+        TestTableDefinition simlpleQuotedKeyValueTable = new TestTableDefinition(
+                TEST_TABLE_QUOTED,
+                new Column[]{new Column("_-#$%/\"\"\\@!^.[key]", NativeTypes.INT64, false)},
+                new Column[]{new Column("_-#$%/\"\"\\@!^.[val]", NativeTypes.STRING, true)},
+                true
         );
+
+        TestTableDefinition tableWithCompoundKey = new TestTableDefinition(
+                TABLE_COMPOUND_KEY,
+                new Column[]{
+                        new Column("ID", NativeTypes.INT64, false),
+                        new Column("AFFID", NativeTypes.INT64, false)
+                },
+                simpleValue
+        );
+
+        TestTableDefinition tableForSchemaValidation = new TestTableDefinition(
+                TABLE_NAME_FOR_SCHEMA_VALIDATION,
+                simpleKey,
+                new Column[]{
+                        new Column("VAL", NativeTypes.INT64, true),
+                        new Column("STR", NativeTypes.stringOf(3), true),
+                        new Column("BLOB", NativeTypes.blobOf(3), true)
+                }
+        );
+
+        createdTables = Stream.of(keyValueTable, simlpleQuotedKeyValueTable, tableWithCompoundKey, tableForSchemaValidation)
+                .collect(Collectors.toMap(e -> e.name, Function.identity()));
+
+        createTables(createdTables.values());
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void put(TestCase testCase) {
+    void put(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple val = Tuple.create().set("val", "ab");
-        Tuple val2 = Tuple.create().set("val", "cd");
-        Tuple val3 = Tuple.create().set("val", "ef");
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple val = Tuple.create().set(valName, "ab");
+        Tuple val2 = Tuple.create().set(valName, "cd");
+        Tuple val3 = Tuple.create().set(valName, "ef");
 
         assertNull(tbl.get(null, key));
 
         // Put KV pair.
         tbl.put(null, key, val);
 
-        assertEqualsValues(schema, val, tbl.get(null, key));
-        assertEqualsValues(schema, val, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsValues(testCase.schema(), val, tbl.get(null, key));
+        assertEqualsValues(testCase.schema(), val, tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         // Update KV pair.
         tbl.put(null, key, val2);
 
-        assertEqualsValues(schema, val2, tbl.get(null, key));
-        assertEqualsValues(schema, val2, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsValues(testCase.schema(), val2, tbl.get(null, key));
+        assertEqualsValues(testCase.schema(), val2, tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         // Remove KV pair.
         tbl.remove(null, key);
@@ -109,92 +135,100 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
         // Put KV pair.
         tbl.put(null, key, val3);
-        assertEqualsValues(schema, val3, tbl.get(null, key));
+        assertEqualsValues(testCase.schema(), val3, tbl.get(null, key));
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void putIfAbsent(TestCase testCase) {
+    void putIfAbsent(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
 
         assertNull(tbl.get(null, key));
 
         // Insert new KV pair.
         assertTrue(tbl.putIfAbsent(null, key, val));
 
-        assertEqualsValues(schema, val, tbl.get(null, key));
-        assertEqualsValues(schema, val, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsValues(testCase.schema(), val, tbl.get(null, key));
+        assertEqualsValues(testCase.schema(), val, tbl.get(null, Tuple.create().set(keyName, 1L)));
 
         // Update KV pair.
         assertFalse(tbl.putIfAbsent(null, key, val2));
 
-        assertEqualsValues(schema, val, tbl.get(null, key));
-        assertEqualsValues(schema, val, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsValues(testCase.schema(), val, tbl.get(null, key));
+        assertEqualsValues(testCase.schema(), val, tbl.get(null, Tuple.create().set(keyName, 1L)));
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void getAndPut(TestCase testCase) {
+    void getAndPut(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
-        Tuple val3 = Tuple.create().set("val", "mark");
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
+        Tuple val3 = Tuple.create().set(valName, "mark");
 
         assertNull(tbl.get(null, key));
 
         // Insert new tuple.
         assertNull(tbl.getAndPut(null, key, val));
 
-        assertEqualsValues(schema, val, tbl.get(null, key));
-        assertEqualsValues(schema, val, tbl.get(null, Tuple.create().set("id", 1L)));
+        assertEqualsValues(testCase.schema(), val, tbl.get(null, key));
+        assertEqualsValues(testCase.schema(), val, tbl.get(null, Tuple.create().set(keyName, 1L)));
 
-        assertEqualsValues(schema, val, tbl.getAndPut(null, key, val2));
-        assertEqualsValues(schema, val2, tbl.getAndPut(null, key, Tuple.create().set("val", "mark")));
+        assertEqualsValues(testCase.schema(), val, tbl.getAndPut(null, key, val2));
+        assertEqualsValues(testCase.schema(), val2, tbl.getAndPut(null, key, Tuple.create().set(valName, "mark")));
 
-        assertEqualsValues(schema, val3, tbl.get(null, key));
-        assertNull(tbl.get(null, Tuple.create().set("id", 2L)));
+        assertEqualsValues(testCase.schema(), val3, tbl.get(null, key));
+        assertNull(tbl.get(null, Tuple.create().set(keyName, 2L)));
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void nullables(TestCase testCase) {
+    void nullables(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
-        Tuple val3 = Tuple.create().set("val", "mark");
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
+        Tuple val3 = Tuple.create().set(valName, "mark");
 
         assertNull(tbl.getNullable(null, key));
 
         tbl.put(null, key, val);
 
-        assertEqualsValues(schema, val, tbl.getNullable(null, key).get());
+        assertEqualsValues(testCase.schema(), val, tbl.getNullable(null, key).get());
 
-        assertEqualsValues(schema, val, tbl.getNullableAndPut(null, key, val2).get());
+        assertEqualsValues(testCase.schema(), val, tbl.getNullableAndPut(null, key, val2).get());
 
-        assertEqualsValues(schema, val2, tbl.getNullableAndReplace(null, key, val3).get());
+        assertEqualsValues(testCase.schema(), val2, tbl.getNullableAndReplace(null, key, val3).get());
 
-        assertEqualsValues(schema, val3, tbl.getNullableAndRemove(null, key).get());
+        assertEqualsValues(testCase.schema(), val3, tbl.getNullableAndRemove(null, key).get());
 
         assertNull(tbl.getNullable(null, key));
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void getOrDefault(TestCase testCase) {
+    void getOrDefault(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
-        Tuple defaultTuple = Tuple.create().set("val", "undefined");
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
+        Tuple defaultTuple = Tuple.create().set(valName, "undefined");
 
         assertEquals(defaultTuple, tbl.getOrDefault(null, key, defaultTuple));
         assertNull(tbl.getOrDefault(null, key, null));
@@ -227,44 +261,49 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void contains(TestCase testCase) {
+    void contains(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
 
         // Not-existed value.
         assertFalse(tbl.contains(null, key));
 
         // Put KV pair.
         tbl.put(null, key, val);
-        assertTrue(tbl.contains(null, Tuple.create().set("id", 1L)));
+        assertTrue(tbl.contains(null, Tuple.create().set(keyName, 1L)));
 
         // Delete key.
         assertTrue(tbl.remove(null, key));
-        assertFalse(tbl.contains(null, Tuple.create().set("id", 1L)));
+        assertFalse(tbl.contains(null, Tuple.create().set(keyName, 1L)));
 
         // Put KV pair.
         tbl.put(null, key, val2);
-        assertTrue(tbl.contains(null, Tuple.create().set("id", 1L)));
+        assertTrue(tbl.contains(null, Tuple.create().set(keyName, 1L)));
 
         // Non-existed key.
-        assertFalse(tbl.contains(null, Tuple.create().set("id", 2L)));
-        tbl.remove(null, Tuple.create().set("id", 2L));
-        assertFalse(tbl.contains(null, Tuple.create().set("id", 2L)));
+        assertFalse(tbl.contains(null, Tuple.create().set(keyName, 2L)));
+        tbl.remove(null, Tuple.create().set(keyName, 2L));
+        assertFalse(tbl.contains(null, Tuple.create().set(keyName, 2L)));
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void containsAll(TestCase testCase) {
+    void containsAll(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
-        Tuple key1 = Tuple.create().set("id", 101L);
-        Tuple val1 = Tuple.create().set("val", "aaa");
-        Tuple key2 = Tuple.create().set("id", 102L);
-        Tuple val2 = Tuple.create().set("val", "bbb");
-        Tuple key3 = Tuple.create().set("id", 103L);
-        Tuple val3 = Tuple.create().set("val", "ccc");
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
+
+        Tuple key1 = Tuple.create().set(keyName, 101L);
+        Tuple val1 = Tuple.create().set(valName, "aaa");
+        Tuple key2 = Tuple.create().set(keyName, 102L);
+        Tuple val2 = Tuple.create().set(valName, "bbb");
+        Tuple key3 = Tuple.create().set(keyName, 103L);
+        Tuple val3 = Tuple.create().set(valName, "ccc");
 
         tbl.putAll(null, Map.of(key1, val1, key2, val2, key3, val3));
 
@@ -275,19 +314,22 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         assertTrue(tbl.containsAll(null, List.of(key1)));
         assertTrue(tbl.containsAll(null, List.of(key1, key2, key3)));
 
-        Tuple missedKey = Tuple.create().set("id", 0L);
+        Tuple missedKey = Tuple.create().set(keyName, 0L);
         assertFalse(tbl.containsAll(null, List.of(missedKey)));
         assertFalse(tbl.containsAll(null, List.of(key1, key2, missedKey)));
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void remove(TestCase testCase) {
+    void remove(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple key2 = Tuple.create().set("id", 2L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple key2 = Tuple.create().set(keyName, 2L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
 
         tbl.put(null, key, val);
         assertEquals(val, tbl.get(null, key));
@@ -307,12 +349,15 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void removeExact(TestCase testCase) {
+    void removeExact(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple key2 = Tuple.create().set("id", 2L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple key2 = Tuple.create().set(keyName, 2L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
 
         tbl.put(null, key, val);
         assertEquals(val, tbl.get(null, key));
@@ -344,13 +389,16 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void replace(TestCase testCase) {
+    void replace(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple key2 = Tuple.create().set("id", 2L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
-        Tuple val3 = Tuple.create().set("val", "mark");
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple key2 = Tuple.create().set(keyName, 2L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
+        Tuple val3 = Tuple.create().set(valName, "mark");
 
         assertFalse(tbl.replace(null, key, val));
         assertNull(tbl.get(null, key));
@@ -368,12 +416,15 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void replaceExact(TestCase testCase) {
+    void replaceExact(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
-        Tuple key = Tuple.create().set("id", 1L);
-        Tuple key2 = Tuple.create().set("id", 2L);
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "jane");
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+        Tuple key2 = Tuple.create().set(keyName, 2L);
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "jane");
 
         assertFalse(tbl.replace(null, key2, val, val2));
         assertNull(tbl.get(null, key2));
@@ -385,7 +436,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("schemaValidationTestCases")
-    public void validateSchema(TestCase testCase) {
+    void validateSchema(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
         Tuple keyTuple0 = Tuple.create().set("id", 0).set("id1", 0);
@@ -417,29 +468,34 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void getAll(TestCase testCase) {
+    void getAll(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
-        Tuple key1 = Tuple.create().set("id", 1L);
-        Tuple key2 = Tuple.create().set("id", 2L);
-        Tuple key3 = Tuple.create().set("id", 3L);
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
 
-        tbl.putAll(null, Map.of(key1, Tuple.create().set("val", "john"), key3, Tuple.create().set("val", "mark")));
+        Tuple key1 = Tuple.create().set(keyName, 1L);
+        Tuple key2 = Tuple.create().set(keyName, 2L);
+        Tuple key3 = Tuple.create().set(keyName, 3L);
+
+        tbl.putAll(null, Map.of(key1, Tuple.create().set(valName, "john"), key3, Tuple.create().set(valName, "mark")));
 
         Map<Tuple, Tuple> res = tbl.getAll(null, List.of(key1, key2, key3));
 
         assertEquals(2, res.size());
-        assertEquals(Tuple.create().set("val", "john"), res.get(key1));
-        assertEquals(Tuple.create().set("val", "mark"), res.get(key3));
+        assertEquals(Tuple.create().set(valName, "john"), res.get(key1));
+        assertEquals(Tuple.create().set(valName, "mark"), res.get(key3));
         assertNull(res.get(key2));
     }
 
     @SuppressWarnings("DataFlowIssue")
     @ParameterizedTest
     @MethodSource("testCases")
-    public void nullKeyValidation(TestCase testCase) {
+    void nullKeyValidation(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
-        Tuple val = Tuple.create().set("val", "john");
-        Tuple val2 = Tuple.create().set("val", "john");
+        String valName = testCase.valColumnName(0);
+
+        Tuple val = Tuple.create().set(valName, "john");
+        Tuple val2 = Tuple.create().set(valName, "john");
 
         testCase.checkNullKeyError(() -> tbl.contains(null, null));
         testCase.checkNullKeyError(() -> tbl.get(null, null));
@@ -463,10 +519,13 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void nonNullableValueColumn(TestCase testCase) {
+    void nonNullableValueColumn(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
-        Tuple key = Tuple.create().set("id", 11L);
-        Tuple val = Tuple.create().set("val", "john");
+        String keyName = testCase.keyColumnName(0);
+        String valName = testCase.valColumnName(0);
+
+        Tuple key = Tuple.create().set(keyName, 11L);
+        Tuple val = Tuple.create().set(valName, "john");
 
         testCase.checkNullValueError(() -> tbl.getAndPut(null, key, null));
         testCase.checkNullValueError(() -> tbl.getAndReplace(null, key, null));
@@ -481,7 +540,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("compoundPkTestCases")
-    public void schemaMismatch(TestCase testCase) {
+    void schemaMismatch(TestCase testCase) {
         KeyValueView<Tuple, Tuple> view = testCase.view();
 
         testCase.checkSchemaMismatchError(
@@ -522,7 +581,12 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     private List<Arguments> testCases() {
-        return generateKeyValueTestArguments(TEST_TABLE, Tuple.class, Tuple.class);
+        List<Arguments> args1 = generateKeyValueTestArguments(TEST_TABLE, Tuple.class, Tuple.class);
+        List<Arguments> args2 = generateKeyValueTestArguments(TEST_TABLE_QUOTED, Tuple.class, Tuple.class, " (quoted names)");
+
+        args1.addAll(args2);
+
+        return args1;
     }
 
     private List<Arguments> compoundPkTestCases() {
@@ -549,14 +613,50 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
                     view = new AsyncApiKeyValueViewAdapter<>(view);
                 }
 
-                return (BaseTestCase<K, V>) new TestCase(async, thin, view);
+                return (BaseTestCase<K, V>) new TestCase(async, thin, view, createdTables.get(name));
             }
         };
     }
 
     static class TestCase extends BaseTestCase<Tuple, Tuple> {
-        TestCase(boolean async, boolean thin, KeyValueView<Tuple, Tuple> view) {
+        final List<String> keyColumns;
+
+        final List<String> valueColumns;
+
+        final SchemaDescriptor schema;
+
+        String keyColumnName(int index) {
+            return keyColumns.get(index);
+        }
+
+        String valColumnName(int index) {
+            return valueColumns.get(index);
+        }
+
+        public SchemaDescriptor schema() {
+            return schema;
+        }
+
+        TestCase(boolean async, boolean thin, KeyValueView<Tuple, Tuple> view, TestTableDefinition tableDefinition) {
             super(async, thin, view);
+
+            this.keyColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.keyColumns());
+            this.valueColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.valueColumns());
+            this.schema = tableDefinition.schemaDescriptor;
+        }
+
+        private static List<String> quoteIfNeeded(List<Column> columns) {
+            return columns.stream()
+                    .map(col -> {
+                        String quotedName = IgniteNameUtils.quoteIfNeeded(col.name());
+
+                        if (quotedName.equals(col.name())) {
+                            return col.name().toLowerCase();
+                        }
+
+                        return quotedName;
+                    })
+                    .collect(Collectors.toUnmodifiableList());
         }
 
         @SuppressWarnings("ThrowableNotThrown")
