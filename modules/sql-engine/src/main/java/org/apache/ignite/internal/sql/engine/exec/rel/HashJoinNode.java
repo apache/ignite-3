@@ -173,10 +173,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         }
 
         @Override
-        protected void pushLeft(RowT row) throws Exception {
+        protected void pushLeft(List<RowT> rows) throws Exception {
             // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && hashStore.isEmpty()) {
-                waitingLeft--;
+                waitingLeft -= rows.size();
 
                 if (waitingLeft == 0) {
                     waitingLeft = NOT_WAITING;
@@ -188,7 +188,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 return;
             }
 
-            super.pushLeft(row);
+            super.pushLeft(rows);
         }
 
         @Override
@@ -197,6 +197,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 inLoop = true;
                 int processed = 0;
                 try {
+                    List<RowT> batch = newBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
@@ -211,6 +212,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             // Emits matched rows.
                             while (requested > 0 && rightIt.hasNext()) {
                                 if (processed++ > inBufSize) {
+                                    if (!batch.isEmpty()) {
+                                        downstream().push(batch);
+                                    }
+
                                     // Allow others to do their job.
                                     execute(this::join);
 
@@ -226,7 +231,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                                 --requested;
 
                                 RowT row = outputProjection.project(context(), left, right);
-                                downstream().push(row);
+                                batch.add(row);
                             }
 
                             if (!rightIt.hasNext()) {
@@ -234,15 +239,18 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             }
                         } else {
                             left = null;
-
-                            if (processed++ > inBufSize) {
-                                // Allow others to do their job.
-                                execute(this::join);
-
-                                return;
-                            }
+                            processed++;
                         }
+                    }
 
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                            execute(this::join);
+
+                            return;
+                        }
                     }
                 } finally {
                     inLoop = false;
@@ -288,6 +296,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 inLoop = true;
                 int processed = 0;
                 try {
+                    List<RowT> batch = newBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
@@ -306,24 +315,27 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         if (rightIt.hasNext()) {
                             // Emits matched rows.
                             while (requested > 0 && rightIt.hasNext()) {
-                                if (processed++ > inBufSize) {
-                                    // Allow others to do their job.
-                                    execute(this::join);
-
-                                    return;
-                                }
-
                                 RowT right = rightIt.next();
 
                                 --requested;
 
                                 RowT row = outputProjection.project(context(), left, right);
-                                downstream().push(row);
+                                batch.add(row);
                             }
                         }
 
                         if (!rightIt.hasNext()) {
                             left = null;
+                        }
+                    }
+
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                            execute(this::join);
+
+                            return;
                         }
                     }
                 } finally {
@@ -374,10 +386,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         }
 
         @Override
-        protected void pushLeft(RowT row) throws Exception {
+        protected void pushLeft(List<RowT> rows) throws Exception {
             // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && hashStore.isEmpty()) {
-                waitingLeft--;
+                waitingLeft -= rows.size();
 
                 if (waitingLeft == 0) {
                     waitingLeft = NOT_WAITING;
@@ -389,7 +401,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 return;
             }
 
-            super.pushLeft(row);
+            super.pushLeft(rows);
         }
 
         @Override
@@ -398,6 +410,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 inLoop = true;
                 int processed = 0;
                 try {
+                    List<RowT> batch = newBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
@@ -412,6 +425,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             // Emits matched rows.
                             while (requested > 0 && rightIt.hasNext()) {
                                 if (processed++ > inBufSize) {
+                                    if (!batch.isEmpty()) {
+                                        downstream().push(batch);
+                                    }
+
                                     // Allow others to do their job.
                                     execute(this::join);
 
@@ -423,7 +440,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                                 --requested;
 
                                 RowT row = outputProjection.project(context(), left, right);
-                                downstream().push(row);
+                                batch.add(row);
                             }
 
                             if (!rightIt.hasNext()) {
@@ -431,15 +448,18 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             }
                         } else {
                             left = null;
-
-                            if (processed++ > inBufSize) {
-                                // Allow others to do their job.
-                                execute(this::join);
-
-                                return;
-                            }
+                            processed++;
                         }
+                    }
 
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                            execute(this::join);
+
+                            return;
+                        }
                     }
                 } finally {
                     inLoop = false;
@@ -459,15 +479,19 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
                     RowT emptyLeft = leftRowFactory.create();
 
+                    List<RowT> batch = newBatch();
                     while (requested > 0 && rightIt.hasNext()) {
                         RowT right = rightIt.next();
                         RowT row = outputProjection.project(context(), emptyLeft, right);
                         --requested;
 
-                        downstream().push(row);
+                        batch.add(row);
+                    }
 
-                        if (processed++ > inBufSize) {
-                            // Allow others to do their job.
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && rightIt.hasNext()) {
                             execute(this::join);
 
                             return;
@@ -538,6 +562,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 inLoop = true;
                 int processed = 0;
                 try {
+                    List<RowT> batch = newBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
@@ -557,6 +582,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             // Emits matched rows.
                             while (requested > 0 && rightIt.hasNext()) {
                                 if (processed++ > inBufSize) {
+                                    if (!batch.isEmpty()) {
+                                        downstream().push(batch);
+                                    }
+
                                     // Allow others to do their job.
                                     execute(this::join);
 
@@ -568,7 +597,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                                 --requested;
 
                                 RowT row = outputProjection.project(context(), left, right);
-                                downstream().push(row);
+                                batch.add(row);
                             }
 
                             if (!rightIt.hasNext()) {
@@ -576,15 +605,18 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             }
                         } else {
                             left = null;
-
-                            if (processed++ > inBufSize) {
-                                // Allow others to do their job.
-                                execute(this::join);
-
-                                return;
-                            }
+                            processed++;
                         }
+                    }
 
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                            execute(this::join);
+
+                            return;
+                        }
                     }
                 } finally {
                     inLoop = false;
@@ -604,15 +636,19 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
                     RowT emptyLeft = leftRowFactory.create();
 
+                    List<RowT> batch = newBatch();
                     while (requested > 0 && rightIt.hasNext()) {
                         RowT right = rightIt.next();
                         RowT row = outputProjection.project(context(), emptyLeft, right);
                         --requested;
 
-                        downstream().push(row);
+                        batch.add(row);
+                    }
 
-                        if (processed++ > inBufSize) {
-                            // Allow others to do their job.
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && rightIt.hasNext()) {
                             execute(this::join);
 
                             return;
@@ -650,10 +686,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         }
 
         @Override
-        protected void pushLeft(RowT row) throws Exception {
+        protected void pushLeft(List<RowT> rows) throws Exception {
             // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && hashStore.isEmpty()) {
-                waitingLeft--;
+                waitingLeft -= rows.size();
 
                 if (waitingLeft == 0) {
                     waitingLeft = NOT_WAITING;
@@ -665,7 +701,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 return;
             }
 
-            super.pushLeft(row);
+            super.pushLeft(rows);
         }
 
         /** {@inheritDoc} */
@@ -675,6 +711,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 inLoop = true;
                 int processed = 0;
                 try {
+                    List<RowT> batch = newBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
@@ -698,6 +735,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                                 }
 
                                 if (processed++ > inBufSize) {
+                                    if (!batch.isEmpty()) {
+                                        downstream().push(batch);
+                                    }
+
                                     // Allow others to do their job.
                                     execute(this::join);
 
@@ -710,22 +751,25 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         if (anyMatched) {
                             requested--;
 
-                            downstream().push(left);
+                            batch.add(left);
 
                             rightIt = Collections.emptyIterator();
                         }
 
                         if (!rightIt.hasNext()) {
                             left = null;
+                            processed++;
                         }
+                    }
 
-                        if (processed++ > inBufSize) {
-                            // Allow others to do their job.
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                             execute(this::join);
 
                             return;
                         }
-
                     }
                 } finally {
                     inLoop = false;
@@ -760,8 +804,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
-                int processed = 0;
                 try {
+                    List<RowT> batch = newBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         left = leftInBuf.remove();
 
@@ -770,13 +814,16 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         if (rightRows.isEmpty()) {
                             requested--;
 
-                            downstream().push(left);
+                            batch.add(left);
                         }
 
                         left = null;
+                    }
 
-                        if (processed++ > inBufSize) {
-                            // Allow others to do their job.
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                             execute(this::join);
 
                             return;
@@ -865,7 +912,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         assert downstream() != null;
         assert waitingRight > 0;
 
-        waitingRight-= batch.size();
+        waitingRight -= batch.size();
         buffers.add(batch);
 
         if (waitingRight == 0) {

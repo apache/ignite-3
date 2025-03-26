@@ -115,13 +115,18 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting--;
+        waiting -= batch.size();
+        assert waiting >= 0;
 
-        if (!addToGroup(row)){
+        for (RowT row : batch) {
+            addToGroup(row);
+        }
+
+        if (outBuf.size() >= inBufSize) {
             flush();
         }
 
@@ -244,10 +249,22 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private void flush() throws Exception {
         inLoop = true;
         try {
-            while (requested > 0 && !outBuf.isEmpty()) {
-                requested--;
+            if (requested > 0 && !outBuf.isEmpty()) {
+                int batchSize = Math.min(requested, outBuf.size());
+                List<RowT> batch = newBatch(batchSize);
+                requested -= batchSize;
 
-                downstream().push(outBuf.poll());
+                for (int i = 0; i < batchSize; i++) {
+                    batch.add(outBuf.poll());
+                }
+
+                downstream().push(batch);
+
+                if (requested > 0 && !outBuf.isEmpty()) {
+                    execute(this::flush);
+
+                    return;
+                }
             }
         } finally {
             inLoop = false;

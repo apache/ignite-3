@@ -243,7 +243,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert downstream() != null;
 
         if (waiting == NOT_WAITING && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
-            downstream().push(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows));
+            downstream().push(List.of(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows)));
 
             requested = 0;
             downstream().end();

@@ -19,10 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Queue;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.util.BoundedPriorityQueue;
@@ -46,7 +47,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private final long limit;
 
     /** Reverse-ordered rows in case of limited sort. */
-    private List<RowT> reversed;
+    private ArrayDeque<RowT> reversed;
 
     /**
      * Constructor.
@@ -90,9 +91,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         requested = 0;
         waiting = 0;
         rows.clear();
-        if (reversed != null) {
-            reversed.clear();
-        }
+        reversed = null;
     }
 
     /** {@inheritDoc} */
@@ -166,49 +165,51 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private void flush() throws Exception {
         assert waiting == NOT_WAITING;
 
-        int processed = 0;
-
         inLoop = true;
         try {
             // Prepare final order (reversed).
             if (limit > 0 && !rows.isEmpty()) {
                 if (reversed == null) {
-                    reversed = new ArrayList<>(rows.size());
+                    reversed = new ArrayDeque<>(rows.size());
                 }
 
-                while (!rows.isEmpty()) {
-                    reversed.add(rows.poll());
-
-                    if (++processed >= inBufSize) {
-                        // Allow the others to do their job.
-                        this.execute(this::flush);
-
-                        return;
-                    }
+                int count = Math.min(rows.size(), inBufSize);
+                for (int i = 0; i < count; i++) {
+                    reversed.addFirst(rows.poll());
                 }
 
-                processed = 0;
-            }
-
-            while (requested > 0 && !(reversed == null ? rows.isEmpty() : reversed.isEmpty())) {
-                requested--;
-
-                downstream().push(reversed == null ? rows.poll() : reversed.remove(reversed.size() - 1));
-
-                if (++processed >= inBufSize && requested > 0) {
-                    // allow others to do their job
+                if (!rows.isEmpty()) {
+                    // Allow the others to do their job.
                     this.execute(this::flush);
 
                     return;
                 }
             }
 
-            if (reversed == null ? rows.isEmpty() : reversed.isEmpty()) {
-                if (requested > 0) {
-                    downstream().end();
+            Queue<RowT> queue = reversed == null ? rows : reversed;
+
+            if (requested > 0 && !queue.isEmpty()) {
+                int batchSize = Math.min(queue.size(), requested);
+                requested -= batchSize;
+
+                List<RowT> batch = newBatch(batchSize);
+                for (int i = 0; i < batchSize; i++) {
+                    batch.add(queue.poll());
                 }
 
+                downstream().push(batch);
+
+                if (requested > 0 && !queue.isEmpty()) {
+                    this.execute(this::flush);
+
+                    return;
+                }
+            }
+
+            if (requested > 0 && queue.isEmpty()) {
                 requested = 0;
+
+                downstream().end();
             }
         } finally {
             inLoop = false;

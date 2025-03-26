@@ -130,8 +130,10 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     protected Downstream<RowT> requestDownstream(int idx) {
         return new Downstream<RowT>() {
             @Override
-            public void push(RowT row) throws Exception {
-                AbstractSetOpNode.this.push(row, idx);
+            public void push(List<RowT> rows) throws Exception {
+                for (RowT row : rows) {
+                    AbstractSetOpNode.this.push(row, idx);
+                }
             }
 
             @Override
@@ -157,15 +159,12 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             if (requested > 0 && !grouping.isEmpty()) {
                 int toSnd = Math.min(requested, inBufSize - processed);
 
-                for (RowT row : grouping.getRows(toSnd)) {
-                    requested--;
+                List<RowT> batch = grouping.getRows(toSnd);
+                requested -= batch.size();
 
-                    downstream().push(row);
+                downstream().push(batch);
 
-                    processed++;
-                }
-
-                if (processed >= inBufSize && requested > 0) {
+                if (requested > 0 && !grouping.isEmpty()) {
                     // Allow others to do their job.
                     this.execute(this::flush);
 

@@ -112,18 +112,16 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         int processed = 0;
         inLoop = true;
         try {
-            while (requested > 0 && rowIdx < rows.size()) {
-                if (processed++ >= inBufSize) {
-                    // Allow others to do their job
-                    this.execute(this::doPush);
+            int count = Math.min(requested, rows.size() - rowIdx);
 
-                    return;
-                }
+            if (count > 0) {
+                List<RowT> batch = newBatch(count);
+                batch.addAll(rows.subList(rowIdx, rowIdx + count));
 
-                downstream().push(rows.get(rowIdx));
+                requested -= count;
+                rowIdx += count;
 
-                rowIdx++;
-                requested--;
+                downstream().push(batch);
             }
         } finally {
             inLoop = false;

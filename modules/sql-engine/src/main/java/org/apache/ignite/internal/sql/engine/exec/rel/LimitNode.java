@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 
@@ -47,7 +46,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /**
      * Constructor.
      *
-     * @param ctx     Execution context.
+     * @param ctx Execution context.
      */
     public LimitNode(
             ExecutionContext<RowT> ctx,
@@ -125,22 +124,22 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
 
         waiting -= batch.size();
 
-        int skip = rowsProcessed > offset ? 0 : offset - rowsProcessed;
-        int count = fetchNode == null ? batch.size() - skip : Math.min(fetch + offset - rowsProcessed, batch.size() - skip);
+        long skip = rowsProcessed > offset ? 0 : offset - rowsProcessed;
+        long count = fetchUndefined
+                ? batch.size() - skip
+                : Math.min(fetch + offset - rowsProcessed, batch.size() - skip);
 
-        if(count > 0) {
-            downstream().push(batch.subList(skip, skip + count));
+        rowsProcessed += batch.size();
+
+        if (count > 0) {
+            assert count <= Integer.MAX_VALUE;
+            assert skip < batch.size() && skip >= 0 : skip;
+            assert skip + count < Integer.MAX_VALUE;
+
+            // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
+            requested -= (int) count;
+            downstream().push(batch.subList((int) skip, (int) (skip + count)));
         }
-
-        if (rowsProcessed >= offset) {
-            if (hasMoreData()) {
-                // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
-                --requested;
-                downstream().push(row);
-            }
-        }
-
-        ++rowsProcessed;
 
         // There several cases are possible:
         //  1) requested = 512, limit = 1, offset = not defined: need to pass 1 row and call end()
@@ -148,6 +147,12 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
         //  3) requested = 512, limit = 512, offset = 1: need to request initially 512 and further 1 row
         if (!hasMoreData() && requested > 0) {
             end();
+
+            return;
+        }
+
+        if (waiting == 0 && requested > 0) {
+            source().request(waiting = requested);
         }
     }
 
