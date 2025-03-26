@@ -6,7 +6,7 @@ statement ok
 PRAGMA enable_verification
 
 statement ok
-CREATE TABLE times(t1 TIME(3), t2 TIME(2) WITHOUT TIME ZONE)
+CREATE TABLE times(t1 TIME(3), t2 TIME(3) WITHOUT TIME ZONE)
 
 statement ok
 INSERT INTO times VALUES (time '00:01:20', time '00:01:20'), (time '20:08:10.998', time '20:08:10.998'), (time '20:08:10.33', time '20:08:10.33'), (time '20:08:10.001', time '20:08:10.001'), (NULL, NULL)
@@ -15,16 +15,16 @@ query TT
 SELECT * FROM times ORDER by t1
 ----
 00:01:20	00:01:20
-20:08:10.001	20:08:10
+20:08:10.001	20:08:10.001
 20:08:10.33	20:08:10.33
-20:08:10.998	20:08:10.99
+20:08:10.998	20:08:10.998
 NULL	NULL
 
 query TT
 SELECT cast(t1 AS VARCHAR), cast(t2 AS VARCHAR) FROM times ORDER by t1
 ----
 00:01:20	00:01:20
-20:08:10.001	20:08:10
+20:08:10.001	20:08:10.001
 20:08:10.33	20:08:10.33
-20:08:10.998	20:08:10.99
+20:08:10.998	20:08:10.998
 NULL	NULL
