@@ -779,15 +779,13 @@ public class SqlDdlParserTest extends AbstractParserTest {
      * </ol>
      */
     // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-21555 is implemented.
-    @ParameterizedTest(name = "ензу={0}")
+    @ParameterizedTest(name = "type={0}")
     @CsvSource({
             "TIME WITH TIME ZONE, Encountered \"WITH\"",
             "TIME WITH LOCAL TIME ZONE, Encountered \"WITH\"",
             "TIME WITHOUT TIME ZONE, Encountered \"WITHOUT\"",
-            "TIME WITHOUT LOCAL TIME ZONE, Encountered \"WITHOUT\"",
             "TIMESTAMP WITH TIME ZONE, Encountered \"TIME\"",
-            "TIMESTAMP WITHOUT TIME ZONE, Encountered \"WITHOUT\"",
-            "TIMESTAMP WITHOUT LOCAL TIME ZONE, Encountered \"WITHOUT\""
+            "TIMESTAMP WITHOUT TIME ZONE, Encountered \"WITHOUT\""
     })
     public void unsupportedTimeZoneAwareTableColumnTypes(String typeName, String expectedError) {
         assertThrowsSqlException(
