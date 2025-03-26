@@ -311,14 +311,6 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
 
         double secondsTillCpEnd = 1.0 * (cpTotalPages - donePages) / avgCpWriteSpeed;
 
-        if (secondsTillCpEnd < 0) {
-            System.out.println("foo");
-        }
-
-        if (remainedCleanPages < 0) {
-            System.out.println("bar");
-        }
-
         return (long) (remainedCleanPages / secondsTillCpEnd);
     }
 
