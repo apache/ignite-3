@@ -17,11 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.CorrelationId;
+import org.apache.calcite.rex.RexCorrelVariable;
+import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -51,15 +59,20 @@ public class ProjectCorrelateTransposePlannerTest extends AbstractPlannerTest {
     /** Test works of system_range function with correlate. */
     @Test
     public void testSystemRangeFunctionWithCorrelate() throws Exception {
-        IgniteSchema publicSchema = createSchemaFrom(tableA("T0"));
+        IgniteSchema schema = createSchemaFrom(tableA("T0"));
         String sql = "SELECT t.jid FROM t0 t WHERE t.jid < 5 AND EXISTS "
                 + "(SELECT x FROM table(system_range(t.jid, t.jid)) WHERE mod(x, 2) = 0)";
 
-        Predicate<IgniteCorrelatedNestedLoopJoin> check =
-                isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
-                        .and(input(0, isTableScan("T0").and(n -> n.requiredColumns() != null)));
+        IgniteRel rel = physicalPlan(sql, schema);
 
-        assertPlan(sql, publicSchema, check);
+        IgniteCorrelatedNestedLoopJoin join = findFirstNode(rel, byClass(IgniteCorrelatedNestedLoopJoin.class));
+        IgniteTableFunctionScan tableFunction = findFirstNode(rel, byClass(IgniteTableFunctionScan.class));
+
+        RexFieldAccess firstArgOfSystemRange = Objects.requireNonNull(findFirst(tableFunction.getCall(), RexFieldAccess.class));
+        CorrelationId correlationOnTableFunction = ((RexCorrelVariable) firstArgOfSystemRange.getReferenceExpr()).id;
+
+        assertTrue(join.getVariablesSet().contains(correlationOnTableFunction),
+                "Correlation " + correlationOnTableFunction + " should be in variables set " + join.getVariablesSet());
     }
 
     private static UnaryOperator<TableBuilder> tableA(String tableName) {
