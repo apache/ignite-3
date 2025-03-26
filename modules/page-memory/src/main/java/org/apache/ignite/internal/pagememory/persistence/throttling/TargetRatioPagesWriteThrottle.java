@@ -103,6 +103,7 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
             CheckpointProgress progress = cpProgress.get();
 
             if (progress == null) {
+                // TODO wtf, we don't nullify it?
                 return; // Don't throttle if checkpoint is not running.
             }
 

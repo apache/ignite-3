@@ -788,7 +788,6 @@ public class Checkpointer extends IgniteWorker {
     }
 
     public @Nullable CheckpointProgress currentCheckpointProgressForThrottling() {
-//        return currentCheckpointProgress;
         return currentCheckpointProgressForThrottling;
     }
 

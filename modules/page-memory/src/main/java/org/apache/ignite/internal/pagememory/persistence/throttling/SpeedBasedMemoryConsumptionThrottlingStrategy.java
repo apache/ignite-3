@@ -302,12 +302,6 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             return 0;
         }
 
-//        if (CNTR.get() < NUM_LOGS && CNTR.getAndIncrement() < NUM_LOGS) {
-//            LOG.info("<$> calcSpeedToMarkAllSpaceTillEndOfCp ["
-//                    + "dirtyPagesRatio=" + dirtyPagesRatio + ", donePages=" + donePages + ", "
-//                    + "avgCpWriteSpeed=" + avgCpWriteSpeed + ", cpTotalPages=" + cpTotalPages + "]");
-//        }
-
         // IDEA: here, when calculating the count of clean pages, it includes the pages under checkpoint. It is kinda
         // legal because they can be written (using the Checkpoint Buffer to make a copy of the value to be
         // checkpointed), but the CP Buffer is usually not too big, and if it gets nearly filled, writes become
