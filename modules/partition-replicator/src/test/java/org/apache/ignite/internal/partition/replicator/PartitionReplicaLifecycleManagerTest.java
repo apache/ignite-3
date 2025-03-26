@@ -74,6 +74,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -140,7 +141,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock LogStorageFactoryCreator logStorageFactoryCreator,
             @Mock PartitionSnapshotStorageFactory partitionSnapshotStorageFactory,
             @Mock TxStatePartitionStorage txStatePartitionStorage,
-            @Mock ZonePartitionRaftListener raftGroupListener
+            @Mock ZonePartitionRaftListener raftGroupListener,
+            @Mock DataStorageManager dataStorageManager
     ) throws NodeStoppingException {
         String nodeName = testNodeName(testInfo, 0);
 
@@ -202,6 +204,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 systemDistributedConfiguration,
                 txManager,
                 schemaManager,
+                dataStorageManager,
                 zoneResourcesManager
         );
 

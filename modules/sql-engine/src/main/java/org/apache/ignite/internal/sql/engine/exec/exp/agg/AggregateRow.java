@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -32,12 +32,12 @@ public class AggregateRow<RowT> {
 
     private final AccumulatorsState state;
 
-    private final Int2ObjectArrayMap<Set<Object>> distinctSets;
+    private final Int2ObjectMap<Set<Object>> distinctSets;
 
     /** Constructor. */
     public AggregateRow(
             AccumulatorsState state,
-            Int2ObjectArrayMap<Set<Object>> distinctSets
+            Int2ObjectMap<Set<Object>> distinctSets
     ) {
         this.state = state;
         this.distinctSets = distinctSets;

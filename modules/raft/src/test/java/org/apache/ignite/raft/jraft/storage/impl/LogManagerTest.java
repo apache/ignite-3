@@ -398,7 +398,7 @@ public class LogManagerTest extends BaseStorageTest {
             .lastIncludedTerm(2)
             .peersList(List.of("localhost:8081"))
             .build();
-        this.logManager.setSnapshot(meta);
+        this.logManager.setSnapshot(meta, false);
         //Still valid
         for (int i = 0; i < 10; i++) {
             assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
@@ -408,7 +408,7 @@ public class LogManagerTest extends BaseStorageTest {
             .lastIncludedTerm(4)
             .peersList(List.of("localhost:8081"))
             .build();
-        this.logManager.setSnapshot(meta);
+        this.logManager.setSnapshot(meta, false);
 
         Thread.sleep(1000);
         for (int i = 0; i < 10; i++) {

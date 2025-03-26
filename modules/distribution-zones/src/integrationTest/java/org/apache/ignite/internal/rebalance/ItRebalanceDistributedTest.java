@@ -1514,6 +1514,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     sharedTxStateStorage,
                     txManager,
                     schemaManager,
+                    dataStorageMgr,
                     outgoingSnapshotManager
             );
 

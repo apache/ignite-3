@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
-import java.util.HashMap;
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -51,7 +51,7 @@ public class MessageServiceImpl implements MessageService {
 
     private final ClockService clockService;
 
-    private volatile Map<Short, MessageListener> lsnrs;
+    private volatile Int2ObjectMap<MessageListener> lsnrs;
 
     /**
      * Constructor.
@@ -112,7 +112,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public void register(MessageListener lsnr, short type) {
         if (lsnrs == null) {
-            lsnrs = new HashMap<>();
+            lsnrs = new Int2ObjectOpenHashMap<>();
         }
 
         MessageListener old = lsnrs.put(type, lsnr);

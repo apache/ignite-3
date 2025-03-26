@@ -52,6 +52,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -68,7 +69,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.test.TestPeer;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -378,11 +378,11 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         }
 
         for (PeerId peer : conf) {
-            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from peer = " + peer);
+            assertTrue(cliService.snapshot(groupId, peer, false).isOk(), "Failed to trigger snapshot from peer = " + peer);
         }
 
         for (PeerId peer : conf.getLearners()) {
-            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from learner = " + peer);
+            assertTrue(cliService.snapshot(groupId, peer, false).isOk(), "Failed to trigger snapshot from learner = " + peer);
         }
 
         for (MockStateMachine fsm : cluster.getFsms()) {

@@ -99,4 +99,11 @@ public class HandshakeUtils {
             throw new IllegalArgumentException("Unsupported extension type: " + type.getName());
         }
     }
+
+    /** Returns a bit that includes only supported features. */
+    public static BitSet supportedFeatures(BitSet supportedFeatures, BitSet requestedFeatures) {
+        BitSet result = (BitSet) supportedFeatures.clone();
+        result.and(requestedFeatures);
+        return result;
+    }
 }
