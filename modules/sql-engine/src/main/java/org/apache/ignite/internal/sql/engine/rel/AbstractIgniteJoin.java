@@ -27,9 +27,7 @@ import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.si
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
@@ -46,6 +44,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -271,13 +270,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         ImmutableIntList sourceKeys = left2Right ? joinInfo.leftKeys : joinInfo.rightKeys;
         ImmutableIntList targetKeys = left2Right ? joinInfo.rightKeys : joinInfo.leftKeys;
 
-        Map<Integer, Integer> keyMap = new HashMap<>();
-        for (int i = 0; i < joinInfo.leftKeys.size(); i++) {
-            keyMap.put(sourceKeys.get(i), targetKeys.get(i));
-        }
-
         return Mappings.target(
-                keyMap,
+                IntPair.zip(sourceKeys, targetKeys, true),
                 (left2Right ? left : right).getRowType().getFieldCount(),
                 (left2Right ? right : left).getRowType().getFieldCount()
         );

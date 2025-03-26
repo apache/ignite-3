@@ -70,6 +70,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1085,7 +1086,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     ) {
         PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
 
-        Supplier<Long> topologyVerSupplier = () -> Long.MAX_VALUE;
+        LongSupplier topologyVerSupplier = () -> Long.MAX_VALUE;
 
         return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologyVerSupplier,
                 new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));

@@ -472,8 +472,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> snapshot(Peer peer) {
-        return raftClient.snapshot(peer);
+    public CompletableFuture<Void> snapshot(Peer peer, boolean forced) {
+        return raftClient.snapshot(peer, forced);
     }
 
     @Override

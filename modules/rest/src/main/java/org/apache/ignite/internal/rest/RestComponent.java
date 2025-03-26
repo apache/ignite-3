@@ -227,6 +227,8 @@ public class RestComponent implements IgniteComponent {
         result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
         result.put("micronaut.security.intercept-url-map[0].pattern", "/**");
         result.put("micronaut.security.intercept-url-map[0].access", "isAuthenticated()");
+        result.put("micronaut.server.max-request-size", Integer.MAX_VALUE);
+        result.put("micronaut.server.multipart.max-file-size", Integer.MAX_VALUE);
 
         // If deserialized as doubles, Instant objects can lose precision, see InstantDeserializationTest
         result.put("jackson.deserialization", Map.of(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true));

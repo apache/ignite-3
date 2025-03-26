@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -56,6 +55,7 @@ import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
@@ -84,7 +84,7 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
-    public static final BiFunction<Integer, Object, Object> BI_FUNCTION_IDENTITY_SECOND_ARGUMENT = (idx, r) -> r;
+    public static final SchemaAwareConverter<Object, Object> IDENTITY_ROW_CONVERTER = (idx, r) -> r;
 
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
@@ -174,9 +174,9 @@ public class TypeUtils {
      *
      * @param ectx SQL execution context.
      * @param resultType Type of result.
-     * @return Function for two arguments. First argument is an index of column to convert. Second argument is a value to be converted
+     * @return Schema-aware converting function.
      */
-    public static BiFunction<Integer, Object, Object> resultTypeConverter(ExecutionContext<?> ectx, RelDataType resultType) {
+    public static SchemaAwareConverter<Object, Object> resultTypeConverter(ExecutionContext<?> ectx, RelDataType resultType) {
         assert resultType.isStruct();
 
         if (hasConvertableFields(resultType)) {
@@ -192,7 +192,7 @@ public class TypeUtils {
             };
         }
 
-        return BI_FUNCTION_IDENTITY_SECOND_ARGUMENT;
+        return IDENTITY_ROW_CONVERTER;
     }
 
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
