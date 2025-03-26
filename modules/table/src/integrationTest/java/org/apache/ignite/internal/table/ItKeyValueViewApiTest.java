@@ -52,7 +52,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     private final Random rnd = new Random(seed);
 
     @BeforeAll
-    public void createTable() {
+    public void createTables() {
         createTables(List.of(new TestTableDefinition(TABLE_NAME_COMPOSITE_TYPE, DEFAULT_KEY, KeyValueTestUtils.ALL_TYPES_COLUMNS, true)));
     }
 

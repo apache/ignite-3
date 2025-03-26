@@ -71,7 +71,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     private Map<String, TestTableDefinition> schemaAwareTestTables;
 
     @BeforeAll
-    void createTable() {
+    void createTables() {
         Column[] valueColumns = {new Column("VAL", NativeTypes.INT64, true)};
 
         TestTableDefinition testApiTable1 = new TestTableDefinition(TABLE_NAME_API_TEST, DEFAULT_KEY, valueColumns, true);
@@ -920,6 +920,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             }
         }
 
+        @SuppressWarnings("ThrowableNotThrown")
         void checkKeyColumnContainsExtraColumns(Executable run) {
             // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must also throw exception
             if (!thin) {
@@ -960,8 +961,8 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         BinApiTestCase(boolean async, boolean thin, RecordView<Tuple> view, TestTableDefinition tableDefinition) {
             super(async, thin, view);
 
-            this.keyColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.keyColumns());
-            this.valueColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.valueColumns());
+            this.keyColumns = quoteOrLowercaseNames(tableDefinition.schemaDescriptor.keyColumns());
+            this.valueColumns = quoteOrLowercaseNames(tableDefinition.schemaDescriptor.valueColumns());
             this.schema = tableDefinition.schemaDescriptor;
         }
     }

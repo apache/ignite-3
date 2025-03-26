@@ -48,7 +48,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     private final Random rnd = new Random(seed);
 
     @BeforeAll
-    public void createTable() {
+    public void createTables() {
         Column[] keyColumns = new Column[1];
         Column[] valueColumns = new Column[KeyValueTestUtils.ALL_TYPES_COLUMNS.length - 1];
 

@@ -63,40 +63,38 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     private Map<String, TestTableDefinition> createdTables;
 
     @BeforeAll
-    void createTable() {
+    void createTables() {
         Column[] simpleKey = {new Column("ID", NativeTypes.INT64, false)};
         Column[] simpleValue = {new Column("VAL", NativeTypes.STRING, true)};
 
-        TestTableDefinition keyValueTable = new TestTableDefinition(TABLE_NAME_API_TEST, simpleKey, simpleValue, true);
-
-        TestTableDefinition simlpleQuotedKeyValueTable = new TestTableDefinition(
-                TABLE_NAME_API_TEST_QUOTED,
-                new Column[]{new Column("_-#$%/\"\"\\@?!^.[key]", NativeTypes.INT64, false)},
-                new Column[]{new Column("_-#$%/\"\"\\@?!^.[val]", NativeTypes.STRING, true)},
-                true
+        Stream<TestTableDefinition> tables = Stream.of(
+                new TestTableDefinition(TABLE_NAME_API_TEST, simpleKey, simpleValue, true),
+                new TestTableDefinition(
+                        TABLE_NAME_API_TEST_QUOTED,
+                        new Column[]{new Column("_-#$%/\"\"\\@?!^.[key]", NativeTypes.INT64, false)},
+                        new Column[]{new Column("_-#$%/\"\"\\@?!^.[val]", NativeTypes.STRING, true)},
+                        true
+                ),
+                new TestTableDefinition(
+                        TABLE_COMPOUND_KEY,
+                        new Column[]{
+                                new Column("ID", NativeTypes.INT64, false),
+                                new Column("AFFID", NativeTypes.INT64, false)
+                        },
+                        simpleValue
+                ),
+                new TestTableDefinition(
+                        TABLE_NAME_FOR_SCHEMA_VALIDATION,
+                        simpleKey,
+                        new Column[]{
+                                new Column("VAL", NativeTypes.INT64, true),
+                                new Column("STR", NativeTypes.stringOf(3), true),
+                                new Column("BLOB", NativeTypes.blobOf(3), true)
+                        }
+                )
         );
 
-        TestTableDefinition tableWithCompoundKey = new TestTableDefinition(
-                TABLE_COMPOUND_KEY,
-                new Column[]{
-                        new Column("ID", NativeTypes.INT64, false),
-                        new Column("AFFID", NativeTypes.INT64, false)
-                },
-                simpleValue
-        );
-
-        TestTableDefinition tableForSchemaValidation = new TestTableDefinition(
-                TABLE_NAME_FOR_SCHEMA_VALIDATION,
-                simpleKey,
-                new Column[]{
-                        new Column("VAL", NativeTypes.INT64, true),
-                        new Column("STR", NativeTypes.stringOf(3), true),
-                        new Column("BLOB", NativeTypes.blobOf(3), true)
-                }
-        );
-
-        createdTables = Stream.of(keyValueTable, simlpleQuotedKeyValueTable, tableWithCompoundKey, tableForSchemaValidation)
-                .collect(Collectors.toMap(e -> e.name, Function.identity()));
+        createdTables = tables.collect(Collectors.toMap(e -> e.name, Function.identity()));
 
         createTables(createdTables.values());
     }
@@ -639,8 +637,8 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         TestCase(boolean async, boolean thin, KeyValueView<Tuple, Tuple> view, TestTableDefinition tableDefinition) {
             super(async, thin, view);
 
-            this.keyColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.keyColumns());
-            this.valueColumns = quoteIfNeeded(tableDefinition.schemaDescriptor.valueColumns());
+            this.keyColumns = quoteOrLowercaseNames(tableDefinition.schemaDescriptor.keyColumns());
+            this.valueColumns = quoteOrLowercaseNames(tableDefinition.schemaDescriptor.valueColumns());
             this.schema = tableDefinition.schemaDescriptor;
         }
 

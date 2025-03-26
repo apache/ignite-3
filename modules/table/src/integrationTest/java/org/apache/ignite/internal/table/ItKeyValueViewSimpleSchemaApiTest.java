@@ -60,7 +60,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
     private static final String TABLE_NAME_NON_NULLABLE_VALUE = "test_non_nullable_value";
 
     @BeforeAll
-    void createTable() {
+    void createTables() {
         List<TestTableDefinition> tables = new ArrayList<>();
         Column[] nullableValue = {new Column("VAL", NativeTypes.INT64, true)};
 

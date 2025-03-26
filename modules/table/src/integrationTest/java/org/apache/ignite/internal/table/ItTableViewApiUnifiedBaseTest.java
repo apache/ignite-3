@@ -87,9 +87,7 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
         IgniteStringBuilder buf = new IgniteStringBuilder();
 
         for (TestTableDefinition def : tables) {
-            String sql = generateCreateTable(def.name, def.schemaDescriptor.keyColumns(), def.schemaDescriptor.valueColumns());
-
-            buf.app(sql).app(";");
+            buf.app(generateSqlCreate(def));
 
             if (def.clearAfterTest) {
                 tablesToClear.add(def.name);
@@ -118,7 +116,7 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
         }
     }
 
-    static List<String> quoteIfNeeded(List<Column> columns) {
+    static List<String> quoteOrLowercaseNames(List<Column> columns) {
         return columns.stream()
                 .map(col -> {
                     String quotedName = IgniteNameUtils.quoteIfNeeded(col.name());
@@ -139,13 +137,15 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
                 .collect(toList());
     }
 
-    private static String generateCreateTable(String name, List<Column> keyColumns, List<Column> valueColumns) {
-        String createTableTemplate = "CREATE TABLE {} ({} PRIMARY KEY ({}))";
+    private static String generateSqlCreate(TestTableDefinition tableDefinition) {
+        SchemaDescriptor schema = tableDefinition.schemaDescriptor;
+
+        String createTableTemplate = "CREATE TABLE {} ({} PRIMARY KEY ({}));";
 
         IgniteStringBuilder columnsBuffer = new IgniteStringBuilder();
-        Set<Column> allColumns = new LinkedHashSet<>(keyColumns);
+        Set<Column> allColumns = new LinkedHashSet<>(schema.keyColumns());
 
-        allColumns.addAll(valueColumns);
+        allColumns.addAll(schema.valueColumns());
 
         for (Column column : allColumns) {
             RelDataType sqlType = TypeUtils.native2relationalType(Commons.typeFactory(), column.type());
@@ -166,12 +166,12 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
             columnsBuffer.app(", ");
         }
 
-        String pkColumnNamesString = keyColumns.stream()
+        String pkColumnNamesString = schema.keyColumns().stream()
                 .map(Column::name)
                 .map(IgniteNameUtils::quoteIfNeeded)
                 .collect(Collectors.joining(", "));
 
-        return IgniteStringFormatter.format(createTableTemplate, name, columnsBuffer, pkColumnNamesString);
+        return IgniteStringFormatter.format(createTableTemplate, tableDefinition.name, columnsBuffer, pkColumnNamesString);
     }
 
     static class TestTableDefinition {
