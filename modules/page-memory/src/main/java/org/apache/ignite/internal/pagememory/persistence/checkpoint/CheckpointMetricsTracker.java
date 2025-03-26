@@ -355,7 +355,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public void onWaitPageReplacementEnd() {
-        fsyncDuration.onEnd();
+        waitPageReplacement.onEnd();
     }
 
     /**
@@ -364,6 +364,6 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.</p>
      */
     public long waitPageReplacementDuration(TimeUnit timeUnit) {
-        return fsyncDuration.duration(timeUnit);
+        return waitPageReplacement.duration(timeUnit);
     }
 }
