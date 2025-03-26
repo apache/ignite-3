@@ -373,7 +373,7 @@ public final class IgniteSqlParser  {
 
             if (!pos.isQuoted() && !IgniteNameUtils.isValidIdentifier(segment)) {
                 throw new SqlException(STMT_VALIDATION_ERR,
-                        format("Malformed identifier. At line {}, column {}", pos.getLineNum(), pos.getColumnNum()));
+                        format("Malformed identifier at line {}, column {}: {}", pos.getLineNum(), pos.getColumnNum(), segment));
             }
         }
     }
