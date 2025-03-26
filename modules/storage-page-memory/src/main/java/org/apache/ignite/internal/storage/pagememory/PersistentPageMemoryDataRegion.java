@@ -132,7 +132,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
-        boolean speedBasedThrottling = false;
+        boolean speedBasedThrottling = true;
 
         pageMemory.initThrottling(speedBasedThrottling
                 ? new PagesWriteSpeedBasedThrottle(
