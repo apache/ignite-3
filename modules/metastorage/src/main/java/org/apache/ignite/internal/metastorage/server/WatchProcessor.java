@@ -390,8 +390,6 @@ public class WatchProcessor implements ManuallyCloseable {
                     compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
-
-                    watchEventHandlingCallback.onCompactionRevisionApplied(compactionRevision);
                 }, watchExecutor)
                 .whenComplete((ignored, e) -> {
                     if (e != null) {

@@ -118,7 +118,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
         ));
 
         // Wait for meta storage to be compacted.
-        assertTrue(waitForCondition(() -> ignite.metaStorageManager().appliedCompactionRevision() > revisionAfterCreateZone, 1000));
+        assertTrue(waitForCondition(() -> ignite.metaStorageManager().getCompactionRevisionLocally() > revisionAfterCreateZone, 1000));
 
         // Check that old revision is not available after compaction.
         assertThat(

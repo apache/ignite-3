@@ -53,9 +53,6 @@ public interface MetaStorageManager extends IgniteComponent {
      */
     long appliedRevision();
 
-    /** Returns the current <em>applied compaction revision</em> of the Meta Storage, {@code -1} if it has never been updated. */
-    long appliedCompactionRevision();
-
     /**
      * Returns a future of getting the latest version of an entry by key from the metastorage leader.
      *
@@ -452,4 +449,11 @@ public interface MetaStorageManager extends IgniteComponent {
 
     /** Unregisters a Meta Storage compaction revision update listener. */
     void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
+    /**
+     * Returns the local compaction revision that was set or restored from a metastorage snapshot, {@code -1} if it has never been updated.
+     *
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     */
+    long getCompactionRevisionLocally();
 }

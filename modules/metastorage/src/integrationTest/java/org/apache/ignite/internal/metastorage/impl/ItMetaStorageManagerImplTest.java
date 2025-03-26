@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -418,6 +419,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
 
         storage.setCompactionRevision(1);
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedCompactionRevision() == 1, 10, 100_000));
 
         var startSendReadActionRequestFuture = new CompletableFuture<Void>();
         var continueSendReadActionRequestFuture = new CompletableFuture<Void>();

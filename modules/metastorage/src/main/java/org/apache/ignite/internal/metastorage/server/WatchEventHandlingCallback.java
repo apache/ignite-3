@@ -39,13 +39,4 @@ public interface WatchEventHandlingCallback {
     default void onRevisionApplied(long revision) {
         // No-op.
     }
-
-    /**
-     * Notifies of completion of processing of Meta Storage watches for a particular compaction revision.
-     *
-     * @param compactionRevision Latest applied meta-storage compaction revision.
-     */
-    default void onCompactionRevisionApplied(long compactionRevision) {
-        // No-op.
-    }
 }
