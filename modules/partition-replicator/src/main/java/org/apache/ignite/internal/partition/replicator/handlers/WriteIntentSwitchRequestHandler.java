@@ -39,6 +39,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
+import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -75,6 +76,8 @@ public class WriteIntentSwitchRequestHandler {
 
     private final ZonePartitionId replicationGroupId;
 
+    private final TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor;
+
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicaTxFinishMarker txFinishMarker;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
@@ -87,11 +90,13 @@ public class WriteIntentSwitchRequestHandler {
             CatalogService catalogService,
             TxManager txManager,
             RaftCommandRunner raftCommandRunner,
-            ZonePartitionId replicationGroupId
+            ZonePartitionId replicationGroupId,
+            TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor
     ) {
         this.replicaListenerByTableId = replicaListenerByTableId;
         this.clockService = clockService;
         this.replicationGroupId = replicationGroupId;
+        this.tableAwareReplicaRequestPreProcessor = tableAwareReplicaRequestPreProcessor;
 
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         txFinishMarker = new ReplicaTxFinishMarker(txManager);
@@ -161,7 +166,9 @@ public class WriteIntentSwitchRequestHandler {
                 .build();
 
         // Using empty primacy because the request is not a PrimaryReplicaRequest.
-        return replicaTableProcessor(tableId).process(tableSpecificRequest, ReplicaPrimacy.empty(), senderId);
+        return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(tableSpecificRequest, ReplicaPrimacy.empty(), senderId)
+                .thenCompose(ignored ->
+                        replicaTableProcessor(tableId).process(tableSpecificRequest, ReplicaPrimacy.empty(), senderId));
     }
 
     private CompletableFuture<Object> applyCommandToGroup(WriteIntentSwitchReplicaRequest request, Integer catalogVersion) {

@@ -36,8 +36,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
@@ -79,7 +79,7 @@ public class MappingServiceImpl implements MappingService {
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
     private final PartitionPruner partitionPruner;
-    private final Supplier<Long> logicalTopologyVerSupplier;
+    private final LongSupplier logicalTopologyVerSupplier;
     private final ExecutionDistributionProvider distributionProvider;
 
     private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
@@ -101,7 +101,7 @@ public class MappingServiceImpl implements MappingService {
             CacheFactory cacheFactory,
             int cacheSize,
             PartitionPruner partitionPruner,
-            Supplier<Long> logicalTopologyVerSupplier,
+            LongSupplier logicalTopologyVerSupplier,
             ExecutionDistributionProvider distributionProvider
     ) {
         this.localNodeName = localNodeName;
@@ -171,12 +171,12 @@ public class MappingServiceImpl implements MappingService {
                 }
             }
 
-            long topVer = topologyAware ? logicalTopologyVerSupplier.get() : Long.MAX_VALUE;
+            long topVer = topologyAware ? logicalTopologyVerSupplier.getAsLong() : Long.MAX_VALUE;
 
             return new MappingsCacheValue(topVer, tableOrZoneIds, mapFragments(template, mapOnBackups, null));
         }
 
-        long topologyVer = logicalTopologyVerSupplier.get();
+        long topologyVer = logicalTopologyVerSupplier.getAsLong();
 
         if (val.topologyVersion < topologyVer) {
             return new MappingsCacheValue(topologyVer, val.tabelOrZoneIds, mapFragments(template, mapOnBackups, null));

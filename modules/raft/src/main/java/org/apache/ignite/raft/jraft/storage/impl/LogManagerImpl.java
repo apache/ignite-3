@@ -620,7 +620,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     @Override
-    public void setSnapshot(final SnapshotMeta meta) {
+    public void setSnapshot(final SnapshotMeta meta, boolean useLastSnapshotIndex) {
         LOG.debug("set snapshot: {}.", meta);
         boolean doUnlock = true;
         this.writeLock.lock();
@@ -652,7 +652,7 @@ public class LogManagerImpl implements LogManager {
             //                this.diskId = this.lastSnapshotId.copy();
             //            }
 
-            if (term == 0) {
+            if (useLastSnapshotIndex || term == 0) {
                 // last_included_index is larger than last_index
                 // FIXME: what if last_included_index is less than first_index?
                 doUnlock = false;

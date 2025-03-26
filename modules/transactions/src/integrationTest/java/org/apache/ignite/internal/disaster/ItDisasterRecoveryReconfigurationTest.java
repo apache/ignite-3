@@ -563,9 +563,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         insertValues(table, partId, 0);
 
-        triggerRaftSnapshot(1, partId);
-        // Second snapshot causes log truncation.
-        triggerRaftSnapshot(1, partId);
+        triggerRaftSnapshot(1, partId, true);
 
         igniteImpl(1).dropMessages((nodeName, msg) -> {
             Ignite node = nullableNode(3);
@@ -1797,7 +1795,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return getRaftNode(nodeIdx, partId).lastLogIndexAndTerm();
     }
 
-    private void triggerRaftSnapshot(int nodeIdx, int partId) throws InterruptedException, ExecutionException {
+    private void triggerRaftSnapshot(int nodeIdx, int partId, boolean forced) throws InterruptedException, ExecutionException {
         IgniteImpl node = igniteImpl(nodeIdx);
 
         var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
@@ -1807,7 +1805,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertNotNull(raftGroupService);
 
         CompletableFuture<Status> fut = new CompletableFuture<>();
-        raftGroupService.getRaftNode().snapshot(fut::complete);
+        raftGroupService.getRaftNode().snapshot(fut::complete, forced);
 
         assertThat(fut, willCompleteSuccessfully());
         assertEquals(RaftError.SUCCESS, fut.get().getRaftError());

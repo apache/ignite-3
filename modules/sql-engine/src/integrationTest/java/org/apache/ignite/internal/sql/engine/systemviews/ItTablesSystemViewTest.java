@@ -34,7 +34,8 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
     void beforeAll() {
         sql("CREATE SCHEMA TEST_SCHEMA");
         sql("CREATE TABLE table_name(ID INT PRIMARY KEY, NAME VARCHAR, SALARY DECIMAL(12,2))");
-        sql("CREATE TABLE TEST_SCHEMA.TABLE_NAME_2(FIRST_NAME VARCHAR, LAST_NAME VARCHAR, ID INT PRIMARY KEY)");
+        sql("CREATE TABLE TEST_SCHEMA.TABLE_NAME_2(FIRST_NAME VARCHAR, LAST_NAME VARCHAR, ID INT, "
+                + "PRIMARY KEY (FIRST_NAME, LAST_NAME)) COLOCATE BY (LAST_NAME)");
     }
 
     @Test
@@ -94,6 +95,8 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
                         new MetadataMatcher().name("COLUMN_LENGTH").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("COLUMN_ORDINAL").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("SCHEMA_ID").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("PK_COLUMN_ORDINAL").type(ColumnType.INT32).nullable(true),
+                        new MetadataMatcher().name("COLOCATION_COLUMN_ORDINAL").type(ColumnType.INT32).nullable(true),
 
                         // Legacy columns.
                         new MetadataMatcher().name("SCHEMA").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
@@ -108,23 +111,15 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
 
     @Test
     public void tableColumns() {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManager catalogManager = ignite.catalogManager();
-        int version = catalogManager.latestCatalogVersion();
-        Catalog catalog = catalogManager.catalog(version);
-
-        catalog.tables().forEach(table ->
-                assertQuery("SELECT schema, table_name, column_name, column_ordinal, type "
-                        + "FROM system.table_columns "
-                        + "ORDER BY schema, table_name, column_name"
-                )
-                        .returns("PUBLIC", "TABLE_NAME", "ID", 0, "INT32")
-                        .returns("PUBLIC", "TABLE_NAME", "NAME", 1, "STRING")
-                        .returns("PUBLIC", "TABLE_NAME", "SALARY", 2, "DECIMAL")
-                        .returns("TEST_SCHEMA", "TABLE_NAME_2", "FIRST_NAME", 0, "STRING")
-                        .returns("TEST_SCHEMA", "TABLE_NAME_2", "ID", 2, "INT32")
-                        .returns("TEST_SCHEMA", "TABLE_NAME_2", "LAST_NAME", 1, "STRING")
-                        .check()
-        );
+        assertQuery("SELECT schema, table_name, column_name, column_ordinal, type, pk_column_ordinal, colocation_column_ordinal "
+                + "FROM system.table_columns "
+                + "ORDER BY schema, table_name, column_name")
+                .returns("PUBLIC", "TABLE_NAME", "ID", 0, "INT32", 0, 0)
+                .returns("PUBLIC", "TABLE_NAME", "NAME", 1, "STRING", null, null)
+                .returns("PUBLIC", "TABLE_NAME", "SALARY", 2, "DECIMAL", null, null)
+                .returns("TEST_SCHEMA", "TABLE_NAME_2", "FIRST_NAME", 0, "STRING", 0, null)
+                .returns("TEST_SCHEMA", "TABLE_NAME_2", "ID", 2, "INT32", null, null)
+                .returns("TEST_SCHEMA", "TABLE_NAME_2", "LAST_NAME", 1, "STRING", 1, 0)
+                .check();
     }
 }

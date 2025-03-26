@@ -468,6 +468,49 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    @Test
+    public void tableDefinitionWithColocationColumn() {
+        sql("CREATE TABLE t1 (id int, col1 varchar, col2 int, PRIMARY KEY (id))");
+        {
+            TableDefinition table = catalog().tableDefinition(QualifiedName.of("PUBLIC", "T1"));
+            assertEquals(List.of("ID"), table.primaryKeyColumns().stream()
+                    .map(ColumnSorted::columnName)
+                    .collect(Collectors.toList())
+            );
+            assertEquals(List.of("ID"), table.colocationColumns());
+        }
+
+        sql("CREATE TABLE t2 (id int, col1 varchar, col2 int, PRIMARY KEY (col1, col2) ) COLOCATE BY (col1)");
+        {
+            TableDefinition table = catalog().tableDefinition(QualifiedName.of("PUBLIC", "T2"));
+            assertEquals(List.of("COL1", "COL2"), table.primaryKeyColumns().stream()
+                    .map(ColumnSorted::columnName)
+                    .collect(Collectors.toList())
+            );
+            assertEquals(List.of("COL1"), table.colocationColumns());
+        }
+
+        sql("CREATE TABLE t3 (id int, col1 varchar, col2 int, PRIMARY KEY (col1, col2) ) COLOCATE BY (col2, col1)");
+        {
+            TableDefinition table = catalog().tableDefinition(QualifiedName.of("PUBLIC", "T3"));
+            assertEquals(List.of("COL1", "COL2"), table.primaryKeyColumns().stream()
+                    .map(ColumnSorted::columnName)
+                    .collect(Collectors.toList())
+            );
+            assertEquals(List.of("COL2", "COL1"), table.colocationColumns());
+        }
+
+        sql("CREATE TABLE t4 (id int, col1 varchar, col2 int, PRIMARY KEY (col2, col1) ) COLOCATE BY (col1, col2)");
+        {
+            TableDefinition table = catalog().tableDefinition(QualifiedName.of("PUBLIC", "T4"));
+            assertEquals(List.of("COL2", "COL1"), table.primaryKeyColumns().stream()
+                    .map(ColumnSorted::columnName)
+                    .collect(Collectors.toList())
+            );
+            assertEquals(List.of("COL1", "COL2"), table.colocationColumns());
+        }
+    }
+
     @SuppressWarnings("DataFlowIssue")
     @Test
     public void createAllColumnTypesFromPojo() {
