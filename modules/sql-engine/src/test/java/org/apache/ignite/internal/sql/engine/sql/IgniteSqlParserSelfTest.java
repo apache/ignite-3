@@ -134,10 +134,11 @@ public class IgniteSqlParserSelfTest {
     @Test
     public void testIdentifier() {
         IgniteSqlParser.parse("SELECT 1 as _foo", StatementParseResult.MODE);
+        IgniteSqlParser.parse("SELECT 1 as \"$foo\"", StatementParseResult.MODE);
 
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Malformed identifier. At line 1, column 13",
+                "Malformed identifier at line 1, column 13",
                 () -> IgniteSqlParser.parse("SELECT 1 as $foo", StatementParseResult.MODE));
     }
 
