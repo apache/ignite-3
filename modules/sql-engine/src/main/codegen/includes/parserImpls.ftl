@@ -675,6 +675,7 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIME> { s = span(); }
     precision = PrecisionOpt()
+    (<WITHOUT> <TIME> <ZONE>)?
     {
         typeName = SqlTypeName.TIME;
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
@@ -692,6 +693,9 @@ SqlTypeName TimestampZoneOpt() :
 {
 }
 {
+    LOOKAHEAD(3)
+    <WITHOUT> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP; }
+|
     <WITH> <LOCAL> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE; }
 |
     { return SqlTypeName.TIMESTAMP; }

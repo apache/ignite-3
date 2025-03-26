@@ -783,9 +783,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
     @CsvSource({
             "TIME WITH TIME ZONE, Encountered \"WITH\"",
             "TIME WITH LOCAL TIME ZONE, Encountered \"WITH\"",
-            "TIME WITHOUT TIME ZONE, Encountered \"WITHOUT\"",
-            "TIMESTAMP WITH TIME ZONE, Encountered \"TIME\"",
-            "TIMESTAMP WITHOUT TIME ZONE, Encountered \"WITHOUT\""
+            "TIMESTAMP WITH TIME ZONE, Encountered \"TIME\""
     })
     public void unsupportedTimeZoneAwareTableColumnTypes(String typeName, String expectedError) {
         assertThrowsSqlException(
