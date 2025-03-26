@@ -149,7 +149,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 } else {
                     var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
 
-                    raftService = raftManager.startRaftGroupNodeAndWaitNodeReady(
+                    raftService = raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
@@ -160,6 +160,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     new ClusterIdHolder()
                             ),
                             RaftGroupEventsListener.noopLsnr,
+                            null,
                             RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
                     );
                 }

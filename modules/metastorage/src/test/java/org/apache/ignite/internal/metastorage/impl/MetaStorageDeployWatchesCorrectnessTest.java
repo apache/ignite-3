@@ -90,7 +90,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(clusterService.topologyService()).thenReturn(topologyService);
-        when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
+        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
         when(raftGroupService.run(any(GetCurrentRevisionsCommand.class), anyLong()))
                 .thenAnswer(invocation -> completedFuture(new RevisionsInfo(0, -1)));

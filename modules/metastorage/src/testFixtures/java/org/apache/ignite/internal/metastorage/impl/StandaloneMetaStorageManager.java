@@ -265,20 +265,10 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class, LENIENT_SETTINGS);
 
         try {
-            when(raftManager.startRaftGroupNodeAndWaitNodeReady(
+            when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                     any(),
                     any(),
                     listenerCaptor.capture(),
-                    any(),
-                    any(),
-                    any()
-            )).thenReturn(raftGroupService);
-
-            when(raftManager.startRaftGroupNodeAndWaitNodeReady(
-                    any(),
-                    any(),
-                    listenerCaptor.capture(),
-                    any(),
                     any(),
                     any(),
                     any()
