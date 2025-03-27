@@ -69,11 +69,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
             return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushLeft(row);
-                }
-
-                @Override
                 public void push(List<RowT> batch) throws Exception {
                     pushLeft(batch);
                 }
@@ -94,11 +89,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
             return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushRight(row);
-                }
-
-                @Override
                 public void push(List<RowT> batch) throws Exception {
                     pushRight(batch);
                 }
@@ -118,17 +108,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         }
 
         throw new IndexOutOfBoundsException();
-    }
-
-    protected void pushLeft(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waitingLeft > 0;
-
-        waitingLeft--;
-
-        leftInBuf.add(row);
-
-        join();
     }
 
     protected void pushLeft(List<RowT> batch) throws Exception {
@@ -169,10 +148,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
     }
 
     protected abstract void join() throws Exception;
-
-    protected void pushRight(RowT row) throws Exception {
-        pushRight(List.of(row));
-    }
 
     protected abstract void pushRight(List<RowT> batch) throws Exception;
 }

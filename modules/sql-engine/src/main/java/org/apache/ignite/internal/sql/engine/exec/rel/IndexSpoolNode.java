@@ -111,17 +111,6 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        idx.push(row);
-
-        waiting--;
-
-        if (waiting == 0) {
-            source().request(waiting = inBufSize);
-        }
-    }
-
-    @Override
     public void push(List<RowT> batch) throws Exception {
         idx.pushAll(batch);
 

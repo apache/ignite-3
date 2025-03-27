@@ -61,16 +61,6 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waiting > 0;
-
-        waiting--;
-
-        downstream().push(row);
-    }
-
-    @Override
     public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;

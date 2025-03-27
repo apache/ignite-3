@@ -141,11 +141,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushLeft(row);
-                }
-
-                @Override
                 public void push(List<RowT> batch) throws Exception {
                     pushLeft(batch);
                 }
@@ -165,11 +160,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         } else if (idx == 1) {
             return new Downstream<RowT>() {
                 /** {@inheritDoc} */
-                @Override
-                public void push(RowT row) throws Exception {
-                    pushRight(row);
-                }
-
                 @Override
                 public void push(List<RowT> batch) throws Exception {
                     pushRight(batch);
@@ -192,21 +182,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         throw new IndexOutOfBoundsException();
     }
 
-    private void pushLeft(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waitingLeft > 0;
-
-        waitingLeft--;
-
-        if (leftInBuf == null) {
-            leftInBuf = new ArrayList<>(leftInBufferSize);
-        }
-
-        leftInBuf.add(row);
-
-        onPushLeft();
-    }
-
     private void pushLeft(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
@@ -220,21 +195,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         leftInBuf.addAll(batch);
 
         onPushLeft();
-    }
-
-    private void pushRight(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waitingRight > 0;
-
-        waitingRight--;
-
-        if (rightInBuf == null) {
-            rightInBuf = new ArrayList<>(rightInBufferSize);
-        }
-
-        rightInBuf.add(row);
-
-        onPushRight();
     }
 
     private void pushRight(List<RowT> batch) throws Exception {

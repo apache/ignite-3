@@ -112,23 +112,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waiting > 0;
-
-        waiting--;
-
-        for (Grouping grouping : groupings) {
-            grouping.add(row);
-        }
-
-        if (waiting == 0) {
-            source().request(waiting = inBufSize);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;

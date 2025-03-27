@@ -63,20 +63,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
     }
 
     @Override
-    protected void pushRight(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waitingRight > 0;
-
-        waitingRight--;
-
-        rightMaterialized.add(row);
-
-        if (waitingRight == 0) {
-            rightSource().request(waitingRight = inBufSize);
-        }
-    }
-
-    @Override
     protected void pushRight(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;

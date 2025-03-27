@@ -164,24 +164,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waiting > 0;
-
-        waiting--;
-
-        rows.add(row);
-
-        assert rows.size() <= MODIFY_BATCH_SIZE;
-
-        if (needToFlush()) {
-            flushTuples();
-        }
-
-        requestNextBatchIfNeeded();
-    }
-
-    @Override
     public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;

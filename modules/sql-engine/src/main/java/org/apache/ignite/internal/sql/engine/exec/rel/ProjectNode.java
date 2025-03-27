@@ -60,13 +60,6 @@ public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        assert downstream() != null;
-
-        downstream().push(prj.apply(row));
-    }
-
-    @Override
     public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
 

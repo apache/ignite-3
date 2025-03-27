@@ -68,20 +68,6 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waiting > 0;
-
-        waiting--;
-
-        if (pred.test(row)) {
-            inBuf.add(row);
-        }
-
-        filter();
-    }
-
-    @Override
     public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;

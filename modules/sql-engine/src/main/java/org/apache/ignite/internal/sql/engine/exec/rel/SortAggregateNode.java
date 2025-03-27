@@ -166,29 +166,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return false;
     }
 
-    @Override
-    public void push(List<RowT> batch) throws Exception {
-        assert downstream() != null;
-        assert waiting > 0;
-
-        waiting -= batch.size();
-        assert waiting >= 0;
-
-        for (RowT row : batch) {
-            addToGroup(row);
-        }
-
-        if (outBuf.size() >= inBufSize) {
-            flush();
-        }
-
-        if (waiting == 0 && requested > 0) {
-            waiting = inBufSize;
-
-            source().request(inBufSize);
-        }
-    }
-
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {

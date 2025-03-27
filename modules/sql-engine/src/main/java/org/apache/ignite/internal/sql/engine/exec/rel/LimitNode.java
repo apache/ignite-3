@@ -90,33 +90,6 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        if (waiting == NOT_WAITING) {
-            return;
-        }
-
-        --waiting;
-
-        if (rowsProcessed >= offset) {
-            if (hasMoreData()) {
-                // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
-                --requested;
-                downstream().push(row);
-            }
-        }
-
-        ++rowsProcessed;
-
-        // There several cases are possible:
-        //  1) requested = 512, limit = 1, offset = not defined: need to pass 1 row and call end()
-        //  2) requested = 512, limit = 512, offset = not defined: just need to pass all rows without end() call
-        //  3) requested = 512, limit = 512, offset = 1: need to request initially 512 and further 1 row
-        if (!hasMoreData() && requested > 0) {
-            end();
-        }
-    }
-
-    @Override
     public void push(List<RowT> batch) throws Exception {
         if (waiting == NOT_WAITING) {
             return;

@@ -136,24 +136,6 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        lock.lock();
-        try {
-            assert waiting > 0;
-
-            waiting--;
-
-            inBuff.offer(row);
-
-            if (inBuff.size() == inBufSize) {
-                cond.signalAll();
-            }
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
     public void push(List<RowT> batch) throws Exception {
         lock.lock();
         try {

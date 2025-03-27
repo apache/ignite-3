@@ -122,21 +122,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waiting > 0;
-        assert reversed == null || reversed.isEmpty();
-
-        waiting--;
-
-        rows.add(row);
-
-        if (waiting == 0) {
-            source().request(waiting = inBufSize);
-        }
-    }
-
-    @Override
     public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
