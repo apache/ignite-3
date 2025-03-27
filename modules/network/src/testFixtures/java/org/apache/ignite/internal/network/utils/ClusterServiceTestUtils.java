@@ -46,7 +46,7 @@ import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
-import org.apache.ignite.internal.network.configuration.NodeFinderType;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderChange;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.StaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
@@ -213,7 +213,7 @@ public class ClusterServiceTestUtils {
                         netCfg
                                 .changePort(port)
                                 .changeNodeFinder(c -> c
-                                        .changeType(NodeFinderType.STATIC.toString())
+                                        .convert(StaticNodeFinderChange.class)
                                         .changeNetClusterNodes(
                                                 nodeFinder.findNodes().stream().map(NetworkAddress::toString).toArray(String[]::new)
                                         )

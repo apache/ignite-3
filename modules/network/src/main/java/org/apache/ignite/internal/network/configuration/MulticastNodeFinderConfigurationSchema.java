@@ -20,13 +20,15 @@ package org.apache.ignite.internal.network.configuration;
 import static org.apache.ignite.internal.network.MulticastNodeFinder.MAX_TTL;
 import static org.apache.ignite.internal.network.MulticastNodeFinder.UNSPECIFIED_TTL;
 
-import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /** Configuration for multicast node finder. */
-@Config
-public class MulticastConfigurationSchema {
+@PolymorphicConfigInstance(MulticastNodeFinderConfigurationSchema.TYPE)
+public class MulticastNodeFinderConfigurationSchema extends NodeFinderConfigurationSchema {
+    public static final String TYPE = "MULTICAST";
+
     /** Address to use for multicast requests. */
     @Value(hasDefault = true)
     @MulticastAddress

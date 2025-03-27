@@ -22,9 +22,10 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.net.InetSocketAddress;
 import java.util.Arrays;
-import org.apache.ignite.internal.network.configuration.MulticastView;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderView;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.configuration.NodeFinderView;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderView;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
@@ -51,11 +52,13 @@ public class NodeFinderFactory {
 
         switch (type) {
             case STATIC:
-                return Arrays.stream(nodeFinderConfiguration.netClusterNodes())
+                StaticNodeFinderView staticConfig = (StaticNodeFinderView) nodeFinderConfiguration;
+
+                return Arrays.stream(staticConfig.netClusterNodes())
                         .map(NetworkAddress::from)
                         .collect(collectingAndThen(toUnmodifiableList(), StaticNodeFinder::new));
             case MULTICAST:
-                MulticastView multicastConfig = nodeFinderConfiguration.multicast();
+                MulticastNodeFinderView multicastConfig = (MulticastNodeFinderView) nodeFinderConfiguration;
 
                 return new MulticastNodeFinder(
                         multicastConfig.group(),
