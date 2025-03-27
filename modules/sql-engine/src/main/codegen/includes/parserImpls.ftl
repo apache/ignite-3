@@ -570,10 +570,10 @@ void StorageProfileOption(List<SqlNode> list) :
     final SqlCharStringLiteral val;
 }
 {
-    val = UnquotedLiteral() { list.add(val); }
+    val = SimpleStringLiteralV2() { list.add(val); }
 }
 
-SqlCharStringLiteral UnquotedLiteral() :
+SqlCharStringLiteral SimpleStringLiteralV2() :
 {
 }
 {
@@ -661,19 +661,19 @@ void ZoneElement(List<SqlNode> zoneOptions) :
           }
       )
       |
-      <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = UnquotedLiteral()
+      <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = SimpleStringLiteralV2()
       {
           key = new SqlIdentifier(ZoneOptionEnum.DISTRIBUTION_ALGORITHM.name(), pos);
           zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
       }
       |
-      <NODES> { pos = getPos(); } <FILTER> option = UnquotedLiteral()
+      <NODES> { pos = getPos(); } <FILTER> option = SimpleStringLiteralV2()
       {
           key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_FILTER.name(), pos);
           zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
       }
       |
-      <CONSISTENCY> { pos = getPos(); } <MODE> option = UnquotedLiteral()
+      <CONSISTENCY> { pos = getPos(); } <MODE> option = SimpleStringLiteralV2()
       {
           key = new SqlIdentifier(ZoneOptionEnum.CONSISTENCY_MODE.name(), pos);
           zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
