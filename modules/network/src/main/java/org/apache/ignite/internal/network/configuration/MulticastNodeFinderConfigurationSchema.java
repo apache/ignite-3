@@ -38,7 +38,7 @@ public class MulticastNodeFinderConfigurationSchema extends NodeFinderConfigurat
     /** Port to use for multicast requests. */
     @Value(hasDefault = true)
     @Range(min = 1, max = 65535)
-    public int pokrt = 47401;
+    public int port = 47401;
 
     /** Time to wait for multicast responses. */
     @Value(hasDefault = true)
