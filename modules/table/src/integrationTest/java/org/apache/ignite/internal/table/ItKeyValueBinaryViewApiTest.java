@@ -51,6 +51,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration tests for binary {@link KeyValueView} API.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     private static final String TABLE_NAME_API_TEST = "test_api";
 
@@ -101,7 +102,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void put(TestCase testCase) {
+    public void put(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -137,7 +138,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void putIfAbsent(TestCase testCase) {
+    public void putIfAbsent(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -163,7 +164,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getAndPut(TestCase testCase) {
+    public void getAndPut(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -190,7 +191,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void nullables(TestCase testCase) {
+    public void nullables(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -217,7 +218,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getOrDefault(TestCase testCase) {
+    public void getOrDefault(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -258,7 +259,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void contains(TestCase testCase) {
+    public void contains(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -290,7 +291,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void containsAll(TestCase testCase) {
+    public void containsAll(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -318,7 +319,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void remove(TestCase testCase) {
+    public void remove(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -346,7 +347,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void removeExact(TestCase testCase) {
+    public void removeExact(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -386,7 +387,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void replace(TestCase testCase) {
+    public void replace(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -413,7 +414,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void replaceExact(TestCase testCase) {
+    public void replaceExact(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -433,7 +434,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("schemaValidationTestCases")
-    void validateSchema(TestCase testCase) {
+    public void validateSchema(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
         Tuple keyTuple0 = Tuple.create().set("id", 0).set("id1", 0);
@@ -465,7 +466,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getAll(TestCase testCase) {
+    public void getAll(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -487,7 +488,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     @SuppressWarnings("DataFlowIssue")
     @ParameterizedTest
     @MethodSource("testCases")
-    void nullKeyValidation(TestCase testCase) {
+    public void nullKeyValidation(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String valName = testCase.valColumnName(0);
 
@@ -516,7 +517,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void nonNullableValueColumn(TestCase testCase) {
+    public void nonNullableValueColumn(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -537,7 +538,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("compoundPkTestCases")
-    void schemaMismatch(TestCase testCase) {
+    public void schemaMismatch(TestCase testCase) {
         KeyValueView<Tuple, Tuple> view = testCase.view();
 
         testCase.checkSchemaMismatchError(

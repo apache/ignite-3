@@ -51,6 +51,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration tests for binary record view API.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     private static final String TABLE_NAME_API_TEST = "test_api";
 
@@ -154,7 +155,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void upsert(BinApiTestCase testCase) {
+    public void upsert(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -180,7 +181,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void getAndUpsert(BinApiTestCase testCase) {
+    public void getAndUpsert(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -203,7 +204,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void remove(BinApiTestCase testCase) {
+    public void remove(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -225,7 +226,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void removeExact(BinApiTestCase testCase) {
+    public void removeExact(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -269,7 +270,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void replace(BinApiTestCase testCase) {
+    public void replace(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -296,7 +297,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void replaceExact(BinApiTestCase testCase) {
+    public void replaceExact(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -322,7 +323,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("schemaValidationTestCases")
-    void validateSchema(BinTestCase testCase) {
+    public void validateSchema(BinTestCase testCase) {
         sql("DELETE FROM " + TABLE_NAME_FOR_SCHEMA_VALIDATION);
 
         RecordView<Tuple> tbl = testCase.view();
@@ -351,7 +352,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("defaultValueTestCases")
-    void defaultValues(BinApiTestCase testCase) {
+    public void defaultValues(BinApiTestCase testCase) {
         sql("DELETE FROM " + TABLE_NAME_WITH_DEFAULT_VALUES);
 
         RecordView<Tuple> tbl = testCase.view();
@@ -372,7 +373,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void getAll(BinApiTestCase testCase) {
+    public void getAll(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -400,7 +401,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void contains(BinApiTestCase testCase) {
+    public void contains(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -426,7 +427,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void containsAll(BinApiTestCase testCase) {
+    public void containsAll(BinApiTestCase testCase) {
         RecordView<Tuple> recordView = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -476,7 +477,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void upsertAllAfterInsertAll(BinApiTestCase testCase) {
+    public void upsertAllAfterInsertAll(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -515,7 +516,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void deleteVsDeleteExact(BinApiTestCase testCase) {
+    public void deleteVsDeleteExact(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -539,7 +540,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void getAndReplace(BinApiTestCase testCase) {
+    public void getAndReplace(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -561,7 +562,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void getAndDelete(BinApiTestCase testCase) {
+    public void getAndDelete(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -579,7 +580,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void deleteAll(BinApiTestCase testCase) {
+    public void deleteAll(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -629,7 +630,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void deleteExact(BinApiTestCase testCase) {
+    public void deleteExact(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -680,7 +681,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("apiTestCases")
-    void getAndReplaceVsGetAndUpsert(BinApiTestCase testCase) {
+    public void getAndReplaceVsGetAndUpsert(BinApiTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
         String keyName = testCase.keyColumnName(0);
         String valName = testCase.valColumnName(0);
@@ -723,7 +724,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("typeMismatchTestCases")
-    void typeMismatch(BinTestCase testCase) {
+    public void typeMismatch(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         // Check not-nullable column.
@@ -745,7 +746,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("stringTypeMatchTestCases")
-    void stringTypeMatch(BinTestCase testCase) {
+    public void stringTypeMatch(BinTestCase testCase) {
         try {
             RecordView<Tuple> view = testCase.view();
 
@@ -769,7 +770,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("byteTypeMatchTestCases")
-    void bytesTypeMatch(BinTestCase testCase) {
+    public void bytesTypeMatch(BinTestCase testCase) {
         try {
             RecordView<Tuple> recordView = testCase.view();
 

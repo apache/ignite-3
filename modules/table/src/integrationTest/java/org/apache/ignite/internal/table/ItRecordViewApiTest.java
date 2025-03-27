@@ -40,6 +40,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration tests for record view API.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     private static final String TABLE_NAME = "test";
 

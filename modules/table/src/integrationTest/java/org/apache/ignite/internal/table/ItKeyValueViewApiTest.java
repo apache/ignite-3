@@ -44,6 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Unified KeyValueView API test with composite value type.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     private static final String TABLE_NAME_COMPOSITE_TYPE = "test";
 

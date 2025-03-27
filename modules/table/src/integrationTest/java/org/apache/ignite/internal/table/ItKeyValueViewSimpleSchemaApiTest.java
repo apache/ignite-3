@@ -54,6 +54,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Unified KeyValueView API test with simple value type.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest {
     private static final String TABLE_NAME_SIMPLE_TYPE = "test_simple";
 
@@ -91,7 +92,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void put(TestCase<Long, Long> testCase) {
+    public void put(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         assertNull(tbl.get(null, 1L));
@@ -122,7 +123,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void putIfAbsent(TestCase<Long, Long> testCase) {
+    public void putIfAbsent(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         assertNull(tbl.get(null, 1L));
@@ -146,7 +147,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getNullable(TestCase<Long, Long> testCase) {
+    public void getNullable(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         assertNull(tbl.getNullable(null, 1L));
@@ -175,7 +176,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getOrDefault(TestCase<Long, Long> testCase) {
+    public void getOrDefault(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         assertEquals(Long.MAX_VALUE, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
@@ -213,7 +214,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getAndPut(TestCase<Long, Long> testCase) {
+    public void getAndPut(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Insert new tuple.
@@ -237,7 +238,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getNullableAndPut(TestCase<Long, Long> testCase) {
+    public void getNullableAndPut(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         assertNull(tbl.getAndPut(null, 1L, 11L));
@@ -256,7 +257,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void contains(TestCase<Long, Long> testCase) {
+    public void contains(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Not-existed value.
@@ -282,7 +283,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void remove(TestCase<Long, Long> testCase) {
+    public void remove(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Delete not existed key.
@@ -318,7 +319,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getAndRemove(TestCase<Long, Long> testCase) {
+    public void getAndRemove(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Delete not existed key.
@@ -352,7 +353,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getNullableAndRemove(TestCase<Long, Long> testCase) {
+    public void getNullableAndRemove(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Delete not existed key.
@@ -386,7 +387,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void removeExact(TestCase<Long, Long> testCase) {
+    public void removeExact(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Put KV pair.
@@ -428,7 +429,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void replace(TestCase<Long, Long> testCase) {
+    public void replace(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Ignore replace operation for non-existed KV pair.
@@ -453,7 +454,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getAndReplace(TestCase<Long, Long> testCase) {
+    public void getAndReplace(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Ignore replace operation for non-existed KV pair.
@@ -482,7 +483,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void replaceExact(TestCase<Long, Long> testCase) {
+    public void replaceExact(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Ignore non-existed KV pair.
@@ -514,7 +515,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("allTypeColumnsTestsCases")
-    void putGetAllTypes(AllTypesTestCase testCase) {
+    public void putGetAllTypes(AllTypesTestCase testCase) {
         try {
             Random rnd = new Random();
             Long key = 42L;
@@ -538,7 +539,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getAll(TestCase<Long, Long> testCase) {
+    public void getAll(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         tbl.put(null, 1L, 11L);
@@ -583,7 +584,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void putAll(TestCase<Long, Long> testCase) {
+    public void putAll(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         // Check empty collection.
@@ -609,7 +610,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void removeAll(TestCase<Long, Long> testCase) {
+    public void removeAll(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         tbl.put(null, 1L, 11L);
@@ -643,8 +644,8 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
     @SuppressWarnings("ConstantConditions")
     @ParameterizedTest
     @MethodSource("testCases")
-    void nullKeyValidation(TestCase<Long, Long> testCase) {
-        final KeyValueView<Long, Long> tbl = testCase.view();
+    public void nullKeyValidation(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Null key.
         testCase.checkNullKeyError(() -> tbl.contains(null, null));
@@ -676,7 +677,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @ParameterizedTest
     @MethodSource("nonNullableValueTestCases")
-    void nonNullableValueColumn(TestCase<Long, Long> testCase) {
+    public void nonNullableValueColumn(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
         testCase.checkNotNullableColumnError(() -> tbl.getAndPut(null, 1L, null));
