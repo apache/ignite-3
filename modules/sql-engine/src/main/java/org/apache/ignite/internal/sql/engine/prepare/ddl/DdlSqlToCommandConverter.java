@@ -691,16 +691,18 @@ public class DdlSqlToCommandConverter {
         builder.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         builder.ifNotExists(createZoneNode.ifNotExists());
 
-        if (createZoneNode.createOptionList() == null) {
+        if (createZoneNode.createOptionList() == null && createZoneNode.storageProfiles() == null) {
             throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
         }
 
         Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
-        for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
-            IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
+        if (createZoneNode.createOptionList() != null) {
+            for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
+                IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
-            updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
+                updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
+            }
         }
 
         if (createZoneNode.storageProfiles() != null) {
