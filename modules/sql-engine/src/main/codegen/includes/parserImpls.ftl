@@ -658,7 +658,7 @@ void AlterZoneOption(List<SqlNode> list) :
 /**
 * Parse datetime types: date, time, timestamp.
 *
-* TODO Method doesn't recognize 'TIME_WITH_LOCAL_TIME_ZONE' type and should be removed after IGNITE-21555.
+* TODO Method doesn't recognize TIME_WITH_LOCAL_TIME_ZONE, TIME_TZ and TIMESTAMP_TZ types and should be removed after IGNITE-21555.
 */
 SqlTypeNameSpec IgniteDateTimeTypeName() :
 {
@@ -675,6 +675,7 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIME> { s = span(); }
     precision = PrecisionOpt()
+    (<WITHOUT> <TIME> <ZONE>)?
     {
         typeName = SqlTypeName.TIME;
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
@@ -682,10 +683,21 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIMESTAMP> { s = span(); }
     precision = PrecisionOpt()
-    typeName = TimeZoneOpt(false)
+    typeName = TimestampZoneOpt()
     {
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
     }
+}
+
+SqlTypeName TimestampZoneOpt() :
+{
+}
+{
+    <WITHOUT> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP; }
+|
+    <WITH> <LOCAL> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE; }
+|
+    { return SqlTypeName.TIMESTAMP; }
 }
 
 SqlNode SqlStartTransaction() :
