@@ -198,9 +198,8 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         }
     }
 
-    // TODO add Jira link
+    // TODO IGNITE-24937 Leads to negative estimations in some cases. Should be fixed.
     private int notEvictedPagesTotal(int cpTotalPages) {
-        // I'm not sure about these evicted pages. Smells like bullshit. We need another Jira to figure this out.
         return Math.max(cpTotalPages - cpEvictedPages(), 0);
     }
 
