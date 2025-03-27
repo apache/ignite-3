@@ -36,9 +36,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.impl.AbstractTestIndexStorage;
@@ -171,8 +169,8 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        return inBusyLock(() -> getOrCreateSortedIndexBusy(partitionId, indexDescriptor));
+    public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+        inBusyLock(() -> getOrCreateSortedIndexBusy(partitionId, indexDescriptor));
     }
 
     private TestSortedIndexStorage getOrCreateSortedIndexBusy(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
@@ -191,8 +189,8 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        return inBusyLock(() -> getOrCreateHashIndexBusy(partitionId, indexDescriptor));
+    public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+        inBusyLock(() -> getOrCreateHashIndexBusy(partitionId, indexDescriptor));
     }
 
     private TestHashIndexStorage getOrCreateHashIndexBusy(int partitionId, StorageHashIndexDescriptor indexDescriptor) {

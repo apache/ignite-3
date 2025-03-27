@@ -142,10 +142,11 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         CatalogSortedIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, built, columns);
 
-        return tableStorage.getOrCreateSortedIndex(
+        tableStorage.createSortedIndex(
                 TEST_PARTITION,
                 new StorageSortedIndexDescriptor(tableDescriptor, indexDescriptor)
         );
+        return (SortedIndexStorage) tableStorage.getIndex(TEST_PARTITION, indexDescriptor.id());
     }
 
     /**

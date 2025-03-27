@@ -48,10 +48,11 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         CatalogHashIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, built, columnTypes);
 
-        return tableStorage.getOrCreateHashIndex(
+        tableStorage.createHashIndex(
                 TEST_PARTITION,
                 new StorageHashIndexDescriptor(tableDescriptor, indexDescriptor)
         );
+        return (HashIndexStorage) tableStorage.getIndex(TEST_PARTITION, indexDescriptor.id());
     }
 
     @Override

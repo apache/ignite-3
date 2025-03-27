@@ -92,8 +92,8 @@ class PageMemoryIndexesTest extends BaseIgniteAbstractTest {
                         new IndexMeta(hashIndexId, IndexType.HASH, 0, null)
                 )));
 
-        indexes.getOrCreateSortedIndex(sortedIndexDescriptor, indexStorageFactory);
-        indexes.getOrCreateHashIndex(hashIndexDescriptor, indexStorageFactory);
+        indexes.createSortedIndex(sortedIndexDescriptor, indexStorageFactory);
+        indexes.createHashIndex(hashIndexDescriptor, indexStorageFactory);
 
         indexes.performRecovery(indexMetaTree, indexStorageFactory, indexId -> null);
 
