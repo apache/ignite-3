@@ -22,9 +22,10 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderView;
-import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.configuration.NodeFinderView;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.StaticNodeFinderView;
 import org.apache.ignite.network.NetworkAddress;
 
@@ -40,24 +41,14 @@ public class NodeFinderFactory {
      * @return Node finder.
      */
     public static NodeFinder createNodeFinder(NodeFinderView nodeFinderConfiguration, String nodeName, InetSocketAddress localAddress) {
-        String typeString = nodeFinderConfiguration.type();
-
-        NodeFinderType type;
-
-        try {
-            type = NodeFinderType.valueOf(typeString);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Failed to create NodeFinder " + typeString, e);
-        }
-
-        switch (type) {
-            case STATIC:
+        switch (nodeFinderConfiguration.type()) {
+            case StaticNodeFinderConfigurationSchema.TYPE:
                 StaticNodeFinderView staticConfig = (StaticNodeFinderView) nodeFinderConfiguration;
 
                 return Arrays.stream(staticConfig.netClusterNodes())
                         .map(NetworkAddress::from)
                         .collect(collectingAndThen(toUnmodifiableList(), StaticNodeFinder::new));
-            case MULTICAST:
+            case MulticastNodeFinderConfigurationSchema.TYPE:
                 MulticastNodeFinderView multicastConfig = (MulticastNodeFinderView) nodeFinderConfiguration;
 
                 return new MulticastNodeFinder(
@@ -69,7 +60,7 @@ public class NodeFinderFactory {
                         localAddress
                 );
             default:
-                throw new IllegalArgumentException("Unsupported NodeFinder type " + type);
+                throw new IllegalArgumentException("Unsupported NodeFinder type " + nodeFinderConfiguration.type());
         }
     }
 }
