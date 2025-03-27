@@ -196,6 +196,10 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
                         metricSource
                 ));
+                break;
+
+            default:
+                assert false : "Impossible throttling type: " + throttlingType;
         }
     }
 
