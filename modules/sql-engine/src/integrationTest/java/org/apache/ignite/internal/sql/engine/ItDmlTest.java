@@ -585,8 +585,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __p_key is reserved name",
                 () -> sql("select val as \"__p_key\" from t"));
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __part is reserved name",
-                () -> sql("select val as \"__part\" from t"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __PART is reserved name",
+                () -> sql("select val as __part from t"));
     }
 
     private static Stream<DefaultValueArg> defaultValueArgs() {

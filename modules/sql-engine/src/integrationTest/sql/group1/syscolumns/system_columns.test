@@ -15,7 +15,7 @@ insert into t0 values (103, 'val3');
 # statement error: Failed to validate query:
 statement error
 ----
-insert into t0 (id, val, "__part") values (104, 'val4', 1)
+insert into t0 (id, val, __part) values (104, 'val4', 1)
 
 
 # Select partition system column
@@ -27,14 +27,14 @@ select * from t0
 103	val3
 
 query II rowsort
-select "__part", id from t0
+select __part, id from t0
 ----
 19	101
 17	102
 11	103
 
 query I rowsort
-select "__part" from t0
+select __part from t0
 ----
 19
 17
@@ -43,6 +43,6 @@ select "__part" from t0
 
 # Partition system column in WHERE
 query IT
-select * from t0 WHERE "__part" = 17
+select * from t0 WHERE __part = 17
 ----
 102	val2

@@ -222,8 +222,8 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Failed to validate query. Column '__part' is reserved name.",
-                () -> sql("CREATE TABLE T0(\"__part\" INT PRIMARY KEY, VAL INT)")
+                "Failed to validate query. Column '__PART' is reserved name.",
+                () -> sql("CREATE TABLE T0(__part INT PRIMARY KEY, VAL INT)")
         );
 
         sql("CREATE TABLE T0(id INT PRIMARY KEY)");
@@ -236,8 +236,8 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Failed to validate query. Column '__part' is reserved name.",
-                () -> sql("ALTER TABLE T0 ADD COLUMN \"__part\" INT")
+                "Failed to validate query. Column '__PART' is reserved name.",
+                () -> sql("ALTER TABLE T0 ADD COLUMN __part INT")
         );
     }
 
@@ -270,12 +270,12 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .returns(102L, "v2")
                 .check();
 
-        assertQuery("SELECT \"__part\" FROM t0")
+        assertQuery("SELECT __part FROM t0")
                 .returns(partitionForKey(table, key1))
                 .returns(partitionForKey(table, key2))
                 .check();
 
-        assertQuery("SELECT \"__part\", id FROM t0")
+        assertQuery("SELECT __part, id FROM t0")
                 .returns(partitionForKey(table, key1), 101L)
                 .returns(partitionForKey(table, key2), 102L)
                 .check();
