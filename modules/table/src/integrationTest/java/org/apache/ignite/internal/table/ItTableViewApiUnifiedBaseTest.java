@@ -95,6 +95,20 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
         CLUSTER.aliveNode().sql().executeScript(buf.toString());
     }
 
+    static List<String> quoteOrLowercaseNames(List<Column> columns) {
+        return columns.stream()
+                .map(col -> {
+                    String quotedName = IgniteNameUtils.quoteIfNeeded(col.name());
+
+                    if (quotedName.equals(col.name())) {
+                        return col.name().toLowerCase();
+                    }
+
+                    return quotedName;
+                })
+                .collect(Collectors.toUnmodifiableList());
+    }
+
     static void assertEqualsValues(SchemaDescriptor schema, Tuple expected, @Nullable Tuple actual) {
         assertNotNull(actual);
 
@@ -112,20 +126,6 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
                 assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
             }
         }
-    }
-
-    static List<String> quoteOrLowercaseNames(List<Column> columns) {
-        return columns.stream()
-                .map(col -> {
-                    String quotedName = IgniteNameUtils.quoteIfNeeded(col.name());
-
-                    if (quotedName.equals(col.name())) {
-                        return col.name().toLowerCase();
-                    }
-
-                    return quotedName;
-                })
-                .collect(Collectors.toUnmodifiableList());
     }
 
     private static List<String> getClientAddresses(List<Ignite> nodes) {
