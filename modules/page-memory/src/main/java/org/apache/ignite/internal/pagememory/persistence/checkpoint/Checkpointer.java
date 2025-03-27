@@ -121,6 +121,7 @@ public class Checkpointer extends IgniteWorker {
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
             + "replicatorLogSyncTime={}ms, "
+            + "waitCompletePageReplacementTime={}ms, "
             + "totalTime={}ms, "
             + "avgWriteSpeed={}MB/s]";
 
@@ -403,6 +404,7 @@ public class Checkpointer extends IgniteWorker {
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
+                            tracker.waitPageReplacementDuration(MILLISECONDS),
                             tracker.checkpointDuration(MILLISECONDS),
                             WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
                     );
@@ -486,10 +488,14 @@ public class Checkpointer extends IgniteWorker {
             return false;
         }
 
+        tracker.onWaitPageReplacementStart();
+
         // Waiting for the completion of all page replacements if present.
         // Will complete normally or with the first error on one of the page replacements.
         // join() is used intentionally as above.
         currentCheckpointProgress.getUnblockFsyncOnPageReplacementFuture().join();
+
+        tracker.onWaitPageReplacementEnd();
 
         // Must re-check shutdown flag here because threads could take a long time to complete the page replacement.
         // If so, we should not finish checkpoint.

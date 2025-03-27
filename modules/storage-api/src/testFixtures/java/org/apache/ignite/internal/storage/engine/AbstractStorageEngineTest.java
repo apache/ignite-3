@@ -214,13 +214,15 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
                     int indexId = numTables + i * 2;
 
-                    SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(
-                            partitionId, (StorageSortedIndexDescriptor) indexDescriptorMap.get(indexId)
+                    StorageIndexDescriptor sortedIndexDescriptor = indexDescriptorMap.get(indexId);
+                    tableStorage.createSortedIndex(partitionId, (StorageSortedIndexDescriptor) sortedIndexDescriptor);
+                    SortedIndexStorage sortedIndexStorage = (SortedIndexStorage) tableStorage.getIndex(
+                            partitionId, sortedIndexDescriptor.id()
                     );
 
-                    HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(
-                            partitionId, (StorageHashIndexDescriptor) indexDescriptorMap.get(indexId + 1)
-                    );
+                    StorageIndexDescriptor hashIndexDescriptor = indexDescriptorMap.get(indexId + 1);
+                    tableStorage.createHashIndex(partitionId, (StorageHashIndexDescriptor) hashIndexDescriptor);
+                    HashIndexStorage hashIndexStorage = (HashIndexStorage) tableStorage.getIndex(partitionId, hashIndexDescriptor.id());
 
                     partitionStorage.runConsistently(locker -> {
                         sortedIndexStorage.put(indexRow);

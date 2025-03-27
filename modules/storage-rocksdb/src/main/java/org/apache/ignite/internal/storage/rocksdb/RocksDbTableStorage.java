@@ -37,9 +37,7 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
@@ -257,20 +255,20 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        return inBusyLock(busyLock, () -> {
+    public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+        inBusyLock(busyLock, () -> {
             checkPartitionExists(partitionId);
 
-            return indexes.getOrCreateSortedIndex(partitionId, indexDescriptor);
+            indexes.createSortedIndex(partitionId, indexDescriptor);
         });
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        return inBusyLock(busyLock, () -> {
+    public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+        inBusyLock(busyLock, () -> {
             checkPartitionExists(partitionId);
 
-            return indexes.getOrCreateHashIndex(partitionId, indexDescriptor);
+            indexes.createHashIndex(partitionId, indexDescriptor);
         });
     }
 

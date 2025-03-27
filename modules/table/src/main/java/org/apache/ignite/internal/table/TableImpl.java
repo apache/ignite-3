@@ -260,7 +260,7 @@ public class TableImpl implements TableViewInternal {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
         partitions.stream().forEach(partitionId -> {
-            tbl.storage().getOrCreateHashIndex(partitionId, indexDescriptor);
+            tbl.storage().createHashIndex(partitionId, indexDescriptor);
         });
 
         indexWrapperById.put(indexId, new HashIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
@@ -277,7 +277,7 @@ public class TableImpl implements TableViewInternal {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
         partitions.stream().forEach(partitionId -> {
-            tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor);
+            tbl.storage().createSortedIndex(partitionId, indexDescriptor);
         });
 
         indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));

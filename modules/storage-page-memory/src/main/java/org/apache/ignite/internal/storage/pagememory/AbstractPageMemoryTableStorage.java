@@ -41,9 +41,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
@@ -171,28 +169,28 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        return busy(() -> {
+    public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+        busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
             if (partitionStorage == null) {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            return partitionStorage.getOrCreateSortedIndex(indexDescriptor);
+            partitionStorage.createSortedIndex(indexDescriptor);
         });
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        return busy(() -> {
+    public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+        busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
             if (partitionStorage == null) {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            return partitionStorage.getOrCreateHashIndex(indexDescriptor);
+            partitionStorage.createHashIndex(indexDescriptor);
         });
     }
 
@@ -261,6 +259,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     private <V> V busy(Supplier<V> supplier) {
         return inBusyLock(busyLock, supplier);
+    }
+
+    private void busy(Runnable action) {
+        inBusyLock(busyLock, action);
     }
 
     @Override
