@@ -2831,6 +2831,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .get(causalityToken)
                 .thenCompose(ignore -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
+                    assert table != null : tablePartitionId;
 
                     return stopAndDestroyTablePartition(tablePartitionId, table);
                 });
@@ -2879,9 +2880,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return stopReplicaFuture
                 .thenCompose(v -> {
-                    if (table != null) {
-                        closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
-                    }
+                    closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
 
                     minTimeCollectorService.removePartition(tablePartitionId);
                     return mvGc.removeStorage(tablePartitionId);
@@ -3143,6 +3142,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision, long assignmentsTimestamp) {
         return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
             TableImpl table = tables.get(tablePartitionId.tableId());
+            assert table != null : tablePartitionId;
 
             return stopPartitionForRestart(tablePartitionId, table).thenComposeAsync(unused1 -> {
                 Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, tablePartitionId, revision);
