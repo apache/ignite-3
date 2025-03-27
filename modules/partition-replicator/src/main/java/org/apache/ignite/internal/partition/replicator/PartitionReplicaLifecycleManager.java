@@ -680,7 +680,20 @@ public class PartitionReplicaLifecycleManager extends
                 assignmentsTimestamp
         );
 
-        return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
+        this.metaStorageMgr.clusterTime().currentSafeTime();
+        CompletableFuture<Void> metadataFut = waitForMetadataCompleteness(assignmentsTimestamp);
+
+        LOG.info(
+                ">>>>> Calculating assignments for zone partition [zonePartitionId={}, assignmentsTimestamp={}, metaFut={}"
+                        + ", current={}, assignTimeStamp={}].",
+                zonePartitionId,
+                assignmentsTimestamp,
+                metadataFut.isDone(),
+                metaStorageMgr.clusterTime().currentSafeTime(),
+                HybridTimestamp.hybridTimestamp(assignmentsTimestamp)
+        );
+
+        return metadataFut.thenCompose(unused -> {
             Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
 
             CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
