@@ -230,7 +230,7 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
         for (String col : Arrays.asList("id", "val")) {
             assertThrowsSqlException(
                     STMT_VALIDATION_ERR,
-                    "Cannot set functional default: RAND_UUID",
+                    "Non-constant default cannot be assigned after table creation.",
                     () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid", col))
             );
 

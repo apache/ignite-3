@@ -141,7 +141,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -478,7 +477,7 @@ public class DdlSqlToCommandConverter {
             return DefaultValue.constant(null);
         }
 
-        DeferredDefaultValue deferredDefaultValue = convertDefaultExpression(expression, name, relType).getSecond();
+        DeferredDefaultValue deferredDefaultValue = convertDefaultExpression(expression, name, relType);
         ColumnType columnType = columnType(relType);
         return deferredDefaultValue.derive(columnType);
     }
@@ -558,19 +557,15 @@ public class DdlSqlToCommandConverter {
         SqlNode defaultExpr = alterColumnNode.expression();
         if (defaultExpr != null) {
             String columnName = alterColumnNode.name().getSimple();
-            Pair<DefaultValue.Type, DeferredDefaultValue> resolveDfltFunc = convertDefaultExpression(defaultExpr, columnName, relType);
+            DeferredDefaultValue deferredDfltFunc = convertDefaultExpression(defaultExpr, columnName, relType);
 
-            if (resolveDfltFunc.getFirst() != Type.CONSTANT) {
-                throw new SqlException(STMT_VALIDATION_ERR, "Cannot set functional default: " + defaultExpr);
-            }
-
-            builder.deferredDefaultValue(resolveDfltFunc.getSecond());
+            builder.deferredDefaultValue(deferredDfltFunc);
         }
 
         return builder.build();
     }
 
-    private static Pair<DefaultValue.Type, DeferredDefaultValue> convertDefaultExpression(
+    private static DeferredDefaultValue convertDefaultExpression(
             SqlNode expr,
             String name,
             @Nullable RelDataType relType
@@ -578,13 +573,11 @@ public class DdlSqlToCommandConverter {
         if (expr instanceof SqlLiteral) {
             int precision = relType == null ? PRECISION_NOT_SPECIFIED : relType.getPrecision();
             int scale = relType == null ? SCALE_NOT_SPECIFIED : relType.getScale();
-            DeferredDefaultValue func = type -> DefaultValue.constant(fromLiteral(type, name, (SqlLiteral) expr, precision, scale));
 
-            return new Pair<>(Type.CONSTANT, func);
+            return type -> DefaultValue.constant(fromLiteral(type, name, (SqlLiteral) expr, precision, scale));
         } else if (expr instanceof SqlIdentifier && ((SqlIdentifier) expr).isSimple()) {
-            DeferredDefaultValue func = type -> DefaultValue.functionCall(((SqlIdentifier) expr).getSimple());
 
-            return new Pair<>(Type.FUNCTION_CALL, func);
+            return type -> DefaultValue.functionCall(((SqlIdentifier) expr).getSimple());
         } else {
             // Report compound ids and expressions as their SQL string representation.
             throw new SqlException(STMT_VALIDATION_ERR, "Unsupported default expression: " + expr);

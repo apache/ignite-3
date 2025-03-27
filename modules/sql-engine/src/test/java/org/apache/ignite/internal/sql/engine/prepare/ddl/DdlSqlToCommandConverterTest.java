@@ -799,7 +799,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @ParameterizedTest
     @CsvSource(delimiter = ';', value = {
-            "rand_int; Cannot set functional default: RAND_INT",
             "a.b.c; Unsupported default expression: A.B.C",
             "rand_int(); Unsupported default expression: `RAND_INT`()",
             "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
@@ -817,7 +816,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @ParameterizedTest
     @CsvSource(delimiter = ';', value = {
-            "rand_int; Cannot set functional default: RAND_INT",
             "a.b.c; Unsupported default expression: A.B.C",
             "rand_int(); Unsupported default expression: `RAND_INT`()",
             "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
