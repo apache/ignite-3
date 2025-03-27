@@ -78,6 +78,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -341,6 +342,7 @@ public class Node {
                 List.of(
                         NetworkExtensionConfigurationSchema.class,
                         StorageExtensionConfigurationSchema.class,
+                        SystemLocalExtensionConfigurationSchema.class,
                         PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                         VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
                 ),
