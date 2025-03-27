@@ -33,20 +33,20 @@ public class MulticastNodeFinderConfigurationSchema extends NodeFinderConfigurat
     /** Address to use for multicast requests. */
     @Value(hasDefault = true)
     @MulticastAddress
-    public final String group = "239.192.0.0";
+    public String group = "239.192.0.0";
 
     /** Port to use for multicast requests. */
     @Value(hasDefault = true)
     @Range(min = 1, max = 65535)
-    public final int port = 47401;
+    public int pokrt = 47401;
 
     /** Time to wait for multicast responses. */
     @Value(hasDefault = true)
     @Range(min = 0)
-    public final int resultWaitTime = 500;
+    public int resultWaitTime = 500;
 
     /** Time to live for multicast packets. Value {@link MulticastNodeFinder#UNSPECIFIED_TTL} corresponds to system default value. */
     @Value(hasDefault = true)
     @Range(min = UNSPECIFIED_TTL, max = MAX_TTL)
-    public final int ttl = UNSPECIFIED_TTL;
+    public int ttl = UNSPECIFIED_TTL;
 }
