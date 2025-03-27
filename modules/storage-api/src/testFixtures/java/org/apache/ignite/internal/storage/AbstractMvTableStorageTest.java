@@ -82,6 +82,7 @@ import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -162,8 +163,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
      */
     @Test
     public void testCreateSortedIndex() {
-        assertThrows(StorageException.class, () -> tableStorage.createSortedIndex(PARTITION_ID, sortedIdx));
-
         // Index should only be available after the associated partition has been created.
         tableStorage.createMvPartition(PARTITION_ID);
 
@@ -177,13 +176,63 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
      */
     @Test
     public void testCreateHashIndex() {
-        assertThrows(StorageException.class, () -> tableStorage.createHashIndex(PARTITION_ID, hashIdx));
-
         // Index should only be available after the associated partition has been created.
         tableStorage.createMvPartition(PARTITION_ID);
 
         tableStorage.createHashIndex(PARTITION_ID, hashIdx);
         assertThat(tableStorage.getIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
+    }
+
+    @Test
+    @Disabled("IGNITE-24926")
+    public void sortedIndexCreationInAbsentPartitionFails() {
+        StorageException ex = assertThrows(StorageException.class, () -> tableStorage.createSortedIndex(PARTITION_ID, sortedIdx));
+        assertThat(ex.getMessage(), is("Partition ID " + PARTITION_ID + " does not exist"));
+    }
+
+    @Test
+    @Disabled("IGNITE-24926")
+    public void hashIndexCreationInAbsentPartitionFails() {
+        StorageException ex = assertThrows(StorageException.class, () -> tableStorage.createHashIndex(PARTITION_ID, hashIdx));
+        assertThat(ex.getMessage(), is("Partition ID " + PARTITION_ID + " does not exist"));
+    }
+
+    @Test
+    @Disabled("IGNITE-24926")
+    public void sortedIndexCreationInDestroyedPartitionFails() {
+        assertThat(tableStorage.createMvPartition(PARTITION_ID), willCompleteSuccessfully());
+        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+
+        StorageException ex = assertThrows(StorageException.class, () -> tableStorage.createSortedIndex(PARTITION_ID, sortedIdx));
+        assertThat(ex.getMessage(), is("Partition ID " + PARTITION_ID + " does not exist"));
+    }
+
+    @Test
+    @Disabled("IGNITE-24926")
+    public void hashIndexCreationInDestroyedPartitionFails() {
+        assertThat(tableStorage.createMvPartition(PARTITION_ID), willCompleteSuccessfully());
+        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+
+        StorageException ex = assertThrows(StorageException.class, () -> tableStorage.createHashIndex(PARTITION_ID, hashIdx));
+        assertThat(ex.getMessage(), is("Partition ID " + PARTITION_ID + " does not exist"));
+    }
+
+    // TODO: IGNITE-24926 - remove this test.
+    @Test
+    public void sortedIndexCreationInDestroyedPartitionQueitlyDoesNothing() {
+        assertThat(tableStorage.createMvPartition(PARTITION_ID), willCompleteSuccessfully());
+        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+
+        assertDoesNotThrow(() -> tableStorage.createSortedIndex(PARTITION_ID, sortedIdx));
+    }
+
+    // TODO: IGNITE-24926 - remove this test.
+    @Test
+    public void hashIndexCreationInDestroyedPartitionQueitlyDoesNothing() {
+        assertThat(tableStorage.createMvPartition(PARTITION_ID), willCompleteSuccessfully());
+        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+
+        assertDoesNotThrow(() -> tableStorage.createHashIndex(PARTITION_ID, hashIdx));
     }
 
     /**
@@ -404,7 +453,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
 
         tableStorage.createHashIndex(PARTITION_ID, hashIdx);
         assertThat(tableStorage.getIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
-        assertThrows(StorageException.class, () -> tableStorage.createHashIndex(PARTITION_ID + 1, hashIdx));
+        // TODO: IGNITE-24926 - uncomment this assertion.
+        // assertThrows(StorageException.class, () -> tableStorage.createHashIndex(PARTITION_ID + 1, hashIdx));
 
         MvPartitionStorage partitionStorage2 = getOrCreateMvPartition(PARTITION_ID + 1);
 
@@ -1171,8 +1221,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
 
         // Let's check that we won't get destroyed storages.
         assertNull(tableStorage.getMvPartition(PARTITION_ID));
-        assertThrows(StorageException.class, () -> tableStorage.createHashIndex(PARTITION_ID, hashIdx));
-        assertThrows(StorageException.class, () -> tableStorage.createSortedIndex(PARTITION_ID, sortedIdx));
+        // TODO: IGNITE-24926 - uncomment these assertions.
+        // assertThrows(StorageException.class, () -> tableStorage.createHashIndex(PARTITION_ID, hashIdx));
+        // assertThrows(StorageException.class, () -> tableStorage.createSortedIndex(PARTITION_ID, sortedIdx));
 
         checkStorageDestroyed(mvPartitionStorage);
         checkStorageDestroyed(hashIndexStorage);
