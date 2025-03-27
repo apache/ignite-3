@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.network.MulticastNodeFinder.UNSPECIFIED
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.network.MulticastNodeFinder;
 
 /** Configuration for multicast node finder. */
 @PolymorphicConfigInstance(MulticastNodeFinderConfigurationSchema.TYPE)
@@ -44,7 +45,7 @@ public class MulticastNodeFinderConfigurationSchema extends NodeFinderConfigurat
     @Range(min = 0)
     public final int resultWaitTime = 500;
 
-    /** Time to live for multicast packets. Value -1 corresponds to system default value. */
+    /** Time to live for multicast packets. Value {@link MulticastNodeFinder#UNSPECIFIED_TTL} corresponds to system default value. */
     @Value(hasDefault = true)
     @Range(min = UNSPECIFIED_TTL, max = MAX_TTL)
     public final int ttl = UNSPECIFIED_TTL;
