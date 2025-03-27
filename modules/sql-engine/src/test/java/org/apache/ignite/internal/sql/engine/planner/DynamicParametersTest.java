@@ -716,8 +716,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
             checker.table("t1", "c1", NativeTypes.INT32);
         };
 
-        BigDecimal moreThanUpperLong = new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(1));
-
         return Stream.of(
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 LIMIT ?", 1)
