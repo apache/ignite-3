@@ -73,6 +73,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     public static final String THROTTLING_TYPE_SYSTEM_PROPERTY = "aipersistThrottling";
 
+    public static final String THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY = "aipersistThrottlingLogThresholdMillis";
+
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryStorageEngine.class);
 
     private final String igniteInstanceName;

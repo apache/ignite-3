@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_TYPE_SYSTEM_PROPERTY;
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMa
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle;
+import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
 import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingType;
 import org.apache.ignite.internal.storage.StorageException;
@@ -162,19 +165,9 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
     // TODO IGNITE-24933 refactor.
     private void initThrottling(PersistentPageMemory pageMemory) {
-        SystemPropertyView throttlingTypeCfg = systemLocalConfig == null
-                ? null
-                : systemLocalConfig.value().properties().get(THROTTLING_TYPE_SYSTEM_PROPERTY);
+        ThrottlingType throttlingType = getThrottlingType();
 
-        ThrottlingType throttlingType = ThrottlingType.SPEED_BASED;
-
-        if (throttlingTypeCfg != null) {
-            try {
-                throttlingType = ThrottlingType.valueOf(throttlingTypeCfg.name().toUpperCase());
-            } catch (IllegalArgumentException e) {
-                LOG.warn("Invalid throttling type configuration: " + throttlingTypeCfg.name() + ", using default value: " + throttlingType);
-            }
-        }
+        long logThresholdNanos = getLoggingThreshold();
 
         switch (throttlingType) {
             case DISABLED:
@@ -182,6 +175,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
             case TARGET_RATIO:
                 pageMemory.initThrottling(new TargetRatioPagesWriteThrottle(
+                        logThresholdNanos,
                         pageMemory,
                         checkpointManager::currentCheckpointProgressForThrottling,
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
@@ -191,6 +185,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
             case SPEED_BASED:
                 pageMemory.initThrottling(new PagesWriteSpeedBasedThrottle(
+                        logThresholdNanos,
                         pageMemory,
                         checkpointManager::currentCheckpointProgressForThrottling,
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
@@ -201,6 +196,55 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
             default:
                 assert false : "Impossible throttling type: " + throttlingType;
         }
+    }
+
+    private ThrottlingType getThrottlingType() {
+        SystemPropertyView throttlingTypeCfg = systemLocalConfig == null
+                ? null
+                : systemLocalConfig.value().properties().get(THROTTLING_TYPE_SYSTEM_PROPERTY);
+
+        ThrottlingType throttlingType = ThrottlingType.SPEED_BASED;
+
+        if (throttlingTypeCfg != null) {
+            try {
+                throttlingType = ThrottlingType.valueOf(throttlingTypeCfg.name().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                LOG.warn(
+                        "Invalid throttling configuration {}={}, using default value {}",
+                        THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY,
+                        throttlingTypeCfg.propertyValue(),
+                        throttlingType
+                );
+            }
+        }
+        return throttlingType;
+    }
+
+    private long getLoggingThreshold() {
+        SystemPropertyView logThresholdCfg = systemLocalConfig == null
+                ? null
+                : systemLocalConfig.value().properties().get(THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY);
+
+        long logThresholdNanos = PagesWriteThrottlePolicy.DEFAULT_LOGGING_THRESHOLD;
+        try {
+            if (logThresholdCfg != null) {
+                long logThresholdMillis = Long.parseLong(logThresholdCfg.name());
+
+                if (logThresholdMillis <= 0) {
+                    throw new IllegalArgumentException();
+                }
+
+                logThresholdNanos = TimeUnit.MILLISECONDS.toNanos(logThresholdMillis);
+            }
+        } catch (Exception e) {
+            LOG.warn(
+                    "Invalid throttling configuration {}={}, using default value {}",
+                    THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY,
+                    logThresholdCfg.propertyValue(),
+                    TimeUnit.NANOSECONDS.toMillis(logThresholdNanos)
+            );
+        }
+        return logThresholdNanos;
     }
 
     /**
