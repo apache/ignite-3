@@ -105,30 +105,21 @@ public class IgniteSqlZoneOption extends SqlCall {
         if (key().names.get(0).equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
             writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.STORAGE_PROFILES));
 
-            if (value() instanceof SqlNodeList) {
-                SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
-                for (SqlNode c : (SqlNodeList) value()) {
-                    writer.sep(",");
-                    c.unparse(writer, 0, 0);
+            SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
+            SqlCharStringLiteral literal = (SqlCharStringLiteral) value();
+            String profile = literal.getValueAs(String.class);
+            String[] profiles = profile.split(",");
+            int pos = 0;
+            for (String p : profiles) {
+                writer.print("'");
+                writer.print(p.strip());
+                writer.print("'");
+                ++pos;
+                if (pos != profiles.length) {
+                    writer.print(", ");
                 }
-                writer.endList(frame);
-            } else {
-                SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
-                SqlCharStringLiteral literal = (SqlCharStringLiteral) value();
-                String profile = literal.getValueAs(String.class);
-                String[] profiles = profile.split(",");
-                int pos = 0;
-                for (String p : profiles) {
-                    writer.print("'");
-                    writer.print(p.strip());
-                    writer.print("'");
-                    ++pos;
-                    if (pos != profiles.length) {
-                        writer.print(", ");
-                    }
-                }
-                writer.endList(frame);
             }
+            writer.endList(frame);
         } else {
             writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.valueOf(key.names.get(0))));
             value.unparse(writer, leftPrec, rightPrec);
