@@ -24,9 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -143,11 +141,8 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
         String createTableTemplate = "CREATE TABLE {} ({} PRIMARY KEY ({}));";
 
         IgniteStringBuilder columnsBuffer = new IgniteStringBuilder();
-        Set<Column> allColumns = new LinkedHashSet<>(schema.keyColumns());
 
-        allColumns.addAll(schema.valueColumns());
-
-        for (Column column : allColumns) {
+        for (Column column : schema.columns()) {
             RelDataType sqlType = TypeUtils.native2relationalType(Commons.typeFactory(), column.type());
 
             String sqlTypeString = sqlType.toString();

@@ -800,6 +800,8 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     private static void assertEqualsRows(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         assertEqualsKeys(schema, expected, actual);
         assertEqualsValues(schema, expected, actual);
+
+        assertTrue(Tuple.equals(expected, actual));
     }
 
     /**
