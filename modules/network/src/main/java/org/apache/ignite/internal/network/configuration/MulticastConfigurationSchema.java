@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.configuration;
 
 import static org.apache.ignite.internal.network.MulticastNodeFinder.MAX_TTL;
-import static org.apache.ignite.internal.network.MulticastNodeFinder.UNBOUNDED_TTL;
+import static org.apache.ignite.internal.network.MulticastNodeFinder.UNSPECIFIED_TTL;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
@@ -42,8 +42,8 @@ public class MulticastConfigurationSchema {
     @Range(min = 0)
     public final int resultWaitTime = 500;
 
-    /** Time to live for multicast packets. */
+    /** Time to live for multicast packets. Value -1 corresponds to system default value. */
     @Value(hasDefault = true)
-    @Range(min = UNBOUNDED_TTL, max = MAX_TTL)
-    public final int ttl = UNBOUNDED_TTL;
+    @Range(min = UNSPECIFIED_TTL, max = MAX_TTL)
+    public final int ttl = UNSPECIFIED_TTL;
 }

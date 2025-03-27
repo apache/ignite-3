@@ -20,12 +20,14 @@ package org.apache.ignite.internal.network.configuration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
 /** Node finder configuration. */
 @Config
 public class NodeFinderConfigurationSchema {
     /** Node finder type. */
     @Value(hasDefault = true)
+    @OneOf({"STATIC", "MULTICAST"})
     public final String type = NodeFinderType.STATIC.name();
 
     /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
