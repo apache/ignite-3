@@ -257,18 +257,20 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         inBusyLock(busyLock, () -> {
-            checkPartitionExists(partitionId);
-
-            indexes.createSortedIndex(partitionId, indexDescriptor);
+            // TODO: IGNITE-24926 - invoke checkPartitionExists() instead to throw StorageException is partition is absent.
+            if (partitionExists(partitionId)) {
+                indexes.createSortedIndex(partitionId, indexDescriptor);
+            }
         });
     }
 
     @Override
     public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         inBusyLock(busyLock, () -> {
-            checkPartitionExists(partitionId);
-
-            indexes.createHashIndex(partitionId, indexDescriptor);
+            // TODO: IGNITE-24926 - invoke checkPartitionExists() instead to throw StorageException is partition is absent.
+            if (partitionExists(partitionId)) {
+                indexes.createHashIndex(partitionId, indexDescriptor);
+            }
         });
     }
 
@@ -390,9 +392,13 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     private void checkPartitionExists(int partitionId) {
-        if (mvPartitionStorages.get(partitionId) == null) {
+        if (!partitionExists(partitionId)) {
             throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
         }
+    }
+
+    private boolean partitionExists(int partitionId) {
+        return mvPartitionStorages.get(partitionId) != null;
     }
 
     @Override

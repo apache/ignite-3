@@ -173,11 +173,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
-            if (partitionStorage == null) {
-                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            // TODO: IGNITE-24926 - throw StorageException if partitionStorage is absent.
+            if (partitionStorage != null) {
+                partitionStorage.createSortedIndex(indexDescriptor);
             }
-
-            partitionStorage.createSortedIndex(indexDescriptor);
         });
     }
 
@@ -186,11 +185,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
-            if (partitionStorage == null) {
-                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            // TODO: IGNITE-24926 - throw StorageException if partitionStorage is absent.
+            if (partitionStorage != null) {
+                partitionStorage.createHashIndex(indexDescriptor);
             }
-
-            partitionStorage.createHashIndex(indexDescriptor);
         });
     }
 

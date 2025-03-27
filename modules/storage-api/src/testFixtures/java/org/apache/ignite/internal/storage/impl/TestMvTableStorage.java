@@ -123,6 +123,10 @@ public class TestMvTableStorage implements MvTableStorage {
         return IgniteUtils.inBusyLock(busyLock, fn);
     }
 
+    private void inBusyLock(Runnable fn) {
+        IgniteUtils.inBusyLock(busyLock, fn);
+    }
+
     @Override
     public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) {
         return inBusyLock(() -> mvPartitionStorages.create(partitionId, partId -> spy(new TestMvPartitionStorage(partId))));
@@ -170,14 +174,15 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        inBusyLock(() -> getOrCreateSortedIndexBusy(partitionId, indexDescriptor));
+        inBusyLock(() -> createSortedIndexBusy(partitionId, indexDescriptor));
     }
 
-    private TestSortedIndexStorage getOrCreateSortedIndexBusy(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+    private void createSortedIndexBusy(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
+        // TODO: IGNITE-24926 - throw StorageException is mvPartitionStorage is null.
         if (mvPartitionStorage == null) {
-            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            return;
         }
 
         SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
@@ -185,19 +190,20 @@ public class TestMvTableStorage implements MvTableStorage {
                 id -> new SortedIndices(indexDescriptor)
         );
 
-        return sortedIndices.getOrCreateStorage(partitionId);
+        sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
     public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        inBusyLock(() -> getOrCreateHashIndexBusy(partitionId, indexDescriptor));
+        inBusyLock(() -> createHashIndexBusy(partitionId, indexDescriptor));
     }
 
-    private TestHashIndexStorage getOrCreateHashIndexBusy(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+    private void createHashIndexBusy(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
+        // TODO: IGNITE-24926 - throw StorageException is mvPartitionStorage is null.
         if (mvPartitionStorage == null) {
-            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            return;
         }
 
         HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
@@ -205,7 +211,7 @@ public class TestMvTableStorage implements MvTableStorage {
                 id -> new HashIndices(indexDescriptor)
         );
 
-        return sortedIndices.getOrCreateStorage(partitionId);
+        sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
