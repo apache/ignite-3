@@ -893,8 +893,10 @@ public class DataNodesManager {
             return failedFuture(new DistributionZoneNotFoundException(zoneId));
         }
 
+        LOG.info(">>>>> getValueFromMetaStorage zoneId: {}", zoneId);
         return getValueFromMetaStorage(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize)
                 .thenApply(history -> inBusyLock(busyLock, () -> {
+                    LOG.info(">>>>> getValueFromMetaStorage completed: {}", history);
                     if (history == null) {
                         // It means that the zone was created but the data nodes value had not been updated yet.
                         // So the data nodes value will be equals to the logical topology.

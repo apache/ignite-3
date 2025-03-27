@@ -674,6 +674,12 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             Long assignmentsTimestamp
     ) {
+        LOG.info(
+                ">>>>> Calculating assignments for zone partition [zonePartitionId={}, assignmentsTimestamp={}].",
+                zonePartitionId,
+                assignmentsTimestamp
+        );
+
         return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
             Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
 
@@ -681,13 +687,27 @@ public class PartitionReplicaLifecycleManager extends
 
             int zoneId = zonePartitionId.zoneId();
 
+            LOG.info(
+                    ">>>>> Calculating data nodes [zonePartitionId={}, assignmentsTimestamp={}, zoneDesc={}].",
+                    zonePartitionId,
+                    assignmentsTimestamp,
+                    zoneDescriptor
+            );
             return distributionZoneMgr.dataNodes(zoneDescriptor.updateToken(), catalog.version(), zoneId)
-                    .thenApply(dataNodes -> calculateAssignmentForPartition(
-                            dataNodes,
-                            zonePartitionId.partitionId(),
-                            zoneDescriptor.partitions(),
-                            zoneDescriptor.replicas()
-                    ));
+                    .thenApply(dataNodes -> {
+                        LOG.info(
+                                ">>>>> Calculating assignment for partition [zonePartitionId={}, assignmentsTimestamp={}, zoneDesc={}].",
+                                zonePartitionId,
+                                assignmentsTimestamp,
+                                zoneDescriptor
+                        );
+                        return calculateAssignmentForPartition(
+                                dataNodes,
+                                zonePartitionId.partitionId(),
+                                zoneDescriptor.partitions(),
+                                zoneDescriptor.replicas()
+                        );
+                    });
         });
     }
 
