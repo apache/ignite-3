@@ -23,9 +23,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.jetbrains.annotations.Nullable;
@@ -62,13 +60,13 @@ public class NullMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        return throwNoPartitionsException();
+    public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+        throwNoPartitionsException();
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        return throwNoPartitionsException();
+    public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+        throwNoPartitionsException();
     }
 
     @Override

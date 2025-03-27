@@ -40,8 +40,8 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -139,7 +139,8 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void partitionDestructionFreesHashIndexPages() throws Exception {
         getOrCreateMvPartition(0);
 
-        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx);
+        tableStorage.createHashIndex(0, hashIdx);
+        IndexStorage indexStorage = tableStorage.getIndex(0, hashIdx.id());
 
         indexStorage.put(nonInlinableIndexRow());
 
@@ -180,7 +181,8 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void partitionDestructionFreesSortedIndexPages() throws Exception {
         getOrCreateMvPartition(0);
 
-        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx);
+        tableStorage.createSortedIndex(0, sortedIdx);
+        SortedIndexStorage indexStorage = (SortedIndexStorage) tableStorage.getIndex(0, sortedIdx.id());
 
         indexStorage.put(nonInlinableIndexRow());
 
@@ -195,7 +197,8 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void tableStorageDestructionFreesHashIndexPages() throws Exception {
         getOrCreateMvPartition(0);
 
-        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx);
+        tableStorage.createHashIndex(0, hashIdx);
+        IndexStorage indexStorage = tableStorage.getIndex(0, hashIdx.id());
 
         indexStorage.put(nonInlinableIndexRow());
 
@@ -210,7 +213,8 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void tableStorageDestructionFreesSortedIndexPages() throws Exception {
         getOrCreateMvPartition(0);
 
-        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx);
+        tableStorage.createSortedIndex(0, sortedIdx);
+        SortedIndexStorage indexStorage = (SortedIndexStorage) tableStorage.getIndex(0, sortedIdx.id());
 
         indexStorage.put(nonInlinableIndexRow());
 
