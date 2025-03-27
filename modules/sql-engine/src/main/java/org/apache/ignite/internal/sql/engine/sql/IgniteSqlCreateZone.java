@@ -110,7 +110,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
             if (storageProfiles == null) {
                 for (SqlNode c : createOptionList) {
                     IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
-                    if (opt.key().names.get(0).equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
+                    if (opt.key().getSimple().equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
                         storageProfilesFromWithSyntax = opt;
                         break;
                     }
@@ -121,7 +121,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
                 SqlWriter.Frame frame = writer.startList("(", ")");
                 for (SqlNode c : createOptionList) {
                     IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
-                    if (opt.key().names.get(0).equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
+                    if (opt.key().getSimple().equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
                         continue;
                     }
                     writer.sep(",");

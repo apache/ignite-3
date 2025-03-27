@@ -102,7 +102,7 @@ public class IgniteSqlZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-        if (key().names.get(0).equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
+        if (key().getSimple().equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
             writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.STORAGE_PROFILES));
 
             SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");

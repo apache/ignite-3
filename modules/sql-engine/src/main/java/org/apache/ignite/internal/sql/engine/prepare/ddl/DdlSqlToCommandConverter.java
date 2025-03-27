@@ -700,25 +700,11 @@ public class DdlSqlToCommandConverter {
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
-            if (option.key().names.get(0).equals(STORAGE_PROFILES.name())) {
-                if (option.value() instanceof SqlNodeList) {
-                    SqlNodeList values = (SqlNodeList) option.value();
-                    List<String> profileNames = new ArrayList<>(((SqlNodeList) option.value()).getList().size());
-
-                    SqlCharStringLiteral literal;
-                    for (SqlNode node : values) {
-                        literal = (SqlCharStringLiteral) node;
-                        profileNames.add(literal.getValueAs(String.class));
-                    }
-
-                    String profilesJoined = String.join(",", profileNames);
-
-                    literal = SqlLiteral.createCharString(profilesJoined, values.getParserPosition());
-                    option = new IgniteSqlZoneOption(option.key(), literal, option.getParserPosition());
-                }
-            }
-
             updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
+        }
+
+        if (createZoneNode.storageProfiles() != null) {
+            updateStorageProfilesZoneOption(createZoneNode.storageProfiles(), remainingKnownOptions, zoneOptionInfos, ctx, builder);
         }
 
         if (remainingKnownOptions.contains(STORAGE_PROFILES.name())) {
@@ -816,6 +802,21 @@ public class DdlSqlToCommandConverter {
         return objId.getSimple();
     }
 
+    private <S> void updateStorageProfilesZoneOption(
+            SqlNodeList profiles,
+            Set<String> remainingKnownOptions,
+            Map<ZoneOptionEnum, DdlOptionInfo<S, ?>> optionInfos,
+            PlanningContext ctx,
+            S target
+    ) {
+        remainingKnownOptions.remove(STORAGE_PROFILES.name());
+
+        DdlOptionInfo<S, ?> zoneOptionInfo = optionInfos.get(STORAGE_PROFILES);
+        assert zoneOptionInfo != null;
+
+        updateStorageProfileCommandOption("Zone", STORAGE_PROFILES, profiles, zoneOptionInfo, ctx.query(), target);
+    }
+
     private <S> void updateZoneOption(
             IgniteSqlZoneOption option,
             Set<String> remainingKnownOptions,
@@ -865,6 +866,19 @@ public class DdlSqlToCommandConverter {
         updateCommandOption("Zone", optionName, literal, zoneOptionInfo, ctx.query(), target);
     }
 
+    private static <S, T> void updateStorageProfileCommandOption(
+            String sqlObjName,
+            Object optId,
+            SqlNodeList value,
+            DdlOptionInfo<S, T> optInfo,
+            String query,
+            S target
+    ) {
+        T expectedValue = extractProfiles(value);
+        validateValue(sqlObjName, optId, optInfo, query, expectedValue);
+        optInfo.setter.accept(target, expectedValue);
+    }
+
     private static <S, T> void updateCommandOption(
             String sqlObjName,
             Object optId,
@@ -898,6 +912,18 @@ public class DdlSqlToCommandConverter {
                 );
                 throw new SqlException(STMT_VALIDATION_ERR, msg);
         }
+    }
+
+    private static <T, S> T extractProfiles(SqlNodeList values) {
+        List<String> profileNames = new ArrayList<>((values).getList().size());
+
+        SqlCharStringLiteral literal;
+        for (SqlNode node : values) {
+            literal = (SqlCharStringLiteral) node;
+            profileNames.add(literal.getValueAs(String.class));
+        }
+
+        return (T) String.join(",", profileNames);
     }
 
     private static <S, T> void validateValue(String sqlObjName, Object optId, DdlOptionInfo<S, T> optInfo, String query, T expectedValue) {
