@@ -23,11 +23,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.util.BoundedPriorityQueue;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Sort node.
@@ -60,13 +58,14 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      */
     public SortNode(ExecutionContext<RowT> ctx,
             Comparator<RowT> comp,
-            @Nullable Supplier<Number> offset,
-            @Nullable Supplier<Number> fetch) {
+            long offset,
+            long fetch) {
         super(ctx);
-        assert fetch == null || fetch.get().longValue() >= 0;
-        assert offset == null || offset.get().longValue() >= 0;
 
-        limit = fetch == null ? -1 : IgniteMath.addExact(fetch.get().longValue(), (offset == null) ? 0 : offset.get().longValue());
+        assert fetch == -1 || fetch >= 0;
+        assert offset >= 0;
+
+        limit = fetch == -1 ? -1 : IgniteMath.addExact(fetch, offset);
 
         if (limit < 1 || limit > Integer.MAX_VALUE) {
             rows = new PriorityQueue<>(comp);
@@ -82,7 +81,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * @param comp Rows comparator.
      */
     public SortNode(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
-        this(ctx, comp, null, null);
+        this(ctx, comp, 0, -1);
     }
 
     /** {@inheritDoc} */

@@ -748,35 +748,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .fails("Incorrect type of a dynamic parameter. Expected <DECIMAL> but got <VARCHAR>"),
 
                 checkStatement(setup)
-                        .sql("SELECT * FROM t1 LIMIT ?", moreThanUpperLong)
-                        .fails("Illegal value of fetch / limit"),
-
-                checkStatement(setup)
-                        .sql("SELECT * FROM t1 LIMIT ?", -1)
-                        .fails("Illegal value of fetch / limit"),
-
-                checkStatement(setup)
                         .sql("SELECT * FROM t1 LIMIT ?", (Object) null)
                         .fails("Illegal value of fetch / limit"),
 
                 checkStatement(setup)
-                        .sql("SELECT * FROM t1 OFFSET ? ROWS FETCH FIRST ? ROWS ONLY", -1, -1)
-                        .fails("Illegal value of fetch / limit"),
-
-                checkStatement(setup)
-                        .sql("SELECT * FROM t1 FETCH FIRST ? ROWS ONLY", -1)
-                        .fails("Illegal value of fetch / limit"),
-
-                checkStatement(setup)
                         .sql("SELECT * FROM t1 OFFSET ? ROWS", (Object) null)
-                        .fails("Illegal value of offset"),
-
-                checkStatement(setup)
-                        .sql("SELECT * FROM t1 OFFSET ? ROWS", -1)
-                        .fails("Illegal value of offset"),
-
-                checkStatement(setup)
-                        .sql("SELECT * FROM t1 OFFSET ? ROWS", moreThanUpperLong)
                         .fails("Illegal value of offset")
         );
     }

@@ -119,7 +119,7 @@ import org.jetbrains.annotations.Nullable;
 /** Validator. */
 public class IgniteSqlValidator extends SqlValidatorImpl {
     /** Decimal of Long.MAX_VALUE for fetch/offset bounding. */
-    private static final BigDecimal LIMIT_UPPER = BigDecimal.valueOf(Long.MAX_VALUE);
+    public static final BigDecimal LIMIT_UPPER = BigDecimal.valueOf(Long.MAX_VALUE);
 
     public static final int MAX_LENGTH_OF_ALIASES = 256;
     public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
@@ -683,18 +683,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     protected void validateSelect(SqlSelect select, RelDataType targetRowType) {
         super.validateSelect(select, targetRowType);
 
-        checkIntegerLimit(select.getFetch(), "fetch / limit");
-        checkIntegerLimit(select.getOffset(), "offset");
+        invalidateFetchOffset(select.getFetch(), "fetch / limit");
+        invalidateFetchOffset(select.getOffset(), "offset");
     }
 
     /**
-     * Check integer limit.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Invalidate fetch/offset params restrictions.
      *
      * @param n        Node to check limit.
      * @param nodeName Node name.
      */
-    private void checkIntegerLimit(@Nullable SqlNode n, String nodeName) {
+    private void invalidateFetchOffset(@Nullable SqlNode n, String nodeName) {
         if (n == null) {
             return;
         }
@@ -715,22 +714,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
                 }
 
-                if (param instanceof BigDecimal) {
-                    checkLimitOffset((BigDecimal) param, n, nodeName);
-                } else {
-                    dynParamType = deriveDynamicParamType(dynamicParam);
+                dynParamType = deriveDynamicParamType(dynamicParam);
 
-                    if (!SqlTypeUtil.isNumeric(dynParamType)) {
-                        var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(SqlTypeName.DECIMAL.toString(),
-                                dynParamType.getSqlTypeName().toString());
-                        throw newValidationError(n, err);
-                    }
-
-                    long val = ((Number) param).longValue();
-
-                    if (val < 0) {
-                        throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
-                    }
+                if (!SqlTypeUtil.isNumeric(dynParamType)) {
+                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(SqlTypeName.DECIMAL.toString(),
+                            dynParamType.getSqlTypeName().toString());
+                    throw newValidationError(n, err);
                 }
             }
 

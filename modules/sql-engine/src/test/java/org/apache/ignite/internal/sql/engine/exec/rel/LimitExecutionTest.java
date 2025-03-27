@@ -57,7 +57,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
 
     /** Tests Sort node can limit its output when fetch param is set. */
     @Test
-    public void testSortLimit() throws Exception {
+    public void testSortLimit() {
         int bufSize = IN_BUFFER_SIZE;
 
         checkLimitSort(0, 1);
@@ -86,8 +86,8 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
 
         RootNode<Object[]> rootNode = new RootNode<>(ctx);
 
-        SortNode<Object[]> sortNode = new SortNode<>(ctx, LimitExecutionTest::compareArrays, () -> offset,
-                fetch == 0 ? null : () -> fetch);
+        SortNode<Object[]> sortNode = new SortNode<>(ctx, LimitExecutionTest::compareArrays, offset,
+                fetch == 0 ? -1 : fetch);
 
         List<Object[]> data = IntStream.range(0, IN_BUFFER_SIZE + fetch + offset).boxed()
                 .map(i -> new Object[] {i}).collect(Collectors.toList());
@@ -117,7 +117,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
         ExecutionContext<Object[]> ctx = executionContext(true);
 
         RootNode<Object[]> rootNode = new RootNode<>(ctx);
-        LimitNode<Object[]> limitNode = new LimitNode<>(ctx, () -> offset, fetch == 0 ? null : () -> fetch);
+        LimitNode<Object[]> limitNode = new LimitNode<>(ctx, offset, fetch == 0 ? -1 : fetch);
         List<Object[]> data = IntStream.range(0, IN_BUFFER_SIZE + fetch + offset).boxed()
                 .map(i -> new Object[] {i}).collect(Collectors.toList());
 
