@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -38,6 +40,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -52,6 +55,8 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -144,6 +149,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -156,6 +162,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     private static final EnumSet<JoinRelType> JOIN_NEEDS_PROJECTION = EnumSet.of(
             JoinRelType.INNER, JoinRelType.LEFT, JoinRelType.FULL, JoinRelType.RIGHT
     );
+
+    private static final Comparator<IntPair> CONDITION_PAIRS_COMPARATOR = Comparator.comparingInt(
+                    (IntPair l) -> Math.max(l.source, l.target)).thenComparingInt(l -> Math.min(l.source, l.target));
 
     public static final String CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG =
             "only INNER and LEFT join supported by IgniteCorrelatedNestedLoop";
@@ -381,37 +390,38 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, rel.getRowType(), leftType.getFieldCount());
 
-        int pairsCnt = rel.analyzeCondition().pairs().size();
+        ImmutableBitSet nullCompAsEqual = nullComparisonStrategyVector(rel, rel.analyzeCondition().leftSet());
 
-        ImmutableBitSet leftKeys = rel.analyzeCondition().leftSet();
+        ImmutableIntList leftKeys = rel.leftCollation().getKeys();
+        ImmutableIntList rightKeys = rel.rightCollation().getKeys();
 
-        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.getCondition());
-
-        ImmutableBitSet.Builder nullCompAsEqualBuilder = ImmutableBitSet.builder();
-
-        ImmutableBitSet nullCompAsEqual;
-        RexShuttle shuttle = new RexShuttle() {
-            @Override
-            public RexNode visitInputRef(RexInputRef ref) {
-                int idx = ref.getIndex();
-                if (leftKeys.get(idx)) {
-                    nullCompAsEqualBuilder.set(idx);
-                }
-                return ref;
-            }
-        };
-
-        for (RexNode expr : conjunctions) {
-            if (expr.getKind() == SqlKind.IS_NOT_DISTINCT_FROM) {
-                shuttle.apply(expr);
-            }
+        // Convert conditions to use collation indexes instead of field indexes.
+        List<IntPair> conditionPairs = rel.analyzeCondition().pairs();
+        List<IntPair> condIndexes = new ArrayList<>(conditionPairs.size());
+        for (IntPair pair : conditionPairs) {
+            condIndexes.add(IntPair.of(leftKeys.indexOf(pair.source), rightKeys.indexOf(pair.target)));
         }
 
-        nullCompAsEqual = nullCompAsEqualBuilder.build();
+        // Columns with larger indexes should go last.
+        condIndexes.sort(CONDITION_PAIRS_COMPARATOR);
+
+        int conditions = condIndexes.size();
+        List<RelFieldCollation> leftCollation = new ArrayList<>(conditions);
+        List<RelFieldCollation> rightCollation = new ArrayList<>(conditions);
+
+        for (IntPair pair : condIndexes) {
+            leftCollation.add(rel.leftCollation().getFieldCollations().get(pair.source));
+            rightCollation.add(rel.rightCollation().getFieldCollations().get(pair.target));
+        }
+
+        if (IgniteUtils.assertionsEnabled()) {
+            ensureComparatorCollationSatisfiesSourceCollation(leftCollation, leftKeys, "Left");
+            ensureComparatorCollationSatisfiesSourceCollation(rightCollation, rightKeys, "Right");
+        }
 
         SqlComparator<RowT> sqlComparator = expressionFactory.comparator(
-                rel.leftCollation().getFieldCollations().subList(0, pairsCnt),
-                rel.rightCollation().getFieldCollations().subList(0, pairsCnt),
+                leftCollation,
+                rightCollation,
                 nullCompAsEqual
         );
         Comparator<RowT> comp = (r1, r2) -> sqlComparator.compare(ctx, r1, r2);
@@ -470,7 +480,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         assert group != null;
 
-
         Comparator<RowT> comp = null;
         if (idx.type() == Type.SORTED && collation != null && !nullOrEmpty(collation.getFieldCollations())) {
             // Collation returned by rel is mapped according to projection merged into the rel. But we need
@@ -497,7 +506,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
             SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(partitionStreamCollation);
 
-            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2); 
+            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2);
 
         }
 
@@ -1160,4 +1169,44 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return offset.longValue();
     }
 
+    /**
+     * Evaluate a null comparison strategy as a bitset for the case of NOT DISTINCT FROM syntax.
+     */
+    private static ImmutableBitSet nullComparisonStrategyVector(IgniteMergeJoin rel, ImmutableBitSet leftKeys) {
+        ImmutableBitSet.Builder nullCompAsEqualBuilder = ImmutableBitSet.builder();
+
+        RexShuttle shuttle = new RexShuttle() {
+            @Override
+            public RexNode visitInputRef(RexInputRef ref) {
+                int idx = ref.getIndex();
+                if (leftKeys.get(idx)) {
+                    nullCompAsEqualBuilder.set(idx);
+                }
+                return ref;
+            }
+        };
+
+        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.getCondition());
+        for (RexNode expr : conjunctions) {
+            if (expr.getKind() == SqlKind.IS_NOT_DISTINCT_FROM) {
+                shuttle.apply(expr);
+            }
+        }
+
+        return nullCompAsEqualBuilder.build();
+    }
+
+    private static void ensureComparatorCollationSatisfiesSourceCollation(
+            List<RelFieldCollation> compCollation,
+            ImmutableIntList collationKeys,
+            String name
+    ) {
+        int[] effectiveCollation = compCollation.stream().mapToInt(RelFieldCollation::getFieldIndex).distinct().toArray();
+
+        assert effectiveCollation.length <= collationKeys.size() : name + " effective collation size mismatch";
+
+        int[] keysPrefix = collationKeys.stream().mapToInt(Integer::intValue).limit(effectiveCollation.length).toArray();
+
+        assert Arrays.equals(effectiveCollation, keysPrefix) : name + " collation mismatch the source collation";
+    }
 }
