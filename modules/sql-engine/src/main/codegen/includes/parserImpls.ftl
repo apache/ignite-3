@@ -693,7 +693,6 @@ SqlTypeName TimestampZoneOpt() :
 {
 }
 {
-    LOOKAHEAD(3)
     <WITHOUT> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP; }
 |
     <WITH> <LOCAL> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE; }
