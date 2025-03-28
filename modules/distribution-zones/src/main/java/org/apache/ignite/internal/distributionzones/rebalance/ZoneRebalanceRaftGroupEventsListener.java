@@ -45,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -359,9 +360,29 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 return;
             }
 
-            // We wait for catalog metadata to be applied up to the provided timestamp, so it should be safe to use the timestamp.
-            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(zonePartitionId, pendingAssignments.timestamp())
-                    .get();
+            LOG.info(">>>>> Waiting for calculated assignments for partition "
+                            + "[zonePartitionId={}, timestamp={}, stableFromRaft={}, pendingAssignments={}]",
+                    zonePartitionId, pendingAssignments.timestamp(), stableFromRaft, pendingAssignments
+            );
+
+            CompletableFuture<Set<Assignment>> calculatedAssignmentsFn =
+                    calculateAssignmentsFn.apply(zonePartitionId, pendingAssignments.timestamp());
+
+//            // We wait for catalog metadata to be applied up to the provided timestamp, so it should be safe to use the timestamp.
+//            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(zonePartitionId, pendingAssignments.timestamp()).get();
+
+            Set<Assignment> calculatedAssignments;
+            while (true) {
+                try {
+                    calculatedAssignments = calculatedAssignmentsFn.get(30, TimeUnit.SECONDS);
+                    break;
+                } catch (TimeoutException e) {
+                    LOG.info(">>>>> (*) Waiting for calculated assignments for partition "
+                                    + "[zonePartitionId={}, timestamp={}, stableFromRaft={}, pendingAssignments={}]",
+                            zonePartitionId, pendingAssignments.timestamp(), stableFromRaft, pendingAssignments
+                    );
+                }
+            }
 
             // Were reduced
             Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);

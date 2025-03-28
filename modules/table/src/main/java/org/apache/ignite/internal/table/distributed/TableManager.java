@@ -1465,6 +1465,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId tablePartitionId,
             Long assignmentsTimestamp
     ) {
+        // TODO
         return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
             int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
 

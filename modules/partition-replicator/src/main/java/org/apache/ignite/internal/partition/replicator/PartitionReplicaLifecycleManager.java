@@ -239,6 +239,12 @@ public class PartitionReplicaLifecycleManager extends
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
 
     /**
+     * This future completes on {@link #beforeNodeStop()} with {@link NodeStoppingException} before the {@link #busyLock} is blocked.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-17592
+     **/
+    private final CompletableFuture<Void> stopReplicaLifecycleFuture = new CompletableFuture<>();
+
+    /**
      * The constructor.
      *
      * @param catalogService Catalog service.
@@ -674,21 +680,62 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             Long assignmentsTimestamp
     ) {
-        return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
+        LOG.info(
+                ">>>>> Calculating assignments for zone partition [zonePartitionId={}, assignmentsTimestamp={}].",
+                zonePartitionId,
+                assignmentsTimestamp
+        );
+
+        HybridTimestamp curr = this.metaStorageMgr.clusterTime().currentSafeTime();
+        CompletableFuture<Void> metadataFut = waitForMetadataCompleteness(assignmentsTimestamp);
+
+        LOG.info(
+                ">>>>> Calculating assignments for zone partition [zonePartitionId={}, assignmentsTimestamp={}, metaFut={}"
+                        + ", current={}, current2={}, assignTimeStamp={}, schemaSync={}, delayDuration={}].",
+                zonePartitionId,
+                assignmentsTimestamp,
+                metadataFut.isDone(),
+                curr,
+                metaStorageMgr.clusterTime().currentSafeTime(),
+                HybridTimestamp.hybridTimestamp(assignmentsTimestamp),
+                HybridTimestamp
+                        .hybridTimestamp(assignmentsTimestamp)
+                        .subtractPhysicalTime(executorInclinedSchemaSyncService.getDelayDurationMs()),
+                executorInclinedSchemaSyncService.getDelayDurationMs()
+        );
+
+        // TODO
+        CompletableFuture<Set<Assignment>> assignmentsFut = metadataFut.thenCompose(unused -> {
             Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
 
             CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
             int zoneId = zonePartitionId.zoneId();
 
+            LOG.info(
+                    ">>>>> Calculating data nodes [zonePartitionId={}, assignmentsTimestamp={}, zoneDesc={}].",
+                    zonePartitionId,
+                    assignmentsTimestamp,
+                    zoneDescriptor
+            );
             return distributionZoneMgr.dataNodes(zoneDescriptor.updateToken(), catalog.version(), zoneId)
-                    .thenApply(dataNodes -> calculateAssignmentForPartition(
-                            dataNodes,
-                            zonePartitionId.partitionId(),
-                            zoneDescriptor.partitions(),
-                            zoneDescriptor.replicas()
-                    ));
+                    .thenApply(dataNodes -> {
+                        LOG.info(
+                                ">>>>> Calculating assignment for partition [zonePartitionId={}, assignmentsTimestamp={}, zoneDesc={}].",
+                                zonePartitionId,
+                                assignmentsTimestamp,
+                                zoneDescriptor
+                        );
+                        return calculateAssignmentForPartition(
+                                dataNodes,
+                                zonePartitionId.partitionId(),
+                                zoneDescriptor.partitions(),
+                                zoneDescriptor.replicas()
+                        );
+                    });
         });
+
+        return CompletableFuture.anyOf(stopReplicaLifecycleFuture, assignmentsFut).thenApply(a -> (Set<Assignment>) a);
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
@@ -708,6 +755,8 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public void beforeNodeStop() {
+        stopReplicaLifecycleFuture.completeExceptionally(new NodeStoppingException());
+
         busyLock.block();
 
         executorInclinedPlacementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);

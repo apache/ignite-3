@@ -286,21 +286,28 @@ public class DistributionZoneManager extends
      * @return The future with data nodes for the zoneId.
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
-        if (causalityToken < 1) {
-            throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
+        try {
+            if (causalityToken < 1) {
+                throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
+            }
+
+            if (catalogVersion < 0) {
+                throw new IllegalArgumentException(
+                        "catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
+            }
+
+            if (zoneId < 0) {
+                throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
+            }
+
+            HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
+
+            return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
+        } catch (Throwable debug) {
+            LOG.error(">>>>> Failed to get data nodes for the zone [causalityToken=" + causalityToken + ", catalogVersion="
+                    + catalogVersion + ", zoneId=" + zoneId + ']', debug);
+            throw new RuntimeException(debug);
         }
-
-        if (catalogVersion < 0) {
-            throw new IllegalArgumentException("catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
-        }
-
-        if (zoneId < 0) {
-            throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
-        }
-
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
-
-        return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {

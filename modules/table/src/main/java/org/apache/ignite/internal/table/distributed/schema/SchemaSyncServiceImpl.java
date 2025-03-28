@@ -43,4 +43,9 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
         return clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
     }
+
+    @Override
+    public long getDelayDurationMs() {
+        return delayDurationMs.getAsLong();
+    }
 }

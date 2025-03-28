@@ -34,4 +34,6 @@ public interface SchemaSyncService {
      *     remain unchanged for the timestamp).
      */
     CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts);
+
+    long getDelayDurationMs();
 }

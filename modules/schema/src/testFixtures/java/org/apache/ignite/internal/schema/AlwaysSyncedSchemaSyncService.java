@@ -31,4 +31,9 @@ public class AlwaysSyncedSchemaSyncService implements SchemaSyncService {
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
         return nullCompletedFuture();
     }
+
+    @Override
+    public long getDelayDurationMs() {
+        return 0;
+    }
 }

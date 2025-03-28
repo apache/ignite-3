@@ -555,6 +555,10 @@ public class Cluster {
         Collections.fill(igniteServers, null);
         Collections.fill(nodes, null);
 
+        IgniteServer srv0 = serversToStop.stream().filter(Objects::nonNull).findFirst().orElse(null);
+        if (srv0 != null)
+            srv0.shutdown();
+
         serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
 
         LOG.info("Shut the cluster down");

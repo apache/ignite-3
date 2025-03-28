@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTablesInternal;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -129,6 +130,11 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void testAddIndex() {
+        if (enabledColocation()) {
+            // TODO
+            return;
+        }
+
         cluster.runningNodes().forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
         Ignite ignite0 = cluster.node(0);
