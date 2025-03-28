@@ -176,12 +176,13 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveRowType() {
+        RelDataType rowType = table.unwrap(IgniteDataSource.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
         if (projects != null) {
             // Need to preserve the names of the fields in the output row type, due to we can have correlation with these names.
             // Also it improve readability of the output.
             String[] names = new String[projects.size()];
             if (table instanceof RelOptTableImpl) {
-                List<RelDataTypeField> fieldList = table.getRowType().getFieldList();
+                List<RelDataTypeField> fieldList = rowType.getFieldList();
                 int i = 0;
                 for (RexNode project : projects) {
                     String name = null;
@@ -195,7 +196,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
 
             return RexUtil.createStructType(Commons.typeFactory(getCluster()), projects, Arrays.asList(names), null);
         } else {
-            return table.unwrap(IgniteDataSource.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
+            return rowType;
         }
     }
 
