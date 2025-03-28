@@ -401,6 +401,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
+        tblManagerFut.join();
         TableAssignmentsManager assignmentsManager = new TableAssignmentsManager(msm, catalogManager, distributionZoneManager);
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
         List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));

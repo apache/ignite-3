@@ -44,6 +44,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -57,7 +58,7 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
-/** Manages table partitions assignments. */
+/** Manages table partitions assignments (excluding rebalance, see {@link DistributionZoneRebalanceEngine}). */
 public class TableAssignmentsManager {
     private static final IgniteLogger LOG = Loggers.forClass(TableAssignmentsManager.class);
 
@@ -66,8 +67,11 @@ public class TableAssignmentsManager {
     private final DistributionZoneManager distributionZoneManager;
 
     /** Constructor. */
-    public TableAssignmentsManager(MetaStorageManager metaStorageMgr, CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager) {
+    public TableAssignmentsManager(
+            MetaStorageManager metaStorageMgr,
+            CatalogService catalogService,
+            DistributionZoneManager distributionZoneManager
+    ) {
         this.metaStorageMgr = metaStorageMgr;
         this.catalogService = catalogService;
         this.distributionZoneManager = distributionZoneManager;
