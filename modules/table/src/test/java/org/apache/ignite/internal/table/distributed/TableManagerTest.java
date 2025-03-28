@@ -401,7 +401,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
-        TableManager tableManager = tblManagerFut.join();
+
+        assertThat(tblManagerFut, willCompleteSuccessfully());
+
+        TableAssignmentsManager assignmentsManager = new TableAssignmentsManager(msm, catalogManager, distributionZoneManager);
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
         List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));
 
@@ -409,7 +412,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
         var outerExceptionMsg = "Outer future is interrupted";
         assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
-        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager
+        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = assignmentsManager
                 .writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
@@ -421,7 +424,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
         when(msm.invoke(any(), anyList(), anyList())).thenReturn(invokeTimeoutFuture);
         writtenAssignmentsFuture =
-                tableManager.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
+                assignmentsManager.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }
