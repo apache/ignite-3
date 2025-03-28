@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.util.subscription;
 
+import static it.unimi.dsi.fastutil.objects.ObjectArrays.swap;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
@@ -86,7 +88,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
         final Subscriber<? super T> downstream;
 
         /** Counter to prevent concurrent execution of a critical section. */
-        private final AtomicInteger guardCntr = new AtomicInteger();
+        private final AtomicInteger guardCntr = new AtomicInteger(1);
 
         /** Subscribers. */
         private final OrderedMergeSubscriber<T>[] subscribers;
@@ -110,7 +112,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
         private long requested;
 
         /** Number of emitted rows (guarded by {@link #guardCntr}). */
-        private long emitted;
+        private volatile long emitted;
 
         static final VarHandle ERROR_CHAIN;
 
@@ -148,12 +150,18 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
             }
 
             this.values = new Object[cnt];
+            this.waiting = cnt;
+            this.incompleted = cnt;
         }
 
         void subscribe(Publisher<? extends T>[] sources) {
+            assert guardCntr.get() == 1;
+
             for (int i = 0; i < sources.length; i++) {
                 sources[i].subscribe(subscribers[i]);
             }
+
+            guardCntr.set(0);
         }
 
         /** {@inheritDoc} */
@@ -212,6 +220,9 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
             }
         }
 
+        private int waiting;
+        private int incompleted;
+
         private void drain() {
             // Only one thread can pass below.
             if (guardCntr.getAndIncrement() != 0) {
@@ -221,94 +232,103 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
             // Frequently accessed fields.
             Subscriber<? super T> downstream = this.downstream;
             OrderedMergeSubscriber<T>[] subscribers = this.subscribers;
-            int subsCnt = subscribers.length;
             Object[] values = this.values;
             long emitted = this.emitted;
+            int waiting = this.waiting;
+            int incompleted = this.incompleted;
 
+            // Retry loop.
             for (; ; ) {
                 long requested = (long) REQUESTED.getAcquire(this);
 
-                for (; ; ) {
+                // Emit loop.
+                for (; emitted < requested; ) {
                     if ((boolean) CANCELLED.getAcquire(this)) {
                         Arrays.fill(values, null);
 
                         for (OrderedMergeSubscriber<T> inner : subscribers) {
                             inner.queue.clear();
                         }
-
+                        // No need to reset guard.
                         return;
                     }
 
-                    int completed = 0;
-                    boolean waitResponse = false;
+                    // TODO: rewrite to HEAPIFY ?
+                    {
+                        for (int i = 0; i < waiting; ) {
+                            boolean innerDone = subscribers[0].done; // Read before polling to preserve correct program order.
+                            Object obj = subscribers[0].queue.poll();
 
-                    for (int i = 0; i < subsCnt; i++) {
-                        Object obj = values[i];
+                            int found = obj != null ? 1 : 0;
+                            int done = (obj == null && innerDone) ? 1 : 0; // Flag has no effect if poll was successful.
 
-                        if (obj == DONE) {
-                            completed++;
-                        } else if (obj == null) {
-                            boolean innerDone = subscribers[i].done;
+                            assert found + done <= 1;
 
-                            obj = subscribers[i].queue.poll();
+                            values[0] = obj;
 
-                            if (obj != null) {
-                                values[i] = obj;
-                            } else if (innerDone) {
-                                values[i] = DONE;
+                            waiting -= found + done;
+                            incompleted -= done;
 
-                                completed++;
-                            } else {
-                                // Subscriber has not received a response yet.
-                                waitResponse = true;
+                            int move = done * incompleted + found * waiting; // No effect if waiting for value.
+                            swap(values, 0, move);
+                            swap(subscribers, 0, move);
 
-                                break;
-                            }
+                            i = (found + done == 0) ? waiting : i; // Exit if no value was found.
+                        }
+
+                        if (waiting > 0) {
+                            break;
                         }
                     }
 
-                    if (completed == subsCnt) {
-                        ErrorChain chain = (ErrorChain) ERROR_CHAIN.getAcquire(this);
-
-                        if (chain == null) {
-                            downstream.onComplete();
-                        } else {
-                            downstream.onError(chain.buildThrowable());
-                        }
-
+                    if (incompleted == 0) {
+                        finish(downstream);
+                        // No need to reset guard.
                         return;
                     }
 
-                    if (waitResponse || emitted == requested) {
-                        break;
+                    int minIndex = 0;
+
+                    // TODO: rewrite to HEAPIFY
+                    for (int i = 1; i < incompleted; i++) {
+                        T obj = (T) values[i];
+                        T min = (T) values[minIndex];
+
+                        int cmp = comp.compare(min, obj);
+                        minIndex = cmp > 0 ? i : minIndex;
                     }
 
-                    T min = null;
-                    int minIndex = -1;
+                    swap(values, 0, minIndex);
+                    swap(subscribers, 0, minIndex);
 
-                    for (int i = 0; i < values.length; i++) {
-                        Object obj = values[i];
-
-                        if (obj != DONE && (min == null || comp.compare(min, (T) obj) > 0)) {
-                            min = (T) obj;
-                            minIndex = i;
-                        }
-                    }
-
-                    values[minIndex] = null;
-
-                    downstream.onNext(min);
-
+                    waiting++;
                     emitted++;
-                    subscribers[minIndex].request(1);
+
+                    downstream.onNext((T) values[0]);
+                    values[0] = null;
+
+                    subscribers[0].request(1);
                 }
 
                 this.emitted = emitted;
+                this.waiting = waiting;
+                this.incompleted = incompleted;
 
                 // Retry if any other thread has incremented the counter.
                 if (guardCntr.decrementAndGet() == 0) {
                     break;
                 }
+                guardCntr.set(1);
+            }
+        }
+
+        private void finish(Subscriber<? super T> downstream) {
+            ErrorChain chain = (ErrorChain) ERROR_CHAIN.getAcquire(this);
+
+            if (chain == null) {
+                downstream.onComplete();
+            } else {
+                downstream.onError(chain.buildThrowable());
             }
         }
 
@@ -377,7 +397,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
 
             /** {@inheritDoc} */
             @Override
-            public void request(long n) {
+            public synchronized void request(long n) {
                 int c = consumed + 1;
 
                 if (c == limit) {
