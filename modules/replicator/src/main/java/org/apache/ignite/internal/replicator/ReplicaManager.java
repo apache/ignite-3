@@ -123,6 +123,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -282,7 +283,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         this.replicaStateManager = new ReplicaStateManager(
                 replicaStartStopExecutor,
-                requestsExecutor,
                 clockService,
                 placementDriver,
                 this
@@ -455,7 +455,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private static boolean indicatesUnexpectedProblem(Throwable ex) {
-        return !(unwrapCause(ex) instanceof ExpectedReplicationException);
+        Throwable unwrapped = unwrapCause(ex);
+        return !(unwrapped instanceof ExpectedReplicationException) && !(unwrapped instanceof TrackerClosedException);
     }
 
     /**

@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.network.ClusterNode;
 
 /** Task of building a table index. */
@@ -135,7 +137,7 @@ class IndexBuildTask {
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            if (unwrapCause(throwable) instanceof PrimaryReplicaMissException) {
+                            if (ignorable(throwable)) {
                                 LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
                             } else {
                                 LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
@@ -153,6 +155,16 @@ class IndexBuildTask {
         } finally {
             leaveBusy();
         }
+    }
+
+    private static boolean ignorable(Throwable throwable) {
+        Throwable unwrapped = unwrapCause(throwable);
+
+        // Any of these exceptions can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
+        // build continuation. We just don't want to fill our logs with garbage.
+        return unwrapped instanceof PrimaryReplicaMissException
+                || unwrapped instanceof TrackerClosedException
+                || unwrapped instanceof NodeStoppingException;
     }
 
     /** Stops index building. */
