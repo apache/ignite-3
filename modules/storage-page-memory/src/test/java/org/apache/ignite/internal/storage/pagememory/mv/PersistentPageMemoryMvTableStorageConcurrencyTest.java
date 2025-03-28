@@ -57,6 +57,7 @@ class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableS
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,

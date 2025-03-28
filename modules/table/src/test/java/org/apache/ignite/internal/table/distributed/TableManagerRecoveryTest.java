@@ -122,7 +122,6 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -169,8 +168,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final long WAIT_TIMEOUT = SECONDS.toMillis(10);
 
     // Configuration
-    @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
-    private StorageConfiguration storageConfiguration;
+    @InjectConfiguration("mock.storage = {profiles.default = {engine = \"aipersist\"}}")
+    private NodeConfiguration nodeConfiguration;
     @InjectConfiguration
     private GcConfiguration gcConfig;
     @InjectConfiguration
@@ -497,9 +496,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private DataStorageManager createDataStorageManager() {
         ConfigurationRegistry mockedRegistry = mock(ConfigurationRegistry.class);
 
-        StorageExtensionConfiguration mock = mock(StorageExtensionConfiguration.class);
-        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(mock);
-        when(mock.storage()).thenReturn(storageConfiguration);
+        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(nodeConfiguration);
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(dataStorageModule));
 
@@ -515,7 +512,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         clock,
                         scheduledExecutor
                 ),
-                storageConfiguration
+                ((StorageExtensionConfiguration) nodeConfiguration).storage()
         );
 
         assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());

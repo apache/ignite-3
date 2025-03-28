@@ -60,9 +60,8 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  */
 public interface PagesWriteThrottlePolicy {
-    // TODO Maybe make it configurable in IGNITE-24548
     /** Min park time which triggers logging. */
-    long LOGGING_THRESHOLD = TimeUnit.SECONDS.toNanos(1);
+    long DEFAULT_LOGGING_THRESHOLD = TimeUnit.SECONDS.toNanos(1);
 
     /** Checkpoint buffer fullfill upper bound. */
     float CP_BUF_FILL_THRESHOLD = 2f / 3;

@@ -69,6 +69,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,

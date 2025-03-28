@@ -53,6 +53,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
      */
     static final long NO_THROTTLING_MARKER = Long.MIN_VALUE;
 
+    private final long logThresholdNanos;
+
     private final PersistentPageMemory pageMemory;
 
     private final Supplier<CheckpointProgress> cpProgress;
@@ -95,17 +97,20 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     /**
      * Constructor.
      *
+     * @param logThresholdNanos Minimal throttling duration required for printing a warning message to the log.
      * @param pageMemory Page memory.
      * @param cpProgress Database manager.
      * @param stateChecker Checkpoint lock state provider.
      * @param metricSource Metric source.
      */
     public PagesWriteSpeedBasedThrottle(
+            long logThresholdNanos,
             PersistentPageMemory pageMemory,
             Supplier<CheckpointProgress> cpProgress,
             CheckpointLockStateChecker stateChecker,
             PersistentPageMemoryMetricSource metricSource
     ) {
+        this.logThresholdNanos = logThresholdNanos;
         this.pageMemory = pageMemory;
         this.cpProgress = cpProgress;
         cpLockStateChecker = stateChecker;
@@ -187,7 +192,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
             return;
         }
 
-        if (throttleParkTimeNs > LOGGING_THRESHOLD) {
+        if (throttleParkTimeNs > logThresholdNanos) {
             LOG.warn("Parking thread={} for timeout(ms)={}", Thread.currentThread().getName(), throttleParkTimeNs / 1_000_000);
         }
 

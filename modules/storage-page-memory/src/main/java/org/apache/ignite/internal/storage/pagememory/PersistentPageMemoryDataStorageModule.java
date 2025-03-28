@@ -25,6 +25,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -60,6 +62,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
     ) throws StorageException {
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
+        SystemLocalConfiguration systemLocalConfig = configRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
+
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -68,6 +72,7 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
                 igniteInstanceName,
                 metricManager,
                 storageConfig,
+                systemLocalConfig,
                 ioRegistry,
                 storagePath,
                 longJvmPauseDetector,

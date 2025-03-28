@@ -60,6 +60,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,

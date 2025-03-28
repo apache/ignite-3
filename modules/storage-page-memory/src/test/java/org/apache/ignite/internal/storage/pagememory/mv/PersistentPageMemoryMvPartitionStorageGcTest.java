@@ -60,6 +60,7 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,

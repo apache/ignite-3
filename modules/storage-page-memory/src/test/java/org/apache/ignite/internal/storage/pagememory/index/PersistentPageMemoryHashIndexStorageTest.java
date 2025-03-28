@@ -61,6 +61,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,

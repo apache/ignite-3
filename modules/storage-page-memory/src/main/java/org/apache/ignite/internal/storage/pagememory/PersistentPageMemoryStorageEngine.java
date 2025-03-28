@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
@@ -70,6 +71,10 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      */
     public static final int MAX_DESTRUCTION_WORK_UNITS = 1_000;
 
+    public static final String THROTTLING_TYPE_SYSTEM_PROPERTY = "aipersistThrottling";
+
+    public static final String THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY = "aipersistThrottlingLogThresholdMillis";
+
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryStorageEngine.class);
 
     private final String igniteInstanceName;
@@ -79,6 +84,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     private final StorageConfiguration storageConfig;
+
+    private final @Nullable SystemLocalConfiguration systemLocalConfig;
 
     private final PageIoRegistry ioRegistry;
 
@@ -109,6 +116,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      *
      * @param igniteInstanceName Ignite instance name.
      * @param storageConfig Storage engine and storage profiles configurations.
+     * @param systemLocalConfig Local system configuration.
      * @param ioRegistry IO registry.
      * @param storagePath Storage path.
      * @param longJvmPauseDetector Long JVM pause detector.
@@ -120,6 +128,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             String igniteInstanceName,
             MetricManager metricManager,
             StorageConfiguration storageConfig,
+            @Nullable SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -133,6 +142,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         this.metricManager = metricManager;
         this.storageConfig = storageConfig;
         this.engineConfig = ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
+        this.systemLocalConfig = systemLocalConfig;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
@@ -305,6 +315,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
                 metricManager,
                 storageProfileConfiguration,
+                systemLocalConfig,
                 ioRegistry,
                 filePageStoreManager,
                 partitionMetaManager,
