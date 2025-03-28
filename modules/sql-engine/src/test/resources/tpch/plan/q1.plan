@@ -1,8 +1,8 @@
 Sort
-    collation: [$f0 ASC, $f1 ASC]
+    collation: [L_QUANTITY ASC, L_EXTENDEDPRICE ASC]
     est. row count: 1080219
   Project
-      fields: [$f0, $f1, SUM_QTY, SUM_BASE_PRICE, SUM_DISC_PRICE, SUM_CHARGE, AVG_QTY, AVG_PRICE, AVG_DISC, COUNT_ORDER]
+      fields: [L_QUANTITY, L_EXTENDEDPRICE, SUM_QTY, SUM_BASE_PRICE, SUM_DISC_PRICE, SUM_CHARGE, AVG_QTY, AVG_PRICE, AVG_DISC, COUNT_ORDER]
       exprs: [f0, f1, f0_2, f0_3, f0_4, f0_5, DECIMAL_DIVIDE(f0_6, f1_7, 29, 16), DECIMAL_DIVIDE(f0_8, f1_9, 29, 16), DECIMAL_DIVIDE(f0_10, f1_11, 29, 16), CAST(f0_12):BIGINT NOT NULL]
       est. row count: 1080219
     ReduceHashAggregate
@@ -15,11 +15,11 @@ Sort
           est. row count: 1080219
         Project
             fields: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
-            exprs: [$f0, $f1, _ACC0, _ACC1, _ACC2, _ACC3, _ACC4, CAST(_ACC5):DECIMAL(32767, 0) NOT NULL, _ACC6, CAST(_ACC7):DECIMAL(32767, 0) NOT NULL, _ACC8, CAST(_ACC9):DECIMAL(32767, 0) NOT NULL, _ACC10, _GROUP_ID]
+            exprs: [L_QUANTITY, L_EXTENDEDPRICE, _ACC0, _ACC1, _ACC2, _ACC3, _ACC4, CAST(_ACC5):DECIMAL(32767, 0) NOT NULL, _ACC6, CAST(_ACC7):DECIMAL(32767, 0) NOT NULL, _ACC8, CAST(_ACC9):DECIMAL(32767, 0) NOT NULL, _ACC10, _GROUP_ID]
             est. row count: 1080219
           MapHashAggregate
-              group: [$f0, $f1]
-              aggs: [SUM($f2), SUM($f3), SUM($f4), SUM($f5), SUM($f2), COUNT($f2), SUM($f3), COUNT($f3), SUM($f6), COUNT($f6), COUNT()]
+              group: [L_QUANTITY, L_EXTENDEDPRICE]
+              aggs: [SUM(L_ORDERKEY), SUM(L_PARTKEY), SUM($f4), SUM($f5), SUM(L_ORDERKEY), COUNT(L_ORDERKEY), SUM(L_PARTKEY), COUNT(L_PARTKEY), SUM(L_SUPPKEY), COUNT(L_SUPPKEY), COUNT()]
               est. row count: 1080219
             IndexScan
                 table: [PUBLIC, LINEITEM]
@@ -27,7 +27,7 @@ Sort
                 type: SORTED
                 searchBounds: [RangeBounds [lowerBound=null, upperBound=-(1998-12-01, 7776000000:INTERVAL DAY), lowerInclude=true, upperInclude=true]]
                 filters: <=(L_SHIPDATE, -(1998-12-01, 7776000000:INTERVAL DAY))
-                fields: [$f0, $f1, $f2, $f3, $f4, $f5, $f6]
+                fields: [L_QUANTITY, L_EXTENDEDPRICE, L_ORDERKEY, L_PARTKEY, $f4, $f5, L_SUPPKEY]
                 projects: [L_RETURNFLAG, L_LINESTATUS, L_QUANTITY, L_EXTENDEDPRICE, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), *(*(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), +(1, L_TAX)), L_DISCOUNT]
                 collation: []
                 est. row count: 3000608
