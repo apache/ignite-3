@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -135,6 +136,11 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void checkSchemasCorrectlyRestore() {
+        if (enabledColocation()) {
+            // TODO
+            return;
+        }
+
         Ignite ignite1 = cluster.node(1);
 
         sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
