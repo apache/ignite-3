@@ -35,4 +35,10 @@ public interface HandshakeStartMessage extends InternalMessage {
     /** ID of the cluster to which the server node belongs ({@code null} if it's not initialized yet. */
     @Nullable
     UUID serverClusterId();
+
+    /** Product name of the node that sends the message. */
+    String productName();
+
+    /** Product version of the node that sends the message. */
+    String productVersion();
 }

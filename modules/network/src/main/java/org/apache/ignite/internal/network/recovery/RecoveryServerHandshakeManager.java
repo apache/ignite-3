@@ -30,9 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -56,10 +53,11 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
+import org.apache.ignite.internal.version.ProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Recovery protocol handshake manager for a server.
+ * Recovery protocol handshake manager for a server (here, 'server' means 'the side that accepts the connection').
  */
 public class RecoveryServerHandshakeManager implements HandshakeManager {
     private static final IgniteLogger LOG = Loggers.forClass(RecoveryServerHandshakeManager.class);
@@ -103,10 +101,10 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
     private final BooleanSupplier stopping;
 
+    private final ProductVersionSource productVersionSource;
+
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
-
-    private final FailureManager failureManager;
 
     /**
      * Constructor.
@@ -115,6 +113,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
      * @param messageFactory Message factory.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
+     * @param productVersionSource Source of product version.
      */
     public RecoveryServerHandshakeManager(
             ClusterNode localNode,
@@ -125,7 +124,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            FailureManager failureManager
+            ProductVersionSource productVersionSource
     ) {
         this.localNode = localNode;
         this.messageFactory = messageFactory;
@@ -134,7 +133,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
-        this.failureManager = failureManager;
+        this.productVersionSource = productVersionSource;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -171,6 +170,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         HandshakeStartMessage handshakeStartMessage = messageFactory.handshakeStartMessage()
                 .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
                 .serverClusterId(clusterIdSupplier.clusterId())
+                .productName(productVersionSource.productName())
+                .productVersion(productVersionSource.productVersion().toString())
                 .build();
 
         ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList(), false));
@@ -355,10 +356,6 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         HandshakeException err = new HandshakeException(msg.message());
 
         handshakeCompleteFuture.completeExceptionally(err);
-
-        if (!stopping.getAsBoolean() && msg.reason().critical()) {
-            failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
-        }
     }
 
     private void rejectHandshakeDueToLosingClinch(RecoveryDescriptor descriptor) {

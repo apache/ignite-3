@@ -67,6 +67,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
+import org.apache.ignite.internal.version.ProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -94,6 +95,7 @@ public class ScaleCubeClusterServiceFactory {
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param channelTypeRegistry {@link ChannelTypeRegistry} registry.
+     * @param productVersionSource Source of product version.
      * @return New cluster service.
      */
     public ClusterService createClusterService(
@@ -105,7 +107,8 @@ public class ScaleCubeClusterServiceFactory {
             ClusterIdSupplier clusterIdSupplier,
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureManager failureManager,
-            ChannelTypeRegistry channelTypeRegistry
+            ChannelTypeRegistry channelTypeRegistry,
+            ProductVersionSource productVersionSource
     ) {
         var topologyService = new ScaleCubeTopologyService();
 
@@ -158,8 +161,8 @@ public class ScaleCubeClusterServiceFactory {
                         nettyBootstrapFactory,
                         staleIds,
                         clusterIdSupplier,
-                        failureManager,
-                        channelTypeRegistry
+                        channelTypeRegistry,
+                        productVersionSource
                 );
                 this.connectionMgr = connectionMgr;
 
