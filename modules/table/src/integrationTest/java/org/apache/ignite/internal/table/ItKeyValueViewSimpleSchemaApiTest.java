@@ -54,22 +54,31 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Unified KeyValueView API test with simple value type.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest {
     private static final String TABLE_NAME_SIMPLE_TYPE = "test_simple";
 
     private static final String TABLE_NAME_NON_NULLABLE_VALUE = "test_non_nullable_value";
 
     @BeforeAll
-    public void createTable() {
-        createTable(TABLE_NAME_SIMPLE_TYPE, List.of(new Column("VAL", NativeTypes.INT64, true)));
-        createTable(TABLE_NAME_NON_NULLABLE_VALUE, List.of(new Column("VAL", NativeTypes.INT64, false)));
+    void createTables() {
+        List<TestTableDefinition> tables = new ArrayList<>();
+        Column[] nullableValue = {new Column("VAL", NativeTypes.INT64, true)};
+
+        tables.add(new TestTableDefinition(TABLE_NAME_SIMPLE_TYPE, DEFAULT_KEY, nullableValue, true));
+
+        tables.add(new TestTableDefinition(
+                TABLE_NAME_NON_NULLABLE_VALUE,
+                DEFAULT_KEY,
+                new Column[] {new Column("VAL", NativeTypes.INT64, false)},
+                true
+        ));
 
         for (NativeType type : SchemaTestUtils.ALL_TYPES) {
             String tableName = "T_" + type.spec().name();
+            Column[] values = {new Column("VAL", type, false)};
 
-            createTable(tableName, false,
-                    List.of(new Column("id", NativeTypes.INT64, false)),
-                    List.of(new Column("VAL", type, true)));
+            tables.add(new TestTableDefinition(tableName, DEFAULT_KEY, values));
         }
 
         // Validate all types are tested.
@@ -77,6 +86,8 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
         assertEquals(nativeTypes,
                 SchemaTestUtils.ALL_TYPES.stream().map(NativeType::spec).collect(Collectors.toSet()));
+
+        createTables(tables);
     }
 
     @ParameterizedTest
@@ -634,7 +645,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
     @ParameterizedTest
     @MethodSource("testCases")
     public void nullKeyValidation(TestCase<Long, Long> testCase) {
-        final KeyValueView<Long, Long> tbl = testCase.view();
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Null key.
         testCase.checkNullKeyError(() -> tbl.contains(null, null));

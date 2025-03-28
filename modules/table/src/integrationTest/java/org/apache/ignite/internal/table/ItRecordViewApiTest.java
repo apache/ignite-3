@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.Column;
@@ -41,6 +40,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration tests for record view API.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     private static final String TABLE_NAME = "test";
 
@@ -49,12 +49,25 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     private final Random rnd = new Random(seed);
 
     @BeforeAll
-    public void createTable() {
-        Optional<Column> pkColumn = Arrays.stream(KeyValueTestUtils.ALL_TYPES_COLUMNS)
-                .filter(col -> "primitivelongcol".equalsIgnoreCase(col.name()))
-                .findFirst();
+    public void createTables() {
+        Column[] keyColumns = new Column[1];
+        Column[] valueColumns = new Column[KeyValueTestUtils.ALL_TYPES_COLUMNS.length - 1];
 
-        createTable(TABLE_NAME, false, List.of(pkColumn.orElseThrow()), List.of(KeyValueTestUtils.ALL_TYPES_COLUMNS));
+        int counter = 0;
+
+        for (Column column : KeyValueTestUtils.ALL_TYPES_COLUMNS) {
+            if ("primitivelongcol".equalsIgnoreCase(column.name())) {
+                keyColumns[0] = column;
+
+                continue;
+            }
+
+            valueColumns[counter++] = column;
+        }
+
+        TestTableDefinition table = new TestTableDefinition(TABLE_NAME, keyColumns, valueColumns, true);
+
+        createTables(List.of(table));
     }
 
     @BeforeEach

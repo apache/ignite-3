@@ -55,6 +55,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleHelper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -154,7 +155,7 @@ public class ClientTableCommon {
 
             for (var i = 0; i < elementCount; i++) {
                 var col = schema.column(i);
-                Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
+                Object v = TupleHelper.valueOrDefault(tuple, col.name(), NO_VALUE);
 
                 ClientBinaryTupleUtils.appendValue(builder, getColumnType(col.type().spec()), col.name(), getDecimalScale(col.type()), v);
             }

@@ -35,13 +35,17 @@ abstract class ItRecordViewApiBaseTest extends ItTableViewApiUnifiedBaseTest {
     abstract TestCaseFactory getFactory(String tableName);
 
     <T> List<Arguments> generateRecordViewTestArguments(String tableName, Class<T> recordClass) {
+        return generateRecordViewTestArguments(tableName, recordClass, "");
+    }
+
+    <T> List<Arguments> generateRecordViewTestArguments(String tableName, Class<T> recordClass, String descSuffix) {
         TestCaseFactory caseFactory = getFactory(tableName);
 
         List<Arguments> arguments = new ArrayList<>(TestCaseType.values().length);
 
         for (TestCaseType testCaseType : TestCaseType.values()) {
             arguments.add(Arguments.of(Named.of(
-                    testCaseType.description(),
+                    testCaseType.description() + descSuffix,
                     caseFactory.create(testCaseType, recordClass)
             )));
         }
