@@ -686,17 +686,22 @@ public class PartitionReplicaLifecycleManager extends
                 assignmentsTimestamp
         );
 
-        this.metaStorageMgr.clusterTime().currentSafeTime();
+        HybridTimestamp curr = this.metaStorageMgr.clusterTime().currentSafeTime();
         CompletableFuture<Void> metadataFut = waitForMetadataCompleteness(assignmentsTimestamp);
 
         LOG.info(
                 ">>>>> Calculating assignments for zone partition [zonePartitionId={}, assignmentsTimestamp={}, metaFut={}"
-                        + ", current={}, assignTimeStamp={}].",
+                        + ", current={}, current2={}, assignTimeStamp={}, schemaSync={}, delayDuration={}].",
                 zonePartitionId,
                 assignmentsTimestamp,
                 metadataFut.isDone(),
+                curr,
                 metaStorageMgr.clusterTime().currentSafeTime(),
-                HybridTimestamp.hybridTimestamp(assignmentsTimestamp)
+                HybridTimestamp.hybridTimestamp(assignmentsTimestamp),
+                HybridTimestamp
+                        .hybridTimestamp(assignmentsTimestamp)
+                        .subtractPhysicalTime(executorInclinedSchemaSyncService.getDelayDurationMs()),
+                executorInclinedSchemaSyncService.getDelayDurationMs()
         );
 
         // TODO

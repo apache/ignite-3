@@ -47,4 +47,9 @@ public class ExecutorInclinedSchemaSyncService implements SchemaSyncService {
 
         return future.thenApplyAsync(identity(), completionExecutor);
     }
+
+    @Override
+    public long getDelayDurationMs() {
+        return schemaSyncService.getDelayDurationMs();
+    }
 }
