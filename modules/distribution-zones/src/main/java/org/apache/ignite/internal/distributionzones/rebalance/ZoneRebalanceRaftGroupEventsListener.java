@@ -360,16 +360,16 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 return;
             }
 
+            LOG.info(">>>>> Waiting for calculated assignments for partition "
+                            + "[zonePartitionId={}, timestamp={}, stableFromRaft={}, pendingAssignments={}]",
+                    zonePartitionId, pendingAssignments.timestamp(), stableFromRaft, pendingAssignments
+            );
+
             CompletableFuture<Set<Assignment>> calculatedAssignmentsFn =
                     calculateAssignmentsFn.apply(zonePartitionId, pendingAssignments.timestamp());
 
 //            // We wait for catalog metadata to be applied up to the provided timestamp, so it should be safe to use the timestamp.
 //            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(zonePartitionId, pendingAssignments.timestamp()).get();
-
-            LOG.info(">>>>> Waiting for calculated assignments for partition "
-                            + "[zonePartitionId={}, timestamp={}, stableFromRaft={}, pendingAssignments={}]",
-                    zonePartitionId, pendingAssignments.timestamp(), stableFromRaft, pendingAssignments
-            );
 
             Set<Assignment> calculatedAssignments;
             while (true) {

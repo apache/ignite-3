@@ -705,7 +705,7 @@ public class PartitionReplicaLifecycleManager extends
         );
 
         // TODO
-        return metadataFut.thenCompose(unused -> {
+        CompletableFuture<Set<Assignment>> assignmentsFut = metadataFut.thenCompose(unused -> {
             Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
 
             CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
@@ -734,6 +734,8 @@ public class PartitionReplicaLifecycleManager extends
                         );
                     });
         });
+
+        return CompletableFuture.anyOf(stopReplicaLifecycleFuture, assignmentsFut).thenApply(a -> (Set<Assignment>) a);
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
