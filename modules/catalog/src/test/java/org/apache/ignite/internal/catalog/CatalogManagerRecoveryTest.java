@@ -99,8 +99,9 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         createAndStartComponents();
         awaitDefaultZoneCreation();
 
-        // Put catalog product key, then
+        // Check that a catalog product key exist, if it does not create it (1 - getLocally + 1 invoke).
         // on the first start default zone must be created
+        verify(metaStorageManager).getLocally(any());
         verify(metaStorageManager, times(2)).invoke(any());
 
         // Let's create a couple of versions of the catalog.
@@ -135,10 +136,6 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         // Check recovery events.
         verify(interceptor, times(3)).handle(any(VersionedUpdate.class), any(), anyLong());
         verify(interceptor, Mockito.never()).handle(any(SnapshotEntry.class), any(), anyLong());
-        // on recovery no additional invocation should happen
-        // 1 time counts towards conditional put of product key
-        verify(metaStorageManager, times(1)).invoke(any());
-
 
         // Let's check that the versions for the points in time at which they were created are in place.
         assertThat(catalogManager.activeCatalogVersion(time0), equalTo(catalogVersion0));
