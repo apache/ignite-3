@@ -546,4 +546,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Streamer receiver runner.
      */
     StreamerReceiverRunner streamerReceiverRunner();
+
+    boolean mergeEnlistment(int partId, String consistentId, long token, InternalTransaction tx, boolean commit);
 }

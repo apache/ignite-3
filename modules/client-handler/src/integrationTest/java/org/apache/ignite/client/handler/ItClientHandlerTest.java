@@ -533,7 +533,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             // Server features
             BitSet expected = new BitSet();
-            expected.set(1);
+            expected.set(1, 3);
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();
@@ -549,7 +549,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private void writeAndFlushLoop(Socket socket) throws Exception {
+    private static void writeAndFlushLoop(Socket socket) throws Exception {
         var stop = System.currentTimeMillis() + 5000;
         var out = socket.getOutputStream();
 

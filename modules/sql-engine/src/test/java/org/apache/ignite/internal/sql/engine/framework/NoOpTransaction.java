@@ -194,11 +194,6 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public long getTimeoutOrDefault(long defaultTimeout) {
-        return 10_000;
-    }
-
-    @Override
     public void enlist(
             ReplicationGroupId replicationGroupId,
             int tableId,

@@ -20,11 +20,13 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -47,12 +49,14 @@ public class ClientTupleDeleteExactRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            TxManager txManager
+            TxManager txManager,
+            ClockService clockService
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().deleteExactAsync(tx, tuple).thenAccept(res -> {
+                    writeTxMeta(out, clockService, tx);
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                     out.packBoolean(res);
                 });

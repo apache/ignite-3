@@ -24,6 +24,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.junit.jupiter.api.BeforeEach;
@@ -148,6 +150,11 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
     void removesTransactionOnUnregister() {
         registry.register(tx1, 1000);
 
+        HybridClock clock = new TestHybridClock(() -> 0);
+
+        lenient().when(tx1.startTimestamp()).thenReturn(clock.now());
+        lenient().when(tx1.getTimeout()).thenReturn(1000L);
+
         registry.unregister(tx1);
 
         registry.expireUpTo(2000);
@@ -159,6 +166,11 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
     @Test
     void unregisterIsIdempotent() {
         registry.register(tx1, 1000);
+
+        HybridClock clock = new TestHybridClock(() -> 0);
+
+        lenient().when(tx1.startTimestamp()).thenReturn(clock.now());
+        lenient().when(tx1.getTimeout()).thenReturn(1000L);
 
         registry.unregister(tx1);
 

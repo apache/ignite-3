@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.replication;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.message.TableAware;
+package org.apache.ignite.internal.client;
+
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Read-write single-row replica request.
+ * Write context.
  */
-@Transferable(PartitionReplicationMessageGroup.RW_SINGLE_ROW_REPLICA_REQUEST)
-public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaRequest, ReadWriteReplicaRequest, TableAware {
-    /**
-     * Disable delayed ack optimization.
-     *
-     * @return {@code True} to disable the delayed ack optimization.
-     */
-    boolean skipDelayedAck();
+public class WriteContext {
+    public @Nullable PartitionMapping pm;
+    public @Nullable Long enlistmentToken;
 }

@@ -868,7 +868,7 @@ public class JdbcConnection implements Connection {
 
     /** Returns the latest time observed by client. */
     long observableTimestamp() {
-        return client.channel().observableTimestamp();
+        return client.channel().observableTimestamp().get().longValue();
     }
 
     /** {@inheritDoc} */
