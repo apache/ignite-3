@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 
 import java.lang.reflect.Modifier;
 import java.util.List;
-import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
@@ -33,6 +32,7 @@ import org.apache.calcite.linq4j.tree.ParameterExpression;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
@@ -104,14 +104,11 @@ class ScalarImplementor {
 
         ParameterExpression ctx = Expressions.parameter(ExecutionContext.class, "ctx");
 
-        builder.add(
-                Expressions.declare(Modifier.FINAL, DataContext.ROOT, Expressions.convert_(ctx, DataContext.class))
-        );
-
         Expression rowHandler = builder.append("hnd", Expressions.call(ctx, IgniteMethod.CONTEXT_ROW_HANDLER.method()));
 
-        Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler)
-                .build(List.of(scalarValue));
+        Function1<String, InputGetter> correlates = scalarValue instanceof RexDynamicParam
+                ? null
+                : new CorrelatesBuilder(builder, ctx, rowHandler).build(List.of(scalarValue));
 
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
                 builder, null, null, ctx, NoOpFieldGetter.INSTANCE, correlates);

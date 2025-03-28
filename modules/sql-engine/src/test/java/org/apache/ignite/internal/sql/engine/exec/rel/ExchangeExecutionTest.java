@@ -524,7 +524,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         AbstractNode<Object[]> node = inbox;
 
         if (limit > 0) {
-            node = new LimitNode<>(targetCtx, () -> 0, () -> 1);
+            node = new LimitNode<>(targetCtx, 0, 1);
             node.register(List.of(inbox));
         }
 

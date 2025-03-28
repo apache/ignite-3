@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.LIMIT_UPPER;
 import static org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule.createMapping;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.combinedRowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -148,6 +150,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -647,17 +651,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteLimit rel) {
-        Supplier<Integer> offset = null;
-        if (rel.offset() != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.offset());
-            offset = () -> sqlScalar.get(ctx);
-        }
-
-        Supplier<Integer> fetch = null;
-        if (rel.fetch() != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.fetch());
-            fetch = () -> sqlScalar.get(ctx);
-        }
+        long offset = rel.offset() == null ? 0 : validateAndGetFetchOffsetParams(rel.offset(), "offset");
+        long fetch = rel.fetch() == null ? -1 : validateAndGetFetchOffsetParams(rel.fetch(), "fetch");
 
         LimitNode<RowT> node = new LimitNode<>(ctx, offset, fetch);
 
@@ -673,17 +668,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSort rel) {
         RelCollation collation = rel.getCollation();
 
-        Supplier<Integer> offset = null;
-        if (rel.offset != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.offset);
-            offset = () -> sqlScalar.get(ctx);
-        }
-
-        Supplier<Integer> fetch = null;
-        if (rel.fetch != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.fetch);
-            fetch = () -> sqlScalar.get(ctx);
-        }
+        long offset = rel.offset == null ? 0 : validateAndGetFetchOffsetParams(rel.offset, "offset");
+        long fetch = rel.fetch == null ? -1 : validateAndGetFetchOffsetParams(rel.fetch, "fetch");
 
         SqlComparator<RowT> sqlComparator = expressionFactory.comparator(collation);
         SortNode<RowT> node = new SortNode<>(
@@ -1166,6 +1152,21 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         return joinProjection;
+    }
+
+    private long validateAndGetFetchOffsetParams(RexNode node, String op) {
+        SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(node);
+        Number offset = sqlScalar.get(ctx);
+
+        if (offset instanceof BigDecimal) {
+            BigDecimal offset0 = (BigDecimal) offset;
+            if (offset0.signum() == -1 || offset0.compareTo(LIMIT_UPPER) > 0) {
+                throw new SqlException(Sql.STMT_VALIDATION_ERR,
+                        "Illegal value of " + op + ". The value must be positive and less than (" + Long.MAX_VALUE + ")");
+            }
+        }
+
+        return offset.longValue();
     }
 
     /**

@@ -19,26 +19,28 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 
 /** Offset, fetch|limit support node. */
 public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    /** Offset if its present, otherwise 0. */
-    private final int offset;
+    /** Offset param. */
+    private final long offset;
 
-    /** Fetch if its present, otherwise 0. */
-    private final int fetch;
+    /** Fetch param. */
+    private final long fetch;
+
+    /** Fetch can be unset. */
+    private final boolean fetchUndefined;
 
     /** Already processed (pushed to upstream) rows count. */
-    private int rowsProcessed;
-
-    /** Fetch can be unset, in this case we need all rows. */
-    private @Nullable Supplier<Integer> fetchNode;
+    private long rowsProcessed;
 
     /** Waiting results counter. */
     private int waiting;
+
+    /** Upper requested rows. */
+    private int requested;
 
     /**
      * Constructor.
@@ -47,17 +49,25 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
      */
     public LimitNode(
             ExecutionContext<RowT> ctx,
-            Supplier<Integer> offsetNode,
-            Supplier<Integer> fetchNode
+            long offset,
+            long fetch
     ) {
         super(ctx);
 
-        offset = offsetNode == null ? 0 : offsetNode.get();
-        fetch = fetchNode == null ? 0 : fetchNode.get();
-        this.fetchNode = fetchNode;
+        this.offset = offset;
+        fetchUndefined = fetch == -1;
+        this.fetch = fetch == -1 ? 0 : fetch;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Several cases are need to be processed.
+     *
+     * <br><ol>
+     * <li> request = 512, limit = 1, offset = not defined: need to pass 1 row and call {@link #end()}. </li>
+     * <li> request = 512, limit = 512, offset = not defined: just need to pass all rows without {@link #end()} call. </li>
+     * <li> request = 512, limit = 512, offset = 1: need to request initially 512 and further 1 row. </li>
+     * </ol>
+     */
     @Override
     public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
@@ -69,16 +79,17 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
             return;
         }
 
-        if (offset > 0 && rowsProcessed == 0) {
-            rowsCnt = offset + rowsCnt;
+        requested = rowsCnt;
+
+        if (fetch > 0) {
+            long remain = IgniteMath.addExact(fetch, offset) - rowsProcessed;
+
+            rowsCnt = remain > rowsCnt ? rowsCnt : (int) remain;
         }
 
         waiting = rowsCnt;
 
-        if (fetch > 0) {
-            rowsCnt = Math.min(rowsCnt, (fetch + offset) - rowsProcessed);
-        }
-
+        checkState();
 
         source().request(rowsCnt);
     }
@@ -89,18 +100,25 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
         if (waiting == NOT_WAITING) {
             return;
         }
+
         ++rowsProcessed;
 
         --waiting;
 
         if (rowsProcessed > offset) {
-            if (fetchNode == null || rowsProcessed <= fetch + offset) {
+            if (fetchUndefined || rowsProcessed <= fetch + offset) {
+                // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
+                --requested;
                 downstream().push(row);
             }
         }
 
-        if (fetch > 0 && rowsProcessed == fetch + offset && waiting > 0) {
+        if (fetch > 0 && rowsProcessed == fetch + offset && requested > 0) {
             end();
+        }
+
+        if (waiting == 0 && requested > 0) {
+            source().request(waiting = requested);
         }
     }
 
@@ -121,6 +139,8 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
+        waiting = 0;
+        requested = 0;
         rowsProcessed = 0;
     }
 
@@ -136,6 +156,6 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
 
     /** {@code True} if requested 0 results, or all already processed. */
     private boolean fetchNone() {
-        return (fetchNode != null && fetch == 0) || (fetch > 0 && rowsProcessed == fetch + offset);
+        return (!fetchUndefined && fetch == 0) || (fetch > 0 && rowsProcessed == fetch + offset);
     }
 }
