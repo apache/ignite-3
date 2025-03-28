@@ -52,10 +52,10 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -93,7 +93,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
     /** Mock partition storage. */
     @Mock
@@ -140,7 +140,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
                 mockStorage,
                 ROW_SCHEMA,
                 txConfiguration,
-                storageUpdateConfiguration
+                replicationConfiguration
         );
     }
 

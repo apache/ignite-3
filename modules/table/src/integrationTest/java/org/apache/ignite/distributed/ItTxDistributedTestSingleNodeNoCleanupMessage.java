@@ -108,7 +108,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                storageUpdateConfiguration,
                 workDir,
                 nodes(),
                 replicas(),
