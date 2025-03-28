@@ -124,16 +124,20 @@ public class UpdateLogImpl implements UpdateLog {
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
 
-            Update putProductKey = ops(
-                    put(CatalogKey.catalogProduct(), MAGIC_BYTES)
-            ).yield(false);
+            Entry existingKey = metastore.getLocally(CatalogKey.catalogProduct());
+            if (existingKey.empty()) {
+                Update putProductKey = ops(
+                        put(CatalogKey.catalogProduct(), MAGIC_BYTES)
+                ).yield(false);
 
-            Iif writeProductKeyIfNotExist = iif(
-                    notExists(CatalogKey.catalogProduct()),
-                    putProductKey, ops().yield(false)
-            );
-            return metastore.invoke(writeProductKeyIfNotExist).thenApply(ignore -> null);
-
+                Iif writeProductKeyIfNotExist = iif(
+                        notExists(CatalogKey.catalogProduct()),
+                        putProductKey, ops().yield(false)
+                );
+                return metastore.invoke(writeProductKeyIfNotExist).thenApply(ignore -> null);
+            } else {
+                return nullCompletedFuture();
+            }
         } finally {
             busyLock.leaveBusy();
         }

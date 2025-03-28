@@ -362,12 +362,14 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void writeProductKeyOnStartup() {
+    void writeProductKeyOnStartup() throws InterruptedException {
         ByteArray key = ByteArray.fromString("catalog.product");
         byte[] modifiedValue;
 
         {
             UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
+
+            deployWatchesAndAwaitInitialUpdates();
 
             Entry defaultKeyEntry = metastore.get(key).join();
             assertFalse(defaultKeyEntry.empty());
