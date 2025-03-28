@@ -59,7 +59,7 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
 
     IgniteClient client;
 
-    /** All created tables. */
+    /** Tables to clear after each test. */
     private final List<String> tablesToClear = new ArrayList<>();
 
     @BeforeAll
