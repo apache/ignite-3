@@ -233,6 +233,7 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.version.DefaultProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.internal.wrapper.Wrappers;
@@ -402,7 +403,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterIdService,
                 workerRegistry,
                 failureProcessor,
-                defaultChannelTypeRegistry()
+                defaultChannelTypeRegistry(),
+                new DefaultProductVersionSource()
         );
 
         var hybridClock = new HybridClockImpl();

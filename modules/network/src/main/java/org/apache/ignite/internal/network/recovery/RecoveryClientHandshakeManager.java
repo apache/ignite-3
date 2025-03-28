@@ -20,7 +20,6 @@ package org.apache.ignite.internal.network.recovery;
 import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.clusterNodeToMessage;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
@@ -30,13 +29,12 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -60,12 +58,13 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
+import org.apache.ignite.internal.version.ProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Recovery protocol handshake manager for a client.
+ * Recovery protocol handshake manager for a client (here, 'client' means 'the side that opens the connection').
  */
 public class RecoveryClientHandshakeManager implements HandshakeManager {
     private static final IgniteLogger LOG = Loggers.forClass(RecoveryClientHandshakeManager.class);
@@ -86,6 +85,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     private final ClusterIdSupplier clusterIdSupplier;
 
     private final BooleanSupplier stopping;
+
+    private final ProductVersionSource productVersionSource;
 
     /** Connection id. */
     private final short connectionId;
@@ -114,16 +115,13 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
-    /** Failure processor that is used to handle critical errors. */
-    private final FailureManager failureManager;
-
     /**
      * Constructor.
      *
      * @param localNode {@link ClusterNode} representing this node.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
-     * @param failureManager Failure processor that is used to handle critical errors.
+     * @param productVersionSource Source of product version.
      */
     public RecoveryClientHandshakeManager(
             ClusterNode localNode,
@@ -134,7 +132,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            FailureManager failureManager
+            ProductVersionSource productVersionSource
     ) {
         this.localNode = localNode;
         this.connectionId = connectionId;
@@ -143,7 +141,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
-        this.failureManager = failureManager;
+        this.productVersionSource = productVersionSource;
 
         localHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -319,6 +317,18 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return true;
         }
 
+        if (!Objects.equals(message.productName(), productVersionSource.productName())) {
+            handleProductNameMismatch(message);
+
+            return true;
+        }
+
+        if (!Objects.equals(message.productVersion(), productVersionSource.productVersion().toString())) {
+            handleProductVersionMismatch(message);
+
+            return true;
+        }
+
         if (stopping.getAsBoolean()) {
             handleRefusalToEstablishConnectionDueToStopping(message);
 
@@ -354,6 +364,22 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.CLUSTER_ID_MISMATCH, HandshakeException::new);
     }
 
+    private void handleProductNameMismatch(HandshakeStartMessage msg) {
+        String message = msg.serverNode().name() + ":" + msg.serverNode().id()
+                + " runs product '" + msg.productName() + "' which is different from this one '"
+                + productVersionSource.productName() + "', connection rejected";
+
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.PRODUCT_MISMATCH, HandshakeException::new);
+    }
+
+    private void handleProductVersionMismatch(HandshakeStartMessage msg) {
+        String message = msg.serverNode().name() + ":" + msg.serverNode().id()
+                + " runs product version '" + msg.productVersion() + "' which is different from this one '"
+                + productVersionSource.productVersion() + "', connection rejected";
+
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.VERSION_MISMATCH, HandshakeException::new);
+    }
+
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartMessage msg) {
         String message = msg.serverNode().name() + ":" + msg.serverNode().id() + " tried to establish a connection with " + localNode.name()
                 + ", but it's stopping";
@@ -376,23 +402,16 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
-        boolean ignorable = stopping.getAsBoolean() || !msg.reason().critical();
-
-        if (ignorable) {
-            LOG.debug("Handshake rejected by server: {}", msg.message());
-        } else {
+        if (!stopping.getAsBoolean() && msg.reason().logAsWarn()) {
             LOG.warn("Handshake rejected by server: {}", msg.message());
+        } else {
+            LOG.debug("Handshake rejected by server: {}", msg.message());
         }
 
         if (msg.reason() == HandshakeRejectionReason.CLINCH) {
             giveUpClinch();
         } else {
             localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
-        }
-
-        if (!ignorable) {
-            failureManager.process(
-                    new FailureContext(CRITICAL_ERROR, new HandshakeException("Handshake rejected by server: " + msg.message())));
         }
     }
 

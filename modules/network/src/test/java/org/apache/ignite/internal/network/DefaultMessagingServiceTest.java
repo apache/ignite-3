@@ -81,6 +81,7 @@ import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarsha
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.version.DefaultProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -532,8 +533,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 staleIdDetector,
                 clusterIdSupplier,
                 clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
-                failureManager,
-                channelTypeRegistry
+                channelTypeRegistry,
+                new DefaultProductVersionSource()
         );
         connectionManager.start();
         connectionManager.setLocalNode(node);
@@ -567,7 +568,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         clusterIdSupplier,
                         channel -> {},
                         () -> false,
-                        failureManager
+                        new DefaultProductVersionSource()
                 ) {
                     @Override
                     protected void finishHandshake() {

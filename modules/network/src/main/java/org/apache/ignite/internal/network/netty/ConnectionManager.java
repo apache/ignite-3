@@ -46,7 +46,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.version.ProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -144,10 +144,9 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Thread pool used for connection management tasks (like disposing recovery descriptors on node left or on stop). */
     private final ExecutorService connectionMaintenanceExecutor;
 
-    /** Failure processor. */
-    private final FailureManager failureManager;
-
     private final ChannelTypeRegistry channelTypeRegistry;
+
+    private final ProductVersionSource productVersionSource;
 
     /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
     private final @Nullable SslContext clientSslContext;
@@ -162,8 +161,8 @@ public class ConnectionManager implements ChannelCreationListener {
      * @param bootstrapFactory Bootstrap factory.
      * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
-     * @param failureManager Used to fail the node if a critical failure happens.
      * @param channelTypeRegistry {@link ChannelType} registry.
+     * @param productVersionSource Source of product version.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -173,8 +172,8 @@ public class ConnectionManager implements ChannelCreationListener {
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
-            FailureManager failureManager,
-            ChannelTypeRegistry channelTypeRegistry
+            ChannelTypeRegistry channelTypeRegistry,
+            ProductVersionSource productVersionSource
     ) {
         this(
                 networkConfiguration,
@@ -185,8 +184,8 @@ public class ConnectionManager implements ChannelCreationListener {
                 staleIdDetector,
                 clusterIdSupplier,
                 null,
-                failureManager,
-                channelTypeRegistry
+                channelTypeRegistry,
+                productVersionSource
         );
     }
 
@@ -201,8 +200,8 @@ public class ConnectionManager implements ChannelCreationListener {
      * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
      * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
-     * @param failureManager Used to fail the node if a critical failure happens.
      * @param channelTypeRegistry {@link ChannelType} registry.
+     * @param productVersionSource Source of product version.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -213,8 +212,8 @@ public class ConnectionManager implements ChannelCreationListener {
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
             @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory,
-            FailureManager failureManager,
-            ChannelTypeRegistry channelTypeRegistry
+            ChannelTypeRegistry channelTypeRegistry,
+            ProductVersionSource productVersionSource
     ) {
         this.serializationService = serializationService;
         this.nodeId = nodeId;
@@ -222,8 +221,8 @@ public class ConnectionManager implements ChannelCreationListener {
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
-        this.failureManager = failureManager;
         this.channelTypeRegistry = channelTypeRegistry;
+        this.productVersionSource = productVersionSource;
 
         SslView ssl = networkConfiguration.ssl();
 
@@ -536,7 +535,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     clusterIdSupplier,
                     this,
                     stopping::get,
-                    failureManager
+                    productVersionSource
             );
         }
 
@@ -560,7 +559,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 clusterIdSupplier,
                 this,
                 stopping::get,
-                failureManager
+                productVersionSource
         );
     }
 

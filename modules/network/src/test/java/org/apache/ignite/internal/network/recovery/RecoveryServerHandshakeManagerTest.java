@@ -46,7 +46,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.version.DefaultProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -112,9 +112,6 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
     private final AtomicBoolean serverHandshakeManagerStopping = new AtomicBoolean(false);
-
-    @Mock
-    private FailureManager failureManager;
 
     @BeforeEach
     void initMocks() {
@@ -185,7 +182,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                failureManager
+                new DefaultProductVersionSource()
         );
 
         manager.onInit(context);
