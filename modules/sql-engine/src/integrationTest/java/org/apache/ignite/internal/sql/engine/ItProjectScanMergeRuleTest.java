@@ -73,7 +73,7 @@ public class ItProjectScanMergeRuleTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("SELECT NAME FROM products d WHERE CAT_ID > 1;")
-                .matches(containsProject("PUBLIC", "PRODUCTS", ".f0"))
+                .matches(containsProject("PUBLIC", "PRODUCTS", "NAME"))
                 .returns("noname2")
                 .returns("noname3")
                 .returns("noname4")
@@ -102,14 +102,14 @@ public class ItProjectScanMergeRuleTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT NAME FROM products WHERE CAT_ID IN (SELECT DISTINCT CAT_ID FROM products WHERE SUBCAT_ID > 11)")
                 .matches(containsProject("PUBLIC", "PRODUCTS", "CAT_ID", "NAME"))
-                .matches(containsProject("PUBLIC", "PRODUCTS", ".f0"))
+                .matches(containsProject("PUBLIC", "PRODUCTS", "CAT_ID"))
                 .returns("noname3")
                 .returns("noname4")
                 .check();
 
         assertQuery("SELECT NAME FROM products WHERE CAT_ID = (SELECT CAT_ID FROM products WHERE SUBCAT_ID = 13)")
                 .matches(containsProject("PUBLIC", "PRODUCTS", "CAT_ID", "NAME"))
-                .matches(containsProject("PUBLIC", "PRODUCTS", ".f0"))
+                .matches(containsProject("PUBLIC", "PRODUCTS", "CAT_ID"))
                 .returns("noname4")
                 .check();
 

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.RexUtils.builder;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.replaceLocalRefs;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -29,6 +30,7 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.prepare.RelOptTableImpl;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
@@ -36,6 +38,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -173,10 +176,27 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveRowType() {
+        RelDataType rowType = table.unwrap(IgniteDataSource.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
         if (projects != null) {
-            return RexUtil.createStructType(Commons.typeFactory(getCluster()), projects);
+            // Need to preserve the names of the fields in the output row type, due to we can have correlation with these names.
+            // Also it improve readability of the output.
+            String[] names = new String[projects.size()];
+            if (table instanceof RelOptTableImpl) {
+                List<RelDataTypeField> fieldList = rowType.getFieldList();
+                int i = 0;
+                for (RexNode project : projects) {
+                    String name = null;
+                    if (project instanceof RexLocalRef) {
+                        int fieldIndex = ((RexLocalRef) project).getIndex();
+                        name = fieldList.get(fieldIndex).getName();
+                    }
+                    names[i++] = name;
+                }
+            }
+
+            return RexUtil.createStructType(Commons.typeFactory(getCluster()), projects, Arrays.asList(names), null);
         } else {
-            return table.unwrap(IgniteDataSource.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
+            return rowType;
         }
     }
 

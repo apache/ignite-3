@@ -44,7 +44,7 @@ public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     //    HashJoin(condition=[... OR(=($10, _UTF-8'GERMANY'), =($14, _UTF-8'GERMANY')), OR(=($14, _UTF-8'FRANCE'), =($10, _UTF-8'FRANCE')))]
     //                     vs
     //    HashJoin(condition=[... OR(=($14, _UTF-8'FRANCE'), =($10, _UTF-8'FRANCE')), OR(=($10, _UTF-8'GERMANY'), =($14, _UTF-8'GERMANY')))]
-    @ValueSource(strings = {"1", "5", "7", "8", "9"})
+    @ValueSource(strings = {"1", "5", "7", "8", "9", "21"})
     public void test(String queryId) {
         validateQueryPlan(queryId);
     }
