@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.io.Reader;
 import java.util.List;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.generated.query.calcite.sql.TokenMgrError;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.SqlException;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -315,8 +317,13 @@ public final class IgniteSqlParser  {
     private static class ValidateSqlIdentifiers extends SqlShuttle {
         @Override
         public @Nullable SqlNode visit(SqlIdentifier id) {
-            for (String segment : id.names) {
-                validateId(id.getParserPosition(), segment);
+            for (int i = 0; i < id.names.size(); i++) {
+                String segment = id.names.get(i);
+
+                if (segment.isEmpty() && id.getComponent(i).isStar()) {
+                    continue;
+                }
+                validateIdentifier(id.getComponentParserPosition(i), segment);
             }
 
             return super.visit(id);
@@ -328,7 +335,7 @@ public final class IgniteSqlParser  {
 
             // If something when wrong during the parsing, fail at the validation stage
             if (operator != null) {
-                validateId(call.getParserPosition(), operator.getName());
+                validateCall(call.getParserPosition(), operator.getName());
             }
 
             return super.visit(call);
@@ -349,11 +356,24 @@ public final class IgniteSqlParser  {
             return super.visit(type);
         }
 
-        private static void validateId(SqlParserPos pos, String segment) {
+        private static void validateCall(SqlParserPos pos, String segment) {
             int maxLength = SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH;
 
             if (segment.length() > maxLength) {
                 throw SqlUtil.newContextException(pos, RESOURCE.identifierTooLong(segment, maxLength));
+            }
+        }
+
+        private static void validateIdentifier(SqlParserPos pos, String segment) {
+            int maxLength = SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH;
+
+            if (segment.length() > maxLength) {
+                throw SqlUtil.newContextException(pos, RESOURCE.identifierTooLong(segment, maxLength));
+            }
+
+            if (!pos.isQuoted() && !IgniteNameUtils.isValidNormalizedIdentifier(segment)) {
+                throw new SqlException(STMT_VALIDATION_ERR,
+                        format("Malformed identifier at line {}, column {}: {}", pos.getLineNum(), pos.getColumnNum(), segment));
             }
         }
     }

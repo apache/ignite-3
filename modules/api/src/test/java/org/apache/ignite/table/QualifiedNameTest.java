@@ -45,6 +45,8 @@ public class QualifiedNameTest {
                 Arguments.of("\"23f\"", "23f"),
                 Arguments.of("foo_", "FOO_"),
                 Arguments.of("foo_1", "FOO_1"),
+                Arguments.of("_foo", "_FOO"),
+                Arguments.of("__foo", "__FOO"),
 
                 // Quoted
                 Arguments.of("\"FOO\"", "FOO"),
@@ -84,7 +86,6 @@ public class QualifiedNameTest {
                 Arguments.of("f f"),
                 Arguments.of("1o0"),
                 Arguments.of("@#$"),
-                Arguments.of("_foo"),
                 Arguments.of("foo$"),
                 Arguments.of("foo%"),
                 Arguments.of("foo&"),
@@ -113,9 +114,7 @@ public class QualifiedNameTest {
                 Arguments.of("@#$"),
                 Arguments.of("1oo.bar"),
                 Arguments.of("foo.1ar"),
-                Arguments.of("1oo"),
-                Arguments.of("_foo.bar"),
-                Arguments.of("foo._bar")
+                Arguments.of("1oo")
         };
     }
 
@@ -125,7 +124,10 @@ public class QualifiedNameTest {
                 Arguments.of("foo.\"bar.baz\"", "FOO", "bar.baz"),
 
                 Arguments.of("\"foo.\"\"bar\"\"\".baz", "foo.\"bar\"", "BAZ"),
-                Arguments.of("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz")
+                Arguments.of("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz"),
+
+                Arguments.of("_foo.bar", "_FOO", "BAR"),
+                Arguments.of("foo._bar", "FOO", "_BAR")
         };
     }
 
