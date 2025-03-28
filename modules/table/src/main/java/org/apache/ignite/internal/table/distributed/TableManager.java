@@ -2831,6 +2831,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .get(causalityToken)
                 .thenCompose(ignore -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
+                    assert table != null : tablePartitionId;
 
                     return stopAndDestroyTablePartition(tablePartitionId, table);
                 });
@@ -2865,10 +2866,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed after all resources have been closed.
      */
     private CompletableFuture<Void> stopTablePartition(TablePartitionId tablePartitionId, TableImpl table) {
-        if (table != null) {
-            closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
-        }
-
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
@@ -2883,6 +2880,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return stopReplicaFuture
                 .thenCompose(v -> {
+                    closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
+
                     minTimeCollectorService.removePartition(tablePartitionId);
                     return mvGc.removeStorage(tablePartitionId);
                 });
@@ -2911,6 +2910,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             destroyFutures.add(runAsync(() -> destroyReplicationProtocolStorages(tablePartitionId, table), ioExecutor));
         }
 
+        // TODO: IGNITE-24926 - reduce set in localPartsByTableId after storages destruction.
         return allOf(destroyFutures.toArray(new CompletableFuture[]{}));
     }
 
@@ -3142,6 +3142,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision, long assignmentsTimestamp) {
         return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
             TableImpl table = tables.get(tablePartitionId.tableId());
+            assert table != null : tablePartitionId;
 
             return stopPartitionForRestart(tablePartitionId, table).thenComposeAsync(unused1 -> {
                 Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, tablePartitionId, revision);
