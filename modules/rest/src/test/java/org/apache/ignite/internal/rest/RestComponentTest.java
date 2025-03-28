@@ -46,7 +46,9 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
@@ -83,7 +85,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
         ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),
                 List.of(RestExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
-                List.of()
+                List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
         ConfigurationManager configurationManager = new ConfigurationManager(
                 List.of(NodeConfiguration.KEY),

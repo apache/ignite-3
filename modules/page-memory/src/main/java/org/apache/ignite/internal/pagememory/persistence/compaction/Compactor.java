@@ -49,6 +49,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMa
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.jetbrains.annotations.Nullable;
 
@@ -399,7 +400,8 @@ public class Compactor extends IgniteWorker {
 
             long pageId = PageIo.getPageId(buffer.rewind());
 
-            assert pageId != 0 : deltaFilePageStore.filePath();
+            assert pageId != 0 : "Page with index " + pageIndex + " at offset " + pageOffset + " has unexpected 0 pageId in file "
+                    + deltaFilePageStore.filePath() + ". Page content: " + StringUtils.toHexString(buffer);
 
             updateHeartbeat();
 

@@ -85,7 +85,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
 
     protected StorageHashIndexDescriptor hashIdx;
 
-    protected StorageIndexDescriptor pkIdx;
+    protected StorageHashIndexDescriptor pkIdx;
 
     protected final Catalog catalog = mock(Catalog.class);
 
@@ -230,7 +230,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
 
         sortedIdx = new StorageSortedIndexDescriptor(catalogTableDescriptor, (CatalogSortedIndexDescriptor) catalogSortedIndexDescriptor);
         hashIdx = new StorageHashIndexDescriptor(catalogTableDescriptor, (CatalogHashIndexDescriptor) catalogHashIndexDescriptor);
-        pkIdx = StorageIndexDescriptor.create(catalogTableDescriptor, catalogPkIndexDescriptor);
+        pkIdx = (StorageHashIndexDescriptor) StorageIndexDescriptor.create(catalogTableDescriptor, catalogPkIndexDescriptor);
     }
 
     /**
@@ -253,7 +253,13 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
             StorageIndexDescriptor indexDescriptor,
             boolean built
     ) {
-        IndexStorage indexStorage = tableStorage.getOrCreateIndex(partitionId, indexDescriptor);
+        if (indexDescriptor instanceof StorageHashIndexDescriptor) {
+            tableStorage.createHashIndex(partitionId, (StorageHashIndexDescriptor) indexDescriptor);
+        } else {
+            tableStorage.createSortedIndex(partitionId, (StorageSortedIndexDescriptor) indexDescriptor);
+        }
+
+        IndexStorage indexStorage = tableStorage.getIndex(partitionId, indexDescriptor.id());
 
         assertNotNull(indexStorage, "index=" + indexDescriptor);
 
