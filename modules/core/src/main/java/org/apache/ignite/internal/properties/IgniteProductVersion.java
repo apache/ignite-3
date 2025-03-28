@@ -79,7 +79,8 @@ public class IgniteProductVersion implements Serializable {
     @Nullable
     private final String preRelease;
 
-    private IgniteProductVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
+    /** Constructor. */
+    public IgniteProductVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
         this.major = major;
         this.minor = minor;
         this.maintenance = maintenance;

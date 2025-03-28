@@ -107,11 +107,6 @@ public class ValidationManager {
             return ValidationResult.successfulResult();
         } else if (state == null) {
             return ValidationResult.errorResult("Cluster has not been initialized yet");
-        } else if (!state.igniteVersion().equals(version)) {
-            return ValidationResult.errorResult(String.format(
-                    "Ignite versions do not match. Version: %s, version stored in CMG: %s",
-                    version, state.igniteVersion()
-            ));
         } else if (!state.clusterTag().equals(clusterTag)) {
             return ValidationResult.errorResult(String.format(
                     "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",

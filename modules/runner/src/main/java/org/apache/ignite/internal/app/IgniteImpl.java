@@ -1660,6 +1660,11 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
+    public ClusterStateStorage clusterStateStorage() {
+        return clusterStateStorage;
+    }
+
+    @TestOnly
     public ClusterManagementGroupManager clusterManagementGroupManager() {
         return cmgMgr;
     }
