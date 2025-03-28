@@ -239,6 +239,12 @@ public class PartitionReplicaLifecycleManager extends
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
 
     /**
+     * This future completes on {@link #beforeNodeStop()} with {@link NodeStoppingException} before the {@link #busyLock} is blocked.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-17592
+     **/
+    private final CompletableFuture<Void> stopReplicaLifecycleFuture = new CompletableFuture<>();
+
+    /**
      * The constructor.
      *
      * @param catalogService Catalog service.
@@ -693,6 +699,7 @@ public class PartitionReplicaLifecycleManager extends
                 HybridTimestamp.hybridTimestamp(assignmentsTimestamp)
         );
 
+        // TODO
         return metadataFut.thenCompose(unused -> {
             Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
 
@@ -741,6 +748,8 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public void beforeNodeStop() {
+        stopReplicaLifecycleFuture.completeExceptionally(new NodeStoppingException());
+
         busyLock.block();
 
         executorInclinedPlacementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
