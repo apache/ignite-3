@@ -1040,25 +1040,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return assignmentsFuture.thenCompose(newAssignments -> {
             assert !newAssignments.isEmpty();
 
-            boolean haMode = consistencyMode == ConsistencyMode.HIGH_AVAILABILITY;
-
-            List<Operation> partitionAssignments = new ArrayList<>(newAssignments.size());
-
-            for (int i = 0; i < newAssignments.size(); i++) {
-                TablePartitionId tablePartitionId = new TablePartitionId(tableId, i);
-
-                ByteArray stableAssignmentsKey = stablePartAssignmentsKey(tablePartitionId);
-                byte[] anAssignment = newAssignments.get(i).toBytes();
-                Operation op = put(stableAssignmentsKey, anAssignment);
-                partitionAssignments.add(op);
-
-                if (haMode) {
-                    ByteArray assignmentsChainKey = assignmentsChainKey(tablePartitionId);
-                    byte[] assignmentChain = AssignmentsChain.of(UNKNOWN_TERM, UNKNOWN_INDEX, newAssignments.get(i)).toBytes();
-                    Operation chainOp = put(assignmentsChainKey, assignmentChain);
-                    partitionAssignments.add(chainOp);
-                }
-            }
+            List<Operation> partitionAssignments = getTableAssignmentsOperations(tableId, newAssignments, consistencyMode);
 
             Condition condition = notExists(new ByteArray(toByteArray(partitionAssignments.get(0).key())));
 
@@ -1084,43 +1066,71 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                             return completedFuture(newAssignments);
                         } else {
-                            Set<ByteArray> partKeys = IntStream.range(0, newAssignments.size())
-                                    .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
-                                    .collect(toSet());
-
-                            CompletableFuture<Map<ByteArray, Entry>> resFuture = metaStorageMgr.getAll(partKeys);
-
-                            return resFuture.thenApply(metaStorageAssignments -> {
-                                List<Assignments> realAssignments = new ArrayList<>();
-
-                                for (int p = 0; p < newAssignments.size(); p++) {
-                                    var partId = new TablePartitionId(tableId, p);
-                                    Entry assignmentsEntry = metaStorageAssignments.get(stablePartAssignmentsKey(partId));
-
-                                    assert assignmentsEntry != null && !assignmentsEntry.empty() && !assignmentsEntry.tombstone()
-                                            : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "].";
-
-                                    Assignments real = Assignments.fromBytes(assignmentsEntry.value());
-
-                                    realAssignments.add(real);
-                                }
-
-                                LOG.info(
-                                        "Assignments picked up from meta storage [tableId={}, assignments={}].",
-                                        tableId,
-                                        Assignments.assignmentListToString(realAssignments)
-                                );
-
-                                return realAssignments;
-                            });
-                        }
-                    })
-                    .whenComplete((realAssignments, e) -> {
-                        if (e != null) {
-                            LOG.error("Couldn't get assignments from metastore for table [tableId={}].", e, tableId);
+                            return getAssignmentsFromMetastorage(tableId, newAssignments.size());
                         }
                     });
         });
+    }
+
+    private CompletableFuture<List<Assignments>> getAssignmentsFromMetastorage(int tableId, int partitions) {
+        Set<ByteArray> partKeys = IntStream.range(0, partitions)
+                .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
+                .collect(toSet());
+
+        CompletableFuture<Map<ByteArray, Entry>> assignmentsFuture = metaStorageMgr.getAll(partKeys);
+
+        return assignmentsFuture.thenApply(metaStorageAssignments -> {
+            List<Assignments> realAssignments = new ArrayList<>();
+
+            for (int p = 0; p < partitions; p++) {
+                var partId = new TablePartitionId(tableId, p);
+                Entry assignmentsEntry = metaStorageAssignments.get(stablePartAssignmentsKey(partId));
+                assert assignmentsEntry != null && !assignmentsEntry.empty() && !assignmentsEntry.tombstone()
+                        : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "].";
+                Assignments real = Assignments.fromBytes(assignmentsEntry.value());
+                realAssignments.add(real);
+            }
+
+            LOG.info(
+                    "Assignments picked up from meta storage [tableId={}, assignments={}].",
+                    tableId,
+                    Assignments.assignmentListToString(realAssignments)
+            );
+
+            return realAssignments;
+        }).whenComplete((realAssignments, e) -> {
+            if (e != null) {
+                LOG.error("Couldn't get assignments from metastore for table [tableId={}].", e, tableId);
+            }
+        });
+    }
+
+    private static List<Operation> getTableAssignmentsOperations(
+            int tableId,
+            List<Assignments> assignments,
+            ConsistencyMode consistencyMode
+    ) {
+        boolean haMode = consistencyMode == ConsistencyMode.HIGH_AVAILABILITY;
+
+        var partitionAssignments = new ArrayList<Operation>(assignments.size());
+
+        for (int i = 0; i < assignments.size(); i++) {
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, i);
+
+            ByteArray stableAssignmentsKey = stablePartAssignmentsKey(tablePartitionId);
+            byte[] anAssignment = assignments.get(i).toBytes();
+            Operation op = put(stableAssignmentsKey, anAssignment);
+            partitionAssignments.add(op);
+
+            if (haMode) {
+                ByteArray assignmentsChainKey = assignmentsChainKey(tablePartitionId);
+                byte[] assignmentChain = AssignmentsChain.of(UNKNOWN_TERM, UNKNOWN_INDEX, assignments.get(i)).toBytes();
+                Operation chainOp = put(assignmentsChainKey, assignmentChain);
+                partitionAssignments.add(chainOp);
+            }
+        }
+
+        return partitionAssignments;
     }
 
     private void onTableDrop(DropTableEventParameters parameters) {
