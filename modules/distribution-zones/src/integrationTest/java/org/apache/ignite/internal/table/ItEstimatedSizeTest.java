@@ -68,12 +68,12 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     @BeforeEach
     void setUp() {
         executeSql(String.format(
-                "CREATE ZONE %s WITH "
-                        + "REPLICAS=%d, "
-                        + "PARTITIONS=%d, "
-                        + "DATA_NODES_AUTO_ADJUST_SCALE_UP=%d, "
-                        + "DATA_NODES_AUTO_ADJUST_SCALE_DOWN=%d, "
-                        + "STORAGE_PROFILES='%s'",
+                "CREATE ZONE %s "
+                        + "(REPLICAS %d, "
+                        + "PARTITIONS %d, "
+                        + "AUTO SCALE UP %d, "
+                        + "AUTO SCALE DOWN %d) "
+                        + "STORAGE PROFILES ['%s']",
                 TEST_ZONE_NAME,
                 initialNodes(),
                 5,

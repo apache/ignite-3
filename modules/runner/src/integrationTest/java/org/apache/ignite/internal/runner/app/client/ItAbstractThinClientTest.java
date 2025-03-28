@@ -132,8 +132,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
         IgniteSql sql = startedNodes.get(0).sql();
 
-        sql.execute(null,  "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10, STORAGE_PROFILES='"
-                + DEFAULT_STORAGE_PROFILE + "'");
+        sql.execute(null,  "CREATE ZONE TEST_ZONE (REPLICAS 1, PARTITIONS 10) STORAGE PROFILES ['"
+                + DEFAULT_STORAGE_PROFILE + "']");
         sql.execute(null, "CREATE TABLE " + TABLE_NAME + "("
                 + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) ZONE TEST_ZONE");
 

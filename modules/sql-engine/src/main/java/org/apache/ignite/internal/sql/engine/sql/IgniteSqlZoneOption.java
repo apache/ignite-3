@@ -18,19 +18,34 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.SqlWriter.FrameTypeEnum;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.Litmus;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** An AST node representing option in CREATE ZONE and ALTER ZONE statements. */
 public class IgniteSqlZoneOption extends SqlCall {
+    public static final Map<ZoneOptionEnum, String> OPTIONS_MAPPING = Map.of(
+            ZoneOptionEnum.PARTITIONS, "PARTITIONS",
+            ZoneOptionEnum.REPLICAS, "REPLICAS",
+            ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "DISTRIBUTION ALGORITHM",
+            ZoneOptionEnum.DATA_NODES_FILTER, "NODES FILTER",
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, "AUTO ADJUST",
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, "AUTO SCALE UP",
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "AUTO SCALE DOWN",
+            ZoneOptionEnum.CONSISTENCY_MODE, "CONSISTENCY MODE",
+            ZoneOptionEnum.STORAGE_PROFILES, "STORAGE PROFILES"
+    );
 
     /** ZONE option operator. */
     protected static class Operator extends IgniteSqlSpecialOperator {
@@ -86,9 +101,28 @@ public class IgniteSqlZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-        key.unparse(writer, leftPrec, rightPrec);
-        writer.keyword("=");
-        value.unparse(writer, leftPrec, rightPrec);
+        if (key().getSimple().equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
+            writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.STORAGE_PROFILES));
+
+            SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
+            SqlCharStringLiteral literal = (SqlCharStringLiteral) value();
+            String profile = literal.getValueAs(String.class);
+            String[] profiles = profile.split(",");
+            int pos = 0;
+            for (String p : profiles) {
+                writer.print("'");
+                writer.print(p.strip());
+                writer.print("'");
+                ++pos;
+                if (pos != profiles.length) {
+                    writer.print(", ");
+                }
+            }
+            writer.endList(frame);
+        } else {
+            writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.valueOf(key.names.get(0))));
+            value.unparse(writer, leftPrec, rightPrec);
+        }
     }
 
     /** {@inheritDoc} */
