@@ -400,14 +400,14 @@ public abstract class AbstractImmutableTupleTest {
             case DECIMAL:
                 return BigDecimal.valueOf(rnd.nextInt(), 5);
             case DATE: {
-                Year year = Year.of(rnd.nextInt(10_000));
+                Year year = Year.of(rnd.nextInt(20_000) - 10000);
                 return LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
             }
             case TIME:
                 return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
                         rnd.nextInt(1_000_000) * 1000);
             case DATETIME: {
-                Year year = Year.of(rnd.nextInt(10_000));
+                Year year = Year.of(rnd.nextInt(20_000) - 10000);
                 LocalDate localDate = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
                 LocalTime localTime = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
                         rnd.nextInt(1_000) * 1000_000);
@@ -420,7 +420,7 @@ public abstract class AbstractImmutableTupleTest {
                 return new UUID(rnd.nextLong(), rnd.nextLong());
 
             case STRING: {
-                int length = rnd.nextInt(255);
+                int length = rnd.nextInt(256);
 
                 StringBuilder sb = new StringBuilder(length);
                 IntStream.generate(() -> rnd.nextInt(Character.MAX_VALUE + 1))
@@ -431,7 +431,7 @@ public abstract class AbstractImmutableTupleTest {
                 return sb.toString();
             }
             case BYTE_ARRAY: {
-                int length = rnd.nextInt(255);
+                int length = rnd.nextInt(256);
                 byte[] bytes = new byte[length];
                 rnd.nextBytes(bytes);
                 return bytes;
