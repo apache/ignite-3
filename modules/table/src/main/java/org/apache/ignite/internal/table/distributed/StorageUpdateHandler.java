@@ -31,8 +31,8 @@ import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -55,8 +55,8 @@ public class StorageUpdateHandler {
     /** A container for rows that were inserted, updated or removed. */
     private final PendingRows pendingRows = new PendingRows();
 
-    /** Storage updater configuration. */
-    private final StorageUpdateConfiguration storageUpdateConfiguration;
+    /** Replication configuration. */
+    private final ReplicationConfiguration replicationConfiguration;
 
     /**
      * The constructor.
@@ -64,18 +64,18 @@ public class StorageUpdateHandler {
      * @param partitionId Partition id.
      * @param storage Partition data storage.
      * @param indexUpdateHandler Partition index update handler.
-     * @param storageUpdateConfiguration Configuration for the storage update handler.
+     * @param replicationConfiguration Configuration for the replication.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
             IndexUpdateHandler indexUpdateHandler,
-            StorageUpdateConfiguration storageUpdateConfiguration
+            ReplicationConfiguration replicationConfiguration
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexUpdateHandler = indexUpdateHandler;
-        this.storageUpdateConfiguration = storageUpdateConfiguration;
+        this.replicationConfiguration = replicationConfiguration;
     }
 
     /** Returns partition ID of the storage. */
@@ -208,7 +208,7 @@ public class StorageUpdateHandler {
                     (PartitionGroupId) commitPartitionId,
                     it,
                     onApplication,
-                    storageUpdateConfiguration.batchByteLength().value(),
+                    replicationConfiguration.batchSizeBytes().value(),
                     indexIds
             );
         }

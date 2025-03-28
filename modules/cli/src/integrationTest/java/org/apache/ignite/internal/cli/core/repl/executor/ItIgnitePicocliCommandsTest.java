@@ -76,7 +76,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
             "ignite.schemaSync",
             "ignite.security",
             "ignite.sql",
-            "ignite.storageUpdate",
             "ignite.transaction",
             "ignite.system"
     };

@@ -39,7 +39,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -99,9 +98,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected static ReplicationConfiguration replicationConfiguration;
 
-    @InjectConfiguration
-    protected static StorageUpdateConfiguration storageUpdateConfiguration;
-
     @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\" }")
     private static SystemLocalConfiguration systemLocalConfiguration;
 
@@ -127,7 +123,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                storageUpdateConfiguration,
                 workDir,
                 1,
                 1,

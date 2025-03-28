@@ -139,13 +139,11 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfigurationSchema;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
@@ -530,7 +528,7 @@ public class Node {
                 List.of(ClusterConfiguration.KEY),
                 List.of(
                         GcExtensionConfigurationSchema.class,
-                        StorageUpdateExtensionConfigurationSchema.class,
+                        ReplicationExtensionConfigurationSchema.class,
                         SystemDistributedExtensionConfigurationSchema.class
                 ),
                 List.of()
@@ -703,9 +701,6 @@ public class Node {
                 outgoingSnapshotsManager
         );
 
-        StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
-                .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
-
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
                 resourcesRegistry,
@@ -721,7 +716,7 @@ public class Node {
                 registry,
                 gcConfiguration,
                 transactionConfiguration,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),

@@ -188,6 +188,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -196,7 +197,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -391,8 +391,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Ends at the {@link IgniteComponent#stopAsync(ComponentContext)} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
-    /** Configuration for {@link StorageUpdateHandler}. */
-    private final StorageUpdateConfiguration storageUpdateConfig;
+    private final ReplicationConfiguration replicationConfiguration;
 
     /**
      * Executes partition operations (that might cause I/O and/or be blocked on locks).
@@ -460,7 +459,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
      * @param txCfg Transaction configuration.
-     * @param storageUpdateConfig Storage update handler configuration.
+     * @param replicationConfiguration Replication configuration.
      * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
      * @param replicaSvc Replica service.
@@ -489,7 +488,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             RevisionListenerRegistry registry,
             GcConfiguration gcConfig,
             TransactionConfiguration txCfg,
-            StorageUpdateConfiguration storageUpdateConfig,
+            ReplicationConfiguration replicationConfiguration,
             MessagingService messagingService,
             TopologyService topologyService,
             MessageSerializationRegistry messageSerializationRegistry,
@@ -539,7 +538,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
         this.sql = sql;
-        this.storageUpdateConfig = storageUpdateConfig;
+        this.replicationConfiguration = replicationConfiguration;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.lowWatermark = lowWatermark;
         this.transactionInflights = transactionInflights;
@@ -891,7 +890,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     partitionDataStorage,
                     table,
                     safeTimeTracker,
-                    storageUpdateConfig
+                    replicationConfiguration
             );
 
             internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -1321,7 +1320,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             partitionDataStorage,
                             table,
                             safeTimeTracker,
-                            storageUpdateConfig
+                            replicationConfiguration
                     );
 
                     internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -2945,7 +2944,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionDataStorage partitionDataStorage,
             TableImpl table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            StorageUpdateConfiguration storageUpdateConfig
+            ReplicationConfiguration replicationConfiguration
     ) {
         TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
 
@@ -2957,7 +2956,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionId,
                 partitionDataStorage,
                 indexUpdateHandler,
-                storageUpdateConfig
+                replicationConfiguration
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);

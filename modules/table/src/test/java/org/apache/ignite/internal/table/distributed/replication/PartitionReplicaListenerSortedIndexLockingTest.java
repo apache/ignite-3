@@ -79,6 +79,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -86,7 +87,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.storage.RowId;
@@ -153,7 +153,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
     private static ColumnsExtractor row2HashKeyConverter;
 
     @InjectConfiguration
-    private static StorageUpdateConfiguration storageUpdateConfiguration;
+    private static ReplicationConfiguration replicationConfiguration;
 
     @BeforeAll
     public static void beforeAll() {
@@ -244,7 +244,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                         PART_ID,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        storageUpdateConfiguration
+                        replicationConfiguration
                 ),
                 new DummyValidationSchemasSource(schemaManager),
                 localNode,

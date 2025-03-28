@@ -49,13 +49,13 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadO
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -90,7 +90,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
     private static final HybridClock CLOCK = new HybridClockImpl();
 
@@ -132,7 +132,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
                 mockStorage,
                 SCHEMA,
                 txConfiguration,
-                storageUpdateConfiguration
+                replicationConfiguration
         );
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);

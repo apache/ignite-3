@@ -54,4 +54,11 @@ public class ReplicationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(max = 10_000)
     public int replicaOperationRetryInterval = 10;
+
+    /**
+     * Maximum allowed length (in bytes) of a batch to write into physical storage when replicating multi-writes.
+     **/
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int batchSizeBytes = 8192;
 }
