@@ -585,7 +585,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
             assertThrowsWithCause(
                     () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
-                    "Functional defaults are not supported for non-primary key columns"
+                    "Non-constant default cannot be assigned after table creation"
             );
         }
 
@@ -601,7 +601,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
             assertThrowsWithCause(
                     () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
-                    "Functional defaults are not supported for non-primary key columns"
+                    "Non-constant default cannot be assigned after table creation"
             );
         }
     }
@@ -648,7 +648,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
             assertThrowsWithCause(
                     () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
-                    "Functional default contains unsupported function: [col=ID, functionName=invalid_func]"
+                    "Non-constant default cannot be assigned after table creation"
             );
         }
 
@@ -664,7 +664,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
             assertThrowsWithCause(
                     () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
-                    "Functional default contains unsupported function: [col=ID2, functionName=invalid_func]"
+                    "Non-constant default cannot be assigned after table creation"
             );
         }
     }
