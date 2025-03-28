@@ -175,8 +175,8 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     @Override
     public RelDataType deriveRowType() {
         if (projects != null) {
-            //Need to preserve the names of the fields in the output row type, due to we can have correlation with these names.
-            //Also it improve readability of the output.
+            // Need to preserve the names of the fields in the output row type, due to we can have correlation with these names.
+            // Also it improve readability of the output.
             List<String> names = new ArrayList<>(projects.size());
             List<RelDataTypeField> fieldList = table.getRowType().getFieldList();
             for (RexNode project : projects) {
