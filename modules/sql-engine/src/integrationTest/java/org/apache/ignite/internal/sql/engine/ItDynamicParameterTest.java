@@ -590,7 +590,13 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.TINYINT, "SELECT -CAST(? AS TINYINT)", -128),
                 arguments(SqlTypeName.TINYINT, "SELECT (CAST(-? AS TINYINT)/-1)::TINYINT", 128),
                 arguments(SqlTypeName.TINYINT, "SELECT (CAST(-? AS TINYINT) * -1)::TINYINT", 128),
-                arguments(SqlTypeName.TINYINT, "SELECT (?/-1)::TINYINT", -128)
+                arguments(SqlTypeName.TINYINT, "SELECT (?/-1)::TINYINT", -128),
+
+                // DATE
+                arguments(SqlTypeName.DATE, "SELECT ?", LocalDate.of(10000, 1, 1)),
+                arguments(SqlTypeName.DATE, "SELECT ? + INTERVAL 1 DAY", LocalDate.of(9999, 12, 31)),
+                arguments(SqlTypeName.DATE, "SELECT ?", LocalDate.of(0, 12, 31)),
+                arguments(SqlTypeName.DATE, "SELECT ? - INTERVAL 1 DAY", LocalDate.of(1, 1, 1))
         );
     }
 

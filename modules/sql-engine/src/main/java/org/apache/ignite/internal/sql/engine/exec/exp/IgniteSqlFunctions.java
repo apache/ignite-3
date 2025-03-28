@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -33,6 +34,7 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
@@ -44,6 +46,10 @@ import org.jetbrains.annotations.Nullable;
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
+    private static final int INT_DATE_MIN = (int) LocalDate.of(1, 1, 1).toEpochDay();
+
+    private static final int INT_DATE_MAX = (int) LocalDate.of(9999, 12, 31).toEpochDay();
+
     /**
      * Default constructor.
      */
@@ -340,6 +346,24 @@ public class IgniteSqlFunctions {
         } else {
             return processValueWithIntegralPart(value, precision, scale);
         }
+    }
+
+    /** Verifies internal {@link SqlTypeName#DATE} boundaries. */
+    public static Integer toDateExact(Object object) {
+        if (object instanceof Integer) {
+            return toDateExact((int) object);
+        }
+
+        throw new UnsupportedOperationException("blah");
+    }
+
+    /** Verifies internal {@link SqlTypeName#DATE} boundaries. */
+    public static Integer toDateExact(int intDate) {
+        if (intDate < INT_DATE_MIN || intDate > INT_DATE_MAX) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
+        }
+
+        return intDate;
     }
 
     // LN, LOG, LOG10, LOG2
