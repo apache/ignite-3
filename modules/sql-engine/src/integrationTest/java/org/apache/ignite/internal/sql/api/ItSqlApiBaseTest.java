@@ -105,11 +105,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public void ddl() {
-        if (enabledColocation()) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24885 Test hangs in case of enabledColocation
-            return;
-        }
-
         IgniteSql sql = igniteSql();
 
         // CREATE TABLE
@@ -350,11 +345,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     /** Check correctness of rw and ro transactions for index scan. */
     @Test
     public void checkMixedTransactionsForIndex() throws Exception {
-        if (enabledColocation()) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24885 Test hangs in case of enabledColocation
-            return;
-        }
-
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 

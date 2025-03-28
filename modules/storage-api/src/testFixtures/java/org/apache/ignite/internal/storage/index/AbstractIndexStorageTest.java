@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -90,7 +92,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected static final String TABLE_NAME = "FOO";
 
-    protected static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
+    private static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
     protected static final String INDEX_NAME = "TEST_IDX";
 
@@ -489,13 +491,28 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     S createPkIndexStorage() {
         CatalogTableDescriptor tableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
+        assertThat(tableDescriptor, is(notNullValue()));
 
         CatalogIndexDescriptor pkIndexDescriptor = catalog.aliveIndex(SCHEMA_NAME, PK_INDEX_NAME);
+        assertThat(pkIndexDescriptor, is(notNullValue()));
 
-        return (S) tableStorage.getOrCreateIndex(
-                TEST_PARTITION,
-                StorageIndexDescriptor.create(tableDescriptor, pkIndexDescriptor)
-        );
+        if (pkIndexDescriptor.indexType() == CatalogIndexDescriptorType.HASH) {
+            tableStorage.createHashIndex(
+                    TEST_PARTITION,
+                    (StorageHashIndexDescriptor) StorageIndexDescriptor.create(tableDescriptor, pkIndexDescriptor)
+            );
+        } else {
+            tableStorage.createSortedIndex(
+                    TEST_PARTITION,
+                    (StorageSortedIndexDescriptor) StorageIndexDescriptor.create(tableDescriptor, pkIndexDescriptor)
+            );
+        }
+
+        S index = (S) tableStorage.getIndex(TEST_PARTITION, pkIndexDescriptor.id());
+
+        assertThat(index, is(notNullValue()));
+
+        return index;
     }
 
     /** Completes the building of the index and makes read operations available from it. */
@@ -503,7 +520,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         TestStorageUtils.completeBuiltIndexes(partitionStorage, indexStorage);
     }
 
-    static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, Object... values) {
+    private static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, Object... values) {
         return serializer.serializeRow(values, new RowId(TEST_PARTITION));
     }
 }

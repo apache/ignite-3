@@ -32,7 +32,6 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -76,44 +75,24 @@ public interface MvTableStorage extends ManuallyCloseable {
     CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
     /**
-     * Returns an already created Index (either Sorted or Hash) with the given name or creates a new one if it does not exist.
-     *
-     * @param partitionId Partition ID.
-     * @param indexDescriptor Index descriptor.
-     * @return Index Storage.
-     * @throws StorageException If the given partition does not exist, or if the given index does not exist.
-     */
-    default IndexStorage getOrCreateIndex(int partitionId, StorageIndexDescriptor indexDescriptor) {
-        if (indexDescriptor instanceof StorageHashIndexDescriptor) {
-            return getOrCreateHashIndex(partitionId, (StorageHashIndexDescriptor) indexDescriptor);
-        } else if (indexDescriptor instanceof StorageSortedIndexDescriptor) {
-            return getOrCreateSortedIndex(partitionId, (StorageSortedIndexDescriptor) indexDescriptor);
-        } else {
-            throw new StorageException("Unknown index type: " + indexDescriptor);
-        }
-    }
-
-    /**
-     * Returns an already created Sorted Index with the given name or creates a new one if it does not exist.
+     * Creates a Sorted Index with the given name.
      *
      * @param partitionId Partition ID for which this index has been configured.
      * @param indexDescriptor Index descriptor.
-     * @return Sorted Index storage.
      * @throws StorageException If the given partition does not exist, or if the given index does not exist or is not configured as
      *         a sorted index.
      */
-    SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor);
+    void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor);
 
     /**
-     * Returns an already created Hash Index with the given name or creates a new one if it does not exist.
+     * Creates a Hash Index with the given name.
      *
      * @param partitionId Partition ID for which this index has been configured.
      * @param indexDescriptor Index descriptor.
-     * @return Hash Index storage.
      * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
      *         hash index.
      */
-    HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor);
+    void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor);
 
     /**
      * Destroys the index with the given ID and all data in it.
@@ -163,7 +142,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * to one of the methods:
      * <ul>
      *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalancePartition(int, long, long, byte[])} - in case of successful completion of rebalance.
+     *     <li>{@link #finishRebalancePartition(int, MvPartitionMeta)} - in case of successful completion of rebalance.
      *     </li>
      * </ul>
      *
