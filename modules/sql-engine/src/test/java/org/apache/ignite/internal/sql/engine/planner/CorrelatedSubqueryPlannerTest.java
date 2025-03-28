@@ -83,16 +83,10 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
         );
 
         IgniteCorrelatedNestedLoopJoin join = findFirstNode(rel, byClass(IgniteCorrelatedNestedLoopJoin.class));
-        List<RelDataTypeField> joinLeftConditionFields = join.getLeft().getRowType().getFieldList();
-
-        List<RelDataTypeField> conditionFields = fieldAccess.getReferenceExpr().getType().getFieldList();
-
-        assertEquals(1, joinLeftConditionFields.size());
-        assertEquals(1, conditionFields.size());
 
         assertEquals(
-                conditionFields.get(0).getType(),
-                joinLeftConditionFields.get(0).getType()
+                fieldAccess.getReferenceExpr().getType(),
+                join.getLeft().getRowType()
         );
     }
 
