@@ -199,6 +199,15 @@ public class ConverterUtils {
         );
     }
 
+    private static Expression convertToTimestamp(Expression operand, RelDataType targetType) {
+        assert targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP;
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                "toTimestampExact",
+                operand
+        );
+    }
+
     /**
      * Convert {@code operand} to {@code targetType}.
      *
@@ -213,6 +222,11 @@ public class ConverterUtils {
 
         if (SqlTypeUtil.isDate(targetType)) {
             return convertToDate(operand, targetType);
+        }
+
+        // TODO Support TIMESTAMP_WITH_LTZ
+        if (targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP) {
+            return convertToTimestamp(operand, targetType);
         }
 
         return convert(operand, Commons.typeFactory().getJavaClass(targetType));

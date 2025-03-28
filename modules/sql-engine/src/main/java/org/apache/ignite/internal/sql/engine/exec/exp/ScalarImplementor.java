@@ -136,8 +136,6 @@ class ScalarImplementor {
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 
-        System.out.println(">xxx> " + body);
-
         return Commons.compile(clazz, body);
     }
 }

@@ -26,9 +26,13 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
+import java.time.ZoneOffset;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.DateTimeUtils;
@@ -49,6 +53,13 @@ public class IgniteSqlFunctions {
     private static final int INT_DATE_MIN = (int) LocalDate.of(1, 1, 1).toEpochDay();
 
     private static final int INT_DATE_MAX = (int) LocalDate.of(9999, 12, 31).toEpochDay();
+
+    private static final LocalDateTime minDateTime = LocalDateTime.of(1, Month.JANUARY, 1, 0, 0, 0);
+    private static LocalDateTime maxDateTime = LocalDateTime.of(9999, Month.DECEMBER, 31, 23, 59, 59, 999000000);
+
+    private static final long INT_DATETIME_MIN = (long) TypeUtils.toInternal(minDateTime, LocalDateTime.class);
+
+    private static final long INT_DATETIME_MAX = (long) TypeUtils.toInternal(maxDateTime, LocalDateTime.class);
 
     /**
      * Default constructor.
@@ -358,12 +369,39 @@ public class IgniteSqlFunctions {
     }
 
     /** Verifies internal {@link SqlTypeName#DATE} boundaries. */
-    public static Integer toDateExact(int intDate) {
+    public static int toDateExact(int intDate) {
         if (intDate < INT_DATE_MIN || intDate > INT_DATE_MAX) {
             throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
         }
 
         return intDate;
+    }
+
+    /** Verifies internal {@link SqlTypeName#DATE} boundaries. */
+    public static int toDateExact(long longDate) {
+        if (longDate < INT_DATE_MIN || longDate > INT_DATE_MAX) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
+        }
+
+        return (int) longDate;
+    }
+
+    /** Verifies internal {@link SqlTypeName#TIMESTAMP} boundaries. */
+    public static long toTimestampExact(Object object) {
+        if (object instanceof Long) {
+            return toTimestampExact((long) object);
+        }
+
+        throw new UnsupportedOperationException("blah");
+    }
+
+    /** Verifies internal {@link SqlTypeName#TIMESTAMP} boundaries. */
+    public static long toTimestampExact(long ts) {
+        if (ts < INT_DATETIME_MIN || ts > INT_DATETIME_MAX) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.TIMESTAMP + " out of range");
+        }
+
+        return ts;
     }
 
     // LN, LOG, LOG10, LOG2
