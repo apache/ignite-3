@@ -15,12 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.sql.engine;
 
-/** NodeFinder type. */
-public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
-    STATIC,
-    /** Uses multicast to find nodes. */
-    MULTICAST
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Schema-aware converter for sql row.
+ *
+ * @param <T> Column value type.
+ * @param <R> Result type.
+ */
+@FunctionalInterface
+public interface SchemaAwareConverter<T, R> {
+    /**
+     * Applies this function to the given arguments.
+     *
+     * @param index Index of column to convert.
+     * @param value Column value to be converted.
+     * @return Converted value.
+     */
+    @Nullable R convert(int index, @Nullable T value);
 }

@@ -35,8 +35,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -61,7 +63,6 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -186,6 +187,8 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
      */
     private static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 10;
 
+    private static final long TX_RW_TIMEOUT = TimeUnit.SECONDS.toMillis(40);
+
     /** Embedded nodes. */
     private static final List<IgniteServer> NODES = new ArrayList<>();
 
@@ -305,10 +308,12 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
 
     private void beforeTest() {
         if (RESTART_CLUSTER != RestartMode.TEST) {
-            for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
-                try (ResultSet rs = CLUSTER_NODES.get(0).sql().execute(null, "DROP TABLE " + t.name())) {
-                    assertTrue(rs.wasApplied());
-                }
+            List<Table> tables = CLUSTER_NODES.get(0).tables().tables();
+            if (!tables.isEmpty()) {
+                String script = tables.stream().map(t -> "DROP TABLE " + t.name())
+                        .collect(Collectors.joining(";"));
+
+                CLUSTER_NODES.get(0).sql().executeScript(script);
             }
         }
     }
@@ -356,6 +361,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
                 .metaStorageNodes(nodes.get(0))
                 .clusterName("cluster")
                 .clusterConfiguration("ignite {"
+                        + "transaction.readWriteTimeout: " + TX_RW_TIMEOUT + ",\n"
                         + "metaStorage.idleSyncTimeInterval: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
                         // TODO: Set dataAvailabilityTime to 5000 after IGNITE-24002 is fixed.
                         + "gc.lowWatermark.dataAvailabilityTime: 30000,\n"

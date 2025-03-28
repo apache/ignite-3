@@ -205,7 +205,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                     )
                     .orElseThrow(AssertionError::new);
 
-            raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer), willCompleteSuccessfully()));
+            raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer, false), willCompleteSuccessfully()));
 
             leaderAndGroupRef.set(new IgniteBiTuple<>(leader, table.tableId() + "_part_0"));
 

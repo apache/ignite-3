@@ -98,12 +98,12 @@ public class ZonePartitionReplicaImpl implements Replica {
     }
 
     @Override
-    public CompletableFuture<Void> createSnapshotOn(Member targetMember) {
+    public CompletableFuture<Void> createSnapshotOn(Member targetMember, boolean forced) {
         Peer peer = targetMember.isVotingMember()
                 ? new Peer(targetMember.consistentId(), 0)
                 : new Peer(targetMember.consistentId(), 1);
 
-        return raftClient.snapshot(peer);
+        return raftClient.snapshot(peer, forced);
     }
 
     @Override

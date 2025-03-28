@@ -171,7 +171,9 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
@@ -1212,7 +1214,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
-                            VolatilePageMemoryProfileConfigurationSchema.class
+                            VolatilePageMemoryProfileConfigurationSchema.class,
+                            StaticNodeFinderConfigurationSchema.class,
+                            MulticastNodeFinderConfigurationSchema.class
                     )
             );
 
@@ -1514,6 +1518,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     sharedTxStateStorage,
                     txManager,
                     schemaManager,
+                    dataStorageMgr,
                     outgoingSnapshotManager
             );
 

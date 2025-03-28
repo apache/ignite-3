@@ -62,7 +62,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     private volatile boolean closeGuard;
 
     /** Busy lock to close synchronously. */
-    private final IgniteStripedReadWriteLock busyLock = new IgniteStripedReadWriteLock();
+    private final IgniteStripedBusyLock busyLock = new IgniteStripedBusyLock();
 
     protected final Comparator<Map.Entry<T, @Nullable R>> comparator;
 
@@ -212,14 +212,14 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     }
 
     protected final boolean enterBusy() {
-        return !busyLock.isWriteLockedByCurrentThread() && busyLock.readLock().tryLock();
+        return busyLock.enterBusy();
     }
 
     protected final void leaveBusy() {
-        busyLock.readLock().unlock();
+        busyLock.leaveBusy();
     }
 
     private void blockBusy() {
-        busyLock.writeLock().lock();
+        busyLock.block();
     }
 }

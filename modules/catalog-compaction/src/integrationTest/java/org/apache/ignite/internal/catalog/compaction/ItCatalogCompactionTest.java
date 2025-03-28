@@ -271,7 +271,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void expectEarliestCatalogVersion(int expectedVersion) {
-        Awaitility.await().timeout(COMPACTION_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+        Awaitility.await().pollInSameThread().timeout(COMPACTION_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             for (var node : CLUSTER.runningNodes().collect(Collectors.toList())) {
                 IgniteImpl ignite = unwrapIgniteImpl(node);
                 CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());

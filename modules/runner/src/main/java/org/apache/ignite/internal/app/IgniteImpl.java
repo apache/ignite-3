@@ -1034,6 +1034,7 @@ public class IgniteImpl implements Ignite {
                 sharedTxStateStorage,
                 txManager,
                 schemaManager,
+                dataStorageMgr,
                 outgoingSnapshotsManager
         );
 
