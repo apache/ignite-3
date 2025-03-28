@@ -109,9 +109,9 @@ public final class IgniteNameUtils {
     }
 
     /**
-     * Returns {@code true} if given string is valid identifier, {@code false} otherwise.
+     * Returns {@code true} if given string is valid normalized identifier, {@code false} otherwise.
      */
-    public static boolean isValidIdentifier(String identifier) {
+    public static boolean isValidNormalizedIdentifier(String identifier) {
         if (identifier == null || identifier.isEmpty()) {
             return false;
         }

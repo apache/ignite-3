@@ -371,7 +371,7 @@ public final class IgniteSqlParser  {
                 throw SqlUtil.newContextException(pos, RESOURCE.identifierTooLong(segment, maxLength));
             }
 
-            if (!pos.isQuoted() && !IgniteNameUtils.isValidIdentifier(segment)) {
+            if (!pos.isQuoted() && !IgniteNameUtils.isValidNormalizedIdentifier(segment)) {
                 throw new SqlException(STMT_VALIDATION_ERR,
                         format("Malformed identifier at line {}, column {}: {}", pos.getLineNum(), pos.getColumnNum(), segment));
             }
