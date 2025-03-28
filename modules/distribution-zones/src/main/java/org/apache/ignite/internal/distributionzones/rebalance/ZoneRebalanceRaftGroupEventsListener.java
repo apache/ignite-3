@@ -595,7 +595,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = ZoneRebalanceUtil.pendingChangeTriggerKey(partId);
-        byte[] rev = ByteUtils.longToBytesKeepingOrder(entry.revision());
+        byte[] timestamp = ByteUtils.longToBytesKeepingOrder(entry.timestamp().longValue());
 
         // Here is what happens in the MetaStorage:
         // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {
@@ -607,24 +607,26 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         //     put(changeTriggerKey, revision)
         // }
 
+        Condition changeTimestampDontExistOrLessThan = or(notExists(changeTriggerKey), value(changeTriggerKey).lt(timestamp));
+
         Iif resultingOperation = iif(
                 and(
-                        or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                        changeTimestampDontExistOrLessThan,
                         and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
                 ),
                 ops(
                         put(pendingKey, pendingByteArray),
                         put(stablePartAssignmentsKey(partId), assignmentsByteArray),
-                        put(changeTriggerKey, rev)
+                        put(changeTriggerKey, timestamp)
                 ).yield(),
                 iif(
                         and(
-                                or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                                changeTimestampDontExistOrLessThan,
                                 notExists(pendingKey)
                         ),
                         ops(
                                 put(pendingKey, pendingByteArray),
-                                put(changeTriggerKey, rev)
+                                put(changeTriggerKey, timestamp)
                         ).yield(),
                         ops().yield()
                 )

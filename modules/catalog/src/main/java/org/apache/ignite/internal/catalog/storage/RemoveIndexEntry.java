@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -66,7 +67,7 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogSchemaDescriptor schema = schemaByIndexId(catalog, indexId);
 
         return new Catalog(
@@ -80,7 +81,7 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
                         schema.tables(),
                         Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new),
                         schema.systemViews(),
-                        causalityToken
+                        timestamp
                 ), catalog.schemas()),
                 defaultZoneIdOpt(catalog)
         );

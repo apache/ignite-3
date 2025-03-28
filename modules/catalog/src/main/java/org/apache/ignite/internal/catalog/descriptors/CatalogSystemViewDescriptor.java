@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
 
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -51,7 +52,7 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor impleme
             List<CatalogTableColumnDescriptor> columns,
             SystemViewType systemViewType
     ) {
-        this(id, schemaId, name, columns, systemViewType, INITIAL_CAUSALITY_TOKEN);
+        this(id, schemaId, name, columns, systemViewType, INITIAL_TIMESTAMP);
     }
 
     /**
@@ -62,7 +63,7 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor impleme
      * @param name View name.
      * @param columns View columns.
      * @param systemViewType View type.
-     * @param causalityToken Token of the update of the descriptor.
+     * @param timestamp Timestamp of the update of the descriptor.
      */
     public CatalogSystemViewDescriptor(
             int id,
@@ -70,9 +71,9 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor impleme
             String name,
             List<CatalogTableColumnDescriptor> columns,
             SystemViewType systemViewType,
-            long causalityToken
+            HybridTimestamp timestamp
     ) {
-        super(id, Type.SYSTEM_VIEW, name, causalityToken);
+        super(id, Type.SYSTEM_VIEW, name, timestamp);
 
         this.schemaId = schemaId;
         this.columns = Objects.requireNonNull(columns, "columns");

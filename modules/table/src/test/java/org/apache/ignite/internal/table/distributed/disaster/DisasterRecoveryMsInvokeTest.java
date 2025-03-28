@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -51,7 +52,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for disaster recovery meta storage invoke that changes {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.
- * We expect that the key is changed in provided cases.
+ * We expect that the keys are changed in provided cases.
  */
 public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
     private static final int partNum = 2;
@@ -65,7 +66,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
 
     private static final TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-    private static final long expectedPendingChangeTriggerKey = 10L;
+    private static final HybridTimestamp expectedPendingChangeTimestampKey = HybridTimestamp.hybridTimestamp(1000L);
 
     private long assignmentsTimestamp;
 
@@ -108,7 +109,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
                 metaStorageManager.invoke(
                         GroupUpdateRequest.prepareMsInvokeClosure(
                                 tablePartitionId,
-                                longToBytesKeepingOrder(expectedPendingChangeTriggerKey),
+                                longToBytesKeepingOrder(expectedPendingChangeTimestampKey.longValue()),
                                 AssignmentsQueue.toBytes(Assignments.of(pending, assignmentsTimestamp)),
                                 null
                         )
@@ -120,9 +121,9 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
 
         assertThat(actualPendingFut, willCompleteSuccessfully());
 
-        long actualPendingChangeTriggerKey = bytesToLongKeepingOrder(actualPendingFut.get().value());
+        HybridTimestamp actualTimestamp = HybridTimestamp.hybridTimestamp(bytesToLongKeepingOrder(actualPendingFut.get().value()));
 
-        assertEquals(expectedPendingChangeTriggerKey, actualPendingChangeTriggerKey);
+        assertEquals(expectedPendingChangeTimestampKey, actualTimestamp);
     }
 
     private static Stream<Arguments> assignments() {

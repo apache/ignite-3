@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /** Entry representing a rename of an index. */
@@ -59,14 +60,14 @@ public class RenameIndexEntry implements UpdateEntry {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogIndexDescriptor indexDescriptor = indexOrThrow(catalog, indexId);
 
         CatalogTableDescriptor tableDescriptor = tableOrThrow(catalog, indexDescriptor.tableId());
 
         CatalogSchemaDescriptor schemaDescriptor = schemaOrThrow(catalog, tableDescriptor.schemaId());
 
-        CatalogIndexDescriptor newIndexDescriptor = changeIndexName(indexDescriptor, causalityToken);
+        CatalogIndexDescriptor newIndexDescriptor = changeIndexName(indexDescriptor, timestamp);
 
         return new Catalog(
                 catalog.version(),
@@ -78,7 +79,7 @@ public class RenameIndexEntry implements UpdateEntry {
         );
     }
 
-    private CatalogIndexDescriptor changeIndexName(CatalogIndexDescriptor indexDescriptor, long causalityToken) {
+    private CatalogIndexDescriptor changeIndexName(CatalogIndexDescriptor indexDescriptor, HybridTimestamp timestamp) {
         CatalogIndexDescriptor newIndexDescriptor;
 
         if (indexDescriptor instanceof CatalogHashIndexDescriptor) {
@@ -89,7 +90,7 @@ public class RenameIndexEntry implements UpdateEntry {
             throw new CatalogValidationException("Unsupported index type '{}' {}", indexDescriptor.id(), indexDescriptor);
         }
 
-        newIndexDescriptor.updateToken(causalityToken);
+        newIndexDescriptor.updateTimestamp(timestamp);
 
         return newIndexDescriptor;
     }

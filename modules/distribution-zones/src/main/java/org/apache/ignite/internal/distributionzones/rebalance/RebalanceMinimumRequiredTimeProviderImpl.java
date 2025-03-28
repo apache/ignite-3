@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.lang.Math.min;
 import static java.util.Collections.emptyMap;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor.updateRequiresAssignmentsRecalculation;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,6 +36,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -69,14 +69,14 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
         // Ignore the real safe time, having a time associated with revision is enough. Also, acquiring real safe time would be
         // unnecessarily more complicated due to handling of possible data races.
-        long metaStorageSafeTime = metaStorageManager.timestampByRevisionLocally(appliedRevision).longValue();
+        HybridTimestamp metaStorageSafeTime = metaStorageManager.timestampByRevisionLocally(appliedRevision);
 
-        long minTimestamp = metaStorageSafeTime;
+        HybridTimestamp minTimestamp = metaStorageSafeTime;
 
         Map<Integer, Map<Integer, Assignments>> stableAssignments = readAssignments(STABLE_ASSIGNMENTS_PREFIX_BYTES, appliedRevision);
         Map<Integer, Map<Integer, Assignments>> pendingAssignments = readPendingAssignments(appliedRevision);
 
-        Map<Integer, Long> pendingChangeTriggerRevisions = readPendingChangeTriggerRevisions(
+        Map<Integer, HybridTimestamp> pendingChangeTriggerTimestamps = readPendingChangeTriggerTimestamps(
                 PENDING_CHANGE_TRIGGER_PREFIX_BYTES,
                 appliedRevision
         );
@@ -86,36 +86,36 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
         Map<Integer, Integer> tableIdToZoneIdMap = tableIdToZoneIdMap(earliestCatalogVersion, latestCatalogVersion);
 
-        Map<Long, Long> updateTokensToActivationTimeMap = new HashMap<>();
-        Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByTimestamp = allZonesByTimestamp(
+        Map<HybridTimestamp, HybridTimestamp> updateTimestampsToActivationTimeMap = new HashMap<>();
+        Map<Integer, NavigableMap<HybridTimestamp, CatalogZoneDescriptor>> allZonesByTimestamp = allZonesByTimestamp(
                 earliestCatalogVersion,
                 latestCatalogVersion,
-                updateTokensToActivationTimeMap
+                updateTimestampsToActivationTimeMap
         );
-        Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision = allZonesByRevision(allZonesByTimestamp);
-        Map<Integer, Long> zoneDeletionTimestamps = zoneDeletionTimestamps(earliestCatalogVersion, latestCatalogVersion);
+        Map<Integer, HybridTimestamp> zoneDeletionTimestamps = zoneDeletionTimestamps(earliestCatalogVersion, latestCatalogVersion);
 
         for (Map.Entry<Integer, Integer> entry : tableIdToZoneIdMap.entrySet()) {
             Integer tableId = entry.getKey();
             Integer zoneId = entry.getValue();
 
-            NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors = allZonesByTimestamp.get(zoneId);
+            NavigableMap<HybridTimestamp, CatalogZoneDescriptor> zoneDescriptors = allZonesByTimestamp.get(zoneId);
             int zonePartitions = zoneDescriptors.lastEntry().getValue().partitions();
 
-            Long pendingChangeTriggerRevision = pendingChangeTriggerRevisions.get(tableId);
+            HybridTimestamp pendingChangeTriggerTimestamp = pendingChangeTriggerTimestamps.get(tableId);
 
             // +-1 here ir required for 2 reasons:
             // - we need timestamp right before deletion, if zone is deleted, thus we must subtract 1;
             // - we need a "metaStorageSafeTime" if zone is not deleted, without any subtractions.
-            long latestTimestamp = zoneDeletionTimestamps.getOrDefault(zoneId, metaStorageSafeTime + 1) - 1;
+            HybridTimestamp latestTimestamp =
+                    hybridTimestamp(zoneDeletionTimestamps.getOrDefault(zoneId, metaStorageSafeTime.tick()).longValue() - 1);
 
-            long zoneRevision = pendingChangeTriggerRevision == null
-                    ? zoneDescriptors.firstEntry().getValue().updateToken()
-                    : pendingChangeTriggerRevision;
+            HybridTimestamp zoneTimestamp = pendingChangeTriggerTimestamp == null
+                    ? zoneDescriptors.firstEntry().getValue().updateTimestamp()
+                    : pendingChangeTriggerTimestamp;
 
-            NavigableMap<Long, CatalogZoneDescriptor> map = allZonesByRevision.get(zoneId);
-            Map.Entry<Long, CatalogZoneDescriptor> zone = map.floorEntry(zoneRevision);
-            long timestamp = updateTokensToActivationTimeMap.get(zone.getValue().updateToken());
+            NavigableMap<HybridTimestamp, CatalogZoneDescriptor> map = allZonesByTimestamp.get(zoneId);
+            Map.Entry<HybridTimestamp, CatalogZoneDescriptor> zone = map.floorEntry(zoneTimestamp);
+            HybridTimestamp timestamp = updateTimestampsToActivationTimeMap.get(zone.getValue().updateTimestamp());
 
             timestamp = ceilTime(zoneDescriptors, timestamp, latestTimestamp);
 
@@ -125,7 +125,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
             Map<Integer, Assignments> pendingTableAssignments = pendingAssignments.getOrDefault(tableId, emptyMap());
 
             if (!pendingTableAssignments.isEmpty()) {
-                long pendingTimestamp = findProperTimestampForAssignments(
+                HybridTimestamp pendingTimestamp = findProperTimestampForAssignments(
                         pendingTableAssignments.size() == zonePartitions
                                 ? pendingTableAssignments
                                 : stableAssignments.getOrDefault(tableId, emptyMap()),
@@ -137,44 +137,30 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
             }
         }
 
-        return minTimestamp;
-    }
-
-    static Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision(
-            Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZones
-    ) {
-        return allZones.entrySet().stream().collect(toMap(Map.Entry::getKey, entry -> {
-            NavigableMap<Long, CatalogZoneDescriptor> mapByRevision = new TreeMap<>();
-
-            for (CatalogZoneDescriptor zone : entry.getValue().values()) {
-                mapByRevision.put(zone.updateToken(), zone);
-            }
-
-            return mapByRevision;
-        }));
+        return minTimestamp.longValue();
     }
 
     /**
      * Detects all changes in zones configurations and arranges them in a convenient map. It maps {@code zoneId} into a sorted map, that
      * contains a {@code alterTime -> zoneDescriptor} mapping.
      */
-    Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByTimestamp(
+    Map<Integer, NavigableMap<HybridTimestamp, CatalogZoneDescriptor>> allZonesByTimestamp(
             int earliestCatalogVersion,
             int latestCatalogVersion,
-            Map<Long, Long> updateTokensToActivationTime
+            Map<HybridTimestamp, HybridTimestamp> updateTimestampsToActivationTime
     ) {
-        Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZones = new HashMap<>();
+        Map<Integer, NavigableMap<HybridTimestamp, CatalogZoneDescriptor>> allZones = new HashMap<>();
 
         for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
             Catalog catalog = catalogService.catalog(catalogVersion);
 
             for (CatalogZoneDescriptor zone : catalog.zones()) {
-                NavigableMap<Long, CatalogZoneDescriptor> map = allZones.computeIfAbsent(zone.id(), id -> new TreeMap<>());
+                NavigableMap<HybridTimestamp, CatalogZoneDescriptor> map = allZones.computeIfAbsent(zone.id(), id -> new TreeMap<>());
 
                 if (map.isEmpty() || updateRequiresAssignmentsRecalculation(map.lastEntry().getValue(), zone)) {
-                    map.put(catalog.time(), zone);
+                    map.put(zone.updateTimestamp(), zone);
 
-                    updateTokensToActivationTime.put(zone.updateToken(), catalog.time());
+                    updateTimestampsToActivationTime.put(zone.updateTimestamp(), hybridTimestamp(catalog.time()));
                 }
             }
         }
@@ -182,9 +168,9 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return allZones;
     }
 
-    Map<Integer, Long> zoneDeletionTimestamps(int earliestCatalogVersion, int latestCatalogVersion) {
+    Map<Integer, HybridTimestamp> zoneDeletionTimestamps(int earliestCatalogVersion, int latestCatalogVersion) {
         Set<Integer> existingZoneIds = new HashSet<>();
-        Map<Integer, Long> zoneDeletionTimestamps = new HashMap<>();
+        Map<Integer, HybridTimestamp> zoneDeletionTimestamps = new HashMap<>();
 
         for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
             Catalog catalog = catalogService.catalog(catalogVersion);
@@ -193,7 +179,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 Integer zoneId = iterator.next();
 
                 if (catalog.zone(zoneId) == null) {
-                    zoneDeletionTimestamps.put(zoneId, catalog.time());
+                    zoneDeletionTimestamps.put(zoneId, hybridTimestamp(catalog.time()));
 
                     iterator.remove();
                 }
@@ -207,13 +193,17 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return zoneDeletionTimestamps;
     }
 
-    static long ceilTime(NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors, long timestamp, long latestTimestamp) {
+    static HybridTimestamp ceilTime(
+            NavigableMap<HybridTimestamp, CatalogZoneDescriptor> zoneDescriptors,
+            HybridTimestamp timestamp,
+            HybridTimestamp latestTimestamp
+    ) {
         // We determine the "next" zone version, the one that comes after the version that corresponds to "timestamp".
         // "ceilingKey" accepts an inclusive boundary, while we have an exclusive one. "+ 1" converts ">=" into ">".
-        Long ceilingKey = zoneDescriptors.ceilingKey(timestamp + 1);
+        HybridTimestamp ceilingKey = zoneDescriptors.ceilingKey(timestamp.tick());
 
         // While having it, we either decrement it to get "previous moment in time", or if there's no "next" version then we use "safeTime".
-        return ceilingKey == null ? latestTimestamp : ceilingKey - 1;
+        return ceilingKey == null ? latestTimestamp : hybridTimestamp(ceilingKey.longValue() - 1);
     }
 
     /**
@@ -221,19 +211,19 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
      * timestamp that can be used to read that zone from the catalog. Returns {@code latestTimestamp} if that timestamp corresponds to
      * {@code now}.
      */
-    static long findProperTimestampForAssignments(
+    static HybridTimestamp findProperTimestampForAssignments(
             Map<Integer, Assignments> assignments,
-            NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors,
-            long latestTimestamp
+            NavigableMap<HybridTimestamp, CatalogZoneDescriptor> zoneDescriptors,
+            HybridTimestamp latestTimestamp
     ) {
         long timestamp = assignments.values().stream()
                 .mapToLong(Assignments::timestamp)
                 // Use "max", assuming that older assignments are already processed in the past, they just had not been changed later.
                 .max()
                 // If assignments are empty, we shall use the earliest known timestamp for the zone.
-                .orElse(zoneDescriptors.firstEntry().getKey());
+                .orElse(zoneDescriptors.firstEntry().getKey().longValue());
 
-        return ceilTime(zoneDescriptors, timestamp, latestTimestamp);
+        return ceilTime(zoneDescriptors, hybridTimestamp(timestamp), latestTimestamp);
     }
 
     /**
@@ -288,8 +278,8 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return assignments;
     }
 
-    Map<Integer, Long> readPendingChangeTriggerRevisions(byte[] prefix, long appliedRevision) {
-        Map<Integer, Long> revisions = new HashMap<>();
+    Map<Integer, HybridTimestamp> readPendingChangeTriggerTimestamps(byte[] prefix, long appliedRevision) {
+        Map<Integer, HybridTimestamp> timestamps = new HashMap<>();
 
         try (Cursor<Entry> entries = readLocallyByPrefix(prefix, appliedRevision)) {
             for (Entry entry : entries) {
@@ -299,14 +289,19 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
                 int tableId = RebalanceUtil.extractTablePartitionId(entry.key(), prefix).tableId();
 
-                byte[] value = entry.value();
-                long revision = ByteUtils.bytesToLongKeepingOrder(value);
+                byte[] valueBytes = entry.value();
+                long timestampLong = ByteUtils.bytesToLongKeepingOrder(valueBytes);
+                HybridTimestamp timestamp = hybridTimestamp(timestampLong);
 
-                revisions.compute(tableId, (k, prev) -> prev == null ? revision : min(prev, revision));
+                timestamps.compute(tableId, (k, prev) -> prev == null ? timestamp : min(prev, timestamp));
             }
         }
 
-        return revisions;
+        return timestamps;
+    }
+
+    private static HybridTimestamp min(HybridTimestamp a, HybridTimestamp b) {
+        return a.compareTo(b) < 0 ? a : b;
     }
 
     private Cursor<Entry> readLocallyByPrefix(byte[] prefix, long revision) {

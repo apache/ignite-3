@@ -88,6 +88,11 @@ public class DataNodesHistory {
         Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> entry = history.floorEntry(timestamp);
 
         if (entry == null) {
+            if (timestamp.equals(HybridTimestamp.MIN_VALUE)) {
+                Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> e = history.firstEntry();
+                return new DataNodesHistoryEntry(e.getKey(), e.getValue());
+            }
+
             return new DataNodesHistoryEntry(HybridTimestamp.MIN_VALUE, emptySet());
         }
 
