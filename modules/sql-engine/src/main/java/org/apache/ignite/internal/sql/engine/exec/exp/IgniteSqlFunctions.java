@@ -361,6 +361,10 @@ public class IgniteSqlFunctions {
 
     /** Verifies internal {@link SqlTypeName#DATE} boundaries. */
     public static Integer toDateExact(Object object) {
+        if (object == null) {
+            return null;
+        }
+
         if (object instanceof Integer) {
             return toDateExact((int) object);
         }
@@ -369,7 +373,7 @@ public class IgniteSqlFunctions {
     }
 
     /** Verifies internal {@link SqlTypeName#DATE} boundaries. */
-    public static int toDateExact(int intDate) {
+    public static Integer toDateExact(int intDate) {
         if (intDate < INT_DATE_MIN || intDate > INT_DATE_MAX) {
             throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
         }
@@ -378,16 +382,20 @@ public class IgniteSqlFunctions {
     }
 
     /** Verifies internal {@link SqlTypeName#DATE} boundaries. */
-    public static int toDateExact(long longDate) {
+    public static Integer toDateExact(long longDate) {
         if (longDate < INT_DATE_MIN || longDate > INT_DATE_MAX) {
             throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
         }
 
-        return (int) longDate;
+        return Math.toIntExact(longDate);
     }
 
     /** Verifies internal {@link SqlTypeName#TIMESTAMP} boundaries. */
-    public static long toTimestampExact(Object object) {
+    public static Long toTimestampExact(Object object) {
+        if (object == null) {
+            return null;
+        }
+
         if (object instanceof Long) {
             return toTimestampExact((long) object);
         }
