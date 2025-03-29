@@ -29,6 +29,8 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.sql.Date;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -590,7 +592,19 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.TINYINT, "SELECT -CAST(? AS TINYINT)", -128),
                 arguments(SqlTypeName.TINYINT, "SELECT (CAST(-? AS TINYINT)/-1)::TINYINT", 128),
                 arguments(SqlTypeName.TINYINT, "SELECT (CAST(-? AS TINYINT) * -1)::TINYINT", 128),
-                arguments(SqlTypeName.TINYINT, "SELECT (?/-1)::TINYINT", -128)
+                arguments(SqlTypeName.TINYINT, "SELECT (?/-1)::TINYINT", -128),
+
+                // DATE
+                arguments(SqlTypeName.DATE, "SELECT ?", LocalDate.of(10000, 1, 1)),
+                arguments(SqlTypeName.DATE, "SELECT ? + INTERVAL 1 DAY", LocalDate.of(9999, 12, 31)),
+                arguments(SqlTypeName.DATE, "SELECT ?", LocalDate.of(0, 12, 31)),
+                arguments(SqlTypeName.DATE, "SELECT ? - INTERVAL 1 DAY", LocalDate.of(1, 1, 1)),
+
+                // DATETIME
+                arguments(SqlTypeName.TIMESTAMP, "SELECT ?", LocalDateTime.of(10000, Month.JANUARY, 1, 1, 1, 1)),
+                arguments(SqlTypeName.TIMESTAMP, "SELECT ? + INTERVAL 1 MINUTE", LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
+                arguments(SqlTypeName.TIMESTAMP, "SELECT ?", LocalDateTime.of(0, Month.DECEMBER, 31, 23, 59, 59)),
+                arguments(SqlTypeName.TIMESTAMP, "SELECT ? - INTERVAL 1 MINUTE", LocalDateTime.of(1, Month.JANUARY, 1, 0, 0, 0))
         );
     }
 

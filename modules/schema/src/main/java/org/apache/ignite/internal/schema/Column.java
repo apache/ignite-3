@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.time.LocalDate;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
@@ -220,6 +221,24 @@ public class Column {
                 );
                 throw new InvalidTypeException(error);
             }
+        }
+
+        if (val == null) {
+            return;
+        }
+
+        switch (type.spec()) {
+            case DATE:
+                validateYear(((LocalDate) val).getYear());
+                break;
+
+            default:
+        }
+    }
+
+    private static void validateYear(int year) {
+        if (year < 1 || year > 9999) {
+            throw new ValueOutOfBoundsException("The value of YEAR must be in range 1 - 9999.");
         }
     }
 
