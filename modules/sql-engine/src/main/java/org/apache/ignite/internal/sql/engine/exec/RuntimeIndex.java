@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.List;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 
 /**
@@ -28,6 +29,7 @@ public interface RuntimeIndex<RowT> extends ManuallyCloseable {
      */
     void push(RowT r);
 
+    void pushAll(List<RowT> batch);
     /**
      * Closes the index.
      */

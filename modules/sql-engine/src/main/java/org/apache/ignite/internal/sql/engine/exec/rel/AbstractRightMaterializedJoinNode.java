@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.jetbrains.annotations.Nullable;
 
@@ -68,8 +69,8 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
             return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushLeft(row);
+                public void push(List<RowT> batch) throws Exception {
+                    pushLeft(batch);
                 }
 
                 /** {@inheritDoc} */
@@ -88,8 +89,8 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
             return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushRight(row);
+                public void push(List<RowT> batch) throws Exception {
+                    pushRight(batch);
                 }
 
                 /** {@inheritDoc} */
@@ -109,13 +110,13 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         throw new IndexOutOfBoundsException();
     }
 
-    protected void pushLeft(RowT row) throws Exception {
+    protected void pushLeft(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        waitingLeft--;
+        waitingLeft -= batch.size();
 
-        leftInBuf.add(row);
+        leftInBuf.addAll(batch);
 
         join();
     }
@@ -129,7 +130,7 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         join();
     }
 
-    private void endRight() throws Exception {
+    protected void endRight() throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
 
@@ -148,5 +149,5 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
 
     protected abstract void join() throws Exception;
 
-    protected abstract void pushRight(RowT row) throws Exception;
+    protected abstract void pushRight(List<RowT> batch) throws Exception;
 }

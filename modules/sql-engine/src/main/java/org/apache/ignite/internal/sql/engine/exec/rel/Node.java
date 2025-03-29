@@ -25,7 +25,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
  * Represents a node of execution tree.
  *
  * <b>Note</b>: except several cases (like consumer node and mailboxes), {@link Node#request(int)}, {@link Node#close()},
- * {@link Downstream#push(Object)} and {@link Downstream#end()} methods should be used from one single thread.
+ * {@link Downstream#push(List)} and {@link Downstream#end()} methods should be used from one single thread.
  */
 public interface Node<RowT> extends AutoCloseable {
     /**

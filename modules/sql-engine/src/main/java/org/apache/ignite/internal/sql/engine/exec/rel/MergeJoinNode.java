@@ -94,11 +94,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     @Override
     protected Downstream<RowT> requestDownstream(int idx) {
         if (idx == 0) {
-            return new Downstream<RowT>() {
+            return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushLeft(row);
+                public void push(List<RowT> batch) throws Exception {
+                    pushLeft(batch);
                 }
 
                 /** {@inheritDoc} */
@@ -114,11 +114,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 }
             };
         } else if (idx == 1) {
-            return new Downstream<RowT>() {
+            return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushRight(row);
+                public void push(List<RowT> batch) throws Exception {
+                    pushRight(batch);
                 }
 
                 /** {@inheritDoc} */
@@ -138,24 +138,24 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         throw new IndexOutOfBoundsException();
     }
 
-    private void pushLeft(RowT row) throws Exception {
+    private void pushLeft(List<RowT> row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        waitingLeft--;
+        waitingLeft -= row.size();
 
-        leftInBuf.add(row);
+        leftInBuf.addAll(row);
 
         join();
     }
 
-    private void pushRight(RowT row) throws Exception {
+    private void pushRight(List<RowT> row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
 
-        waitingRight--;
+        waitingRight -= row.size();
 
-        rightInBuf.add(row);
+        rightInBuf.addAll(row);
 
         join();
     }
@@ -296,19 +296,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
-            int processed = 0;
             inLoop = true;
             try {
+                List<RowT> batch = newBatch();
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null)) {
-                    if (processed++ > inBufSize) {
-                        // Allow others to do their job.
-                        execute(this::join);
-
-                        return;
-                    }
-
-
                     if (left == null) {
                         left = leftInBuf.remove();
                     }
@@ -394,7 +386,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     }
 
                     requested--;
-                    downstream().push(row);
+                    batch.add(row);
+                }
+
+                if (!batch.isEmpty()) {
+                    downstream().push(batch);
+
+                    if (requested > 0) {
+                        execute(this::join);
+
+                        return;
+                    }
                 }
             } finally {
                 inLoop = false;
@@ -472,18 +474,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
-            int processed = 0;
             inLoop = true;
             try {
+                List<RowT> batch = newBatch();
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null || waitingRight == NOT_WAITING)) {
-                    if (processed++ > inBufSize) {
-                        // Allow others to do their job.
-                        execute(this::join);
-
-                        return;
-                    }
-
                     if (left == null) {
                         left = leftInBuf.remove();
 
@@ -513,7 +508,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                             row = outputProjection.project(context(), left, rightRowFactory.create());
 
                             requested--;
-                            downstream().push(row);
+                            batch.add(row);
 
                             left = null;
 
@@ -527,7 +522,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                                 row = outputProjection.project(context(), left, rightRowFactory.create());
 
                                 requested--;
-                                downstream().push(row);
+                                batch.add(row);
                             }
 
                             left = null;
@@ -591,7 +586,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     }
 
                     requested--;
-                    downstream().push(row);
+                    batch.add(row);
+                }
+
+                if (!batch.isEmpty()) {
+                    downstream().push(batch);
+
+                    if (requested > 0) {
+                        execute(this::join);
+
+                        return;
+                    }
                 }
             } finally {
                 inLoop = false;
@@ -667,18 +672,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
-            int processed = 0;
             inLoop = true;
             try {
+                List<RowT> batch = newBatch();
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && (right != null || !rightInBuf.isEmpty() || rightMaterialization != null)) {
-                    if (processed++ > inBufSize) {
-                        // Allow others to do their job.
-                        execute(this::join);
-
-                        return;
-                    }
-
                     if (left == null && !leftInBuf.isEmpty()) {
                         left = leftInBuf.remove();
                     }
@@ -709,7 +707,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                                 row = outputProjection.project(context(), leftRowFactory.create(), right);
 
                                 requested--;
-                                downstream().push(row);
+                                batch.add(row);
                             }
 
                             right = null;
@@ -733,7 +731,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                                 row = outputProjection.project(context(), leftRowFactory.create(), right);
 
                                 requested--;
-                                downstream().push(row);
+                                batch.add(row);
                             }
 
                             right = null;
@@ -798,7 +796,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     }
 
                     requested--;
-                    downstream().push(row);
+                    batch.add(row);
+                }
+
+                if (!batch.isEmpty()) {
+                    downstream().push(batch);
+
+                    if (requested > 0) {
+                        execute(this::join);
+
+                        return;
+                    }
                 }
             } finally {
                 inLoop = false;
@@ -883,17 +891,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
-            int processed = 0;
             inLoop = true;
             try {
+                List<RowT> batch = newBatch();
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && !(right == null && rightInBuf.isEmpty() && rightMaterialization == null && waitingRight != NOT_WAITING)) {
-                    if (processed++ > inBufSize) {
-                        // Allow others to do their job.
-                        execute(this::join);
-
-                        return;
-                    }
 
                     if (left == null && !leftInBuf.isEmpty()) {
                         left = leftInBuf.remove();
@@ -928,7 +930,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                                     row = outputProjection.project(context(), leftRowFactory.create(), right);
 
                                     requested--;
-                                    downstream().push(row);
+                                    batch.add(row);
                                 }
 
                                 right = null;
@@ -941,7 +943,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                                     row = outputProjection.project(context(), left, rightRowFactory.create());
 
                                     requested--;
-                                    downstream().push(row);
+                                    batch.add(row);
                                 }
 
                                 left = null;
@@ -959,7 +961,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                                 row = outputProjection.project(context(), left, rightRowFactory.create());
 
                                 requested--;
-                                downstream().push(row);
+                                batch.add(row);
                             }
 
                             left = null;
@@ -975,7 +977,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                                 row = outputProjection.project(context(), leftRowFactory.create(), right);
 
                                 requested--;
-                                downstream().push(row);
+                                batch.add(row);
                             }
 
                             right = null;
@@ -1043,7 +1045,17 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     }
 
                     requested--;
-                    downstream().push(row);
+                    batch.add(row);
+                }
+
+                if (!batch.isEmpty()) {
+                    downstream().push(batch);
+
+                    if (requested > 0) {
+                        execute(this::join);
+
+                        return;
+                    }
                 }
             } finally {
                 inLoop = false;
@@ -1093,17 +1105,10 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
-            int processed = 0;
             inLoop = true;
             try {
+                List<RowT> batch = newBatch();
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty())) {
-                    if (processed++ > inBufSize) {
-                        // Allow others to do their job.
-                        execute(this::join);
-
-                        return;
-                    }
-
                     if (left == null) {
                         left = leftInBuf.remove();
                     }
@@ -1125,9 +1130,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     }
 
                     requested--;
-                    downstream().push(left);
+                    batch.add(left);
 
                     left = null;
+                }
+
+                if (!batch.isEmpty()) {
+                    downstream().push(batch);
+
+                    if (requested > 0) {
+                        execute(this::join);
+
+                        return;
+                    }
                 }
             } finally {
                 inLoop = false;
@@ -1177,18 +1192,11 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
-            int processed = 0;
             inLoop = true;
             try {
+                List<RowT> batch = newBatch();
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty())
                         && !(right == null && rightInBuf.isEmpty() && waitingRight != NOT_WAITING)) {
-                    if (processed++ > inBufSize) {
-                        // Allow others to do their job.
-                        execute(this::join);
-
-                        return;
-                    }
-
                     if (left == null) {
                         left = leftInBuf.remove();
                     }
@@ -1212,9 +1220,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     }
 
                     requested--;
-                    downstream().push(left);
+                    batch.add(left);
 
                     left = null;
+                }
+
+                if (!batch.isEmpty()) {
+                    downstream().push(batch);
+
+                    if (requested > 0) {
+                        execute(this::join);
+
+                        return;
+                    }
                 }
             } finally {
                 inLoop = false;

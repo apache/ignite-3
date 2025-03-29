@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
+import java.util.EnumMap;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
@@ -32,17 +30,15 @@ final class SafeCustomTypeInternalConversion {
 
     static final SafeCustomTypeInternalConversion INSTANCE = new SafeCustomTypeInternalConversion(Commons.typeFactory());
 
-    private final Map<NativeTypeSpec, Class<?>> internalTypes;
+    private final EnumMap<NativeTypeSpec, Class<?>> internalTypes;
 
     private SafeCustomTypeInternalConversion(IgniteTypeFactory typeFactory) {
         // IgniteCustomType: We can automatically compute val -> internal type mapping
         // by using type specs from the type factory.
         var customTypes = typeFactory.getCustomTypeSpecs();
 
-        internalTypes = customTypes.values()
-                .stream()
-                .map(t -> Map.entry(t.nativeType().spec(), t.storageType()))
-                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+        internalTypes = new EnumMap<>(NativeTypeSpec.class);
+        customTypes.values().forEach(t -> internalTypes.put(t.nativeType().spec(), t.storageType()));
     }
 
     @Nullable
