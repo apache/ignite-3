@@ -19,6 +19,8 @@ package org.apache.ignite.internal.util.subscription;
 
 import static it.unimi.dsi.fastutil.objects.ObjectArrays.swap;
 
+import it.unimi.dsi.fastutil.IndirectPriorityQueue;
+import it.unimi.dsi.fastutil.objects.ObjectHeapIndirectPriorityQueue;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
@@ -99,6 +101,13 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
         /** Last received values. */
         private final Object[] values;
 
+        /** Values view sorted in comparator order. */
+        private final IndirectPriorityQueue<Object> valuesQueue;
+
+        /** Processing state. */
+        @SuppressWarnings({"unused", "FieldMayBeFinal"})
+        private State state = State.NOT_INITIALIZED;
+
         /** Error. */
         @SuppressWarnings({"unused", "FieldMayBeFinal"})
         private ErrorChain errorChain;
@@ -111,12 +120,17 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
         @SuppressWarnings({"unused", "FieldMayBeFinal"})
         private long requested;
 
+        // Number of non-initialized values.
+        private int waiting;
+
         /** Number of emitted rows (guarded by {@link #guardCntr}). */
-        private volatile long emitted;
+        private long emitted;
 
         static final VarHandle ERROR_CHAIN;
 
         static final VarHandle CANCELLED;
+
+        static final VarHandle STATE;
 
         static final VarHandle REQUESTED;
 
@@ -127,6 +141,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
                 ERROR_CHAIN = lk.findVarHandle(OrderedMergeSubscription.class, "errorChain", ErrorChain.class);
                 CANCELLED = lk.findVarHandle(OrderedMergeSubscription.class, "cancelled", boolean.class);
                 REQUESTED = lk.findVarHandle(OrderedMergeSubscription.class, "requested", long.class);
+                STATE = lk.findVarHandle(OrderedMergeSubscription.class, "state", State.class);
             } catch (Throwable ex) {
                 throw new InternalError(ex);
             }
@@ -150,16 +165,16 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
             }
 
             this.values = new Object[cnt];
+            this.valuesQueue = new ObjectHeapIndirectPriorityQueue(values, comp);
             this.waiting = cnt;
-            this.incompleted = cnt;
         }
 
         void subscribe(Publisher<? extends T>[] sources) {
-            assert guardCntr.get() == 1;
-
             for (int i = 0; i < sources.length; i++) {
                 sources[i].subscribe(subscribers[i]);
             }
+
+            STATE.compareAndSet(this, State.NOT_INITIALIZED, State.INITIALIZING);
 
             guardCntr.set(0);
         }
@@ -187,11 +202,13 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
         @Override
         public void cancel() {
             if (CANCELLED.compareAndSet(this, false, true)) {
+                STATE.setRelease(this, State.STOP);
+
                 for (OrderedMergeSubscriber<T> inner : subscribers) {
                     inner.cancel();
                 }
 
-                if (guardCntr.getAndIncrement() == 0) {
+                if (guardCntr.get() == 0) {
                     Arrays.fill(values, null);
 
                     for (OrderedMergeSubscriber<T> inner : subscribers) {
@@ -220,8 +237,14 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
             }
         }
 
-        private int waiting;
-        private int incompleted;
+        enum State {
+            NOT_INITIALIZED,
+            INITIALIZING,
+            RUNNING,
+            COMPLETING,
+            STOP
+        }
+
 
         private void drain() {
             // Only one thread can pass below.
@@ -233,86 +256,125 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
             Subscriber<? super T> downstream = this.downstream;
             OrderedMergeSubscriber<T>[] subscribers = this.subscribers;
             Object[] values = this.values;
+
             long emitted = this.emitted;
-            int waiting = this.waiting;
-            int incompleted = this.incompleted;
 
             // Retry loop.
             for (; ; ) {
-                long requested = (long) REQUESTED.getAcquire(this);
+                switch ((State) STATE.getAcquire(this)) {
+                    case NOT_INITIALIZED:
+                        assert false : "Should never get here";
+                        break;
+                    case INITIALIZING: {
+                        int waiting = this.waiting;
 
-                // Emit loop.
-                for (; emitted < requested; ) {
-                    if ((boolean) CANCELLED.getAcquire(this)) {
-                        Arrays.fill(values, null);
-
-                        for (OrderedMergeSubscriber<T> inner : subscribers) {
-                            inner.queue.clear();
-                        }
-                        // No need to reset guard.
-                        return;
-                    }
-
-                    // TODO: rewrite to HEAPIFY ?
-                    {
+                        // Resort arrays to reduce array scans for the case of long initialization:
+                        // Moves non-initialized sources to the beginning of the array.
                         for (int i = 0; i < waiting; ) {
                             boolean innerDone = subscribers[0].done; // Read before polling to preserve correct program order.
                             Object obj = subscribers[0].queue.poll();
 
-                            int found = obj != null ? 1 : 0;
                             int done = (obj == null && innerDone) ? 1 : 0; // Flag has no effect if poll was successful.
+                            int initialized = obj != null || innerDone ? 1 : 0;
 
-                            assert found + done <= 1;
+                            values[0] = done > 0 ? DONE : obj;
 
-                            values[0] = obj;
+                            waiting -= initialized;
 
-                            waiting -= found + done;
-                            incompleted -= done;
-
-                            int move = done * incompleted + found * waiting; // No effect if waiting for value.
+                            int move = initialized * waiting; // No effect if value wasn't initialized.
                             swap(values, 0, move);
                             swap(subscribers, 0, move);
 
-                            i = (found + done == 0) ? waiting : i; // Exit if no value was found.
+                            i = (initialized == 0) ? waiting : i; // Exit if any value was not found.
                         }
 
-                        if (waiting > 0) {
-                            break;
+                        this.waiting = waiting;
+
+                        if (waiting == 0) {
+                            // Add all incompleted sourced to priority queue.
+                            for (int i = 0; i < values.length; i++) {
+                                if (values[i] != DONE) {
+                                    valuesQueue.enqueue(i);
+                                }
+                            }
+
+                            State state = valuesQueue.isEmpty() ? State.COMPLETING : State.RUNNING;
+
+                            STATE.compareAndSet(this, State.INITIALIZING, state);
+
+                            continue;
                         }
+
+                        break;
                     }
+                    case RUNNING: {
+                        long requested = (long) REQUESTED.getAcquire(this);
 
-                    if (incompleted == 0) {
-                        finish(downstream);
-                        // No need to reset guard.
+                        // Emit loop.
+                        for (; !valuesQueue.isEmpty(); ) {
+                            int minIndex = valuesQueue.first();
+
+                            if (values[minIndex] == null) {
+                                boolean done = subscribers[minIndex].done;
+                                T val = subscribers[minIndex].queue.poll();
+
+                                if (val != null) {
+                                    values[minIndex] = val;
+                                    valuesQueue.changed();
+                                    minIndex = valuesQueue.first();
+                                } else if (done) {
+                                    valuesQueue.dequeue();
+                                    // No more values to emit.
+                                    continue;
+                                } else {
+                                    // Wait for value.
+                                    break;
+                                }
+                            }
+
+                            if (emitted == requested) {
+                                break;
+                            }
+
+                            downstream.onNext((T) values[minIndex]);
+                            emitted++;
+
+                            values[minIndex] = null;
+                            subscribers[minIndex].request(1);
+                        }
+
+                        if (valuesQueue.isEmpty()) {
+                            STATE.compareAndSet(this, State.RUNNING, State.COMPLETING);
+
+                            continue;
+                        }
+
+                        break;
+                    }
+                    case COMPLETING: {
+                        STATE.set(this, State.STOP);
+
+                        assert valuesQueue.isEmpty();
+
+                        if (!(boolean) CANCELLED.getAcquire(this)) {
+                            finish(downstream);
+                        }
+
+                        // Cleanup.
+                        Arrays.fill(values, null);
+                        for (OrderedMergeSubscriber<T> inner : subscribers) {
+                            inner.queue.clear();
+                        }
+                        // No need to release guard.
                         return;
                     }
-
-                    int minIndex = 0;
-
-                    // TODO: rewrite to HEAPIFY
-                    for (int i = 1; i < incompleted; i++) {
-                        T obj = (T) values[i];
-                        T min = (T) values[minIndex];
-
-                        int cmp = comp.compare(min, obj);
-                        minIndex = cmp > 0 ? i : minIndex;
+                    case STOP: {
+                        // Terminal state. No need to release guard.
+                        return;
                     }
-
-                    swap(values, 0, minIndex);
-                    swap(subscribers, 0, minIndex);
-
-                    waiting++;
-                    emitted++;
-
-                    downstream.onNext((T) values[0]);
-                    values[0] = null;
-
-                    subscribers[0].request(1);
                 }
 
                 this.emitted = emitted;
-                this.waiting = waiting;
-                this.incompleted = incompleted;
 
                 // Retry if any other thread has incremented the counter.
                 if (guardCntr.decrementAndGet() == 0) {
