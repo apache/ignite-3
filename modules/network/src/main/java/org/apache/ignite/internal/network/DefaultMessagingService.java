@@ -32,13 +32,11 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -117,11 +115,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
 
     /**
-     * Cache of {@link InetSocketAddress} of recipient nodes ({@link ClusterNode}) that are in the topology and not stale.
+     * Cache of {@link RecipientInetAddress} of recipient nodes ({@link ClusterNode}) by {@link ClusterNode#id} that are in the topology
+     * and not stale.
      *
      * <p>Introduced for optimization - reducing the number of address resolving for the same nodes.</p>
      */
-    private final Map<UUID, InetSocketAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
+    private final Map<UUID, RecipientInetAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -746,44 +745,27 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return connectionManager.nodeId().equals(recipientNode.id()) ? null : getFromCacheOrCreateResolved(recipientNode);
         }
 
-        InetSocketAddress localAddress = connectionManager.localAddress();
-
-        NetworkAddress recipientAddress = recipientNode.address();
-
-        if (localAddress.getPort() != recipientAddress.port()) {
-            return createResolved(recipientAddress);
-        }
-
-        // For optimization, we will check the addresses without resolving the address of the target node.
-        if (Objects.equals(localAddress.getHostName(), recipientAddress.host())) {
-            return null;
-        }
-
-        InetSocketAddress resolvedRecipientAddress = createResolved(recipientAddress);
-        InetAddress recipientInetAddress = resolvedRecipientAddress.getAddress();
-
-        if (Objects.equals(localAddress.getAddress(), recipientInetAddress)) {
-            return null;
-        }
-
-        return recipientInetAddress.isAnyLocalAddress() || recipientInetAddress.isLoopbackAddress() ? null : resolvedRecipientAddress;
+        return RecipientInetAddress.create(connectionManager.localAddress(), recipientNode.address()).address();
     }
 
-    private static InetSocketAddress createResolved(NetworkAddress address) {
-        return new InetSocketAddress(address.host(), address.port());
-    }
-
-    private InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
+    private @Nullable InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
         assert recipientNode.name() != null : "Node has not been added to the topology: " + recipientNode.id();
 
-        InetSocketAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, inetSocketAddress) -> {
+        InetSocketAddress localAddress = connectionManager.localAddress();
+        NetworkAddress recipientAddress = recipientNode.address();
+
+        RecipientInetAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, address1) -> {
             if (staleIdDetector.isIdStale(nodeId)) {
                 return null;
             }
 
-            return inetSocketAddress != null ? inetSocketAddress : createResolved(recipientNode.address());
+            return address1 != null ? address1 : RecipientInetAddress.create(localAddress, recipientAddress);
         });
 
-        return address != null ? address : createResolved(recipientNode.address());
+        if (address == null) {
+            address = RecipientInetAddress.create(localAddress, recipientAddress);
+        }
+
+        return address.address();
     }
 }
