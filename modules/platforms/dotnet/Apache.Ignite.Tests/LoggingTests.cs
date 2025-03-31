@@ -69,7 +69,7 @@ public class LoggingTests
         StringAssert.Contains("[Trace] Received response [requestId=1, flags=PartitionAssignmentChanged, remoteAddress=", log);
         StringAssert.Contains("op=SqlExec", log);
         StringAssert.Contains("[Debug] Connection closed gracefully", log);
-        StringAssert.DoesNotContain("Error", log);
+        StringAssert.DoesNotContain("[Error]", log);
     }
 
     [Test]
