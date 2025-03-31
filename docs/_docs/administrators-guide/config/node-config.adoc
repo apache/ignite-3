@@ -100,10 +100,12 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 ----
 {
   "ignite" : {
-    "criticalWorkers" : {
-      "livenessCheckInterval" : 200,
-      "maxAllowedLag" : 500,
-      "nettyThreadsHeartbeatInterval" : 100
+    "system" : {
+      "criticalWorkers" : {
+        "livenessCheckInterval" : 200,
+        "maxAllowedLag" : 500,
+        "nettyThreadsHeartbeatInterval" : 100
+      }
     }
   }
 }
