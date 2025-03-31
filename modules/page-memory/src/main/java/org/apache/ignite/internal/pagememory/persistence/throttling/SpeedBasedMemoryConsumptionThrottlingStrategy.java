@@ -187,10 +187,11 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         detectCpPagesWriteStart(cpWrittenPages, dirtyPagesRatio);
 
         if (dirtyPagesRatio >= MAX_DIRTY_PAGES) {
-            return 0; // too late to throttle, will wait on safe to update instead.
+            return 0; // Too late to throttle, will wait on safe to update instead.
         } else {
             return getParkTime(dirtyPagesRatio,
                     donePages,
+                    // TODO IGNITE-24937 Should be a "notEvictedPagesTotal(cpTotalPages)" call.
                     cpTotalPages,
                     threadIds.size(),
                     instantaneousMarkDirtySpeed,

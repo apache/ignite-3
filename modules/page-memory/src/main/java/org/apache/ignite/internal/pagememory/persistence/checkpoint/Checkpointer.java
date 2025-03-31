@@ -152,6 +152,11 @@ public class Checkpointer extends IgniteWorker {
     /** Current checkpoint progress. This field is updated only by checkpoint thread. */
     private volatile @Nullable CheckpointProgressImpl currentCheckpointProgress;
 
+    /**
+     * Checkpoint progress instance with a more limited range of visibility. It is initialized when checkpoint write lick is acquired, and
+     * nullified when checkpoint finishes (unlike {@link #currentCheckpointProgress} that is updated before we started notifying checkpoint
+     * listeners and is never nullified).
+     */
     private volatile @Nullable CheckpointProgressImpl currentCheckpointProgressForThrottling;
 
     /** Checkpoint progress after releasing write lock. */
