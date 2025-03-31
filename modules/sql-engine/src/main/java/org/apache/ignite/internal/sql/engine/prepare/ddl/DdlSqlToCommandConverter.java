@@ -577,10 +577,15 @@ public class DdlSqlToCommandConverter {
         } else if (expr instanceof SqlIdentifier && ((SqlIdentifier) expr).isSimple()) {
 
             return type -> DefaultValue.functionCall(((SqlIdentifier) expr).getSimple());
-        } else {
-            // Report compound ids and expressions as their SQL string representation.
-            throw new SqlException(STMT_VALIDATION_ERR, "Unsupported default expression: " + expr);
+        } else if (expr instanceof SqlCall && ((SqlCall) expr).getOperandList().isEmpty()) {
+            SqlCall call = (SqlCall) expr;
+            String functionName = call.getOperator().getName();
+
+            return type -> DefaultValue.functionCall(functionName);
         }
+
+        // Report compound ids, expressions, and non-zero argument function calls as their SQL string representation.
+        throw new SqlException(STMT_VALIDATION_ERR, "Unsupported default expression: " + expr);
     }
 
     /**

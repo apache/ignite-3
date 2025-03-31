@@ -234,6 +234,12 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
                     () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid", col))
             );
 
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Non-constant default cannot be assigned after table creation.",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid()", col))
+            );
+
             // Compound id
             assertThrowsSqlException(
                     STMT_VALIDATION_ERR,
@@ -252,12 +258,6 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
                     STMT_VALIDATION_ERR,
                     "Unsupported default expression: 1 / 0",
                     () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT 1/0", col))
-            );
-
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    "Unsupported default expression: `RAND_UUID`()",
-                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid()", col))
             );
 
             // SELECT
@@ -299,12 +299,6 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
                     STMT_VALIDATION_ERR,
                     "Unsupported default expression: 1 / 0",
                     () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT 1/0", col))
-            );
-
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    "Unsupported default expression: `RAND_UUID`()",
-                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT rand_uuid()", col))
             );
 
             // SELECT

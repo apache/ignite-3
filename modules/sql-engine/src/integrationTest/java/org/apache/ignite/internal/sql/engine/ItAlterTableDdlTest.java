@@ -232,6 +232,12 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                 "Functional defaults are not supported for non-primary key columns",
                 () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT rand_uuid")
         );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
+                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT rand_uuid()")
+        );
     }
 
     @Test
@@ -473,7 +479,13 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Unsupported default expression: `RAND_UUID`()",
+                "Functional defaults are not supported for non-primary key columns",
+                () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT rand_uuid")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
                 () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT rand_uuid()")
         );
 

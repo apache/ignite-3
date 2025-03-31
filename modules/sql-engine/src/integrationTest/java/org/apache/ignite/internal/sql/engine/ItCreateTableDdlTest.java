@@ -144,12 +144,23 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void pkWithFunctionalDefault() {
-        sql("create table t (id uuid default rand_uuid primary key, val int)");
-        sql("insert into t (val) values (1), (2)");
+        {
+            sql("create table t1 (id uuid default rand_uuid primary key, val int)");
+            sql("insert into t1 (val) values (1), (2)");
 
-        var result = sql("select * from t");
+            var result = sql("select * from t1");
 
-        assertThat(result, hasSize(2)); // both rows are inserted without conflict
+            assertThat(result, hasSize(2)); // both rows are inserted without conflict
+        }
+
+        {
+            sql("create table t2 (id uuid default rand_uuid() primary key, val int)");
+            sql("insert into t2 (val) values (1), (2)");
+
+            var result = sql("select * from t2");
+
+            assertThat(result, hasSize(2)); // both rows are inserted without conflict
+        }
     }
 
     @Test
@@ -712,12 +723,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Unsupported default expression: 1 / 0",
                 () -> sql("CREATE TABLE test (id INT, val INT DEFAULT 1/0, primary key (id) )")
-        );
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Unsupported default expression: `RAND_UUID`()",
-                () -> sql("CREATE TABLE test (id INT, val INT DEFAULT rand_uuid(), primary key (id) )")
         );
 
         // SELECT
