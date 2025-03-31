@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
 import java.util.function.Function;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,6 +34,11 @@ public class TupleImplTest extends AbstractMutableTupleTest {
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         return transformer.apply(new TupleImpl());
+    }
+
+    @Override
+    protected Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value) {
+        return new TupleImpl().set(columnName, value);
     }
 
     @Test

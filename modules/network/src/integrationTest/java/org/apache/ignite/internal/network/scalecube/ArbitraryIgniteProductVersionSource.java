@@ -15,26 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.worker.configuration;
+package org.apache.ignite.internal.network.scalecube;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 
 /**
- * {@link ConfigurationModule} for the configuration of critical workers handling.
+ * {@link IgniteProductVersionSource} that allows arbitrary product name and version to be specified.
  */
-@AutoService(ConfigurationModule.class)
-public class CriticalWorkersConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
+class ArbitraryIgniteProductVersionSource implements IgniteProductVersionSource {
+    private final String productName;
+    private final IgniteProductVersion version;
+
+    public ArbitraryIgniteProductVersionSource(String productName, IgniteProductVersion version) {
+        this.productName = productName;
+        this.version = version;
     }
 
     @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return List.of(CriticalWorkersExtensionConfigurationSchema.class);
+    public String productName() {
+        return productName;
+    }
+
+    @Override
+    public IgniteProductVersion productVersion() {
+        return version;
     }
 }

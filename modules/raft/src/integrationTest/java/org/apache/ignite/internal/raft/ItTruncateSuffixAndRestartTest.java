@@ -74,6 +74,7 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -190,7 +191,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     withoutClusterId(),
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureManager.class),
-                    defaultChannelTypeRegistry()
+                    defaultChannelTypeRegistry(),
+                    new DefaultIgniteProductVersionSource()
             );
 
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());

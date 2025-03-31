@@ -646,7 +646,6 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
-                threadPoolsManager.commonScheduler(),
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
