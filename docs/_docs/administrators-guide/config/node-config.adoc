@@ -94,31 +94,6 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 |threadPoolStopTimeoutMillis|10000| Job thread pool stop timeout, in milliseconds.| Yes | Yes | 1 - inf 
 |======
 
-=== Critical Workers Configuration
-
-[source, json]
-----
-{
-  "ignite" : {
-    "system" : {
-      "criticalWorkers" : {
-        "livenessCheckInterval" : 200,
-        "maxAllowedLag" : 500,
-        "nettyThreadsHeartbeatInterval" : 100
-      }
-    }
-  }
-}
-----
-
-[cols="1,1,3,1,1,2",opts="header", stripes=none]
-|======
-|Property|Default|Description|Changeable|Requires Restart|Acceptable Values
-|livenessCheckInterval|200|Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLag)
-|maxAllowedLag|500|Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked.| Yes | No | 1 - inf (should be at least twice livenessCheckInterval)
-|nettyThreadsHeartbeatInterval|100|Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms).| Yes | Yes | 1 - inf
-|======
-
 === Code Deployment Configuration
 
 [source, json]
@@ -543,7 +518,12 @@ NOTE: Note that the property names are in `camelCase`.
       "metastoragePath" : "",
       "partitionsBasePath" : "",
       "partitionsLogPath" : "",
-      "properties":[]
+      "properties":[],
+      "criticalWorkers" : {
+        "livenessCheckInterval" : 200,
+        "maxAllowedLag" : 500,
+        "nettyThreadsHeartbeatInterval" : 100
+      }
     }
   }
 }
@@ -553,9 +533,13 @@ NOTE: Note that the property names are in `camelCase`.
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 
-|system.cmgPath| The path the cluster management group information is stored to. Only applicable if the node is part of CMG. By default, data is stored in `{IGNITE_HOME}/work/cmg`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
-|system.metastoragePath| The path the cluster meta information is stored to. Only applicable if the node is part of the metastorage group. By default, data is stored in `{IGNITE_HOME}/work/metastorage`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
-|system.partitionsBasePath| The path data partitions are saved to on the node. By default, partitions are stored in `{IGNITE_HOME}/work/partitions`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
-|system.partitionsLogPath| The path RAFT log the partitions are stored at. By default, this log is stored in `{system.partitionsBasePath}/log`. It is recommended to only change this path on an empty node. | | Yes | Yes | Valid absolute path.
-|system.properties| System properties used by the Ignite components.| | Yes | Yes | An array of properties.
+|cmgPath| The path the cluster management group information is stored to. Only applicable if the node is part of CMG. By default, data is stored in `{IGNITE_HOME}/work/cmg`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
+|metastoragePath| The path the cluster meta information is stored to. Only applicable if the node is part of the metastorage group. By default, data is stored in `{IGNITE_HOME}/work/metastorage`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
+|partitionsBasePath| The path data partitions are saved to on the node. By default, partitions are stored in `{IGNITE_HOME}/work/partitions`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
+|partitionsLogPath| The path RAFT log the partitions are stored at. By default, this log is stored in `{system.partitionsBasePath}/log`. It is recommended to only change this path on an empty node. | | Yes | Yes | Valid absolute path.
+|properties| System properties used by the Ignite components.| | Yes | Yes | An array of properties.
+|criticalWorkers.livenessCheckInterval|200|Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLag)
+|criticalWorkers.maxAllowedLag|500|Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked.| Yes | No | 1 - inf (should be at least twice livenessCheckInterval)
+|criticalWorkers.nettyThreadsHeartbeatInterval|100|Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms).| Yes | Yes | 1 - inf
+
 |======
