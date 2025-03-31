@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands.cluster.init;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
@@ -79,7 +80,7 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
     }
 
     private void awaitClusterInitialized() throws InterruptedException {
-        waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 30_000);
+        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 30_000));
     }
 
     private void assertRestIsUnavailable() {
