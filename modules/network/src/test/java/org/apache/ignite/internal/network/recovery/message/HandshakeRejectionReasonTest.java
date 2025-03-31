@@ -17,19 +17,51 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
+import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.EnumSet;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 
 class HandshakeRejectionReasonTest {
     @Test
     void logAsWarn() {
-        assertFalse(HandshakeRejectionReason.STOPPING.logAsWarn());
-        assertTrue(HandshakeRejectionReason.STALE_LAUNCH_ID.logAsWarn());
-        assertFalse(HandshakeRejectionReason.CLINCH.logAsWarn());
-        assertTrue(HandshakeRejectionReason.CLUSTER_ID_MISMATCH.logAsWarn());
-        assertTrue(HandshakeRejectionReason.PRODUCT_MISMATCH.logAsWarn());
-        assertTrue(HandshakeRejectionReason.VERSION_MISMATCH.logAsWarn());
+        var assertions = new EnumMembersAssertions();
+
+        assertions.assertFalseFor(STOPPING, HandshakeRejectionReason::logAsWarn);
+        assertions.assertTrueFor(STALE_LAUNCH_ID, HandshakeRejectionReason::logAsWarn);
+        assertions.assertFalseFor(CLINCH, HandshakeRejectionReason::logAsWarn);
+        assertions.assertTrueFor(CLUSTER_ID_MISMATCH, HandshakeRejectionReason::logAsWarn);
+        assertions.assertTrueFor(PRODUCT_MISMATCH, HandshakeRejectionReason::logAsWarn);
+        assertions.assertTrueFor(VERSION_MISMATCH, HandshakeRejectionReason::logAsWarn);
+
+        assertions.assertAllAsserted();
+    }
+    
+    private static class EnumMembersAssertions {
+        private final Set<HandshakeRejectionReason> assertedReasons = EnumSet.noneOf(HandshakeRejectionReason.class);
+        
+        private void assertTrueFor(HandshakeRejectionReason reason, Predicate<HandshakeRejectionReason> predicate) {
+            addAndAssert(reason, toAssert -> assertTrue(predicate.test(toAssert)));
+        }
+
+        private void assertFalseFor(HandshakeRejectionReason reason, Predicate<HandshakeRejectionReason> predicate) {
+            addAndAssert(reason, toAssert -> assertFalse(predicate.test(toAssert)));
+        }
+
+        private void addAndAssert(HandshakeRejectionReason reason, Consumer<HandshakeRejectionReason> assertion) {
+            assertion.accept(reason);
+            assertedReasons.add(reason);
+        }
+
+        void assertAllAsserted() {
+            assertThat(assertedReasons, containsInAnyOrder(values()));
+        }
     }
 }
