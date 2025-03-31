@@ -21,14 +21,12 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.O
 
 import java.util.List;
 import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.SqlWriter.FrameTypeEnum;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.Litmus;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
@@ -90,28 +88,8 @@ public class IgniteSqlZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-        if (key().getSimple().equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
-            writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.STORAGE_PROFILES));
-
-            SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
-            SqlCharStringLiteral literal = (SqlCharStringLiteral) value();
-            String profile = literal.getValueAs(String.class);
-            String[] profiles = profile.split(",");
-            int pos = 0;
-            for (String p : profiles) {
-                writer.print("'");
-                writer.print(p.strip());
-                writer.print("'");
-                ++pos;
-                if (pos != profiles.length) {
-                    writer.print(", ");
-                }
-            }
-            writer.endList(frame);
-        } else {
-            writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.valueOf(key.names.get(0))));
-            value.unparse(writer, leftPrec, rightPrec);
-        }
+        writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.valueOf(key.names.get(0))));
+        value.unparse(writer, leftPrec, rightPrec);
     }
 
     /** {@inheritDoc} */

@@ -201,10 +201,10 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
     }
 
     int createZone(String zoneName, int partitions, int replicas) {
-        return createZoneWithProfile(zoneName, partitions, replicas, DEFAULT_STORAGE_PROFILE);
+        return createZoneWithProfile(zoneName, partitions, replicas, new String[]{DEFAULT_STORAGE_PROFILE});
     }
 
-    int createZoneWithProfile(String zoneName, int partitions, int replicas, String profile) {
+    int createZoneWithProfile(String zoneName, int partitions, int replicas, String[] profile) {
         Node node = cluster.get(0);
 
         createZoneWithStorageProfile(

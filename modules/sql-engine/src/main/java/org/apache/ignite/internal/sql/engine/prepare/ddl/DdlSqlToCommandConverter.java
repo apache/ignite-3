@@ -21,7 +21,7 @@ import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.fillStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
@@ -186,8 +186,8 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleDown),
-                STORAGE_PROFILES, new DdlOptionInfo<>(String.class, this::checkEmptyString,
-                        (builder, params) -> builder.storageProfilesParams(parseStorageProfiles(params))),
+                STORAGE_PROFILES, new DdlOptionInfo<>(String[].class, null,
+                        (builder, params) -> builder.storageProfilesParams(fillStorageProfiles(params))),
                 CONSISTENCY_MODE, new DdlOptionInfo<>(String.class, this::checkEmptyString,
                         (builder, params) -> builder.consistencyModeParams(parseConsistencyMode(params)))
         ));
@@ -691,27 +691,26 @@ public class DdlSqlToCommandConverter {
         builder.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         builder.ifNotExists(createZoneNode.ifNotExists());
 
-        if (createZoneNode.createOptionList() == null && createZoneNode.storageProfiles() == null) {
-            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
-        }
-
         Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
         if (createZoneNode.createOptionList() != null) {
             for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
                 IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
+                if (option.key().getSimple().equals(STORAGE_PROFILES.name())) {
+                    continue;
+                }
+
                 updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
             }
         }
 
-        if (createZoneNode.storageProfiles() != null) {
-            updateStorageProfilesZoneOption(createZoneNode.storageProfiles(), remainingKnownOptions, zoneOptionInfos, ctx, builder);
-        }
+        DdlOptionInfo<CreateZoneCommandBuilder, ?> zoneOptionInfo = zoneOptionInfos.get(STORAGE_PROFILES);
 
-        if (remainingKnownOptions.contains(STORAGE_PROFILES.name())) {
-            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
-        }
+        assert zoneOptionInfo != null;
+
+        updateStorageProfileCommandOption("Zone", STORAGE_PROFILES, createZoneNode.storageProfiles(), zoneOptionInfo,
+                ctx.query(), builder);
 
         return builder.build();
     }
@@ -802,21 +801,6 @@ public class DdlSqlToCommandConverter {
         }
 
         return objId.getSimple();
-    }
-
-    private <S> void updateStorageProfilesZoneOption(
-            SqlNodeList profiles,
-            Set<String> remainingKnownOptions,
-            Map<ZoneOptionEnum, DdlOptionInfo<S, ?>> optionInfos,
-            PlanningContext ctx,
-            S target
-    ) {
-        remainingKnownOptions.remove(STORAGE_PROFILES.name());
-
-        DdlOptionInfo<S, ?> zoneOptionInfo = optionInfos.get(STORAGE_PROFILES);
-        assert zoneOptionInfo != null;
-
-        updateStorageProfileCommandOption("Zone", STORAGE_PROFILES, profiles, zoneOptionInfo, ctx.query(), target);
     }
 
     private <S> void updateZoneOption(
@@ -917,15 +901,16 @@ public class DdlSqlToCommandConverter {
     }
 
     private static <T, S> T extractProfiles(SqlNodeList values) {
-        List<String> profileNames = new ArrayList<>((values).getList().size());
+        String[] profileNames = new String[values.getList().size()];
 
         SqlCharStringLiteral literal;
+        int pos = 0;
         for (SqlNode node : values) {
             literal = (SqlCharStringLiteral) node;
-            profileNames.add(literal.getValueAs(String.class));
+            profileNames[pos++] = literal.getValueAs(String.class).trim();
         }
 
-        return (T) String.join(",", profileNames);
+        return (T) profileNames;
     }
 
     private static <S, T> void validateValue(String sqlObjName, Object optId, DdlOptionInfo<S, T> optInfo, String query, T expectedValue) {

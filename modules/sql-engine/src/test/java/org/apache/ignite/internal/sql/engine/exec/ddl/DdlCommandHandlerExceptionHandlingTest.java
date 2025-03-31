@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.fillStorageProfiles;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -114,7 +114,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(ZONE_NAME)
-                .storageProfilesParams(parseStorageProfiles(DEFAULT_STORAGE_PROFILE))
+                .storageProfilesParams(fillStorageProfiles(new String[] {DEFAULT_STORAGE_PROFILE}))
                 .ifNotExists(ifNotExists)
                 .build();
 

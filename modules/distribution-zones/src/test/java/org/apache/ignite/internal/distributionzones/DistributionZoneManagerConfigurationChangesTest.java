@@ -147,6 +147,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
     }
 
     private void createZone(String zoneName, ConsistencyMode consistencyMode) {
-        createZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, consistencyMode, DEFAULT_STORAGE_PROFILE);
+        createZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, consistencyMode, new String[]{DEFAULT_STORAGE_PROFILE});
     }
 }

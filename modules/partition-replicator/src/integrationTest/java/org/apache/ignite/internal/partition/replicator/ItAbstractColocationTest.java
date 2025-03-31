@@ -258,7 +258,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 zoneName,
                 partitions,
                 replicas,
-                testStorageProfile ? DEFAULT_TEST_PROFILE_NAME : DEFAULT_STORAGE_PROFILE
+                testStorageProfile ? new String[]{DEFAULT_TEST_PROFILE_NAME} : new String[]{DEFAULT_STORAGE_PROFILE}
         );
 
         Integer zoneId = getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());

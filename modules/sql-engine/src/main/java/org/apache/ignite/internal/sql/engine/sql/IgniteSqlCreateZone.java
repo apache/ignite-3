@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.OPTIONS_MAPPING;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlCreate;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
@@ -32,7 +36,7 @@ import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.SqlWriter.FrameTypeEnum;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -65,18 +69,57 @@ public class IgniteSqlCreateZone extends SqlCreate {
     private final SqlNodeList storageProfiles;
 
     /** Creates a SqlCreateZone. */
+    public static IgniteSqlCreateZone create(
+            SqlParserPos pos,
+            boolean ifNotExists,
+            SqlIdentifier name,
+            SqlNodeList createOptionList
+    ) {
+        SqlNodeList profiles = null;
+
+        for (SqlNode c : createOptionList) {
+            IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
+            if (opt.key().getSimple().equals(STORAGE_PROFILES.name())) {
+                if (profiles != null) {
+                    throw new SqlException(STMT_VALIDATION_ERR,
+                            format("Duplicate zone option has been specified [option={}]", STORAGE_PROFILES));
+                }
+                profiles = SqlNodeList.of(opt.getParserPosition(), new ArrayList<>());
+                assert opt.value() instanceof SqlCharStringLiteral : opt.value();
+                String profilesStr = ((SqlCharStringLiteral) opt.value()).getValueAs(String.class);
+                String[] profilesStrings = profilesStr.split("\\s*,\\s*");
+
+                for (String p : profilesStrings) {
+                    if (p.isBlank()) {
+                        throw new SqlException(STMT_VALIDATION_ERR, "Empty character literal is not allowed in this context");
+                    }
+                    profiles.add(SqlLiteral.createCharString(p, null, opt.getParserPosition()));
+                }
+
+                break;
+            }
+        }
+
+        if (profiles == null || profiles.isEmpty()) {
+            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
+        }
+
+        return new IgniteSqlCreateZone(pos, ifNotExists, name, createOptionList, profiles);
+    }
+
+    /** Creates a SqlCreateZone. */
     public IgniteSqlCreateZone(
             SqlParserPos pos,
             boolean ifNotExists,
             SqlIdentifier name,
             @Nullable SqlNodeList createOptionList,
-            @Nullable SqlNodeList storageProfiles
+            SqlNodeList storageProfiles
     ) {
         super(new Operator(ifNotExists), pos, false, ifNotExists);
 
         this.name = Objects.requireNonNull(name, "name");
         this.createOptionList = createOptionList;
-        this.storageProfiles = storageProfiles;
+        this.storageProfiles = Objects.requireNonNull(storageProfiles, "storageProfiles");
     }
 
     /** {@inheritDoc} */
@@ -103,48 +146,27 @@ public class IgniteSqlCreateZone extends SqlCreate {
 
         name.unparse(writer, leftPrec, rightPrec);
 
-        IgniteSqlZoneOption storageProfilesFromWithSyntax = null;
-
-        if (createOptionList != null) {
-            // probably old WITH syntax
-            if (storageProfiles == null) {
-                for (SqlNode c : createOptionList) {
-                    IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
-                    if (opt.key().getSimple().equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
-                        storageProfilesFromWithSyntax = opt;
-                        break;
-                    }
+        if (createOptionList != null && createOptionList.size() > 1) {
+            SqlWriter.Frame frame = writer.startList("(", ")");
+            for (SqlNode c : createOptionList) {
+                IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
+                if (opt.key().getSimple().equals(STORAGE_PROFILES.name())) {
+                    continue;
                 }
-            }
-
-            if (storageProfilesFromWithSyntax == null || createOptionList.size() > 1) {
-                SqlWriter.Frame frame = writer.startList("(", ")");
-                for (SqlNode c : createOptionList) {
-                    IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
-                    if (opt.key().getSimple().equals(ZoneOptionEnum.STORAGE_PROFILES.name())) {
-                        continue;
-                    }
-                    writer.sep(",");
-                    c.unparse(writer, 0, 0);
-                }
-                writer.endList(frame);
-            }
-        }
-
-        if (storageProfilesFromWithSyntax != null) {
-            storageProfilesFromWithSyntax.unparse(writer, leftPrec, rightPrec);
-        }
-
-        if (storageProfiles != null) {
-            writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.STORAGE_PROFILES));
-
-            SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
-            for (SqlNode c : storageProfiles) {
                 writer.sep(",");
                 c.unparse(writer, 0, 0);
             }
             writer.endList(frame);
         }
+
+        writer.keyword("STORAGE PROFILES");
+
+        SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
+        for (SqlNode c : storageProfiles) {
+            writer.sep(",");
+            c.unparse(writer, 0, 0);
+        }
+        writer.endList(frame);
     }
 
     /**
@@ -157,7 +179,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
     /**
      * Get list of the specified options to create distribution zone with.
      */
-    public SqlNodeList createOptionList() {
+    public @Nullable SqlNodeList createOptionList() {
         return createOptionList;
     }
 

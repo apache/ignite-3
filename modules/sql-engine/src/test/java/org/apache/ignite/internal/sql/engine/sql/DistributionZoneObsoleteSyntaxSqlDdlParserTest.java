@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests to verify parsing of the DDL "ZONE" commands contains WITH syntax.
  */
-public class DistributionZoneWithKeywordSyntaxSqlDdlParserTest extends AbstractParserTest {
+public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractParserTest {
     /**
      * Parse simple CREATE ZONE statement.
      */

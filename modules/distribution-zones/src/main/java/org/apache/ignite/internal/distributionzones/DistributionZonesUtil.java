@@ -519,15 +519,13 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Parse string representation of storage profiles.
+     * Fill storage profiles.
      *
-     * @param storageProfiles String representation of storage profiles.
+     * @param storageProfiles Strings representation of storage profiles.
      * @return List of storage profile params
      */
-    public static List<StorageProfileParams> parseStorageProfiles(String storageProfiles) {
-        List<String> items = Arrays.asList(storageProfiles.split("\\s*,\\s*"));
-
-        return items.stream()
+    public static List<StorageProfileParams> fillStorageProfiles(String[] storageProfiles) {
+        return Arrays.stream(storageProfiles)
                 .map(p -> StorageProfileParams.builder().storageProfile(p).build())
                 .collect(toList());
     }

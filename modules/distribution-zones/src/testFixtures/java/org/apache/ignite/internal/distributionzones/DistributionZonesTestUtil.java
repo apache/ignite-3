@@ -23,8 +23,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.fillStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
@@ -92,7 +92,7 @@ public class DistributionZonesTestUtil {
             String zoneName,
             int partitions,
             int replicas,
-            String storageProfile
+            String[] storageProfile
     ) {
         createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, storageProfile);
     }
@@ -106,7 +106,7 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null,  DEFAULT_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null,  new String[] {DEFAULT_STORAGE_PROFILE});
     }
 
     /**
@@ -130,7 +130,7 @@ public class DistributionZonesTestUtil {
                 null,
                 null,
                 consistencyMode,
-                DEFAULT_STORAGE_PROFILE
+                new String[] {DEFAULT_STORAGE_PROFILE}
         );
     }
 
@@ -161,7 +161,7 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleDown,
                 filter,
                 null,
-                DEFAULT_STORAGE_PROFILE
+                new String[] {DEFAULT_STORAGE_PROFILE}
         );
     }
 
@@ -183,7 +183,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            String storageProfiles
+            String[] storageProfiles
     ) {
         createZone(
                 catalogManager,
@@ -218,7 +218,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
             @Nullable ConsistencyMode consistencyMode,
-            String storageProfiles
+            String[] storageProfiles
     ) {
         createZone(
                 catalogManager,
@@ -262,7 +262,7 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleDown,
                 null,
                 consistencyMode,
-                DEFAULT_STORAGE_PROFILE
+                new String[] {DEFAULT_STORAGE_PROFILE}
         );
     }
 
@@ -275,7 +275,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
             @Nullable ConsistencyMode consistencyMode,
-            String storageProfiles
+            String[] storageProfiles
     ) {
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder().zoneName(zoneName);
 
@@ -305,7 +305,7 @@ public class DistributionZonesTestUtil {
 
         assertNotNull(storageProfiles);
 
-        builder.storageProfilesParams(parseStorageProfiles(storageProfiles));
+        builder.storageProfilesParams(fillStorageProfiles(storageProfiles));
 
         assertThat(catalogManager.execute(builder.build()), willCompleteSuccessfully());
     }

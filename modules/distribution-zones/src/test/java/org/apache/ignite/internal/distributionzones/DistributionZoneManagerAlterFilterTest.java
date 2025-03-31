@@ -266,7 +266,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
             alterZone(zoneName, scaleUpTimer, scaleDownTimer, FILTER);
         } else {
             zoneName = ZONE_NAME;
-            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER, consistencyMode, DEFAULT_STORAGE_PROFILE);
+            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER, consistencyMode, new String[]{DEFAULT_STORAGE_PROFILE});
         }
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
