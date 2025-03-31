@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ThreadIdTest extends BaseIgniteAbstractTest implements ThreadId.OnError {
     private ThreadId id;
@@ -64,7 +65,7 @@ public class ThreadIdTest extends BaseIgniteAbstractTest implements ThreadId.OnE
 
             this.id.unlock();
 
-            latch.await(10, TimeUnit.SECONDS);
+            assertTrue(latch.await(10, TimeUnit.SECONDS));
         } finally {
             t.join();
         }
