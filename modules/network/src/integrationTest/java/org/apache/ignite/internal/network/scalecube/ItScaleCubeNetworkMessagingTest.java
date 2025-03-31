@@ -1397,7 +1397,7 @@ class ItScaleCubeNetworkMessagingTest {
         void startAwait() throws InterruptedException {
             assertThat(startAsync(new ComponentContext(), members), willCompleteSuccessfully());
 
-            assertFalse(waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3)));
+            assertTrue(waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3)));
         }
 
         private boolean allMembersSeeEachOther() {
