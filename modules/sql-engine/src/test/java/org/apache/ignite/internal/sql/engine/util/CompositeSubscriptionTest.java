@@ -218,6 +218,7 @@ public class CompositeSubscriptionTest {
 
         // Ensures that onComplete has (not) been called.
         int expCnt = params.offset + params.requested >= params.total ? 1 : 0;
+        // No assertion here on purpose.
         IgniteTestUtils.waitForCondition(() -> lsnr.onCompleteCntr.get() == expCnt, 10_000);
         Assertions.assertEquals(expCnt, lsnr.onCompleteCntr.get(), "params=" + params);
 

@@ -662,6 +662,7 @@ class ItScaleCubeNetworkMessagingTest {
             assertThat(invokeViaOldChannel, willSucceedIn(3, SECONDS));
 
             List<String> expectedPayloads = List.of("trailblazer", "first", "second");
+            // No assertion here on purpose.
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
@@ -779,6 +780,7 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(sendViaNewChannel, willSucceedIn(3, SECONDS));
 
         List<String> expectedPayloads = List.of("trailblazer", "first", "second");
+        // No assertion here on purpose.
         waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
         assertThat(receivedPayloads, equalTo(expectedPayloads));
 
@@ -859,6 +861,7 @@ class ItScaleCubeNetworkMessagingTest {
             assertThat(invokeViaNewChannel, willCompleteSuccessfully());
 
             List<String> expectedPayloads = List.of("trailblazer", "first", "second", "third", "fourth");
+            // No assertion here on purpose.
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
@@ -1394,9 +1397,7 @@ class ItScaleCubeNetworkMessagingTest {
         void startAwait() throws InterruptedException {
             assertThat(startAsync(new ComponentContext(), members), willCompleteSuccessfully());
 
-            if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
-                throw new AssertionError();
-            }
+            assertFalse(waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3)));
         }
 
         private boolean allMembersSeeEachOther() {

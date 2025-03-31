@@ -479,7 +479,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         nodes.forEach(node -> assertThat("Watches were not deployed", node.metaStorageManager.deployWatches(), willCompleteSuccessfully()));
 
-        waitForCondition(() -> seenRevisionsAndTimestamps.size() == numNodes * 2, TimeUnit.SECONDS.toMillis(10));
+        assertTrue(waitForCondition(() -> seenRevisionsAndTimestamps.size() == numNodes * 2, TimeUnit.SECONDS.toMillis(10)));
 
         // Each revision must be accompanied with the same timestamp on each node.
         Set<RevisionAndTimestamp> revsAndTssSet = new HashSet<>(seenRevisionsAndTimestamps);

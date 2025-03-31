@@ -184,6 +184,7 @@ public class DistributionZonesSchedulersTest {
 
         latch.countDown();
 
+        // No assertion here on purpose.
         waitForCondition(() -> counter.get() == 10, 3000);
         assertEquals(10, counter.get(), "Not all tasks were executed.");
 

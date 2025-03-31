@@ -1059,15 +1059,15 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         newTopology.add(NODE_0);
         long topologyRevisionOneAdded = putNodeInLogicalTopologyAndGetRevision(NODE_0, newTopology);
-        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevisionOneAdded, TIMEOUT);
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevisionOneAdded, TIMEOUT));
 
         newTopology.add(NODE_1);
         long topologyRevisionTwoAdded = putNodeInLogicalTopologyAndGetRevision(NODE_1, newTopology);
-        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevisionTwoAdded, TIMEOUT);
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevisionTwoAdded, TIMEOUT));
 
         newTopology.remove(NODE_1);
         long topologyRevisionOneRemoved = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), newTopology);
-        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevisionOneRemoved, TIMEOUT);
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevisionOneRemoved, TIMEOUT));
 
         int zoneId = getZoneId(ZONE_NAME);
 
@@ -1096,7 +1096,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         newTopology.add(NODE_0);
         long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_0, newTopology);
-        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, TIMEOUT);
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, TIMEOUT));
 
         // topologyRevision is at least 2 as there have been other revision updates.
         assertTrue(topologyRevision > 2);

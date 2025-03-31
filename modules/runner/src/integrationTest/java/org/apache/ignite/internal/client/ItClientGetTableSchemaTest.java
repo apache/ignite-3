@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -46,7 +47,7 @@ class ItClientGetTableSchemaTest extends ClusterPerTestIntegrationTest {
                 IgniteClient client1 = clientConnectedToNode(1)
         ) {
             executeUpdate("CREATE TABLE " + TABLE_NAME + " (ID INT PRIMARY KEY)", client0.sql());
-            waitForCondition(() -> client1.tables().table(TABLE_NAME) != null, SECONDS.toMillis(10));
+            assertTrue(waitForCondition(() -> client1.tables().table(TABLE_NAME) != null, SECONDS.toMillis(10)));
 
             ClientTable tableViaClient1 = (ClientTable) client1.tables().table(TABLE_NAME);
 

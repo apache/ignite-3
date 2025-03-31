@@ -51,8 +51,8 @@ public class ItHighAvailablePartitionsRecoveryNoStaleRecoveriesTest extends Abst
 
         long updateRevision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node0, HA_ZONE_NAME, Set.of(lastStoppedNode));
 
-        waitForCondition(() -> node0.metaStorageManager().appliedRevision() >= updateRevision, 10_000);
-        waitForCondition(() -> node1.metaStorageManager().appliedRevision() >= updateRevision, 10_000);
+        assertTrue(waitForCondition(() -> node0.metaStorageManager().appliedRevision() >= updateRevision, 10_000));
+        assertTrue(waitForCondition(() -> node1.metaStorageManager().appliedRevision() >= updateRevision, 10_000));
 
         assertTrue(waitForCondition(() -> node0.disasterRecoveryManager().ongoingOperationsById().isEmpty(), 10_000));
         assertTrue(waitForCondition(() -> node1.disasterRecoveryManager().ongoingOperationsById().isEmpty(), 10_000));
