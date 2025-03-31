@@ -357,6 +357,8 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
                         // Terminal state. No need to release guard.
                         return;
                     }
+                    default:
+                        throw new IllegalStateException("Should never get here.");
                 }
 
                 this.emitted = emitted;
