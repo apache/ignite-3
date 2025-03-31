@@ -284,6 +284,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
@@ -609,7 +610,8 @@ public class IgniteImpl implements Ignite {
                 clusterIdService,
                 criticalWorkerRegistry,
                 failureManager,
-                ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader)
+                ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader),
+                new DefaultIgniteProductVersionSource()
         );
 
         clock = new HybridClockImpl();

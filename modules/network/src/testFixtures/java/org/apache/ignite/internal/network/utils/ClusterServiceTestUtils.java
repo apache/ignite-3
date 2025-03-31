@@ -56,6 +56,8 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -131,9 +133,32 @@ public class ClusterServiceTestUtils {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier
     ) {
+        return clusterService(testInfo, port, nodeFinder, staleIds, clusterIdSupplier, new DefaultIgniteProductVersionSource());
+    }
+
+    /**
+     * Creates a cluster service and required node configuration manager beneath it. Populates node configuration with specified port.
+     * Manages configuration manager lifecycle: on cluster service start starts node configuration manager, on cluster service stop - stops
+     * node configuration manager.
+     *
+     * @param testInfo                 Test info.
+     * @param port                     Local port.
+     * @param nodeFinder               Node finder.
+     * @param staleIds                 Used to track stale launch IDs.
+     * @param clusterIdSupplier Supplier of cluster ID.
+     * @param productVersionSource Product version source.
+     */
+    public static ClusterService clusterService(
+            TestInfo testInfo,
+            int port,
+            NodeFinder nodeFinder,
+            StaleIds staleIds,
+            ClusterIdSupplier clusterIdSupplier,
+            IgniteProductVersionSource productVersionSource
+    ) {
         String nodeName = testNodeName(testInfo, port);
 
-        return clusterService(nodeName, port, nodeFinder, staleIds, clusterIdSupplier);
+        return clusterService(nodeName, port, nodeFinder, staleIds, clusterIdSupplier, productVersionSource);
     }
 
     /**
@@ -165,6 +190,28 @@ public class ClusterServiceTestUtils {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier
     ) {
+        return clusterService(nodeName, port, nodeFinder, staleIds, clusterIdSupplier, new DefaultIgniteProductVersionSource());
+    }
+
+    /**
+     * Creates a cluster service with predefined name.
+     *
+     * @param nodeName Node name.
+     * @param port Local port.
+     * @param nodeFinder Node finder.
+     * @param staleIds Used to track stale launch IDs.
+     * @param clusterIdSupplier Supplier of cluster ID.
+     * @param productVersionSource Product version source.
+     * @return Cluster service instance.
+     */
+    private static ClusterService clusterService(
+            String nodeName,
+            int port,
+            NodeFinder nodeFinder,
+            StaleIds staleIds,
+            ClusterIdSupplier clusterIdSupplier,
+            IgniteProductVersionSource productVersionSource
+    ) {
         ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),
                 List.of(NetworkExtensionConfigurationSchema.class),
@@ -193,7 +240,8 @@ public class ClusterServiceTestUtils {
                 clusterIdSupplier,
                 new NoOpCriticalWorkerRegistry(),
                 new FailureManager(new NoOpFailureHandler()),
-                defaultChannelTypeRegistry()
+                defaultChannelTypeRegistry(),
+                productVersionSource
         );
 
         return new AbstractClusterService(nodeName, clusterSvc.topologyService(), clusterSvc.messagingService(), serializationRegistry) {
