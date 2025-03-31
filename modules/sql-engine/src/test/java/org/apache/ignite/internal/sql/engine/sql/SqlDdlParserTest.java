@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
@@ -168,17 +169,114 @@ public class SqlDdlParserTest extends AbstractParserTest {
         );
     }
 
-    private Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
+    /**
+     * Parsing of CREATE TABLE with a expression in DEFAULT.
+     */
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "1+2; 1 + 2",
+            "a=100; \"A\" = 100",
+            "RANDOM(); \"RANDOM\"()",
+            "LENGTH('abc'); \"LENGTH\"('abc')",
+            "LENGTH('abc') + 1; \"LENGTH\"('abc') + 1",
+            "42 +LENGTH('abc') + 1; 42 + \"LENGTH\"('abc') + 1",
+            "LENGTH(CAST(1234 AS VARCHAR)); \"LENGTH\"(CAST(1234 AS VARCHAR))",
+            "LENGTH(1234::VARCHAR); \"LENGTH\"(1234 :: VARCHAR)",
+    })
+    public void createTableWithDefaultExpression(String expr, String normExpr) {
+        {
+            SqlNode node = parse(format("CREATE TABLE t(id INT DEFAULT {} PRIMARY KEY, val INT)", expr));
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+            // Use a SQL string in error message because matchers are not good at producing a meaningful error
+            // when an object does not have its own toString method
+            assertThat(unparse(createTable.columnList()), createTable.columnList(), hasColumnWithDefaultExpr("ID",
+                    SqlBasicCall.class,
+                    "Unexpected expression",
+                    (dflt) -> normExpr.equals(unparse(dflt)))
+            );
+            // Output expression is parenthesized by the unparse
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER DEFAULT (" + normExpr + "), "
+                    + "\"VAL\" INTEGER"
+                    + ")"
+            );
+        }
+
+        {
+            SqlNode node = parse(format("CREATE TABLE t(id INT PRIMARY KEY, val INT DEFAULT {})", expr));
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(unparse(createTable.columnList()), createTable.columnList(), hasColumnWithDefaultExpr("VAL",
+                    SqlBasicCall.class,
+                    "Unexpected expression",
+                    (dflt) -> normExpr.equals(unparse(dflt)))
+            );
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER, "
+                    + "\"VAL\" INTEGER DEFAULT (" + normExpr + ")"
+                    + ")"
+            );
+        }
+    }
+
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "CREATE TABLE t(id int DEFAULT (SELECT count(col) FROM t), val int); Query expression encountered in illegal context",
+            "CREATE TABLE t(id int DEFAULT (SELECT 100), val int); Query expression encountered in illegal context",
+            "CREATE TABLE t(id int DEFAULT (UPDATE t SET col=1) PRIMARY KEY, val int); Incorrect syntax near the keyword 'UPDATE'",
+            "CREATE TABLE t(id int DEFAULT (INSERT INTO t VALUES(1)), val int); Incorrect syntax near the keyword 'INSERT'",
+            "CREATE TABLE t(id int DEFAULT (DELETE FROM t WHERE col = 1), val int); Incorrect syntax near the keyword 'DELETE'",
+
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (SELECT count(*) FROM xyz); Query expression encountered in illegal context",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (UPDATE t SET col=1); Incorrect syntax near the keyword 'UPDATE'",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (INSERT INTO t VALUES(1)); Incorrect syntax near the keyword 'INSERT",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (DELETE FROM t WHERE col = 1); Incorrect syntax near the keyword 'DELETE'",
+
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (SELECT count(*) FROM xyz); Query expression encountered in illegal context",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (SELECT 100); Query expression encountered in illegal context",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (UPDATE t SET col=1); Incorrect syntax near the keyword 'UPDATE'",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (INSERT INTO t VALUES(1)); Incorrect syntax near the keyword 'INSERT",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (DELETE FROM t WHERE col = 1); Incorrect syntax near the keyword 'DELETE'",
+    })
+    public void rejectNonExpressionsInDefault(String stmt, String error) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                error,
+                () -> parse(stmt));
+    }
+
+    private <T extends SqlLiteral>  Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
             String columnName,
-            Class<? extends SqlLiteral> literalType,
+            Class<T> nodeType,
             String literalValue
     ) {
+        return hasColumnWithDefaultExpr(
+                columnName,
+                nodeType,
+                format("Column with {} as default: columnName={}", nodeType.getCanonicalName(), columnName),
+                (lit) -> literalValue.equals(lit.toValue())
+        );
+    }
+
+    private static <T extends SqlNode> Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefaultExpr(
+            String columnName,
+            Class<T> nodeType,
+            String message,
+            Predicate<T> valCheck
+    ) {
         return hasItem(ofTypeMatching(
-                "Column with literal as default: columnName=" + columnName,
+                message,
                 SqlColumnDeclaration.class,
                 col -> columnName.equals(col.name.getSimple())
-                        && literalType.isInstance(col.expression)
-                        && literalValue.equals(((SqlLiteral) col.expression).toValue())
+                        && nodeType.isInstance(col.expression)
+                        && valCheck.test(nodeType.cast(col.expression))
         ));
     }
 

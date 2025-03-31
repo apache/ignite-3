@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -108,8 +109,6 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
         if (table.isPrimaryKeyColumn(origin.name())) {
             validatePkColumnChange(origin);
-        } else {
-            validateValueColumnChange(origin);
         }
 
         validateColumnChange(origin);
@@ -155,19 +154,6 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         if (nullable != null && nullable) {
             throw new CatalogValidationException("Dropping NOT NULL constraint on key column is not allowed.");
         }
-        if (deferredDefault != null) {
-            DefaultValue defaultValue = deferredDefault.derive(origin.type());
-
-            CatalogUtils.ensureSupportedDefault(columnName, origin.type(), defaultValue);
-        }
-    }
-
-    private void validateValueColumnChange(CatalogTableColumnDescriptor origin) {
-        if (deferredDefault != null) {
-            DefaultValue defaultValue = deferredDefault.derive(origin.type());
-
-            CatalogUtils.ensureNonFunctionalDefault(columnName, defaultValue);
-        }
     }
 
     private void validateColumnChange(CatalogTableColumnDescriptor origin) {
@@ -175,6 +161,14 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
         if (nullable != null && !nullable && origin.nullable()) {
             throw new CatalogValidationException("Adding NOT NULL constraint is not allowed.");
+        }
+
+        if (deferredDefault != null) {
+            DefaultValue defaultValue = deferredDefault.derive(origin.type());
+
+            if (defaultValue.type() != Type.CONSTANT) {
+                throw new CatalogValidationException("Non-constant default cannot be assigned after table creation.");
+            }
         }
     }
 
