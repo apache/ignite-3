@@ -410,7 +410,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         synchronized (tableProcessorsStateLock) {
             PartitionSnapshotInfo snapshotInfo = snapshotInfo();
 
-            // This method is called on node recovery on order to add existing table processors to a zone being started. During recovery
+            // This method is called on node recovery in order to add existing table processors to a zone being started. During recovery
             // we may encounter "empty" storages, i.e. storages that were created when the node was running but didn't have the chance
             // to durably flush their data on disk. In this case we use the last saved Raft snapshot information to determine if a given
             // storage has ever participated in a Raft snapshot.
