@@ -24,12 +24,13 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.SQL_CONFORMANT_DATETIME_FORMATTER;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -45,7 +46,8 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     private static final LocalDate INITIAL_DATE = LocalDate.of(1552, 10, 1);
     private static final LocalTime INITIAL_TIME = LocalTime.of(0, 0, 0);
     private static final LocalDateTime INITIAL_TS = LocalDateTime.of(1552, 10, 1, 0, 0);
-    private static final TimeZone tz = TimeZone.getTimeZone("UTC");
+    private static final Instant INITIAL_TS_LTZ = INITIAL_TS.toInstant(ZoneOffset.UTC);
+
     private static final Map<String, String[]> All_INDEXES = Map.of(
             "DATE1", new String[]{"S_ASC_IDX_DATE1", "S_DESC_IDX_DATE1", "HASH_IDX_DATE1"},
             "TIME1", new String[]{"S_ASC_IDX_TIME1", "S_DESC_IDX_TIME1", "HASH_IDX_TIME1"},
@@ -93,8 +95,6 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 .toString();
 
         sqlScript(query);
-
-        TimeZone.setDefault(tz);
 
         fillData("DATE1");
         fillData("DATE2");
@@ -149,14 +149,12 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 .returns(result)
                 .check();
 
-        if (SORTED_INDEXES.containsKey(table)) {
-            for (String idx : SORTED_INDEXES.get(table)) {
-                assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
-                        idx, table, predicate))
-                        .matches(containsIndexScan("PUBLIC", table, idx))
-                        .returns(result)
-                        .check();
-            }
+        for (String idx : SORTED_INDEXES.get(table)) {
+            assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
+                    idx, table, predicate))
+                    .matches(containsIndexScan("PUBLIC", table, idx))
+                    .returns(result)
+                    .check();
         }
     }
 
@@ -175,18 +173,16 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
 
         checker.check();
 
-        if (SORTED_INDEXES.containsKey(table)) {
-            for (String idx : SORTED_INDEXES.get(table)) {
-                checker = assertQuery(
-                        format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {}", idx, table, predicate))
-                        .matches(containsIndexScan("PUBLIC", table, idx));
+        for (String idx : SORTED_INDEXES.get(table)) {
+            checker = assertQuery(
+                    format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {}", idx, table, predicate))
+                    .matches(containsIndexScan("PUBLIC", table, idx));
 
-                for (Object res : result) {
-                    checker.returns(res);
-                }
-
-                checker.check();
+            for (Object res : result) {
+                checker.returns(res);
             }
+
+            checker.check();
         }
     }
 
@@ -222,14 +218,14 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                                 INITIAL_TS.plusSeconds(2)
                         }),
 
-                Arguments.of("TIMESTAMPTZ1", " BETWEEN TIMESTAMP '"
+                Arguments.of("TIMESTAMPTZ1", " BETWEEN TIMESTAMP WITH LOCAL TIME ZONE '"
                         + INITIAL_TS.plusSeconds(1).format(SQL_CONFORMANT_DATETIME_FORMATTER)
-                        + "' AND TIMESTAMP '"
+                        + "' AND TIMESTAMP WITH LOCAL TIME ZONE '"
                         + INITIAL_TS.plusSeconds(2).format(SQL_CONFORMANT_DATETIME_FORMATTER)
                         + "'",
                         new Object[] {
-                                INITIAL_TS.plusSeconds(1).atZone(tz.toZoneId()).toInstant(),
-                                INITIAL_TS.plusSeconds(2).atZone(tz.toZoneId()).toInstant()
+                                INITIAL_TS_LTZ.plusSeconds(1),
+                                INITIAL_TS_LTZ.plusSeconds(2)
                         })
         );
     }
@@ -250,18 +246,19 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                         + "'", INITIAL_TS.plusSeconds(9)),
                 Arguments.of("TIMESTAMP1", " >= TIMESTAMP '" + INITIAL_TS.plusSeconds(9).format(SQL_CONFORMANT_DATETIME_FORMATTER)
                         + "'", INITIAL_TS.plusSeconds(9)),
+
                 Arguments.of("TIMESTAMP1", " < TIMESTAMP '" + INITIAL_TS.plusSeconds(1).format(SQL_CONFORMANT_DATETIME_FORMATTER)
                         + "'", INITIAL_TS),
                 Arguments.of("TIMESTAMP1", " <= TIMESTAMP '" + INITIAL_TS.format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS),
 
-                Arguments.of("TIMESTAMPTZ1", " > TIMESTAMP '" + INITIAL_TS.plusSeconds(8).format(SQL_CONFORMANT_DATETIME_FORMATTER)
-                        + "'", INITIAL_TS.plusSeconds(9).atZone(tz.toZoneId()).toInstant()),
-                Arguments.of("TIMESTAMPTZ1", " >= TIMESTAMP '" + INITIAL_TS.plusSeconds(9).format(SQL_CONFORMANT_DATETIME_FORMATTER)
-                        + "'", INITIAL_TS.plusSeconds(9).atZone(tz.toZoneId()).toInstant()),
-                Arguments.of("TIMESTAMPTZ1", " < TIMESTAMP '" + INITIAL_TS.plusSeconds(1).format(SQL_CONFORMANT_DATETIME_FORMATTER)
-                        + "'", INITIAL_TS.atZone(tz.toZoneId()).toInstant()),
-                Arguments.of("TIMESTAMPTZ1", " <= TIMESTAMP '" + INITIAL_TS.format(SQL_CONFORMANT_DATETIME_FORMATTER)
-                        + "'", INITIAL_TS.atZone(tz.toZoneId()).toInstant())
+                Arguments.of("TIMESTAMPTZ1", " > TIMESTAMP WITH LOCAL TIME ZONE '"
+                        + INITIAL_TS.plusSeconds(8).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS_LTZ.plusSeconds(9)),
+                Arguments.of("TIMESTAMPTZ1", " >= TIMESTAMP WITH LOCAL TIME ZONE '"
+                        + INITIAL_TS.plusSeconds(9).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS_LTZ.plusSeconds(9)),
+                Arguments.of("TIMESTAMPTZ1", " < TIMESTAMP WITH LOCAL TIME ZONE '"
+                        + INITIAL_TS.plusSeconds(1).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS_LTZ),
+                Arguments.of("TIMESTAMPTZ1", " <= TIMESTAMP WITH LOCAL TIME ZONE '"
+                        + INITIAL_TS.format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS_LTZ)
         );
     }
 
@@ -278,10 +275,10 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 Arguments.of("TIMESTAMP2", "TIMESTAMP '" + INITIAL_TS.plusSeconds(5).format(SQL_CONFORMANT_DATETIME_FORMATTER)
                         + "'", INITIAL_TS.plusSeconds(5)),
 
-                Arguments.of("TIMESTAMPTZ1", "TIMESTAMP '" + INITIAL_TS.plusSeconds(5).format(SQL_CONFORMANT_DATETIME_FORMATTER)
-                        + "'", INITIAL_TS.plusSeconds(5).atZone(tz.toZoneId()).toInstant()),
-                Arguments.of("TIMESTAMPTZ2", "TIMESTAMP '" + INITIAL_TS.plusSeconds(5).format(SQL_CONFORMANT_DATETIME_FORMATTER)
-                        + "'", INITIAL_TS.plusSeconds(5).atZone(tz.toZoneId()).toInstant())
+                Arguments.of("TIMESTAMPTZ1", "TIMESTAMP WITH LOCAL TIME ZONE '"
+                        + INITIAL_TS.plusSeconds(5).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS_LTZ.plusSeconds(5)),
+                Arguments.of("TIMESTAMPTZ2", "TIMESTAMP WITH LOCAL TIME ZONE '"
+                        + INITIAL_TS.plusSeconds(5).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS_LTZ.plusSeconds(5))
         );
     }
 
@@ -297,9 +294,11 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 break;
             case "TIMESTAMP1":
             case "TIMESTAMP2":
+                fill(table, INITIAL_TS::plusSeconds);
+                break;
             case "TIMESTAMPTZ1":
             case "TIMESTAMPTZ2":
-                fill(table, INITIAL_TS::plusSeconds);
+                fill(table, INITIAL_TS_LTZ::plusSeconds);
                 break;
             default:
                 throw new IllegalArgumentException("Undefined table: " + table);
