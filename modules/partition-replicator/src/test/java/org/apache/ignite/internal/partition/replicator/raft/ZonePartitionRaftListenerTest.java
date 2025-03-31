@@ -348,7 +348,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         // Adding a table processor that participated in the snapshot.
         listener.addTableProcessorOnRecovery(42, tableProcessor2);
-        // Adding a table processor that did not in the snapshot.
+        // Adding a table processor that did not participate in the snapshot.
         listener.addTableProcessorOnRecovery(43, tableProcessor3);
 
         verify(tableProcessor2, never()).initialize(any(), any(), anyLong(), anyLong());

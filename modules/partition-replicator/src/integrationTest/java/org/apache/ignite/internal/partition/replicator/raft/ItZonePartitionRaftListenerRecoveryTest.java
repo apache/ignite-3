@@ -343,6 +343,10 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         );
     }
 
+    private void addTableProcessor(int tableId) {
+        currentRaftListener.addTableProcessor(tableId, createTableProcessor(tableId));
+    }
+
     private void stopRaftGroupNode() throws NodeStoppingException {
         raftManager.stopRaftNodes(PARTITION_ID);
     }
@@ -444,6 +448,35 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         rowIds.forEach(this::verifyRowWasNotUpdated);
 
         verifyRowWasUpdated(rowForTable3);
+    }
+
+    /**
+     * Test recovery when one of the table processors has been added after a snapshot but was able to persist its data.
+     */
+    @Test
+    void testLogReplayWithSnapshotAndStorageFlush() throws NodeStoppingException {
+        int[] tableIds = {1, 2};
+
+        RaftGroupService raftGroupService = startRaftGroupNode(tableIds);
+
+        applyRandomUpdateCommands(raftGroupService, tableIds);
+
+        assertThat(
+                raftGroupService.snapshot(new Peer(clusterService.nodeName()), true),
+                willCompleteSuccessfully()
+        );
+
+        addTableProcessor(3);
+
+        List<UUID> rowIds = applyRandomUpdateCommands(raftGroupService, 3);
+
+        stopRaftGroupNode();
+
+        clearInvocations(storageUpdateHandler);
+
+        startRaftGroupNode(1, 2, 3);
+
+        rowIds.forEach(this::verifyRowWasNotUpdated);
     }
 
     @Test
