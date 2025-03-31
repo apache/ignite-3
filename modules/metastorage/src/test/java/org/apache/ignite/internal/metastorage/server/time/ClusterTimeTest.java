@@ -33,13 +33,13 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl.SyncTimeAction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -85,7 +85,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testIdleSafeTimeScheduler(@InjectConfiguration("mock.idleSyncTimeInterval=1") MetaStorageConfiguration config) {
+    void testIdleSafeTimeScheduler(@InjectConfiguration("mock.idleSafeTimeSyncInterval=1") SystemDistributedConfiguration config) {
         SyncTimeAction action = mock(SyncTimeAction.class);
 
         when(action.syncTime(any())).thenReturn(nullCompletedFuture());
@@ -96,7 +96,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testIdleSafeTimeSchedulerStop(@InjectConfiguration("mock.idleSyncTimeInterval=1") MetaStorageConfiguration config) {
+    void testIdleSafeTimeSchedulerStop(@InjectConfiguration("mock.idleSafeTimeSyncInterval=1") SystemDistributedConfiguration config) {
         SyncTimeAction action = mock(SyncTimeAction.class);
 
         when(action.syncTime(any())).thenReturn(nullCompletedFuture());
@@ -116,7 +116,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
      * Tests that {@link ClusterTimeImpl#adjustClock} re-schedules the idle time sync timer.
      */
     @Test
-    void testSchedulerProlongation(@InjectConfiguration("mock.idleSyncTimeInterval=250") MetaStorageConfiguration config) {
+    void testSchedulerProlongation(@InjectConfiguration("mock.idleSafeTimeSyncInterval=250") SystemDistributedConfiguration config) {
         assertDoesNotThrow(() -> clusterTime.adjustClock(clock.now()));
 
         SyncTimeAction action = mock(SyncTimeAction.class);

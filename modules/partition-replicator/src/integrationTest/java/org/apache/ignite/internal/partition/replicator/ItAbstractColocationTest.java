@@ -43,11 +43,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
@@ -107,8 +107,8 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
             + "}")
     private StorageConfiguration storageConfiguration;
 
-    @InjectConfiguration("mock.idleSyncTimeInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
-    private MetaStorageConfiguration metaStorageConfiguration;
+    @InjectConfiguration("mock.idleSafeTimeSyncInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -242,7 +242,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 raftConfiguration,
                 nodeAttributesConfiguration,
                 storageConfiguration,
-                metaStorageConfiguration,
+                systemDistributedConfiguration,
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,

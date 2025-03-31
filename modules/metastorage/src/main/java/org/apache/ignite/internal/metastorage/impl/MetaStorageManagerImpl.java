@@ -49,6 +49,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
@@ -71,7 +72,6 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -172,7 +172,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     private volatile long appliedRevision = 0;
 
-    private volatile MetaStorageConfiguration metaStorageConfiguration;
+    private volatile SystemDistributedConfiguration systemConfiguration;
 
     private final List<ElectionListener> electionListeners = new CopyOnWriteArrayList<>();
 
@@ -274,7 +274,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
-            MetaStorageConfiguration configuration,
+            SystemDistributedConfiguration systemConfiguration,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this(
@@ -286,7 +286,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
-                configuration,
+                systemConfiguration,
                 raftGroupOptionsConfigurer,
                 new ReadOperationForCompactionTracker()
         );
@@ -305,7 +305,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
-            MetaStorageConfiguration configuration,
+            SystemDistributedConfiguration systemConfiguration,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             ReadOperationForCompactionTracker tracker
     ) {
@@ -326,7 +326,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 new FailureManager(new NoOpFailureHandler())
         );
 
-        configure(configuration);
+        configure(systemConfiguration);
     }
 
     /** Adds new listener to notify with election events. */
@@ -518,8 +518,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetaStorageInfo metaStorageInfo,
             RaftNodeDisruptorConfiguration disruptorConfig
     ) {
-        MetaStorageConfiguration localMetaStorageConfiguration = metaStorageConfiguration;
-        assert localMetaStorageConfiguration != null : "Meta Storage configuration has not been set";
+        SystemDistributedConfiguration currentSystemConfiguration = systemConfiguration;
+        assert currentSystemConfiguration != null : "System configuration has not been set";
 
         CompletableFuture<TopologyAwareRaftGroupService> serviceFuture = CompletableFuture.supplyAsync(() -> {
             TopologyAwareRaftGroupService service = startRaftNodeItself(configuration, localPeer, metaStorageInfo, disruptorConfig);
@@ -530,7 +530,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }, ioExecutor);
 
         return serviceFuture.thenApply(service -> {
-            service.subscribeLeader(createLeaderElectionListener(localMetaStorageConfiguration));
+            service.subscribeLeader(createLeaderElectionListener(currentSystemConfiguration));
             return service;
         });
     }
@@ -564,7 +564,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    private LeaderElectionListener createLeaderElectionListener(MetaStorageConfiguration localMetaStorageConfiguration) {
+    private LeaderElectionListener createLeaderElectionListener(SystemDistributedConfiguration configuration) {
         // We use the "deployWatchesFuture" to guarantee that the Configuration Manager will be started
         // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
         // dependency between these two components.
@@ -578,7 +578,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 // We use the "deployWatchesFuture" to guarantee that the Configuration Manager will be started
                 // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
                 // dependency between these two components.
-                deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration),
+                deployWatchesFuture.thenApply(v -> configuration),
                 electionListeners,
                 this::peersChangeStateExists
         );
@@ -694,8 +694,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      *
      * <p>This method <b>must</b> always be called <b>before</b> calling {@link #startAsync}.
      */
-    public final void configure(MetaStorageConfiguration metaStorageConfiguration) {
-        this.metaStorageConfiguration = metaStorageConfiguration;
+    public final void configure(SystemDistributedConfiguration configuration) {
+        this.systemConfiguration = configuration;
     }
 
     @Override

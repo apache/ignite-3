@@ -106,7 +106,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -320,7 +319,7 @@ public class Node {
             RaftConfiguration raftConfiguration,
             NodeAttributesConfiguration nodeAttributesConfiguration,
             StorageConfiguration storageConfiguration,
-            MetaStorageConfiguration metaStorageConfiguration,
+            SystemDistributedConfiguration systemConfiguration,
             ReplicationConfiguration replicationConfiguration,
             TransactionConfiguration transactionConfiguration,
             ScheduledExecutorService scheduledExecutorService,
@@ -463,7 +462,7 @@ public class Node {
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
-                metaStorageConfiguration,
+                systemConfiguration,
                 msRaftConfigurer,
                 readOperationForCompactionTracker
         ) {
