@@ -84,6 +84,7 @@ dependencies {
 
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-configuration-system')
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-replicator')
     testFixturesImplementation project(':ignite-rocksdb-common')

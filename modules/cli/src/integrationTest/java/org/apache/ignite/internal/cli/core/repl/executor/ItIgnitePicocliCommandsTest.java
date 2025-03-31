@@ -70,13 +70,11 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private static final String[] DISTRIBUTED_CONFIGURATION_KEYS = {
             "ignite.eventlog",
             "ignite.gc",
-            "ignite.metaStorage",
             "ignite.metrics",
             "ignite.replication",
             "ignite.schemaSync",
             "ignite.security",
             "ignite.sql",
-            "ignite.storageUpdate",
             "ignite.transaction",
             "ignite.system"
     };
@@ -90,7 +88,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
             "ignite.deployment",
             "ignite.nodeAttributes",
             "ignite.storage",
-            "ignite.criticalWorkers",
             "ignite.sql",
             "ignite.failureHandler",
             "ignite.system"
@@ -321,7 +318,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                         "ignite.deployment",
                         "ignite.nodeAttributes",
                         "ignite.storage",
-                        "ignite.criticalWorkers",
                         "ignite.sql",
                         "ignite.failureHandler",
                         "ignite.system"

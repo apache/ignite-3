@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -29,6 +30,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
@@ -63,7 +65,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -105,12 +106,12 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -703,12 +704,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                     logicalNodes
             );
 
-            CompletableFuture<CompletableFuture<Void>> fut = IgniteTestUtils.runAsync(
-                    () -> {
-                        compactor.triggerCompaction(clockService.now());
+            compactor.triggerCompaction(clockService.now());
 
-                        return compactor.lastRunFuture();
-                    });
+            CompletableFuture<Void> fut = compactor.lastRunFuture();
 
             assertTrue(messageBlockLatch.await(5, TimeUnit.SECONDS));
 
@@ -855,13 +853,16 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         List<LogicalNode> assignments = List.of(NODE1, NODE2, NODE3);
         LogicalNode coordinator = NODE1;
 
+        int replicationGroupsMultiplier = enabledColocation() ? /* zones */1 : /* tables */ 3;
+
         {
             CatalogCompactionRunner compactor = createRunner(NODE1, coordinator, (n) -> catalog.time(), logicalTopology, assignments);
 
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
             // All invocations must be made locally.
-            verify(replicaService, times(/* tables */ 3 * /* partitions */ 9)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(replicationGroupsMultiplier * /* partitions */ 9))
+                    .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
         }
@@ -872,7 +873,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
             verify(replicaService, times(0)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
-            verify(replicaService, times(3 * 8)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(replicationGroupsMultiplier * 8)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
         }
 
@@ -883,7 +884,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             verify(replicaService, times(0)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
-            verify(replicaService, times(3 * 8)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(replicationGroupsMultiplier * 8)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
         }
     }
 
@@ -907,8 +908,13 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
-            verify(replicaService, times(/* tables */ 3 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
-                    .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            if (enabledColocation()) {
+                verify(replicaService, times(/* zones */ 1 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
+                        .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            } else {
+                verify(replicaService, times(/* tables */ 3 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
+                        .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            }
         }
 
         {
@@ -1036,6 +1042,56 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         }
     }
 
+    /**
+     * Checks that the exception thrown during min time propagation to replicas is not overwritten
+     * by an exception obtained during catalog compaction attempt.
+     */
+    @Test
+    public void timeToReplicasPropagationExceptionSuppressedWhenCompactionFailed() {
+        CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
+                .tableName("test")
+                .schemaName("PUBLIC")
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .colocationColumns(List.of("key2"));
+
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
+        RuntimeException expectedCompactionErr = new IllegalStateException("Expected exception 1");
+        RuntimeException expectedPropagationErr = new IllegalArgumentException("Expected exception 2");
+
+        CatalogCompactionRunner compactor = createRunner(
+                NODE1,
+                NODE1,
+                node -> clockService.nowLong()
+        );
+
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.failedFuture(expectedCompactionErr));
+
+        when(messagingService.send(any(ClusterNode.class), any(NetworkMessage.class)))
+                .thenReturn(CompletableFuture.failedFuture(expectedPropagationErr));
+
+        compactor.triggerCompaction(clockService.now());
+
+        ExecutionException ex = Assertions.assertThrows(ExecutionException.class,
+                () -> compactor.lastRunFuture().get());
+
+        assertThat(ex.getCause(), instanceOf(CompletionException.class));
+        assertThat(ex.getCause().getCause(), instanceOf(expectedCompactionErr.getClass()));
+        assertThat(ex.getCause().getCause().getMessage(), equalTo(expectedCompactionErr.getMessage()));
+
+        Throwable[] suppressed = ex.getCause().getSuppressed();
+
+        assertThat(suppressed, arrayWithSize(1));
+
+        assertThat(suppressed[0], instanceOf(CompletionException.class));
+        assertThat(suppressed[0].getCause(), instanceOf(CompletionException.class));
+        assertThat(suppressed[0].getCause().getCause(), instanceOf(expectedPropagationErr.getClass()));
+        assertThat(suppressed[0].getCause().getCause().getMessage(), equalTo(expectedPropagationErr.getMessage()));
+    }
+
     private void expectEarliestVersion(String reason, Matcher<Integer> versionMatcher) {
         Awaitility.await()
                 .timeout(BUSY_WAIT_TIMEOUT)
@@ -1103,16 +1159,14 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         );
 
         when(messagingService.invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    return CompletableFuture.supplyAsync(() -> {
-                        String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
+                .thenAnswer(invocation -> CompletableFuture.supplyAsync(() -> {
+                    String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
 
-                        assertThat("Coordinator shouldn't send messages to himself",
-                                nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
+                    assertThat("Coordinator shouldn't send messages to himself",
+                            nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
 
-                        return minTimeCollector.reply(nodeName);
-                    });
-                });
+                    return minTimeCollector.reply(nodeName);
+                }));
 
         when(messagingService.send(any(ClusterNode.class), any(NetworkMessage.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
@@ -1128,7 +1182,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(tableAssignments));
 
         when(placementDriver.getPrimaryReplica(any(), any())).thenAnswer(invocation -> {
-            TablePartitionId groupId = invocation.getArgument(0);
+            PartitionGroupId groupId = invocation.getArgument(0);
             LogicalNode node = primaryAffinity.apply(groupId.partitionId());
 
             return CompletableFuture.completedFuture(node == null ? null : new TestReplicaMeta(node.id()));
@@ -1166,7 +1220,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 clockService,
                 schemaSyncService,
                 topologyService,
-                ForkJoinPool.commonPool(),
                 clockService::nowLong,
                 minTimeCollector,
                 rebalanceMinimumRequiredTimeProvider
@@ -1299,7 +1352,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         }
     }
 
-    @SuppressWarnings("serial")
     private static class TestReplicaMeta implements ReplicaMeta {
         private final UUID leaseHolder;
 

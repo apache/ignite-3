@@ -78,6 +78,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -105,7 +106,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -116,7 +116,9 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
@@ -131,19 +133,17 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfigurationSchema;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
@@ -156,6 +156,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
@@ -208,9 +209,11 @@ public class Node {
 
     public final String name;
 
-    private final Loza raftManager;
+    public final Loza raftManager;
 
     private final ThreadPoolsManager threadPoolsManager;
+
+    private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
     public final ReplicaManager replicaManager;
 
@@ -316,7 +319,7 @@ public class Node {
             RaftConfiguration raftConfiguration,
             NodeAttributesConfiguration nodeAttributesConfiguration,
             StorageConfiguration storageConfiguration,
-            MetaStorageConfiguration metaStorageConfiguration,
+            SystemDistributedConfiguration systemConfiguration,
             ReplicationConfiguration replicationConfiguration,
             TransactionConfiguration transactionConfiguration,
             ScheduledExecutorService scheduledExecutorService,
@@ -338,12 +341,15 @@ public class Node {
                 List.of(
                         NetworkExtensionConfigurationSchema.class,
                         StorageExtensionConfigurationSchema.class,
+                        SystemLocalExtensionConfigurationSchema.class,
                         PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                         VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
                 ),
                 List.of(
                         PersistentPageMemoryProfileConfigurationSchema.class,
-                        VolatilePageMemoryProfileConfigurationSchema.class
+                        VolatilePageMemoryProfileConfigurationSchema.class,
+                        StaticNodeFinderConfigurationSchema.class,
+                        MulticastNodeFinderConfigurationSchema.class
                 )
         );
 
@@ -456,7 +462,7 @@ public class Node {
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
-                metaStorageConfiguration,
+                systemConfiguration,
                 msRaftConfigurer,
                 readOperationForCompactionTracker
         ) {
@@ -523,7 +529,7 @@ public class Node {
                 List.of(ClusterConfiguration.KEY),
                 List.of(
                         GcExtensionConfigurationSchema.class,
-                        StorageUpdateExtensionConfigurationSchema.class,
+                        ReplicationExtensionConfigurationSchema.class,
                         SystemDistributedExtensionConfigurationSchema.class
                 ),
                 List.of()
@@ -542,7 +548,8 @@ public class Node {
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                 new PersistentPageMemoryDataStorageModule(),
-                new NonVolatileTestDataStorageModule()
+                new NonVolatileTestDataStorageModule(),
+                new VolatilePageMemoryDataStorageModule()
         ));
 
         Path storagePath = dir.resolve("storage");
@@ -587,6 +594,8 @@ public class Node {
                 threadPoolsManager.commonScheduler()
         );
 
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout-" + name));
+
         replicaManager = new ReplicaManager(
                 name,
                 clusterService,
@@ -601,7 +610,7 @@ public class Node {
                 topologyAwareRaftGroupServiceFactory,
                 raftManager,
                 partitionRaftConfigurer,
-                view -> new LocalLogStorageFactory(),
+                volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
@@ -636,7 +645,6 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
-                threadPoolsManager.commonScheduler(),
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
@@ -690,11 +698,9 @@ public class Node {
                 sharedTxStateStorage,
                 txManager,
                 schemaManager,
+                dataStorageMgr,
                 outgoingSnapshotsManager
         );
-
-        StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
-                .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
@@ -711,7 +717,7 @@ public class Node {
                 registry,
                 gcConfiguration,
                 transactionConfiguration,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
@@ -784,7 +790,9 @@ public class Node {
                 placementDriverManager.placementDriver(),
                 clusterService,
                 logicalTopologyService,
-                clockService
+                clockService,
+                failureManager,
+                lowWatermark
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
@@ -859,6 +867,7 @@ public class Node {
                 catalogCompactionRunner,
                 indexMetaStorage,
                 distributionZoneManager,
+                volatileLogStorageFactoryCreator,
                 replicaManager,
                 txManager,
                 dataStorageMgr,

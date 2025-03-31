@@ -27,8 +27,8 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.serialization.MessageCollectionItemType;
 import org.apache.ignite.internal.network.serialization.MessageReader;
-import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**
  * Class for resolving {@link MessageReader} "read*" methods for the corresponding message field type.

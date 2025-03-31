@@ -26,23 +26,27 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -66,6 +70,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -99,15 +104,23 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     @Mock
     private MvPartitionStorage mvPartitionStorage;
 
+    @InjectExecutorService
+    private ExecutorService executor;
+
     @BeforeEach
     void setUp() {
-        listener = new ZonePartitionRaftListener(
+        listener = createListener();
+    }
+
+    private ZonePartitionRaftListener createListener() {
+        return new ZonePartitionRaftListener(
                 new ZonePartitionId(ZONE_ID, PARTITION_ID),
                 txStatePartitionStorage,
                 txManager,
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
                 new PendingComparableValuesTracker<>(0L),
-                outgoingSnapshotsManager
+                outgoingSnapshotsManager,
+                executor
         );
     }
 
@@ -118,24 +131,36 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void closesOngoingSnapshots(@Mock PartitionSnapshots partitionSnapshots) {
-        listener.addTableProcessor(1, partitionListener(1));
-        listener.addTableProcessor(2, partitionListener(2));
-
         listener.onShutdown();
 
         verify(outgoingSnapshotsManager).cleanupOutgoingSnapshots(ZONE_PARTITION_KEY);
     }
 
     @Test
-    void savesIndexAndTermOnSnapshotSave(
+    void savesSnapshotInfoToTxStorageOnSnapshotSave(
             @Mock CommandClosure<WriteCommand> writeCommandClosure,
-            @Mock UpdateMinimumActiveTxBeginTimeCommand command
+            @Mock PrimaryReplicaChangeCommand command,
+            @Mock RaftTableProcessor tableProcessor
     ) {
         when(writeCommandClosure.command()).thenReturn(command);
         when(writeCommandClosure.index()).thenReturn(25L);
         when(writeCommandClosure.term()).thenReturn(42L);
 
+        var leaseInfo = new LeaseInfo(123L, UUID.randomUUID(), "foo");
+
+        when(command.leaseStartTime()).thenReturn(leaseInfo.leaseStartTime());
+        when(command.primaryReplicaNodeId()).thenReturn(leaseInfo.primaryReplicaNodeId());
+        when(command.primaryReplicaNodeName()).thenReturn(leaseInfo.primaryReplicaNodeName());
+
         listener.onWrite(List.of(writeCommandClosure).iterator());
+
+        var config = new RaftGroupConfiguration(26, 43, List.of("foo"), List.of("bar"), null, null);
+
+        listener.onConfigurationCommitted(config, config.index(), config.term());
+
+        when(tableProcessor.flushStorage()).thenReturn(nullCompletedFuture());
+
+        listener.addTableProcessor(42, tableProcessor);
 
         var future = new CompletableFuture<Void>();
 
@@ -149,7 +174,17 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         assertThat(future, willCompleteSuccessfully());
 
-        verify(txStatePartitionStorage).lastApplied(25L, 42L);
+        var snapshotInfo = new PartitionSnapshotInfo(
+                config.index(),
+                config.term(),
+                leaseInfo,
+                VersionedSerialization.toBytes(config, RaftGroupConfigurationSerializer.INSTANCE),
+                Set.of(42)
+        );
+
+        byte[] snapshotInfoBytes = VersionedSerialization.toBytes(snapshotInfo, PartitionSnapshotInfoSerializer.INSTANCE);
+
+        verify(txStatePartitionStorage).snapshotInfo(snapshotInfoBytes, snapshotInfo.lastAppliedIndex(), snapshotInfo.lastAppliedTerm());
     }
 
     @Test
@@ -171,11 +206,11 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         when(writeCommandClosure.index()).thenReturn(1L);
         when(writeCommandClosure.term()).thenReturn(1L);
 
-        UUID id = UUID.randomUUID();
+        var leaseInfo = new LeaseInfo(123L, UUID.randomUUID(), "foo");
 
-        when(command.leaseStartTime()).thenReturn(123L);
-        when(command.primaryReplicaNodeId()).thenReturn(id);
-        when(command.primaryReplicaNodeName()).thenReturn("foo");
+        when(command.leaseStartTime()).thenReturn(leaseInfo.leaseStartTime());
+        when(command.primaryReplicaNodeId()).thenReturn(leaseInfo.primaryReplicaNodeId());
+        when(command.primaryReplicaNodeName()).thenReturn(leaseInfo.primaryReplicaNodeName());
 
         when(mvPartitionStorage.runConsistently(any())).thenAnswer(invocation -> {
             WriteClosure<?> closure = invocation.getArgument(0);
@@ -193,7 +228,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage).lastApplied(2L, 3L);
         verify(mvPartitionStorage).committedGroupConfiguration(any());
-        verify(mvPartitionStorage).updateLease(123L, id, "foo");
+        verify(mvPartitionStorage).updateLease(leaseInfo);
     }
 
     @RepeatedTest(10)
@@ -268,6 +303,65 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         assertThat(tableProcessor.lastAppliedTerm, is(term));
     }
 
+    @Test
+    void usesSnapshotInfoForRecovery(
+            @Mock RaftTableProcessor tableProcessor1,
+            @Mock RaftTableProcessor tableProcessor2,
+            @Mock RaftTableProcessor tableProcessor3,
+            @Mock CommandClosure<WriteCommand> writeCommandClosure,
+            @Mock PrimaryReplicaChangeCommand command
+    ) {
+        when(writeCommandClosure.command()).thenReturn(command);
+        when(writeCommandClosure.index()).thenReturn(1L);
+        when(writeCommandClosure.term()).thenReturn(1L);
+
+        var leaseInfo = new LeaseInfo(123L, UUID.randomUUID(), "foo");
+
+        when(command.leaseStartTime()).thenReturn(leaseInfo.leaseStartTime());
+        when(command.primaryReplicaNodeId()).thenReturn(leaseInfo.primaryReplicaNodeId());
+        when(command.primaryReplicaNodeName()).thenReturn(leaseInfo.primaryReplicaNodeName());
+
+        listener.onWrite(List.of(writeCommandClosure).iterator());
+
+        var config = new RaftGroupConfiguration(26, 43, List.of("foo"), List.of("bar"), null, null);
+
+        listener.onConfigurationCommitted(config, config.index(), config.term());
+
+        when(tableProcessor1.flushStorage()).thenReturn(nullCompletedFuture());
+
+        listener.addTableProcessor(42, tableProcessor1);
+
+        var future = new CompletableFuture<Void>();
+
+        listener.onSnapshotSave(Path.of("foo"), throwable -> {
+            if (throwable == null) {
+                future.complete(null);
+            } else {
+                future.completeExceptionally(throwable);
+            }
+        });
+
+        assertThat(future, willCompleteSuccessfully());
+
+        // Emulate a restart.
+        listener = createListener();
+
+        // Adding a table processor that participated in the snapshot.
+        listener.addTableProcessorOnRecovery(42, tableProcessor2);
+        // Adding a table processor that did not participate in the snapshot.
+        listener.addTableProcessorOnRecovery(43, tableProcessor3);
+
+        verify(tableProcessor2, never()).initialize(any(), any(), anyLong(), anyLong());
+        verify(tableProcessor3).initialize(config, leaseInfo, config.index(), config.term());
+    }
+
+    @Test
+    void processorsAreNotInitializedWithoutSnapshot(@Mock RaftTableProcessor tableProcessor) {
+        listener.addTableProcessorOnRecovery(42, tableProcessor);
+
+        verify(tableProcessor, never()).initialize(any(), any(), anyLong(), anyLong());
+    }
+
     private PartitionListener partitionListener(int tableId) {
         return new PartitionListener(
                 txManager,
@@ -285,7 +379,8 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(SchemaRegistry.class),
                 mock(IndexMetaStorage.class),
                 UUID.randomUUID(),
-                mock(MinimumRequiredTimeCollectorService.class)
+                mock(MinimumRequiredTimeCollectorService.class),
+                mock(Executor.class)
         );
     }
 

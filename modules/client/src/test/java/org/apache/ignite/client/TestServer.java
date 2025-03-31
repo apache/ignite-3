@@ -70,8 +70,10 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
@@ -99,6 +101,8 @@ public class TestServer implements AutoCloseable {
     private final ClientHandlerMetricSource metrics;
 
     private final AuthenticationManager authenticationManager;
+
+    private final FakeCatalogService catalogService;
 
     private final FakeIgnite ignite;
 
@@ -174,7 +178,7 @@ public class TestServer implements AutoCloseable {
         generator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),
                 List.of(ClientConnectorExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
-                List.of()
+                List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
         cfg = new ConfigurationRegistry(
                 List.of(NodeConfiguration.KEY),
@@ -245,6 +249,8 @@ public class TestServer implements AutoCloseable {
                 .build();
         ClusterInfo clusterInfo = new ClusterInfo(tag, List.of(tag.clusterId()));
 
+        catalogService = new FakeCatalogService(FakeInternalTable.PARTITIONS);
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -271,7 +277,7 @@ public class TestServer implements AutoCloseable {
                         authenticationManager,
                         new TestClockService(clock),
                         new AlwaysSyncedSchemaSyncService(),
-                        new FakeCatalogService(FakeInternalTable.PARTITIONS),
+                        catalogService,
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark(),
@@ -342,6 +348,15 @@ public class TestServer implements AutoCloseable {
      */
     public FakePlacementDriver placementDriver() {
         return ignite.placementDriver();
+    }
+
+    /**
+     * Gets the catalog service.
+     *
+     * @return Catalog service.
+     */
+    public FakeCatalogService catalogService() {
+        return catalogService;
     }
 
     /** {@inheritDoc} */

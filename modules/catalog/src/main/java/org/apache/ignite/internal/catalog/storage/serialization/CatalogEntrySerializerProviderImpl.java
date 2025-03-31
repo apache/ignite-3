@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -170,6 +170,9 @@ class CatalogEntrySerializerProviderImpl implements CatalogEntrySerializerProvid
                     return (CatalogObjectSerializer<? extends MarshallableEntry>) constructor.newInstance();
                 }
 
+                // This constructor is only needed for serialization protocol V1,
+                // because there is no object version in that protocol, so we assigned them version 1
+                // to make CatalogEntrySerializerProvider API work for both protocol versions.
                 if (constructor.getParameterCount() == 1 && CatalogEntrySerializerProvider.class.isAssignableFrom(
                         constructor.getParameterTypes()[0])) {
                     return (CatalogObjectSerializer<? extends MarshallableEntry>) constructor.newInstance(provider);
@@ -180,13 +183,13 @@ class CatalogEntrySerializerProviderImpl implements CatalogEntrySerializerProvid
         }
 
         private static Int2ObjectMap<CatalogVersionAwareSerializer<? extends MarshallableEntry>[]> remapToOrderedArray(
-                Map<Integer, List<CatalogVersionAwareSerializer<? extends MarshallableEntry>>> mapByType) {
+                Int2ObjectMap<List<CatalogVersionAwareSerializer<? extends MarshallableEntry>>> mapByType) {
             Int2ObjectMap<CatalogVersionAwareSerializer<? extends MarshallableEntry>[]> result =
                     new Int2ObjectOpenHashMap<>(mapByType.size());
 
-            for (Map.Entry<Integer, List<CatalogVersionAwareSerializer<? extends MarshallableEntry>>> entry : mapByType.entrySet()) {
+            for (Entry<List<CatalogVersionAwareSerializer<? extends MarshallableEntry>>> entry : mapByType.int2ObjectEntrySet()) {
                 List<CatalogVersionAwareSerializer<? extends MarshallableEntry>> serializers = entry.getValue();
-                int typeId = entry.getKey();
+                int typeId = entry.getIntKey();
 
                 CatalogVersionAwareSerializer<? extends MarshallableEntry>[] orderedSerializers =
                         new CatalogVersionAwareSerializer[serializers.size()];

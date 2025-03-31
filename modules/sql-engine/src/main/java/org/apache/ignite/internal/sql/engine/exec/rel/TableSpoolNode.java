@@ -95,11 +95,9 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
-        checkState();
-
         requested += rowsCnt;
 
-        if ((waiting == -1 || rowIdx < rows.size()) && !inLoop) {
+        if ((waiting == NOT_WAITING || rowIdx < rows.size()) && !inLoop) {
             this.execute(this::doPush);
         } else if (waiting == 0) {
             source().request(waiting = inBufSize);
@@ -107,18 +105,21 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     }
 
     private void doPush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        if (!lazyRead && waiting != -1) {
+        if (!lazyRead && waiting != NOT_WAITING) {
             return;
         }
 
         int processed = 0;
         inLoop = true;
         try {
-            while (requested > 0 && rowIdx < rows.size() && processed++ < inBufSize) {
+            while (requested > 0 && rowIdx < rows.size()) {
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job
+                    this.execute(this::doPush);
+
+                    return;
+                }
+
                 downstream().push(rows.get(rowIdx));
 
                 rowIdx++;
@@ -128,11 +129,9 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             inLoop = false;
         }
 
-        if (rowIdx >= rows.size() && waiting == -1 && requested > 0) {
+        if (rowIdx >= rows.size() && waiting == NOT_WAITING && requested > 0) {
             requested = 0;
             downstream().end();
-        } else if (requested > 0 && processed >= inBufSize) {
-            this.execute(this::doPush);
         }
     }
 
@@ -141,8 +140,6 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -163,9 +160,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         this.execute(this::doPush);
     }

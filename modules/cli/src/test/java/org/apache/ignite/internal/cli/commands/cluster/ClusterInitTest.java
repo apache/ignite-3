@@ -134,6 +134,31 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
+
+    @Test
+    @DisplayName("--url http://localhost:10300 --cluster-name cluster")
+    void initSuccessNoMsCmg() {
+        var expectedSentContent = "{\"metaStorageNodes\":[],"
+                + "\"cmgNodes\":[],"
+                + "\"clusterName\":\"cluster\"}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/cluster/init")
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(
+                "--url", mockUrl,
+                "--name", "cluster"
+        );
+
+        assertSuccessfulOutputIs("Cluster was initialized successfully");
+    }
+
     @Test
     @DisplayName("--url http://localhost:10300 --metastorage-group node1ConsistentId, node2ConsistentId"
             + " --cluster-management-group node2ConsistentId, node3ConsistentId --name cluster"
@@ -143,7 +168,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         Path clusterConfigurationFile = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").toPath();
         String clusterConfiguration = Files.readString(clusterConfigurationFile);
 
-        var expectedSentContent = "{\n"
+        String expectedSentContent = "{\n"
                 + "  \"metaStorageNodes\": [\n"
                 + "    \"node1ConsistentId\",\n"
                 + "    \"node2ConsistentId\"\n"
@@ -204,18 +229,28 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
     @Test
     @DisplayName("--url http://localhost:10300 --cluster-management-group node2ConsistentId, node3ConsistentId")
-    void metastorageNodesAreMandatoryForInit() {
+    void metastorageNodesAreNotMandatoryForInit() {
+        var expectedSentContent = "{"
+                + "\"metaStorageNodes\":[],"
+                + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
+                + "\"clusterName\":\"cluster\"}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/cluster/init")
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
         execute(
                 "--url", mockUrl,
                 "--cluster-management-group", "node2ConsistentId, node3ConsistentId",
                 "--name", "cluster"
         );
 
-        assertAll(
-                () -> assertExitCodeIs(2),
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required option: '--metastorage-group=<node name>'")
-        );
+        assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
     @Test
@@ -273,10 +308,10 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "}\n"
                 + "ignite.schemaSync.delayDuration: 100,\n"
                 + "ignite.schemaSync.maxClockSkew: 7,\n"
-                + "ignite.metaStorage.idleSyncTimeInterval: 10,\n"
+                + "ignite.system.idleSafeTimeSyncInterval: 10,\n"
                 + "ignite.replication.idleSafeTimePropagationDuration: 100";
 
-        var expectedSentContent = "{\n"
+        String expectedSentContent = "{\n"
                 + "  \"metaStorageNodes\": [\n"
                 + "    \"node1ConsistentId\"\n"
                 + "  ],\n"

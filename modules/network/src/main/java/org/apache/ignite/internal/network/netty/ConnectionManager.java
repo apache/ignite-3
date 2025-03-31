@@ -46,7 +46,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -99,8 +99,8 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Server. */
     private final NettyServer server;
 
-    /** Channels map from consistentId to {@link NettySender}. */
-    private final Map<ConnectorKey<String>, NettySender> channels = new ConcurrentHashMap<>();
+    /** Channels map from nodeId to {@link NettySender}. */
+    private final Map<ConnectorKey<UUID>, NettySender> channels = new ConcurrentHashMap<>();
 
     /** Clients. */
     private final Map<ConnectorKey<InetSocketAddress>, NettyClient> clients = new ConcurrentHashMap<>();
@@ -111,8 +111,8 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Message listeners. */
     private final List<Consumer<InNetworkObject>> listeners = new CopyOnWriteArrayList<>();
 
-    /** Node consistent id. */
-    private final String consistentId;
+    /** Node ephemeral ID. */
+    private final UUID nodeId;
 
     /**
      * Completed when local node is set; attempts to initiate a connection to this node from the outside will wait
@@ -144,10 +144,9 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Thread pool used for connection management tasks (like disposing recovery descriptors on node left or on stop). */
     private final ExecutorService connectionMaintenanceExecutor;
 
-    /** Failure processor. */
-    private final FailureManager failureManager;
-
     private final ChannelTypeRegistry channelTypeRegistry;
+
+    private final IgniteProductVersionSource productVersionSource;
 
     /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
     private final @Nullable SslContext clientSslContext;
@@ -157,33 +156,36 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param networkConfiguration Network configuration.
      * @param serializationService Serialization service.
-     * @param consistentId Consistent ID of this node.
+     * @param nodeName Node name.
+     * @param nodeId ID of this node.
      * @param bootstrapFactory Bootstrap factory.
      * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
-     * @param failureManager Used to fail the node if a critical failure happens.
      * @param channelTypeRegistry {@link ChannelType} registry.
+     * @param productVersionSource Source of product version.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            String consistentId,
+            String nodeName,
+            UUID nodeId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
-            FailureManager failureManager,
-            ChannelTypeRegistry channelTypeRegistry
+            ChannelTypeRegistry channelTypeRegistry,
+            IgniteProductVersionSource productVersionSource
     ) {
         this(
                 networkConfiguration,
                 serializationService,
-                consistentId,
+                nodeName,
+                nodeId,
                 bootstrapFactory,
                 staleIdDetector,
                 clusterIdSupplier,
                 null,
-                failureManager,
-                channelTypeRegistry
+                channelTypeRegistry,
+                productVersionSource
         );
     }
 
@@ -192,33 +194,35 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param networkConfiguration Network configuration.
      * @param serializationService Serialization service.
-     * @param consistentId Consistent ID of this node.
+     * @param nodeName Node name.
+     * @param nodeId ID of this node.
      * @param bootstrapFactory Bootstrap factory.
      * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
      * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
-     * @param failureManager Used to fail the node if a critical failure happens.
      * @param channelTypeRegistry {@link ChannelType} registry.
+     * @param productVersionSource Source of product version.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            String consistentId,
+            String nodeName,
+            UUID nodeId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
             @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory,
-            FailureManager failureManager,
-            ChannelTypeRegistry channelTypeRegistry
+            ChannelTypeRegistry channelTypeRegistry,
+            IgniteProductVersionSource productVersionSource
     ) {
         this.serializationService = serializationService;
-        this.consistentId = consistentId;
+        this.nodeId = nodeId;
         this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
-        this.failureManager = failureManager;
         this.channelTypeRegistry = channelTypeRegistry;
+        this.productVersionSource = productVersionSource;
 
         SslView ssl = networkConfiguration.ssl();
 
@@ -243,7 +247,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 1,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(consistentId, "connection-maintenance", LOG)
+                NamedThreadFactory.create(nodeName, "connection-maintenance", LOG)
         );
         maintenanceExecutor.allowCoreThreadTimeOut(true);
 
@@ -297,32 +301,33 @@ public class ConnectionManager implements ChannelCreationListener {
     /**
      * Gets a {@link NettySender}, that sends data from this node to another node with the specified address.
      *
-     * @param consistentId Another node's consistent id.
-     * @param address      Another node's address.
+     * @param nodeId Another node's id.
+     * @param address Another node's address.
      * @return Sender.
      */
-    public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelType type, InetSocketAddress address) {
-        return getChannelWithRetry(consistentId, type, address, 0);
+    public OrderingFuture<NettySender> channel(UUID nodeId, ChannelType type, InetSocketAddress address) {
+        return getChannelWithRetry(nodeId, type, address, 0);
     }
 
     private OrderingFuture<NettySender> getChannelWithRetry(
-            @Nullable String consistentId,
+            UUID nodeId,
             ChannelType type,
             InetSocketAddress address,
             int attempt
     ) {
         if (attempt > MAX_RETRIES_TO_OPEN_CHANNEL) {
-            return OrderingFuture.failedFuture(new IllegalStateException("Too many attempts to open channel to " + consistentId));
+            return OrderingFuture.failedFuture(new IllegalStateException("Too many attempts to open channel to node \"" + nodeId
+                    + "\", address=" + address));
         }
 
-        return doGetChannel(consistentId, type, address)
+        return doGetChannel(nodeId, type, address)
                 .handle((res, ex) -> {
                     if (ex instanceof ChannelAlreadyExistsException) {
-                        return getChannelWithRetry(((ChannelAlreadyExistsException) ex).consistentId(), type, address, attempt + 1);
+                        return getChannelWithRetry(((ChannelAlreadyExistsException) ex).nodeId(), type, address, attempt + 1);
                     }
                     if (ex != null && ex.getCause() instanceof ChannelAlreadyExistsException) {
                         return getChannelWithRetry(
-                                ((ChannelAlreadyExistsException) ex.getCause()).consistentId(),
+                                ((ChannelAlreadyExistsException) ex.getCause()).nodeId(),
                                 type,
                                 address,
                                 attempt + 1
@@ -336,29 +341,26 @@ public class ConnectionManager implements ChannelCreationListener {
                     if (res.isOpen()) {
                         return OrderingFuture.completedFuture(res);
                     } else {
-                        return getChannelWithRetry(res.consistentId(), type, address, attempt + 1);
+                        return getChannelWithRetry(res.launchId(), type, address, attempt + 1);
                     }
                 })
                 .thenCompose(identity());
     }
 
     private OrderingFuture<NettySender> doGetChannel(
-            @Nullable String consistentId,
+            UUID nodeId,
             ChannelType type,
             InetSocketAddress address
     ) {
-        // Problem is we can't look up a channel by consistent id because consistent id is not known yet.
-        if (consistentId != null) {
-            // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
-            // or an inbound connection associated with that consistent id.
-            NettySender channel = channels.compute(
-                    new ConnectorKey<>(consistentId, type),
-                    (key, sender) -> (sender == null || !sender.isOpen()) ? null : sender
-            );
+        // Try looking up a channel by node id. There can be an outbound connection or an inbound connection associated with that
+        // node id.
+        NettySender channel = channels.compute(
+                new ConnectorKey<>(nodeId, type),
+                (key, sender) -> (sender == null || !sender.isOpen()) ? null : sender
+        );
 
-            if (channel != null) {
-                return OrderingFuture.completedFuture(channel);
-            }
+        if (channel != null) {
+            return OrderingFuture.completedFuture(channel);
         }
 
         // Get an existing client or create a new one. NettyClient provides a future that resolves
@@ -396,7 +398,7 @@ public class ConnectionManager implements ChannelCreationListener {
      */
     @Override
     public void handshakeFinished(NettySender channel) {
-        ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), channelTypeRegistry.get(channel.channelId()));
+        ConnectorKey<UUID> key = new ConnectorKey<>(channel.launchId(), channelTypeRegistry.get(channel.channelId()));
         NettySender oldChannel = channels.put(key, channel);
 
         // Old channel can still be in the map, but it must be closed already by the tie breaker in the
@@ -533,7 +535,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     clusterIdSupplier,
                     this,
                     stopping::get,
-                    failureManager
+                    productVersionSource
             );
         }
 
@@ -557,7 +559,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 clusterIdSupplier,
                 this,
                 stopping::get,
-                failureManager
+                productVersionSource
         );
     }
 
@@ -589,12 +591,12 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     /**
-     * Returns this node's consistent id.
+     * Returns this node's id.
      *
-     * @return This node's consistent id.
+     * @return This node's id.
      */
-    public String consistentId() {
-        return consistentId;
+    public UUID nodeId() {
+        return nodeId;
     }
 
     /**
@@ -613,7 +615,7 @@ public class ConnectionManager implements ChannelCreationListener {
      * @return Collection of all channels of this connection manager.
      */
     @TestOnly
-    public Map<ConnectorKey<String>, NettySender> channels() {
+    public Map<ConnectorKey<UUID>, NettySender> channels() {
         return Map.copyOf(channels);
     }
 
@@ -647,12 +649,12 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private CompletableFuture<Void> closeChannelsWith(UUID id) {
-        List<Entry<ConnectorKey<String>, NettySender>> entriesToRemove = channels.entrySet().stream()
+        List<Entry<ConnectorKey<UUID>, NettySender>> entriesToRemove = channels.entrySet().stream()
                 .filter(entry -> entry.getValue().launchId().equals(id))
                 .collect(toList());
 
         List<CompletableFuture<Void>> closeFutures = new ArrayList<>();
-        for (Entry<ConnectorKey<String>, NettySender> entry : entriesToRemove) {
+        for (Entry<ConnectorKey<UUID>, NettySender> entry : entriesToRemove) {
             closeFutures.add(entry.getValue().closeAsync());
 
             channels.remove(entry.getKey());

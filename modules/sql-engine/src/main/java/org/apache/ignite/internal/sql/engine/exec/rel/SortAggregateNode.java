@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
@@ -42,9 +44,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    static final int NOT_WAITING = -1;
-
     private final AggregateType type;
 
     private final RowFactory<RowT> rowFactory;
@@ -105,14 +104,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            execute(this::doPush);
+            execute(this::doFlush);
         }
     }
 
@@ -121,8 +118,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -142,7 +137,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
                 grp = newGroup(row);
 
-                doPush();
+                flush();
             }
         } else {
             grp = newGroup(row);
@@ -163,15 +158,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
         waiting = NOT_WAITING;
 
         if (grp != null) {
             outBuf.add(grp.row());
         }
 
-        doPush();
+        flush();
     }
 
     /** {@inheritDoc} */
@@ -204,25 +197,23 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private Group newGroup(RowT r) {
-        final Object[] grpKeys = new Object[grpSet.cardinality()];
-        List<Integer> fldIdxs = grpSet.asList();
+        RowHandler<RowT> rowHandler = rowFactory.handler();
+        ObjectArrayList<Object> grpKeys = new ObjectArrayList<>(grpSet.cardinality());
 
-        final RowHandler<RowT> rowHandler = rowFactory.handler();
+        grpSet.forEachInt(fldIdx -> grpKeys.add(rowHandler.get(fldIdx, r)));
 
-        for (int i = 0; i < grpKeys.length; ++i) {
-            grpKeys[i] = rowHandler.get(fldIdxs.get(i), r);
-        }
-
-        Group grp = new Group(grpKeys);
+        Group grp = new Group(grpKeys.elements());
 
         grp.add(r);
 
         return grp;
     }
 
-    private void doPush() throws Exception {
-        checkState();
+    private void doFlush() throws Exception {
+        flush();
+    }
 
+    private void flush() throws Exception {
         inLoop = true;
         try {
             while (requested > 0 && !outBuf.isEmpty()) {
@@ -254,7 +245,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             AccumulatorsState state = new AccumulatorsState(accs.size());
 
-            Int2ObjectArrayMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
+            Int2ObjectMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
             for (int i = 0; i < accs.size(); i++) {
                 AccumulatorWrapper<RowT> acc = accs.get(i);
                 if (acc.isDistinct()) {

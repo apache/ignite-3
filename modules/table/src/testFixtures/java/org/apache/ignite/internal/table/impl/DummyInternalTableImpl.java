@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -100,7 +102,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -196,13 +197,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
-     * @param storageUpdateConfiguration Configuration for the storage update handler.
+     * @param replicationConfiguration Replication configuration.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             SchemaDescriptor schema,
             TransactionConfiguration txConfiguration,
-            StorageUpdateConfiguration storageUpdateConfiguration
+            ReplicationConfiguration replicationConfiguration
     ) {
         this(
                 replicaSvc,
@@ -210,7 +211,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestMvPartitionStorage(0),
                 schema,
                 txConfiguration,
-                storageUpdateConfiguration
+                replicationConfiguration
         );
     }
 
@@ -222,7 +223,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param storage Storage.
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
-     * @param storageUpdateConfiguration Configuration for the storage update handler.
+     * @param replicationConfiguration Replication Configuration.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -230,7 +231,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             MvPartitionStorage storage,
             SchemaDescriptor schema,
             TransactionConfiguration txConfiguration,
-            StorageUpdateConfiguration storageUpdateConfiguration
+            ReplicationConfiguration replicationConfiguration
     ) {
         this(
                 replicaSvc,
@@ -240,7 +241,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 schema,
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 txConfiguration,
                 new RemotelyTriggeredResourceRegistry(),
                 new TransactionInflights(placementDriver, CLOCK_SERVICE)
@@ -258,7 +259,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param schema Schema descriptor.
      * @param tracker Observable timestamp tracker.
      * @param placementDriver Placement driver.
-     * @param storageUpdateConfiguration Configuration for the storage config handler.
+     * @param replicationConfiguration Replication configuration.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -268,7 +269,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             SchemaDescriptor schema,
             HybridTimestampTracker tracker,
             PlacementDriver placementDriver,
-            StorageUpdateConfiguration storageUpdateConfiguration,
+            ReplicationConfiguration replicationConfiguration,
             TransactionConfiguration txConfiguration,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             TransactionInflights transactionInflights
@@ -428,7 +429,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 PART_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                storageUpdateConfiguration
+                replicationConfiguration
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
@@ -512,7 +513,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 schemaManager,
                 mock(IndexMetaStorage.class),
                 LOCAL_NODE.id(),
-                mock(MinimumRequiredTimeCollectorService.class)
+                mock(MinimumRequiredTimeCollectorService.class),
+                mock(Executor.class)
         );
 
         if (enabledColocation) {
@@ -522,7 +524,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     this.txManager,
                     safeTime,
                     storageIndexTracker,
-                    new NoOpPartitionsSnapshots()
+                    new NoOpPartitionsSnapshots(),
+                    mock(Executor.class)
             );
 
             zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);

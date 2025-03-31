@@ -223,15 +223,20 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
         // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR)");
 
         assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"rand_uuid\"",
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
                 () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT rand_uuid")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
+                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT rand_uuid()")
         );
     }
 
@@ -360,12 +365,6 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 STMT_PARSE_ERR,
                 "Literal '2147483648' can not be parsed to type",
-                () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(2147483648)")
-        );
-
-        assertThrowsSqlException(
-                STMT_PARSE_ERR,
-                "Literal '2147483648' can not be parsed to type",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 VARBINARY(2147483648)")
         );
 
@@ -414,11 +413,6 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         // Binary
 
         String longByteString = "01".repeat(101);
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid default value for column 'VAL2'",
-                () -> sql("ALTER TABLE test ADD COLUMN val2 BINARY(100) DEFAULT x'" + longByteString + "'")
-        );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
@@ -457,5 +451,56 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT val2 FROM test_ts")
                 .returns(LocalDateTime.of(2000, 1, 1, 0, 0, 0, 120_000_000))
                 .check();
+    }
+
+    @Test
+    public void testRejectNotSupportedDefaults() {
+        sql("CREATE TABLE t (id int, val int, PRIMARY KEY (id))");
+
+        // Compound id
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: A.B.C",
+                () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT a.b.c")
+        );
+
+        // Expression
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: 1 / 0",
+                () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT (1/0)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Unsupported default expression: 1 / 0",
+                () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT 1/0")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
+                () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT rand_uuid")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
+                () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT rand_uuid()")
+        );
+
+        // SELECT
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Query expression encountered in illegal context",
+                () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT (SELECT count(*) from xyz)")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Query expression encountered in illegal context",
+                () -> sql("ALTER TABLE t ADD COLUMN col INT DEFAULT (SELECT count(*) FROM xyz)")
+        );
     }
 }

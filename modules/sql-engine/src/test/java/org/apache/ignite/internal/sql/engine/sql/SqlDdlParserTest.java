@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static java.util.Collections.singleton;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
@@ -43,12 +45,14 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -165,17 +169,114 @@ public class SqlDdlParserTest extends AbstractParserTest {
         );
     }
 
-    private Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
+    /**
+     * Parsing of CREATE TABLE with a expression in DEFAULT.
+     */
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "1+2; 1 + 2",
+            "a=100; \"A\" = 100",
+            "RANDOM(); \"RANDOM\"()",
+            "LENGTH('abc'); \"LENGTH\"('abc')",
+            "LENGTH('abc') + 1; \"LENGTH\"('abc') + 1",
+            "42 +LENGTH('abc') + 1; 42 + \"LENGTH\"('abc') + 1",
+            "LENGTH(CAST(1234 AS VARCHAR)); \"LENGTH\"(CAST(1234 AS VARCHAR))",
+            "LENGTH(1234::VARCHAR); \"LENGTH\"(1234 :: VARCHAR)",
+    })
+    public void createTableWithDefaultExpression(String expr, String normExpr) {
+        {
+            SqlNode node = parse(format("CREATE TABLE t(id INT DEFAULT {} PRIMARY KEY, val INT)", expr));
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+            // Use a SQL string in error message because matchers are not good at producing a meaningful error
+            // when an object does not have its own toString method
+            assertThat(unparse(createTable.columnList()), createTable.columnList(), hasColumnWithDefaultExpr("ID",
+                    SqlBasicCall.class,
+                    "Unexpected expression",
+                    (dflt) -> normExpr.equals(unparse(dflt)))
+            );
+            // Output expression is parenthesized by the unparse
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER DEFAULT (" + normExpr + "), "
+                    + "\"VAL\" INTEGER"
+                    + ")"
+            );
+        }
+
+        {
+            SqlNode node = parse(format("CREATE TABLE t(id INT PRIMARY KEY, val INT DEFAULT {})", expr));
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(unparse(createTable.columnList()), createTable.columnList(), hasColumnWithDefaultExpr("VAL",
+                    SqlBasicCall.class,
+                    "Unexpected expression",
+                    (dflt) -> normExpr.equals(unparse(dflt)))
+            );
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER, "
+                    + "\"VAL\" INTEGER DEFAULT (" + normExpr + ")"
+                    + ")"
+            );
+        }
+    }
+
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "CREATE TABLE t(id int DEFAULT (SELECT count(col) FROM t), val int); Query expression encountered in illegal context",
+            "CREATE TABLE t(id int DEFAULT (SELECT 100), val int); Query expression encountered in illegal context",
+            "CREATE TABLE t(id int DEFAULT (UPDATE t SET col=1) PRIMARY KEY, val int); Incorrect syntax near the keyword 'UPDATE'",
+            "CREATE TABLE t(id int DEFAULT (INSERT INTO t VALUES(1)), val int); Incorrect syntax near the keyword 'INSERT'",
+            "CREATE TABLE t(id int DEFAULT (DELETE FROM t WHERE col = 1), val int); Incorrect syntax near the keyword 'DELETE'",
+
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (SELECT count(*) FROM xyz); Query expression encountered in illegal context",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (UPDATE t SET col=1); Incorrect syntax near the keyword 'UPDATE'",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (INSERT INTO t VALUES(1)); Incorrect syntax near the keyword 'INSERT",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (DELETE FROM t WHERE col = 1); Incorrect syntax near the keyword 'DELETE'",
+
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (SELECT count(*) FROM xyz); Query expression encountered in illegal context",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (SELECT 100); Query expression encountered in illegal context",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (UPDATE t SET col=1); Incorrect syntax near the keyword 'UPDATE'",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (INSERT INTO t VALUES(1)); Incorrect syntax near the keyword 'INSERT",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (DELETE FROM t WHERE col = 1); Incorrect syntax near the keyword 'DELETE'",
+    })
+    public void rejectNonExpressionsInDefault(String stmt, String error) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                error,
+                () -> parse(stmt));
+    }
+
+    private <T extends SqlLiteral>  Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
             String columnName,
-            Class<? extends SqlLiteral> literalType,
+            Class<T> nodeType,
             String literalValue
     ) {
+        return hasColumnWithDefaultExpr(
+                columnName,
+                nodeType,
+                format("Column with {} as default: columnName={}", nodeType.getCanonicalName(), columnName),
+                (lit) -> literalValue.equals(lit.toValue())
+        );
+    }
+
+    private static <T extends SqlNode> Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefaultExpr(
+            String columnName,
+            Class<T> nodeType,
+            String message,
+            Predicate<T> valCheck
+    ) {
         return hasItem(ofTypeMatching(
-                "Column with literal as default: columnName=" + columnName,
+                message,
                 SqlColumnDeclaration.class,
                 col -> columnName.equals(col.name.getSimple())
-                        && literalType.isInstance(col.expression)
-                        && literalValue.equals(((SqlLiteral) col.expression).toValue())
+                        && nodeType.isInstance(col.expression)
+                        && valCheck.test(nodeType.cast(col.expression))
         ));
     }
 
@@ -767,15 +868,32 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     /**
-     * Ensures that the user cannot use the TIME_WITH_LOCAL_TIME_ZONE and TIMESTAMP_WITH_LOCAL_TIME_ZONE types for table columns.
+     * Ensures that the parser throws the expected exception when attempting to use the following unsupported types for table columns.
+     *
+     * <ol>
+     *     <li>{@link SqlTypeName#TIME_TZ TIME WITH TIME ZONE}</li>
+     *     <li>{@link SqlTypeName#TIME_WITH_LOCAL_TIME_ZONE TIME WITH LOCAL TIME ZONE}</li>
+     *     <li>{@link SqlTypeName#TIMESTAMP_TZ TIMESTAMP WITH TIME ZONE}</li>
+     * </ol>
      */
     // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-21555 is implemented.
-    @Test
-    public void timeWithLocalTimeZoneIsNotSupported() {
+    @ParameterizedTest(name = "type={0}")
+    @CsvSource({
+            "TIME WITH TIME ZONE, Encountered \"WITH\"",
+            "TIME WITH LOCAL TIME ZONE, Encountered \"WITH\"",
+            "TIMESTAMP WITH TIME ZONE, Encountered \"TIME\""
+    })
+    public void unsupportedTimeZoneAwareTableColumnTypes(String typeName, String expectedError) {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
-                "Encountered \"WITH\"",
-                () -> parse("CREATE TABLE test (ts TIME WITH LOCAL TIME ZONE)")
+                expectedError,
+                () -> parse(format("CREATE TABLE test (ts {})", typeName))
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                expectedError,
+                () -> parse(format("ALTER TABLE test ADD COLUMN ts {}", typeName))
         );
     }
 
@@ -872,6 +990,43 @@ public class SqlDdlParserTest extends AbstractParserTest {
             "SELECT 1::CHARACTER",
     })
     void restrictionOfCharTypeIsNotAppliedToVarcharAndCast(String statement) {
+        SqlNode node = parse(statement);
+
+        assertNotNull(node);
+    }
+
+    /**
+     * BINARY datatype has certain storage assignment rules, namely it requires value to be padded with X'00' symbol up to declared
+     * length. This currently not supported in storage, thus let's forbid usage of BINARY datatype for table's columns.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c BINARY)",
+            "CREATE TABLE t (c BINARY(5))",
+            "ALTER TABLE t ADD COLUMN c BINARY",
+            "ALTER TABLE t ADD COLUMN c BINARY(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE BINARY",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE BINARY(5)",
+    })
+    void binaryTypeIsNotAllowedInTable(String statement) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "BINARY datatype is not supported in table",
+                () -> parse(statement)
+        );
+    }
+
+    /**
+     * Test makes sure exception is not thrown for BINARY VARYING type and in CAST operation where BINARY is allowed.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c VARBINARY)",
+            "CREATE TABLE t (c BINARY VARYING)",
+            "SELECT CAST(1 AS BINARY)",
+            "SELECT 1::BINARY",
+    })
+    void restrictionOfBinaryTypeIsNotAppliedToVarbinaryAndCast(String statement) {
         SqlNode node = parse(statement);
 
         assertNotNull(node);

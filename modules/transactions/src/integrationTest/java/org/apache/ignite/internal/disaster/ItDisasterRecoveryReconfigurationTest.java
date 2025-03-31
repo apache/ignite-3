@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -110,6 +111,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -138,6 +140,8 @@ import org.junit.jupiter.api.Timeout;
  * partitions.
  */
 @Timeout(120)
+// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
@@ -462,10 +466,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         startNode(1);
         startNode(2);
 
-        // Make sure recovery has finished.
-        assertThat(igniteImpl(1).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
-        assertThat(igniteImpl(2).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
-
         // Make sure 1 and 2 did not start.
         assertRealAssignments(node0, partId, 0);
     }
@@ -562,9 +562,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         insertValues(table, partId, 0);
 
-        triggerRaftSnapshot(1, partId);
-        // Second snapshot causes log truncation.
-        triggerRaftSnapshot(1, partId);
+        triggerRaftSnapshot(1, partId, true);
 
         igniteImpl(1).dropMessages((nodeName, msg) -> {
             Ignite node = nullableNode(3);
@@ -1796,7 +1794,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return getRaftNode(nodeIdx, partId).lastLogIndexAndTerm();
     }
 
-    private void triggerRaftSnapshot(int nodeIdx, int partId) throws InterruptedException, ExecutionException {
+    private void triggerRaftSnapshot(int nodeIdx, int partId, boolean forced) throws InterruptedException, ExecutionException {
         IgniteImpl node = igniteImpl(nodeIdx);
 
         var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
@@ -1806,7 +1804,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertNotNull(raftGroupService);
 
         CompletableFuture<Status> fut = new CompletableFuture<>();
-        raftGroupService.getRaftNode().snapshot(fut::complete);
+        raftGroupService.getRaftNode().snapshot(fut::complete, forced);
 
         assertThat(fut, willCompleteSuccessfully());
         assertEquals(RaftError.SUCCESS, fut.get().getRaftError());

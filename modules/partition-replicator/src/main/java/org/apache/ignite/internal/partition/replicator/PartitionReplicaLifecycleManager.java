@@ -57,6 +57,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
@@ -83,6 +84,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -93,6 +95,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -137,6 +140,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -226,7 +231,12 @@ public class PartitionReplicaLifecycleManager extends
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
+    private final DataStorageManager dataStorageManager;
+
     private final ZoneResourcesManager zoneResourcesManager;
+
+    private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
+    private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
 
     /**
      * The constructor.
@@ -246,6 +256,8 @@ public class PartitionReplicaLifecycleManager extends
      * @param sharedTxStateStorage Shared tx state storage.
      * @param txManager Transaction manager.
      * @param schemaManager Schema manager.
+     * @param dataStorageManager Data storage manager.
+     * @param outgoingSnapshotsManager Outgoing snapshots manager.
      */
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
@@ -264,6 +276,7 @@ public class PartitionReplicaLifecycleManager extends
             TxStateRocksDbSharedStorage sharedTxStateStorage,
             TxManager txManager,
             SchemaManager schemaManager,
+            DataStorageManager dataStorageManager,
             OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         this(
@@ -282,6 +295,7 @@ public class PartitionReplicaLifecycleManager extends
                 systemDistributedConfiguration,
                 txManager,
                 schemaManager,
+                dataStorageManager,
                 new ZoneResourcesManager(
                         sharedTxStateStorage,
                         txManager,
@@ -310,6 +324,7 @@ public class PartitionReplicaLifecycleManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxManager txManager,
             SchemaManager schemaManager,
+            DataStorageManager dataStorageManager,
             ZoneResourcesManager zoneResourcesManager
     ) {
         this.catalogService = catalogService;
@@ -326,6 +341,7 @@ public class PartitionReplicaLifecycleManager extends
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
         this.txManager = txManager;
         this.schemaManager = schemaManager;
+        this.dataStorageManager = dataStorageManager;
         this.zoneResourcesManager = zoneResourcesManager;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -348,9 +364,7 @@ public class PartitionReplicaLifecycleManager extends
         }
 
         CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
-
         assert recoveryFinishFuture.isDone();
-
         long recoveryRevision = recoveryFinishFuture.join().revision();
 
         cleanUpResourcesForDroppedZonesOnRecovery();
@@ -362,14 +376,11 @@ public class PartitionReplicaLifecycleManager extends
         metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES), assignmentsSwitchRebalanceListener);
 
-        catalogService.listen(ZONE_CREATE,
-                (CreateZoneEventParameters parameters) ->
-                        inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((ignored) -> false))
-        );
+        catalogService.listen(ZONE_CREATE, onCreateZoneListener);
 
         rebalanceRetryDelayConfiguration.init();
 
-        executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+        executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
 
         return processZonesAndAssignmentsOnStart;
     }
@@ -414,25 +425,25 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
-        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
-        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
+        return recoverStableAssignments(recoveryRevision).thenCompose(v -> recoverPendingAssignments(recoveryRevision));
+    }
 
-        // It's required to handle stable assignments changes on recovery in order to cleanup obsolete resources.
-        CompletableFuture<Void> stableFuture = handleAssignmentsOnRecovery(
-                stableAssignmentsPrefix,
+    private CompletableFuture<Void> recoverStableAssignments(long recoveryRevision) {
+        return handleAssignmentsOnRecovery(
+                new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES),
                 recoveryRevision,
                 (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
         );
+    }
 
-        CompletableFuture<Void> pendingFuture = handleAssignmentsOnRecovery(
-                pendingAssignmentsPrefix,
+    private CompletableFuture<Void> recoverPendingAssignments(long recoveryRevision) {
+        return handleAssignmentsOnRecovery(
+                new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
                 recoveryRevision,
-                (entry, rev) -> handleChangePendingAssignmentEvent(entry, rev),
+                this::handleChangePendingAssignmentEvent,
                 "pending"
         );
-
-        return allOf(stableFuture, pendingFuture);
     }
 
     private CompletableFuture<Void> handleAssignmentsOnRecovery(
@@ -469,13 +480,15 @@ public class PartitionReplicaLifecycleManager extends
         // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
     }
 
-    private CompletableFuture<Void> onCreateZone(CreateZoneEventParameters createZoneEventParameters) {
+    private CompletableFuture<Boolean> onCreateZone(CreateZoneEventParameters createZoneEventParameters) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22535 start replica must be moved from metastore thread
-        return calculateZoneAssignmentsAndCreateReplicationNodes(
-                createZoneEventParameters.causalityToken(),
-                createZoneEventParameters.catalogVersion(),
-                createZoneEventParameters.zoneDescriptor()
-        );
+        return inBusyLock(busyLock, () -> {
+            return calculateZoneAssignmentsAndCreateReplicationNodes(
+                    createZoneEventParameters.causalityToken(),
+                    createZoneEventParameters.catalogVersion(),
+                    createZoneEventParameters.zoneDescriptor()
+            ).thenApply(unused -> false);
+        });
     }
 
     private CompletableFuture<Void> calculateZoneAssignmentsAndCreateReplicationNodes(
@@ -489,7 +502,13 @@ public class PartitionReplicaLifecycleManager extends
             return getOrCreateAssignments(zoneDescriptor, causalityToken, catalogVersion)
                     .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, assignments))
                     .thenCompose(
-                            assignments -> createZoneReplicationNodes(zoneId, assignments, causalityToken, zoneDescriptor.partitions())
+                            assignments -> createZoneReplicationNodes(
+                                    zoneId,
+                                    assignments,
+                                    causalityToken,
+                                    catalogVersion,
+                                    zoneDescriptor.partitions()
+                            )
                     );
         });
     }
@@ -497,7 +516,8 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Void> createZoneReplicationNodes(
             int zoneId,
             List<Assignments> assignments,
-            long revision,
+            long causalityToken,
+            int catalogVersion,
             int partitionCount
     ) {
         return inBusyLockAsync(busyLock, () -> {
@@ -516,13 +536,34 @@ public class PartitionReplicaLifecycleManager extends
                         zonePartitionId,
                         localMemberAssignment,
                         zoneAssignment,
-                        revision,
-                        partitionCount
+                        causalityToken,
+                        partitionCount,
+                        isVolatileZoneForCatalogVersion(zoneId, catalogVersion)
                 );
             }
 
             return allOf(partitionsStartFutures);
         });
+    }
+
+    private boolean isVolatileZoneForCatalogVersion(int zoneId, int catalogVersion) {
+        CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersion).zone(zoneId);
+
+        assert zoneDescriptor != null;
+
+        return isVolatileZone(zoneDescriptor);
+    }
+
+    private boolean isVolatileZone(CatalogZoneDescriptor zoneDescriptor) {
+        return zoneDescriptor.storageProfiles()
+                .profiles()
+                .stream()
+                .map(CatalogStorageProfileDescriptor::storageProfile)
+                .allMatch(storageProfile -> {
+                    StorageEngine storageEngine = dataStorageManager.engineByStorageProfile(storageProfile);
+
+                    return storageEngine != null && storageEngine.isVolatile();
+                });
     }
 
     /**
@@ -541,7 +582,8 @@ public class PartitionReplicaLifecycleManager extends
             @Nullable Assignment localMemberAssignment,
             Assignments stableAssignments,
             long revision,
-            int partitionCount
+            int partitionCount,
+            boolean isVolatileZone
     ) {
         if (localMemberAssignment == null) {
             return nullCompletedFuture();
@@ -605,8 +647,7 @@ public class PartitionReplicaLifecycleManager extends
                                     stablePeersAndLearners,
                                     zoneResources.raftListener(),
                                     raftGroupEventsListener,
-                                    // TODO: IGNITE-24371 - pass real isVolatile flag
-                                    false,
+                                    isVolatileZone,
                                     busyLock,
                                     storageIndexTracker
                             );
@@ -618,12 +659,7 @@ public class PartitionReplicaLifecycleManager extends
                         replicationGroupIds.add(zonePartitionId);
 
                         return trueCompletedFuture();
-                    }))
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
-                        }
-                    });
+                    }));
         };
 
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
@@ -673,6 +709,10 @@ public class PartitionReplicaLifecycleManager extends
     @Override
     public void beforeNodeStop() {
         busyLock.block();
+
+        executorInclinedPlacementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
+
+        catalogService.removeListener(ZONE_CREATE, onCreateZoneListener);
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
@@ -951,7 +991,7 @@ public class PartitionReplicaLifecycleManager extends
                     ? Assignments.EMPTY
                     : AssignmentsQueue.fromBytes(pendingAssignmentsFromMetaStorage).poll();
 
-            return stopAndDestroyPartitionAndUpdateClients(
+            return stopAndMaybeDestroyPartitionAndUpdateClients(
                     zonePartitionId,
                     stableAssignments,
                     pendingAssignments,
@@ -983,7 +1023,7 @@ public class PartitionReplicaLifecycleManager extends
         }));
     }
 
-    private CompletableFuture<Void> stopAndDestroyPartitionAndUpdateClients(
+    private CompletableFuture<Void> stopAndMaybeDestroyPartitionAndUpdateClients(
             ZonePartitionId zonePartitionId,
             Set<Assignment> stableAssignments,
             Assignments pendingAssignments,
@@ -1123,7 +1163,8 @@ public class PartitionReplicaLifecycleManager extends
                     localMemberAssignment,
                     computedStableAssignments,
                     revision,
-                    zoneDescriptor.partitions()
+                    zoneDescriptor.partitions(),
+                    isVolatileZone(zoneDescriptor)
             );
         } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
@@ -1437,7 +1478,8 @@ public class PartitionReplicaLifecycleManager extends
             int tableId,
             Function<RaftCommandRunner, ReplicaTableProcessor> tablePartitionReplicaProcessorFactory,
             RaftTableProcessor raftTableProcessor,
-            PartitionMvStorageAccess partitionMvStorageAccess
+            PartitionMvStorageAccess partitionMvStorageAccess,
+            boolean onNodeRecovery
     ) {
         ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
 
@@ -1450,7 +1492,11 @@ public class PartitionReplicaLifecycleManager extends
                 tablePartitionReplicaProcessorFactory
         ));
 
-        resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
+        if (onNodeRecovery) {
+            resources.raftListener().addTableProcessorOnRecovery(tableId, raftTableProcessor);
+        } else {
+            resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
+        }
 
         resources.snapshotStorageFactory().addMvPartition(tableId, partitionMvStorageAccess);
     }
@@ -1504,6 +1550,12 @@ public class PartitionReplicaLifecycleManager extends
                 replicaWasStopped -> {
                     if (replicaWasStopped) {
                         zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
+
+                        try {
+                            replicaMgr.destroyReplicationProtocolStorages(zonePartitionId, false);
+                        } catch (NodeStoppingException e) {
+                            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
+                        }
                     }
                 },
                 LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,

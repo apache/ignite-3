@@ -20,12 +20,16 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
+import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
 /** Adapter from {@link TxStatePartitionStorage} to {@link PartitionTxStateAccess}. */
@@ -69,6 +73,13 @@ public class PartitionTxStateAccessImpl implements PartitionTxStateAccess {
     }
 
     @Override
+    public @Nullable PartitionSnapshotInfo snapshotInfo() {
+        byte[] snapshotInfo = storage.snapshotInfo();
+
+        return snapshotInfo == null ? null : VersionedSerialization.fromBytes(snapshotInfo, PartitionSnapshotInfoSerializer.INSTANCE);
+    }
+
+    @Override
     public CompletableFuture<Void> startRebalance() {
         return storage.startRebalance();
     }
@@ -79,7 +90,7 @@ public class PartitionTxStateAccessImpl implements PartitionTxStateAccess {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta) {
-        return storage.finishRebalance(partitionMeta.toMvPartitionMeta(partitionMeta.raftGroupConfig()));
+    public CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta) {
+        return storage.finishRebalance(partitionMeta).thenCompose(v -> storage.flush());
     }
 }

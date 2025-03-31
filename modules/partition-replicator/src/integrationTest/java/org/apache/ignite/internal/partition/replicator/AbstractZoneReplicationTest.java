@@ -41,10 +41,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
@@ -95,8 +95,8 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static ReplicationConfiguration replicationConfiguration;
 
-    @InjectConfiguration("mock.idleSyncTimeInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    @InjectConfiguration("mock.idleSafeTimeSyncInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
     private static StorageConfiguration storageConfiguration;
@@ -189,7 +189,7 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
                 raftConfiguration,
                 nodeAttributesConfiguration,
                 storageConfiguration,
-                metaStorageConfiguration,
+                systemDistributedConfiguration,
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,

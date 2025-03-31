@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -115,18 +116,17 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
@@ -138,6 +138,7 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -233,13 +234,13 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Storage update configuration. */
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
-
-    @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
-    private StorageConfiguration storageConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
     @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration("mock.storage = {profiles.default = {engine = \"aipersist\"}}")
+    private NodeConfiguration nodeConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -430,6 +431,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-24397 - remove @WithSystemProperty.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testDropTable() throws Exception {
         mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
@@ -525,6 +528,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest1() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -545,6 +550,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest2() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -565,6 +572,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest3() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -585,6 +594,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest4() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -653,11 +664,15 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
     }
@@ -831,7 +846,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 revisionUpdater,
                 gcConfig,
                 txConfig,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
@@ -918,9 +933,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             ConfigurationRegistry mockedRegistry,
             Path storagePath
     ) {
-        StorageExtensionConfiguration mock = mock(StorageExtensionConfiguration.class);
-        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(mock);
-        when(mock.storage()).thenReturn(storageConfiguration);
+        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(nodeConfiguration);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 List.of(new PersistentPageMemoryDataStorageModule())
@@ -938,7 +951,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         clock,
                         scheduledExecutor
                 ),
-                storageConfiguration
+                ((StorageExtensionConfiguration) nodeConfiguration).storage()
         );
 
         assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());

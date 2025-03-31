@@ -81,8 +81,11 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
      *
      * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     *
+     * <p>Field with a volatile so as not to be blocked when reading the compaction revision by other components, for example due to long
+     * write operations, including the compaction itself.</p>
      */
-    protected long compactionRevision = -1;
+    protected volatile long compactionRevision = -1;
 
     /**
      * Planned for update compaction revision to ensure monotony without duplicates when updating it.
@@ -255,13 +258,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     @Override
     public long getCompactionRevision() {
-        rwLock.readLock().lock();
-
-        try {
-            return compactionRevision;
-        } finally {
-            rwLock.readLock().unlock();
-        }
+        return compactionRevision;
     }
 
     @Override

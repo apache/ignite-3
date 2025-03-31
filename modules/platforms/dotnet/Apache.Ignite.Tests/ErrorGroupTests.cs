@@ -196,7 +196,7 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
 
             Assert.AreEqual(-1, ex.ErrorCode);
-            Assert.AreEqual("IGN-CMN--1", ex.CodeAsString);
+            Assert.AreEqual("IGN-CMN-65535", ex.CodeAsString);
 
             Assert.AreEqual(1, ex.GroupCode);
             Assert.AreEqual("CMN", ex.GroupName);

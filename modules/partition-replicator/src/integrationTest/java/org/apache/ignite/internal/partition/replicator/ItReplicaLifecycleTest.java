@@ -362,8 +362,11 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         alterZone(node.catalogManager, zoneName, 1);
 
-        cluster.stream().filter(n -> !replicaAssignment.consistentId().equals(n.name)).forEach(
-                n -> checkDestroyPartitionStoragesInvokes(n, tableName, 0));
+        for (Node n : cluster) {
+            if (!replicaAssignment.consistentId().equals(n.name)) {
+                checkDestroyPartitionStoragesInvokes(n, tableName, 0);
+            }
+        }
 
     }
 
@@ -754,7 +757,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                 .destroyPartition(partitionId);
-        verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+        verify(internalTable.txStateStorage(), never())
                 .destroyTxStateStorage(partitionId);
     }
 

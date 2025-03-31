@@ -477,18 +477,9 @@ public class DdlSqlToCommandConverter {
             return DefaultValue.constant(null);
         }
 
-        if (expression instanceof SqlIdentifier) {
-            return DefaultValue.functionCall(((SqlIdentifier) expression).getSimple());
-        }
-
-        if (expression instanceof SqlLiteral) {
-            ColumnType columnType = columnType(relType);
-
-            Object val = fromLiteral(columnType, name, (SqlLiteral) expression, relType.getPrecision(), relType.getScale());
-            return DefaultValue.constant(val);
-        }
-
-        throw new IllegalArgumentException("Unsupported default expression: " + expression.getKind());
+        DeferredDefaultValue deferredDefaultValue = convertDefaultExpression(expression, name, relType);
+        ColumnType columnType = columnType(relType);
+        return deferredDefaultValue.derive(columnType);
     }
 
     /**
@@ -563,25 +554,39 @@ public class DdlSqlToCommandConverter {
             builder.nullable(!notNull);
         }
 
-        if (alterColumnNode.expression() != null) {
-            SqlNode expr = alterColumnNode.expression();
+        SqlNode defaultExpr = alterColumnNode.expression();
+        if (defaultExpr != null) {
+            String columnName = alterColumnNode.name().getSimple();
+            DeferredDefaultValue deferredDfltFunc = convertDefaultExpression(defaultExpr, columnName, relType);
 
-            DeferredDefaultValue resolveDfltFunc;
-
-            int precision = relType == null ? PRECISION_NOT_SPECIFIED : relType.getPrecision();
-            int scale = relType == null ? SCALE_NOT_SPECIFIED : relType.getScale();
-            String name = alterColumnNode.columnName().getSimple();
-
-            if (expr instanceof SqlLiteral) {
-                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, name, (SqlLiteral) expr, precision, scale));
-            } else {
-                throw new IllegalStateException("Invalid expression type " + expr.getKind());
-            }
-
-            builder.deferredDefaultValue(resolveDfltFunc);
+            builder.deferredDefaultValue(deferredDfltFunc);
         }
 
         return builder.build();
+    }
+
+    private static DeferredDefaultValue convertDefaultExpression(
+            SqlNode expr,
+            String name,
+            @Nullable RelDataType relType
+    ) {
+        if (expr instanceof SqlLiteral) {
+            int precision = relType == null ? PRECISION_NOT_SPECIFIED : relType.getPrecision();
+            int scale = relType == null ? SCALE_NOT_SPECIFIED : relType.getScale();
+
+            return type -> DefaultValue.constant(fromLiteral(type, name, (SqlLiteral) expr, precision, scale));
+        } else if (expr instanceof SqlIdentifier && ((SqlIdentifier) expr).isSimple()) {
+
+            return type -> DefaultValue.functionCall(((SqlIdentifier) expr).getSimple());
+        } else if (expr instanceof SqlCall && ((SqlCall) expr).getOperandList().isEmpty()) {
+            SqlCall call = (SqlCall) expr;
+            String functionName = call.getOperator().getName();
+
+            return type -> DefaultValue.functionCall(functionName);
+        }
+
+        // Report compound ids, expressions, and non-zero argument function calls as their SQL string representation.
+        throw new SqlException(STMT_VALIDATION_ERR, "Unsupported default expression: " + expr);
     }
 
     /**

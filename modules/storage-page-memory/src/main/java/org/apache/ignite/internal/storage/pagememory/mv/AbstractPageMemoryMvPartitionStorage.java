@@ -55,10 +55,9 @@ import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateTimestampHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.apache.ignite.internal.storage.pagememory.mv.RemoveWriteOnGcInvokeClosure.UpdateNextLinkHandler;
@@ -176,21 +175,21 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Returns a hash index instance, creating index it if necessary.
+     * Creates a hash index.
      *
      * @param indexDescriptor Index descriptor.
      */
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return busy(() -> indexes.getOrCreateHashIndex(indexDescriptor, renewableState.indexStorageFactory()));
+    public void createHashIndex(StorageHashIndexDescriptor indexDescriptor) {
+        busy(() -> indexes.createHashIndex(indexDescriptor, renewableState.indexStorageFactory()));
     }
 
     /**
-     * Returns a sorted index instance, creating index it if necessary.
+     * Creates a sorted index.
      *
      * @param indexDescriptor Index descriptor.
      */
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return busy(() -> indexes.getOrCreateSortedIndex(indexDescriptor, renewableState.indexStorageFactory()));
+    public void createSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        busy(() -> indexes.createSortedIndex(indexDescriptor, renewableState.indexStorageFactory()));
     }
 
     void updateRenewableState(
@@ -656,6 +655,24 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
+     * Executes a Runnable using a {@link #busyLock}.
+     *
+     * @param action Action.
+     * @throws StorageClosedException If the storage is closed.
+     */
+    void busy(Runnable action) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            action.run();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Performs a {@code fn} in {@code busyLock} if {@link IgniteSpinBusyLock#enterBusy()} succeed. Otherwise it just silently returns.
      *
      * @param fn Runnable to run.
@@ -740,17 +757,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public abstract void committedGroupConfigurationOnRebalance(byte[] config);
 
     /**
-     * Updates the current lease start time in the storage on rebalance.
-     *
-     * @param leaseStartTime Lease start time.
-     * @param primaryReplicaNodeId Primary replica node id.
-     * @param primaryReplicaNodeName Primary replica node name.
+     * Updates the current lease information in the storage on rebalance.
      */
-    public abstract void updateLeaseOnRebalance(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    );
+    public abstract void updateLeaseOnRebalance(LeaseInfo leaseInfo);
 
     /**
      * Prepares the storage and its indexes for cleanup.

@@ -32,7 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.network.ClusterNode;
 
 /** Task of building a table index. */
@@ -88,6 +91,8 @@ class IndexBuildTask {
 
     private final CompletableFuture<Void> taskFuture = new CompletableFuture<>();
 
+    private final HybridTimestamp initialOperationTimestamp;
+
     IndexBuildTask(
             IndexBuildTaskId taskId,
             IndexStorage indexStorage,
@@ -99,7 +104,8 @@ class IndexBuildTask {
             ClusterNode node,
             List<IndexBuildCompletionListener> listeners,
             long enlistmentConsistencyToken,
-            boolean afterDisasterRecovery
+            boolean afterDisasterRecovery,
+            HybridTimestamp initialOperationTimestamp
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -113,6 +119,7 @@ class IndexBuildTask {
         this.listeners = listeners;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
         this.afterDisasterRecovery = afterDisasterRecovery;
+        this.initialOperationTimestamp = initialOperationTimestamp;
     }
 
     /** Starts building the index. */
@@ -130,7 +137,7 @@ class IndexBuildTask {
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            if (unwrapCause(throwable) instanceof PrimaryReplicaMissException) {
+                            if (ignorable(throwable)) {
                                 LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
                             } else {
                                 LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
@@ -148,6 +155,16 @@ class IndexBuildTask {
         } finally {
             leaveBusy();
         }
+    }
+
+    private static boolean ignorable(Throwable throwable) {
+        Throwable unwrapped = unwrapCause(throwable);
+
+        // Any of these exceptions can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
+        // build continuation. We just don't want to fill our logs with garbage.
+        return unwrapped instanceof PrimaryReplicaMissException
+                || unwrapped instanceof TrackerClosedException
+                || unwrapped instanceof NodeStoppingException;
     }
 
     /** Stops index building. */
@@ -172,7 +189,7 @@ class IndexBuildTask {
         try {
             List<RowId> batchRowIds = createBatchRowIds();
 
-            return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds))
+            return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds, initialOperationTimestamp))
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);
@@ -220,7 +237,7 @@ class IndexBuildTask {
         return batch;
     }
 
-    private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds) {
+    private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds, HybridTimestamp initialOperationTimestamp) {
         boolean finish = rowIds.size() < batchSize;
 
         ReplicationGroupIdMessage groupIdMessage = enabledColocation()
@@ -234,6 +251,7 @@ class IndexBuildTask {
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
+                .timestamp(initialOperationTimestamp)
                 .build();
     }
 

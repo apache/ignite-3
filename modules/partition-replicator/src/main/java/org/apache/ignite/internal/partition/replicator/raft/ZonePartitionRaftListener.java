@@ -21,10 +21,11 @@ import static java.lang.Math.max;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
 import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -78,7 +80,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      *
      * <p>Concurrent access is guarded by {@link #tableProcessorsStateLock}.
      */
-    private final Map<Integer, RaftTableProcessor> tableProcessors = new HashMap<>();
+    private final Int2ObjectMap<RaftTableProcessor> tableProcessors = new Int2ObjectOpenHashMap<>();
 
     private final TxStatePartitionStorage txStateStorage;
 
@@ -116,7 +118,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             TxManager txManager,
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            PartitionsSnapshots partitionsSnapshots
+            PartitionsSnapshots partitionsSnapshots,
+            Executor partitionOperationsExecutor
     ) {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
@@ -124,7 +127,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.txStateStorage = txStatePartitionStorage;
         this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
 
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage);
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
         // RAFT command handlers initialization.
         this.commandHandlers = new CommandHandlers.Builder()
@@ -339,7 +342,19 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         synchronized (tableProcessorsStateLock) {
-            onSnapshotSaveHandler.onSnapshotSave(lastAppliedIndex, lastAppliedTerm, tableProcessors.values())
+            byte[] configuration = txStateStorage.committedGroupConfiguration();
+
+            assert configuration != null : "Trying to create a snapshot without Raft group configuration";
+
+            var snapshotInfo = new PartitionSnapshotInfo(
+                    lastAppliedIndex,
+                    lastAppliedTerm,
+                    txStateStorage.leaseInfo(),
+                    configuration,
+                    tableProcessors.keySet()
+            );
+
+            onSnapshotSaveHandler.onSnapshotSave(snapshotInfo, tableProcessors.values())
                     .whenComplete((unused, throwable) -> doneClo.accept(throwable));
         }
     }
@@ -366,7 +381,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     }
 
     /**
-     * Adds a given Table Partition-level Raft processor to the set of managed processor.
+     * Adds a given Table Partition-level Raft processor to the set of managed processors.
      *
      * <p>Callers of this method must ensure that no commands are issued to this processor before this method returns.
      *
@@ -385,6 +400,58 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             RaftTableProcessor prev = tableProcessors.put(tableId, processor);
 
             assert prev == null : "Listener for table " + tableId + " already exists";
+        }
+    }
+
+    /**
+     * Adds a given Table Partition-level Raft processor to the set of managed processors during node recovery on startup.
+     */
+    public void addTableProcessorOnRecovery(int tableId, RaftTableProcessor processor) {
+        synchronized (tableProcessorsStateLock) {
+            PartitionSnapshotInfo snapshotInfo = snapshotInfo();
+
+            // This method is called on node recovery in order to add existing table processors to a zone being started. During recovery
+            // we may encounter "empty" storages, i.e. storages that were created when the node was running but didn't have the chance
+            // to durably flush their data on disk. In this case we use the last saved Raft snapshot information to determine if a given
+            // storage has ever participated in a Raft snapshot.
+            // - If it has, then it is expected to have a persistent state and, since this storage is currently empty, it must have
+            // experienced a disaster. In this case, we do not initialize the given processor and the node recovery code will try to
+            // replay the Raft log from the beginning of time, if it's available, or will throw an error.
+            // - If it has not, then it is guaranteed that this storage has never had any updates before the last snapshot and we can use
+            // its state to initialize the storage. Any missed updates that may have come after the snapshot will be re-applied as a part
+            // of Raft log replay.
+            if (snapshotInfo != null && !snapshotInfo.tableIds().contains(tableId)) {
+                RaftGroupConfiguration configuration = raftGroupConfigurationConverter.fromBytes(snapshotInfo.configurationBytes());
+
+                processor.initialize(
+                        configuration,
+                        snapshotInfo.leaseInfo(),
+                        snapshotInfo.lastAppliedIndex(),
+                        snapshotInfo.lastAppliedTerm()
+                );
+            }
+
+            RaftTableProcessor prev = tableProcessors.put(tableId, processor);
+
+            assert prev == null : "Listener for table " + tableId + " already exists";
+        }
+    }
+
+    private @Nullable PartitionSnapshotInfo snapshotInfo() {
+        byte[] snapshotInfoBytes = txStateStorage.snapshotInfo();
+
+        if (snapshotInfoBytes == null) {
+            return null;
+        }
+
+        return VersionedSerialization.fromBytes(snapshotInfoBytes, PartitionSnapshotInfoSerializer.INSTANCE);
+    }
+
+    /** Returns the table processor associated with the given table ID. */
+    @TestOnly
+    public RaftTableProcessor tableProcessor(int tableId) {
+        synchronized (tableProcessorsStateLock) {
+            return tableProcessors.get(tableId);
         }
     }
 

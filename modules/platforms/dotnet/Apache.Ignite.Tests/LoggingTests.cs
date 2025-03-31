@@ -46,7 +46,7 @@ public class LoggingTests
             SocketTimeout = TimeSpan.FromSeconds(1)
         };
 
-        using var servers = FakeServerGroup.Create(3);
+        using (var servers = FakeServerGroup.Create(3))
         using (var client = await servers.ConnectClientAsync(cfg))
         {
             client.WaitForConnections(3);
@@ -68,6 +68,7 @@ public class LoggingTests
         StringAssert.Contains("[Trace] Received response [requestId=1, flags=PartitionAssignmentChanged, remoteAddress=", log);
         StringAssert.Contains("op=SqlExec", log);
         StringAssert.Contains("[Debug] Connection closed gracefully", log);
+        StringAssert.DoesNotContain("[Error]", log);
     }
 
     [Test]

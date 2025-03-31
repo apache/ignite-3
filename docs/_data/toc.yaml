@@ -118,7 +118,7 @@
     - title: Data Colocation
       url: administrators-guide/colocation
     - title: Cluster Security
-      url: administrators-guide/security
+      url: administrators-guide/cluster-security
     - title: Security and Authentication
       url: administrators-guide/security/ssl-tls
       items:

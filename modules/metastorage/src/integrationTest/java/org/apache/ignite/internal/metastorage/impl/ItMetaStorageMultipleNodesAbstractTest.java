@@ -42,6 +42,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -98,8 +98,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     /**
      * Large interval to effectively disable idle safe time propagation.
      */
-    @InjectConfiguration("mock.idleSyncTimeInterval=1000000")
-    private MetaStorageConfiguration metaStorageConfiguration;
+    @InjectConfiguration("mock.idleSafeTimeSyncInterval=1000000")
+    private SystemDistributedConfiguration systemConfiguration;
 
     private TestInfo testInfo;
 
@@ -224,7 +224,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
+                    systemConfiguration,
                     msRaftConfigurator,
                     readOperationForCompactionTracker
             );
@@ -315,8 +315,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     }
 
     final void enableIdleSafeTimeSync() {
-        CompletableFuture<Void> updateIdleSyncTimeIntervalFuture = metaStorageConfiguration.idleSyncTimeInterval().update(100L);
+        CompletableFuture<Void> updateIdleSafeTimeSyncIntervalFuture = systemConfiguration.idleSafeTimeSyncInterval().update(100L);
 
-        assertThat(updateIdleSyncTimeIntervalFuture, willCompleteSuccessfully());
+        assertThat(updateIdleSafeTimeSyncIntervalFuture, willCompleteSuccessfully());
     }
 }

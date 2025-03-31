@@ -200,14 +200,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
 
-    /** On-heap-cached lease start time value. */
-    private volatile long leaseStartTime;
-
-    /** On-heap-cached lease node id. */
-    private volatile UUID primaryReplicaNodeId;
-
-    /** On-heap-cached lease node name. */
-    private volatile String primaryReplicaNodeName;
+    /** On-heap-cached lease info. */
+    @Nullable
+    private volatile LeaseInfo leaseInfo;
 
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
@@ -254,14 +249,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             byte[] leaseBytes = db.get(meta, readOpts, leaseKey);
 
-            if (leaseBytes == null) {
-                leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
-            } else {
-                LeaseInfo leaseInfo = VersionedSerialization.fromBytes(leaseBytes, LeaseInfoSerializer.INSTANCE);
-
-                leaseStartTime = leaseInfo.leaseStartTime();
-                primaryReplicaNodeId = leaseInfo.primaryReplicaNodeId();
-                primaryReplicaNodeName = leaseInfo.primaryReplicaNodeName();
+            if (leaseBytes != null) {
+                this.leaseInfo = VersionedSerialization.fromBytes(leaseBytes, LeaseInfoSerializer.INSTANCE);
             }
 
             byte[] estimatedSizeBytes = db.get(meta, readOpts, estimatedSizeKey);
@@ -1096,24 +1085,21 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void updateLease(
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    ) {
+    public void updateLease(LeaseInfo leaseInfo) {
         busy(() -> {
-            if (leaseStartTime <= this.leaseStartTime) {
+            LeaseInfo thisLeaseInfo = this.leaseInfo;
+
+            if (thisLeaseInfo != null && leaseInfo.leaseStartTime() <= thisLeaseInfo.leaseStartTime()) {
                 return null;
             }
 
-            saveLease(requireWriteBatch(), leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+            saveLease(requireWriteBatch(), leaseInfo);
 
             return null;
         });
     }
 
-    private void saveLease(AbstractWriteBatch writeBatch, long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
-        LeaseInfo leaseInfo = new LeaseInfo(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+    private void saveLease(AbstractWriteBatch writeBatch, LeaseInfo leaseInfo) {
         byte[] bytes = VersionedSerialization.toBytes(leaseInfo, LeaseInfoSerializer.INSTANCE);
 
         try {
@@ -1122,24 +1108,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throw new IgniteRocksDbException(e);
         }
 
-        this.leaseStartTime = leaseStartTime;
-        this.primaryReplicaNodeId = primaryReplicaNodeId;
-        this.primaryReplicaNodeName = primaryReplicaNodeName;
+        this.leaseInfo = leaseInfo;
     }
 
     @Override
-    public long leaseStartTime() {
-        return busy(() -> leaseStartTime);
-    }
-
-    @Override
-    public @Nullable UUID primaryReplicaNodeId() {
-        return busy(() -> primaryReplicaNodeId);
-    }
-
-    @Override
-    public @Nullable String primaryReplicaNodeName() {
-        return busy(() -> primaryReplicaNodeName);
+    public @Nullable LeaseInfo leaseInfo() {
+        return leaseInfo;
     }
 
     /**
@@ -1649,15 +1623,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             saveGroupConfigurationOnRebalance(writeBatch, partitionMeta.groupConfig());
 
-            if (partitionMeta.primaryReplicaNodeId() != null) {
-                assert partitionMeta.primaryReplicaNodeName() != null;
+            LeaseInfo leaseInfo = partitionMeta.leaseInfo();
 
-                updateLeaseOnRebalance(
-                        writeBatch,
-                        partitionMeta.leaseStartTime(),
-                        partitionMeta.primaryReplicaNodeId(),
-                        partitionMeta.primaryReplicaNodeName()
-                );
+            if (leaseInfo != null) {
+                saveLease(writeBatch, leaseInfo);
             }
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
@@ -1691,19 +1660,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         saveGroupConfiguration(writeBatch, config);
 
         this.lastGroupConfig = config.clone();
-    }
-
-    private void updateLeaseOnRebalance(
-            WriteBatch writeBatch,
-            long leaseStartTime,
-            UUID primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    ) {
-        saveLease(writeBatch, leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
-
-        this.leaseStartTime = leaseStartTime;
-        this.primaryReplicaNodeId = primaryReplicaNodeId;
-        this.primaryReplicaNodeName = primaryReplicaNodeName;
     }
 
     /**

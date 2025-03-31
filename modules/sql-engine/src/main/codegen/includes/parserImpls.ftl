@@ -24,7 +24,7 @@ boolean IfNotExistsOpt() :
     { return false; }
 }
 
-SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType) :
+SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType, boolean allowBinaryType) :
 {
     final SqlDataTypeSpec dt;
 }
@@ -35,13 +35,15 @@ SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType) :
         dt = IntervalType()
     )
     {
-        if (!allowCharType
-                && dt.getTypeName().isSimple()
-                && ("CHAR".equals(dt.getTypeName().getSimple()) || "CHARACTER".equals(dt.getTypeName().getSimple()))) {
-
-            throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.charDataTypeIsNotSupportedInTable());
+        if(dt.getTypeName().isSimple()) {
+            String typeName = dt.getTypeName().getSimple();
+            if (!allowCharType && ("CHAR".equals(typeName) || "CHARACTER".equals(typeName))) {
+               throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.charDataTypeIsNotSupportedInTable());
+            }
+            if (!allowBinaryType && "BINARY".equals(typeName)) {
+                throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.binaryDataTypeIsNotSupportedInTable());
+            }
         }
-
         return dt;
     }
 }
@@ -81,13 +83,11 @@ void TableElement(List<SqlNode> list) :
     IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH;
 }
 {
-    id = SimpleIdentifier() type = DataTypeEx(s, false) nullable = NullableOptDefaultNull()
+    id = SimpleIdentifier() type = DataTypeEx(s, false, false) nullable = NullableOptDefaultNull()
     (
         <DEFAULT_> { s.add(this); }
         (
-            dflt = Literal()
-        |
-            dflt = SimpleIdentifier()
+            dflt = DefaultExpression()
         )  {
             strategy = ColumnStrategy.DEFAULT;
         }
@@ -365,7 +365,7 @@ void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
     <INFIX_CAST> {
         checkNonQueryExpression(exprContext);
     }
-    dt = DataTypeEx(s, true) {
+    dt = DataTypeEx(s, true, true) {
         list.add(
             new SqlParserUtil.ToTreeListItem(SqlLibraryOperators.INFIX_CAST,
                 s.pos()));
@@ -401,7 +401,7 @@ SqlNode ColumnWithType() :
 }
 {
     id = SimpleIdentifier() { s.add(this); }
-    type = DataTypeEx(s, false)
+    type = DataTypeEx(s, false, false)
     [
         <NOT> <NULL> {
             nullable = false;
@@ -412,7 +412,7 @@ SqlNode ColumnWithType() :
         }
     ]
     (
-        <DEFAULT_> { s.add(this); } dflt = Literal() {
+        <DEFAULT_> { s.add(this); } dflt = DefaultExpression() {
             strategy = ColumnStrategy.DEFAULT;
         }
     |
@@ -425,6 +425,13 @@ SqlNode ColumnWithType() :
     {
         return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
+}
+
+SqlNode DefaultExpression():
+{
+   SqlNode node;
+} {
+   node = Expression(ExprContext.ACCEPT_NON_QUERY) { return node; }
 }
 
 SqlNodeList ColumnWithTypeOrList() :
@@ -476,7 +483,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
     id = SimpleIdentifier()
     (
         LOOKAHEAD(2)
-        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx(s, false) nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
+        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx(s, false, false) nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, false, dflt, nullable == null ? null : !nullable);
         }
     |
@@ -490,7 +497,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, null, false);
         }
     |
-        <SET> <DEFAULT_> { s.add(this); } dflt = Literal()
+        <SET> <DEFAULT_> { s.add(this); } dflt = DefaultExpression()
         {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, dflt, null);
         }
@@ -506,7 +513,7 @@ SqlNode DefaultLiteralOrNull() :
     SqlNode dflt;
 }
 {
-    <DEFAULT_> dflt = Literal()
+    <DEFAULT_> dflt = DefaultExpression()
     {
         return dflt;
     }
@@ -808,7 +815,7 @@ void AlterZoneOption(List<SqlNode> list) :
 /**
 * Parse datetime types: date, time, timestamp.
 *
-* TODO Method doesn't recognize 'TIME_WITH_LOCAL_TIME_ZONE' type and should be removed after IGNITE-21555.
+* TODO Method doesn't recognize TIME_WITH_LOCAL_TIME_ZONE, TIME_TZ and TIMESTAMP_TZ types and should be removed after IGNITE-21555.
 */
 SqlTypeNameSpec IgniteDateTimeTypeName() :
 {
@@ -825,6 +832,7 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIME> { s = span(); }
     precision = PrecisionOpt()
+    (<WITHOUT> <TIME> <ZONE>)?
     {
         typeName = SqlTypeName.TIME;
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
@@ -832,10 +840,21 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIMESTAMP> { s = span(); }
     precision = PrecisionOpt()
-    typeName = TimeZoneOpt(false)
+    typeName = TimestampZoneOpt()
     {
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
     }
+}
+
+SqlTypeName TimestampZoneOpt() :
+{
+}
+{
+    <WITHOUT> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP; }
+|
+    <WITH> <LOCAL> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE; }
+|
+    { return SqlTypeName.TIMESTAMP; }
 }
 
 SqlNode SqlStartTransaction() :

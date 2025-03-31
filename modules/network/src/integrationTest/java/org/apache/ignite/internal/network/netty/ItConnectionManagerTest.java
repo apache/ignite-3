@@ -57,7 +57,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -77,6 +76,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -152,8 +152,6 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testReuseIncomingConnection() throws Exception {
-        final String msgText = "test";
-
         TestMessage testMessage = messageFactory.testMessage().msg("test").build();
 
         int port1 = 4000;
@@ -302,7 +300,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      * Tests that a connection manager fails to start twice.
      */
     @Test
-    public void testStartTwice() throws Exception {
+    public void testStartTwice() {
         ConnectionManagerWrapper server = startManager(4000);
 
         IgniteInternalException exception = (IgniteInternalException) assertThrows(
@@ -315,7 +313,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testStartOnSamePort() throws Exception {
+    public void testStartOnSamePort() {
         startManager(4000);
 
         IgniteInternalException exception = (IgniteInternalException) assertThrows(
@@ -366,17 +364,8 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     )
             );
 
-            CompletableFuture<NettySender> channelFut1 = manager1.connectionManager.channel(
-                    manager2.connectionManager.consistentId(),
-                    ChannelType.DEFAULT,
-                    manager2.connectionManager.localAddress()
-            ).toCompletableFuture();
-
-            CompletableFuture<NettySender> channelFut2 = manager2.connectionManager.channel(
-                    manager1.connectionManager.consistentId(),
-                    ChannelType.DEFAULT,
-                    manager1.connectionManager.localAddress()
-            ).toCompletableFuture();
+            CompletableFuture<NettySender> channelFut1 = manager1.openChannelTo(manager2).toCompletableFuture();
+            CompletableFuture<NettySender> channelFut2 = manager2.openChannelTo(manager1).toCompletableFuture();
 
             assertThat(channelFut1, is(completedFuture()));
             assertThat(channelFut2, is(completedFuture()));
@@ -433,7 +422,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         assertTrue(
                 waitForCondition(
                         () -> acceptor.channels().values().stream().anyMatch(acceptorSender
-                                -> acceptorSender.consistentId().equals(opener.connectionManager.consistentId())
+                                -> acceptorSender.launchId().equals(opener.launchId)
                                         && acceptorSender.channelId() == senderFromOpener.channelId()),
                         TimeUnit.SECONDS.toMillis(10)
                 ),
@@ -512,15 +501,15 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      * @param port Port for the connection manager to listen on.
      * @return Connection manager.
      */
-    private ConnectionManagerWrapper startManager(int port) throws Exception {
+    private ConnectionManagerWrapper startManager(int port) {
         return startManager(port, defaultSerializationRegistry());
     }
 
-    private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) throws Exception {
+    private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) {
         return startManager(port, UUID.randomUUID(), registry);
     }
 
-    private ConnectionManagerWrapper startManager(int port, UUID launchId) throws Exception {
+    private ConnectionManagerWrapper startManager(int port, UUID launchId) {
         return startManager(port, launchId, defaultSerializationRegistry());
     }
 
@@ -531,7 +520,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      * @param registry Serialization registry.
      * @return Connection manager.
      */
-    private ConnectionManagerWrapper startManager(int port, UUID launchId, MessageSerializationRegistry registry) throws Exception {
+    private ConnectionManagerWrapper startManager(int port, UUID launchId, MessageSerializationRegistry registry) {
         String consistentId = testNodeName(testInfo, port);
 
         networkConfiguration.port().update(port).join();
@@ -547,11 +536,12 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     cfg,
                     new SerializationService(registry, mock(UserObjectSerializationContext.class)),
                     consistentId,
+                    launchId,
                     bootstrapFactory,
                     new AllIdsAreFresh(),
                     withoutClusterId(),
-                    mock(FailureManager.class),
-                    defaultChannelTypeRegistry()
+                    defaultChannelTypeRegistry(),
+                    new DefaultIgniteProductVersionSource()
             );
 
             manager.start();
@@ -561,7 +551,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     new NetworkAddress(manager.localAddress().getHostName(), port)
             ));
 
-            var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory);
+            var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory, launchId);
 
             startedManagers.add(wrapper);
 
@@ -578,9 +568,16 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         private final NettyBootstrapFactory nettyFactory;
 
-        ConnectionManagerWrapper(ConnectionManager connectionManager, NettyBootstrapFactory nettyFactory) {
+        private final UUID launchId;
+
+        ConnectionManagerWrapper(
+                ConnectionManager connectionManager,
+                NettyBootstrapFactory nettyFactory,
+                UUID launchId
+        ) {
             this.connectionManager = connectionManager;
             this.nettyFactory = nettyFactory;
+            this.launchId = launchId;
         }
 
         @Override
@@ -594,13 +591,13 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient) {
             return connectionManager.channel(
-                    recipient.connectionManager.consistentId(),
+                    recipient.launchId,
                     ChannelType.DEFAULT,
                     recipient.connectionManager.localAddress()
             );
         }
 
-        Map<ConnectorKey<String>, NettySender> channels() {
+        Map<ConnectorKey<UUID>, NettySender> channels() {
             return connectionManager.channels();
         }
     }

@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
@@ -70,6 +71,8 @@ import org.jetbrains.annotations.TestOnly;
 public class UpdateLogImpl implements UpdateLog {
     private static final IgniteLogger LOG = Loggers.forClass(UpdateLogImpl.class);
 
+    private static final byte[] MAGIC_BYTES = "IGNITE".getBytes(StandardCharsets.UTF_8);
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -89,7 +92,7 @@ public class UpdateLogImpl implements UpdateLog {
      */
     public UpdateLogImpl(MetaStorageManager metastore) {
         this.metastore = metastore;
-        this.marshaller = new UpdateLogMarshallerImpl();
+        this.marshaller = new UpdateLogMarshallerImpl(2);
     }
 
     @TestOnly
@@ -120,11 +123,24 @@ public class UpdateLogImpl implements UpdateLog {
             this.listener = listener;
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
+
+            Entry existingKey = metastore.getLocally(CatalogKey.catalogProduct());
+            if (existingKey.empty()) {
+                Update putProductKey = ops(
+                        put(CatalogKey.catalogProduct(), MAGIC_BYTES)
+                ).yield(false);
+
+                Iif writeProductKeyIfNotExist = iif(
+                        notExists(CatalogKey.catalogProduct()),
+                        putProductKey, ops().yield(false)
+                );
+                return metastore.invoke(writeProductKeyIfNotExist).thenApply(ignore -> null);
+            } else {
+                return nullCompletedFuture();
+            }
         } finally {
             busyLock.leaveBusy();
         }
-
-        return nullCompletedFuture();
     }
 
     @Override
@@ -286,6 +302,10 @@ public class UpdateLogImpl implements UpdateLog {
 
         static ByteArray snapshotVersion() {
             return ByteArray.fromString("catalog.snapshot.version");
+        }
+
+        static ByteArray catalogProduct() {
+            return ByteArray.fromString("catalog.product");
         }
     }
 

@@ -32,13 +32,11 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -117,11 +115,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
 
     /**
-     * Cache of {@link InetSocketAddress} of recipient nodes ({@link ClusterNode}) that are in the topology and not stale.
+     * Cache of {@link RecipientInetAddress} of recipient nodes ({@link ClusterNode}) by {@link ClusterNode#id} that are in the topology
+     * and not stale.
      *
      * <p>Introduced for optimization - reducing the number of address resolving for the same nodes.</p>
      */
-    private final Map<UUID, InetSocketAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
+    private final Map<UUID, RecipientInetAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -277,7 +276,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
-        return sendViaNetwork(recipient.name(), type, recipientAddress, message);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message);
     }
 
     private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
@@ -320,13 +319,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendViaNetwork(recipient.name(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
     }
 
     /**
      * Sends network object.
      *
-     * @param consistentId Target consistent ID. Can be {@code null} if the node has not been added to the topology.
+     * @param nodeId Target node ID.
      * @param type Channel type for send.
      * @param addr Target address.
      * @param message Message.
@@ -334,13 +333,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> sendViaNetwork(
-            @Nullable String consistentId,
+            UUID nodeId,
             ChannelType type,
             InetSocketAddress addr,
             NetworkMessage message
     ) {
         if (isInNetworkThread()) {
-            return CompletableFuture.supplyAsync(() -> sendViaNetwork(consistentId, type, addr, message), outboundExecutor)
+            return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message), outboundExecutor)
                     .thenCompose(Function.identity());
         }
 
@@ -352,15 +351,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
-        return connectionManager.channel(consistentId, type, addr)
+        return connectionManager.channel(nodeId, type, addr)
                 .thenComposeToCompletable(sender -> sender.send(
                         new OutNetworkObject(message, descriptors),
-                        () -> triggerChannelCreation(consistentId, type, addr)
+                        () -> triggerChannelCreation(nodeId, type, addr)
                 ));
     }
 
-    private void triggerChannelCreation(@Nullable String consistentId, ChannelType type, InetSocketAddress addr) {
-        connectionManager.channel(consistentId, type, addr);
+    private void triggerChannelCreation(UUID nodeId, ChannelType type, InetSocketAddress addr) {
+        connectionManager.channel(nodeId, type, addr);
     }
 
     private List<ClassDescriptorMessage> prepareMarshal(NetworkMessage msg) throws Exception {
@@ -740,50 +739,33 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @param recipientNode Target cluster node.
      */
-    private @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
+    @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
         // Node name is {@code null} if the node has not been added to the topology.
         if (recipientNode.name() != null) {
-            return connectionManager.consistentId().equals(recipientNode.name()) ? null : getFromCacheOrCreateResolved(recipientNode);
+            return connectionManager.nodeId().equals(recipientNode.id()) ? null : getFromCacheOrCreateResolved(recipientNode);
         }
 
-        InetSocketAddress localAddress = connectionManager.localAddress();
-
-        NetworkAddress recipientAddress = recipientNode.address();
-
-        if (localAddress.getPort() != recipientAddress.port()) {
-            return createResolved(recipientAddress);
-        }
-
-        // For optimization, we will check the addresses without resolving the address of the target node.
-        if (Objects.equals(localAddress.getHostName(), recipientAddress.host())) {
-            return null;
-        }
-
-        InetSocketAddress resolvedRecipientAddress = createResolved(recipientAddress);
-        InetAddress recipientInetAddress = resolvedRecipientAddress.getAddress();
-
-        if (Objects.equals(localAddress.getAddress(), recipientInetAddress)) {
-            return null;
-        }
-
-        return recipientInetAddress.isAnyLocalAddress() || recipientInetAddress.isLoopbackAddress() ? null : resolvedRecipientAddress;
+        return RecipientInetAddress.create(connectionManager.localAddress(), recipientNode.address()).address();
     }
 
-    private static InetSocketAddress createResolved(NetworkAddress address) {
-        return new InetSocketAddress(address.host(), address.port());
-    }
-
-    private InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
+    private @Nullable InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
         assert recipientNode.name() != null : "Node has not been added to the topology: " + recipientNode.id();
 
-        InetSocketAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, inetSocketAddress) -> {
+        InetSocketAddress localAddress = connectionManager.localAddress();
+        NetworkAddress recipientAddress = recipientNode.address();
+
+        RecipientInetAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, existingAddress) -> {
             if (staleIdDetector.isIdStale(nodeId)) {
                 return null;
             }
 
-            return inetSocketAddress != null ? inetSocketAddress : createResolved(recipientNode.address());
+            return existingAddress != null ? existingAddress : RecipientInetAddress.create(localAddress, recipientAddress);
         });
 
-        return address != null ? address : createResolved(recipientNode.address());
+        if (address == null) {
+            address = RecipientInetAddress.create(localAddress, recipientAddress);
+        }
+
+        return address.address();
     }
 }

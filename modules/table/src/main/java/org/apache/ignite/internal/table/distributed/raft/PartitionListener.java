@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
+import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
@@ -58,6 +60,7 @@ import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxSta
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -81,6 +84,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -113,7 +117,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final UUID localNodeId;
 
-    private Set<String> currentGroupTopology;
+    private final Set<String> currentGroupTopology = new HashSet<>();
 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
@@ -138,7 +142,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             SchemaRegistry schemaRegistry,
             IndexMetaStorage indexMetaStorage,
             UUID localNodeId,
-            MinimumRequiredTimeCollectorService minTimeCollectorService
+            MinimumRequiredTimeCollectorService minTimeCollectorService,
+            Executor partitionOperationsExecutor
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -149,7 +154,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.catalogService = catalogService;
         this.localNodeId = localNodeId;
 
-        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage);
+        onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
@@ -181,6 +186,12 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
 
         this.commandHandlers = commandHandlersBuilder.build();
+
+        RaftGroupConfiguration committedGroupConfiguration = storage.committedGroupConfiguration();
+
+        if (committedGroupConfiguration != null) {
+            setCurrentGroupTopology(committedGroupConfiguration);
+        }
     }
 
     @Override
@@ -296,6 +307,13 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {
+        assert storage.lastAppliedIndex() == 0 || storage.lastAppliedIndex() >= lastAppliedIndex : String.format(
+                "Trying to initialize a non-empty storage with data with a greater applied index: "
+                        + "storageLastAppliedIndex=%d, lastAppliedIndex=%d",
+                storage.lastAppliedIndex(),
+                lastAppliedIndex
+        );
+
         if (lastAppliedIndex <= storage.lastAppliedIndex()) {
             return;
         }
@@ -308,7 +326,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             }
 
             if (leaseInfo != null) {
-                storage.updateLease(leaseInfo.leaseStartTime(), leaseInfo.primaryReplicaNodeId(), leaseInfo.primaryReplicaNodeName());
+                storage.updateLease(leaseInfo);
             }
 
             storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -341,24 +359,29 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             return EMPTY_NOT_APPLIED_RESULT; // Update result is not needed.
         }
 
+        LeaseInfo storageLeaseInfo = storage.leaseInfo();
+
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = cmd.leaseStartTime();
 
-            long storageLeaseStartTime = storage.leaseStartTime();
+            if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
+                var updateCommandResult = new UpdateCommandResult(
+                        false,
+                        storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
+                        isPrimaryInGroupTopology(storageLeaseInfo),
+                        NULL_HYBRID_TIMESTAMP
+                );
 
-            if (leaseStartTime != storageLeaseStartTime) {
-                return new CommandResult(
-                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP),
-                        false);
+                return new CommandResult(updateCommandResult, false);
             }
         }
 
         UUID txId = cmd.txId();
 
-        assert storage.primaryReplicaNodeId() != null;
+        assert storageLeaseInfo != null;
         assert localNodeId != null;
 
-        if (cmd.full() || !localNodeId.equals(storage.primaryReplicaNodeId())) {
+        if (cmd.full() || !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId())) {
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
@@ -380,7 +403,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
 
-        return new CommandResult(new UpdateCommandResult(true, isPrimaryInGroupTopology(), safeTimestamp.longValue()), true);
+        return new CommandResult(
+                new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
+                true
+        );
     }
 
     /**
@@ -402,21 +428,26 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             return EMPTY_NOT_APPLIED_RESULT;
         }
 
+        LeaseInfo storageLeaseInfo = storage.leaseInfo();
+
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = cmd.leaseStartTime();
 
-            long storageLeaseStartTime = storage.leaseStartTime();
+            if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
+                var updateCommandResult = new UpdateCommandResult(
+                        false,
+                        storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
+                        isPrimaryInGroupTopology(storageLeaseInfo),
+                        NULL_HYBRID_TIMESTAMP
+                );
 
-            if (leaseStartTime != storageLeaseStartTime) {
-                return new CommandResult(
-                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP),
-                        false);
+                return new CommandResult(updateCommandResult, false);
             }
         }
 
         UUID txId = cmd.txId();
 
-        if (cmd.full() || !localNodeId.equals(storage.primaryReplicaNodeId())) {
+        if (cmd.full() || !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId())) {
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
@@ -436,7 +467,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
 
-        return new CommandResult(new UpdateCommandResult(true, isPrimaryInGroupTopology(), safeTimestamp.longValue()), true);
+        return new CommandResult(
+                new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
+                true
+        );
     }
 
     /**
@@ -509,12 +543,12 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {
-        setCurrentGroupTopology(config);
-
         // Skips the update because the storage has already recorded it.
         if (config.index() <= storage.lastAppliedIndex()) {
             return;
         }
+
+        setCurrentGroupTopology(config);
 
         // Do the update under lock to make sure no snapshot is started concurrently with this update.
         // Note that we do not need to protect from a concurrent command execution by this listener because
@@ -526,29 +560,48 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 storage.committedGroupConfiguration(config);
                 storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-                if (!enabledColocation()) {
-                    updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
-                }
-
                 return null;
             });
+
+            if (!enabledColocation()) {
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
+
+                byte[] configBytes = VersionedSerialization.toBytes(config, RaftGroupConfigurationSerializer.INSTANCE);
+
+                txStatePartitionStorage.committedGroupConfiguration(configBytes, lastAppliedIndex, lastAppliedTerm);
+            }
         } finally {
             storage.releasePartitionSnapshotsReadLock();
         }
     }
 
     private void setCurrentGroupTopology(RaftGroupConfiguration config) {
-        currentGroupTopology = new HashSet<>(config.peers());
+        currentGroupTopology.clear();
+        currentGroupTopology.addAll(config.peers());
         currentGroupTopology.addAll(config.learners());
     }
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+        onSnapshotSaveHandler.onSnapshotSave(snapshotInfo(), List.of(this))
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
+    }
+
+    private PartitionSnapshotInfo snapshotInfo() {
         long maxAppliedIndex = max(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
         long maxAppliedTerm = max(storage.lastAppliedTerm(), txStatePartitionStorage.lastAppliedTerm());
 
-        onSnapshotSaveHandler.onSnapshotSave(maxAppliedIndex, maxAppliedTerm, List.of(this))
-                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
+        byte[] configuration = storage.getStorage().committedGroupConfiguration();
+
+        assert configuration != null : "Trying to create a snapshot without Raft group configuration";
+
+        return new PartitionSnapshotInfo(
+                maxAppliedIndex,
+                maxAppliedTerm,
+                storage.leaseInfo(),
+                configuration,
+                Set.of(storage.tableId())
+        );
     }
 
     @Override
@@ -623,7 +676,9 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
 
         storage.runConsistently(locker -> {
-            storage.updateLease(cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+            var leaseInfo = new LeaseInfo(cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+
+            storage.updateLease(leaseInfo);
 
             storage.lastApplied(commandIndex, commandTerm);
 
@@ -656,26 +711,18 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     }
 
     /**
-     * Checks whether the primary replica belongs to the raft group topology (peers and learners) within a raft linearized context.
-     * On the primary replica election prior to the lease publication, the placement driver sends a PrimaryReplicaChangeCommand that
-     * populates the raft listener and the underneath storage with lease-related information, such as primaryReplicaNodeId,
-     * primaryReplicaNodeName and leaseStartTime. In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand
-     * processing, given information is used in order to detect whether primary belongs to the raft group topology (peers and learners).
-     *
+     * Checks whether the primary replica belongs to the raft group topology (peers and learners) within a raft linearized context. On the
+     * primary replica election prior to the lease publication, the placement driver sends a PrimaryReplicaChangeCommand that populates the
+     * raft listener and the underneath storage with lease-related information, such as primaryReplicaNodeId, primaryReplicaNodeName and
+     * leaseStartTime. In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand processing, given
+     * information is used in order to detect whether primary belongs to the raft group topology (peers and learners).
      *
      * @return {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise.
      */
-    private boolean isPrimaryInGroupTopology() {
-        assert currentGroupTopology != null : "Current group topology is null";
-
-        if (storage.primaryReplicaNodeName() == null) {
-            return true;
-        } else {
-            // Despite the fact that storage.primaryReplicaNodeName() may itself return null it's never expected to happen
-            // while calling isPrimaryInGroupTopology because of HB between handlePrimaryReplicaChangeCommand that will populate the storage
-            // with lease information and handleUpdate(All)Command that on it's turn calls isPrimaryReplicaInGroupTopology.
-            assert storage.primaryReplicaNodeName() != null : "Primary replica node name is null.";
-            return currentGroupTopology.contains(storage.primaryReplicaNodeName());
-        }
+    private boolean isPrimaryInGroupTopology(@Nullable LeaseInfo storageLeaseInfo) {
+        // Despite the fact that storage.leaseInfo() may itself return null it's never expected to happen
+        // while calling isPrimaryInGroupTopology because of HB between handlePrimaryReplicaChangeCommand that will populate the storage
+        // with lease information and handleUpdate(All)Command that on it's turn calls isPrimaryReplicaInGroupTopology.
+        return storageLeaseInfo == null || currentGroupTopology.contains(storageLeaseInfo.primaryReplicaNodeName());
     }
 }

@@ -41,12 +41,11 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -170,28 +169,26 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        return busy(() -> {
+    public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+        busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
-            if (partitionStorage == null) {
-                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            // TODO: IGNITE-24926 - throw StorageException if partitionStorage is absent.
+            if (partitionStorage != null) {
+                partitionStorage.createSortedIndex(indexDescriptor);
             }
-
-            return partitionStorage.getOrCreateSortedIndex(indexDescriptor);
         });
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        return busy(() -> {
+    public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+        busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
-            if (partitionStorage == null) {
-                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            // TODO: IGNITE-24926 - throw StorageException if partitionStorage is absent.
+            if (partitionStorage != null) {
+                partitionStorage.createHashIndex(indexDescriptor);
             }
-
-            return partitionStorage.getOrCreateHashIndex(indexDescriptor);
         });
     }
 
@@ -262,6 +259,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, supplier);
     }
 
+    private void busy(Runnable action) {
+        inBusyLock(busyLock, action);
+    }
+
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         return inBusyLock(busyLock, () -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
@@ -301,14 +302,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 mvPartitionStorage.lastAppliedOnRebalance(partitionMeta.lastAppliedIndex(), partitionMeta.lastAppliedTerm());
                 mvPartitionStorage.committedGroupConfigurationOnRebalance(partitionMeta.groupConfig());
 
-                if (partitionMeta.primaryReplicaNodeId() != null) {
-                    assert partitionMeta.primaryReplicaNodeName() != null;
+                LeaseInfo leaseInfo = partitionMeta.leaseInfo();
 
-                    mvPartitionStorage.updateLeaseOnRebalance(
-                            partitionMeta.leaseStartTime(),
-                            partitionMeta.primaryReplicaNodeId(),
-                            partitionMeta.primaryReplicaNodeName()
-                    );
+                if (leaseInfo != null) {
+                    mvPartitionStorage.updateLeaseOnRebalance(leaseInfo);
                 }
 
                 return null;

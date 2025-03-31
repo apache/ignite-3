@@ -216,6 +216,18 @@ public class SqlRowProjection implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        return row.bytesValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return row.bytesValue(rowIndexMapping[columnIndex]);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         return row.uuidValue(columnName);
     }

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.HashMap;
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -55,8 +55,8 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
      */
     @Override
     public ResolvedDependencies resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion) {
-        Map<Integer, ExecutableTable> tableMap = new HashMap<>();
-        Map<Integer, ScannableDataSource> dataSources = new HashMap<>();
+        Int2ObjectMap<ExecutableTable> tableMap = new Int2ObjectOpenHashMap<>();
+        Int2ObjectMap<ScannableDataSource> dataSources = new Int2ObjectOpenHashMap<>();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {
             @Override

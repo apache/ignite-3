@@ -15,6 +15,37 @@ The following examples are included:
 * `VolatilePageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with an in-memory data region.
 * `PersistentPageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with a persistent data region.
 * `RocksDbStorageExample` - demonstrates the usage of the RocksDB storage engine.
+* `KeyValueViewDataStreamerExample` - demonstrates the usage of the `DataStreamerTarget#streamData(Publisher, DataStreamerOptions)` API 
+with the `KeyValueView`. 
+* `KeyValueViewPojoDataStreamerExample` - demonstrates the usage of the `DataStreamerTarget#streamData(Publisher, DataStreamerOptions)` API 
+with the `KeyValueView` and user-defined POJOs.
+* `RecordViewDataStreamerExample` - demonstrates the usage of the `DataStreamerTarget#streamData(Publisher, DataStreamerOptions)` API 
+with the `RecordView`.
+* `RecordViewPojoDataStreamerExample` - demonstrates the usage of the `DataStreamerTarget#streamData(Publisher, DataStreamerOptions)` API 
+with the `RecordView` and user-defined POJOs.
+* `ReceiverStreamProcessingExample` - demonstrates the usage of 
+the `DataStreamerTarget#streamData(Publisher, Function, Function, ReceiverDescriptor, Subscriber, DataStreamerOptions, Object)` API 
+for stream processing of the trades data read from the file.
+* `ReceiverStreamProcessingWithResultSubscriberExample` - demonstrates the usage of 
+the `DataStreamerTarget#streamData(Publisher, Function, Function, ReceiverDescriptor, Subscriber, DataStreamerOptions, Object)` API 
+for stream processing of the trade data and receiving processing results.
+* `ReceiverStreamProcessingWithTableUpdateExample` - demonstrates the usage of 
+the `DataStreamerTarget#streamData(Publisher, Function, Function, ReceiverDescriptor, Subscriber, DataStreamerOptions, Object)` API 
+for stream processing of the trade data and updating account data in the table.
+* `ComputeAsyncExample` - demonstrates the usage of the `IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)` API.
+* `ComputeBroadcastExample` - demonstrates the usage of the `IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)` API.
+* `ComputeCancellationExample` - demonstrates the usage of 
+the `IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object, CancellationToken)` API.
+* `ComputeColocatedExample` - demonstrates the usage of 
+the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)` API with colocated JobTarget.
+* `ComputeExample` - demonstrates the usage of the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)` API.
+* `ComputeJobPriorityExample` - demonstrates the usage of 
+the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)` API with different job priorities.
+* `ComputeMapReduceExample` - demonstrates the usage of the `IgniteCompute#executeMapReduce(TaskDescriptor, Object)` API.
+* `ComputeWithCustomResultMarshallerExample` - demonstrates the usage of the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)` API 
+with a custom result marshaller.
+* `ComputeWithResultExample` - demonstrates the usage of the `IgniteCompute#execute(JobTarget, JobDescriptor, Object)`}` API 
+with a result return.
 
 ## Running examples with an Ignite node within a Docker container
 
@@ -43,8 +74,7 @@ NODE_IP_ADDRESS=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{
 
 6. Initialize the node:
 ```shell
-docker run -it apacheignite/ignite3 cli cluster init --url http://$NODE_IP_ADDRESS:10300 --name myCluster1 \
-  --cluster-management-group defaultNode --metastorage-group defaultNode
+docker run --rm -it apacheignite/ignite3 cli cluster init --url http://$NODE_IP_ADDRESS:10300 --name myCluster1
 ```
 
 7. Run the example via IDE.
@@ -80,7 +110,7 @@ $IGNITE_HOME/bin/ignite3db start
 
 6. Initialize the cluster using Ignite CLI from the CLI part:
 ```shell
-$IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1 --metastorage-group defaultNode --cluster-management-group defaultNode
+$IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1
 ```
 
 7. Run the example from the IDE.

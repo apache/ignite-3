@@ -292,6 +292,22 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        return tuple != null
+                ? tuple.bytesValue(columnName)
+                : binaryTuple.bytesValue(validateSchemaColumnType(columnName, ColumnType.BYTE_ARRAY));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return tuple != null
+                ? tuple.bytesValue(columnIndex)
+                : binaryTuple.bytesValue(validateSchemaColumnType(columnIndex, ColumnType.BYTE_ARRAY));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         return tuple != null
                 ? tuple.uuidValue(columnName)

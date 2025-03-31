@@ -24,8 +24,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -48,6 +51,8 @@ public class HashPartitionManagerImpl implements PartitionManager {
     private final SchemaRegistry schemaReg;
 
     private final MarshallersProvider marshallers;
+
+    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     /**
      * Constructor.
@@ -73,7 +78,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
                     + " doesn't support any other type of partition except hash partition.");
         }
         HashPartition hashPartition = (HashPartition) partition;
-        return table.partitionLocation(new TablePartitionId(table.tableId(), hashPartition.partitionId()));
+        return table.partitionLocation(partitionReplicationGroupId(hashPartition.partitionId()));
     }
 
     @Override
@@ -82,7 +87,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
         for (int i = 0; i < partitions; i++) {
-            futures[i] = table.partitionLocation(new TablePartitionId(table.tableId(), i));
+            futures[i] = table.partitionLocation(partitionReplicationGroupId(i));
         }
 
         return allOf(futures)
@@ -93,6 +98,14 @@ public class HashPartitionManagerImpl implements PartitionManager {
                     }
                     return result;
                 });
+    }
+
+    private ReplicationGroupId partitionReplicationGroupId(int partId) {
+        if (enabledColocation) {
+            return new ZonePartitionId(table.zoneId(), partId);
+        } else {
+            return new TablePartitionId(table.tableId(), partId);
+        }
     }
 
     @Override

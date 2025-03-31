@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -366,8 +367,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                 IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "safeTime");
 
         logger().info("Partition data "
-                        + "[node={}, groupId={}, data={}, lastAppliedIndex={}, lastAppliedTerm={}, leaseStartTime={}, safeTime = {}]",
-                name, replicationGroupId, map, storage.lastAppliedIndex(), storage.lastAppliedTerm(), storage.leaseStartTime(),
+                        + "[node={}, groupId={}, data={}, lastAppliedIndex={}, lastAppliedTerm={}, leaseInfo={}, safeTime = {}]",
+                name, replicationGroupId, map, storage.lastAppliedIndex(), storage.lastAppliedTerm(), storage.leaseInfo(),
                 safeTime.current());
 
         Lazy<TableSchemaAwareIndexStorage> indexStorageLazy =
@@ -1458,7 +1459,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                         ReplicaTestUtils.leaderAssignment(
                                 txTestCluster.replicaManagers().get(txTestCluster.localNodeName()),
                                 txTestCluster.clusterServices().get(txTestCluster.localNodeName()).topologyService(),
-                                internalTable.tableId(),
+                                enabledColocation() ? internalTable.zoneId() : internalTable.tableId(),
                                 0
                         ),
                         internalTx.coordinatorId()

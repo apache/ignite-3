@@ -33,6 +33,8 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -51,6 +53,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -81,6 +84,7 @@ import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarsha
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -468,6 +472,40 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(ClusterNodeChanger.class)
+    void testResolveRecipientAddressToSelf(ClusterNodeChanger clusterNodeChanger) throws Exception {
+        ClusterNode node = senderNode;
+        NetworkConfiguration senderNetworkConfig = this.senderNetworkConfig;
+
+        try (Services services = createMessagingService(node, senderNetworkConfig)) {
+            ClusterNode nodeToCheck = clusterNodeChanger.changer.apply(node, services);
+            ClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
+
+            DefaultMessagingService messagingService = services.messagingService;
+
+            assertNull(messagingService.resolveRecipientAddress(nodeToCheck));
+            assertNull(messagingService.resolveRecipientAddress(nodeToCheckWithoutName));
+        }
+    }
+
+    @Test
+    void testResolveRecipientAddressToOther() throws Exception {
+        try (Services services = createMessagingService(senderNode, senderNetworkConfig)) {
+            ClusterNode nodeToCheck = receiverNode;
+            ClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
+
+            DefaultMessagingService messagingService = services.messagingService;
+
+            assertNotNull(messagingService.resolveRecipientAddress(nodeToCheck));
+            assertNotNull(messagingService.resolveRecipientAddress(nodeToCheckWithoutName));
+        }
+    }
+
+    private static ClusterNode copyWithoutName(ClusterNode node) {
+        return new ClusterNodeImpl(node.id(), null, node.address());
+    }
+
     private static void awaitQuietly(CountDownLatch latch) {
         try {
             latch.await();
@@ -527,12 +565,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 networkConfig.value(),
                 serializationService,
                 node.name(),
+                node.id(),
                 bootstrapFactory,
                 staleIdDetector,
                 clusterIdSupplier,
                 clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
-                failureManager,
-                channelTypeRegistry
+                channelTypeRegistry,
+                new DefaultIgniteProductVersionSource()
         );
         connectionManager.start();
         connectionManager.setLocalNode(node);
@@ -566,7 +605,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         clusterIdSupplier,
                         channel -> {},
                         () -> false,
-                        failureManager
+                        new DefaultIgniteProductVersionSource()
                 ) {
                     @Override
                     protected void finishHandshake() {
@@ -649,6 +688,29 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         RespondOperation(RespondAction respondAction, ChannelType expectedChannelType) {
             this.respondAction = respondAction;
             this.expectedChannelType = expectedChannelType;
+        }
+    }
+
+    private enum ClusterNodeChanger {
+        NOT_CHANGE((node, services) -> node),
+        CHANGE_ID_ONLY((node, services) -> new ClusterNodeImpl(randomUUID(), node.name(), node.address())),
+        CHANGE_NAME_ONLY((node, services) -> new ClusterNodeImpl(node.id(), node.name() + "_", node.address())),
+        CHANGE_NAME((node, services) -> new ClusterNodeImpl(randomUUID(), node.name() + "_", node.address())),
+        SET_IP_LOCALHOST((node, services) -> new ClusterNodeImpl(
+                randomUUID(),
+                node.name(),
+                new NetworkAddress("127.0.0.1", node.address().port())
+        )),
+        SET_IPV6_LOCALHOST((node, services) -> new ClusterNodeImpl(
+                randomUUID(),
+                node.name(),
+                new NetworkAddress(services.connectionManager.localAddress().getHostName(), node.address().port())
+        ));
+
+        private final BiFunction<ClusterNode, Services, ClusterNode> changer;
+
+        ClusterNodeChanger(BiFunction<ClusterNode, Services, ClusterNode> changer) {
+            this.changer = changer;
         }
     }
 }

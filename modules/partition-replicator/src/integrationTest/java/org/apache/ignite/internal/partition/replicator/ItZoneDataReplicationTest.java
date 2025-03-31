@@ -218,8 +218,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
     private static CompletableFuture<Void> truncateLog(Node node, ReplicationGroupId groupId) {
         Member member = Member.votingMember(node.name);
 
-        // Using the infamous trick of triggering snapshot twice to cause Raft log truncation.
         return node.replicaManager.replica(groupId)
-                .thenCompose(replica -> replica.createSnapshotOn(member).thenCompose(v -> replica.createSnapshotOn(member)));
+                .thenCompose(replica -> replica.createSnapshotOn(member, true));
     }
 }

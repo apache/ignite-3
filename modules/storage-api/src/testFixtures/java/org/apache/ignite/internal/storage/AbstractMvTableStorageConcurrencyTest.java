@@ -45,10 +45,12 @@ public abstract class AbstractMvTableStorageConcurrencyTest extends BaseMvTableS
 
             getOrCreateMvPartition(tableStorage, PARTITION_ID);
 
-            SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
+            tableStorage.createSortedIndex(PARTITION_ID, sortedIdx);
+            SortedIndexStorage sortedIndexStorage = (SortedIndexStorage) tableStorage.getIndex(PARTITION_ID, sortedIdx.id());
             assertThat(sortedIndexStorage, is(notNullValue()));
 
-            HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+            tableStorage.createHashIndex(PARTITION_ID, hashIdx);
+            HashIndexStorage hashIndexStorage = (HashIndexStorage) tableStorage.getIndex(PARTITION_ID, hashIdx.id());
             assertThat(hashIndexStorage, is(notNullValue()));
 
             runRace(

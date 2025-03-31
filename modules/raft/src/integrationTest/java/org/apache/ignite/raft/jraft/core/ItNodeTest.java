@@ -144,7 +144,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
-import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -217,6 +216,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     private final List<ExecutorService> executors = new ArrayList<>();
 
+    private final List<Scheduler> schedulers = new ArrayList<>();
+
     private final List<FixedThreadsExecutorGroup> appendEntriesExecutors = new ArrayList<>();
 
     private PersistentLogStorageFactories persistentLogStorageFactories;
@@ -264,6 +265,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
 
         executors.forEach(ExecutorServiceHelper::shutdownAndAwaitTermination);
+
+        schedulers.forEach(Scheduler::shutdown);
 
         appendEntriesExecutors.forEach(FixedThreadsExecutorGroup::shutdownGracefully);
 
@@ -828,14 +831,16 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
             assertEquals(1, node.listPeers().size());
             assertTrue(node.listPeers().contains(peer.getPeerId()));
-            assertTrue(waitForCondition(() -> node.isLeader(), 1_000));
+            assertTrue(waitForCondition(node::isLeader, 1_000));
 
             sendTestTaskAndWait(node, cnt);
             assertEquals(cnt, fsm.getLogs().size());
             int i = 0;
             for (ByteBuffer data : fsm.getLogs())
                 assertEquals("hello" + i++, stringFromBytes(data.array()));
-            Thread.sleep(1000); //wait for entries to be replicated to learner.
+            // Wait for entries to be replicated to learner. The value is selected according to the period of sending accumulated messages
+            // in NodeManager.
+            Thread.sleep(nodeOptions.getElectionTimeoutMs());
             server.shutdown();
         }
         {
@@ -2642,11 +2647,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         leader = cluster.waitAndGetLeader();
         assertEquals(follower, leader.getNodeId().getPeerId());
 
-        CountDownLatch latch = new CountDownLatch(1);
-        leader.snapshot(new ExpectClosure(latch));
-        waitLatch(latch);
-        latch = new CountDownLatch(1);
-        leader.snapshot(new ExpectClosure(latch));
+        var latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch), true);
         waitLatch(latch);
 
         // start the last peer which should be recover with snapshot.
@@ -2846,6 +2848,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
      * - the node is restarted (INSTALLING_SNAPSHOT is stored in memory only)
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24820")
     public void testNodeWillNeverGetOutOfSnapshot() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
         CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
@@ -2896,12 +2899,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         cluster.stop(leader.getLeaderId());
         log.info("Leader stopped.");
 
-        assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
-
-        // Wait 30 seconds to check if snapshot is still installing.
-        Thread.sleep(30_000);
-
-        // Even after 30 seconds (in reality, forever), the snapshot is still installing.
         assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
     }
 
@@ -4271,12 +4268,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         sendTestTaskAndWait(leader);
         cluster.ensureSame();
 
-        DefaultRaftClientService rpcService = (DefaultRaftClientService) leader.getRpcClientService();
-        RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
-
         AtomicInteger cnt = new AtomicInteger();
 
-        rpcClientEx.blockMessages((msg, nodeId) -> {
+        cluster.getServer(leader.getLeaderId()).getNodeOptions().getNodeManager().blockMessages((msg, nodeId) -> {
             assertTrue(msg instanceof RpcRequests.AppendEntriesRequest);
 
             if (cnt.get() >= 2)
@@ -4645,19 +4639,23 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
             .collect(toList());
 
-        var nodeManager = new NodeManager();
-
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 peer.getPort(),
                 new StaticNodeFinder(addressList)
         );
 
-        ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
+        Scheduler scheduler = JRaftUtils.createScheduler(nodeOptions);
+        schedulers.add(scheduler);
 
+        nodeOptions.setScheduler(scheduler);
+
+        nodeOptions.setNodeManager(new NodeManager(clusterService));
+
+        ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
         executors.add(requestExecutor);
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
@@ -4665,8 +4663,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {
-            @Override public synchronized void shutdown() {
+        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer) {
+            @Override
+            public synchronized void shutdown() {
                 rpcServer.shutdown();
 
                 super.shutdown();
@@ -4678,6 +4677,15 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 }
 
                 assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+                nodeOptions.getNodeManager().shutdown();
+            }
+
+            @Override
+            public synchronized Node start() {
+                nodeOptions.getNodeManager().init(nodeOptions);
+
+                return super.start();
             }
         };
 

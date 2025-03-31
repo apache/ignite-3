@@ -48,17 +48,12 @@ You can install Ignite 3 and run a Ignite cluster on Kubernetes cluster. This se
 }
 ----
 +
-. Place your license content in the `license.conf` file.
 . Create the ConfigMap object for Ignite configuration:
 +
 [source,shell]
 ----
 kubectl create configmap ignite-config -n <namespace> --from-file=ignite-config.conf
 ----
-+
-. Create the ConfigMap object for the Ignite license:
-+
-Replace `<namespace>` with the name of the namespace where you want to deploy Ignite.
 
 === Deploy the Service
 
@@ -168,10 +163,6 @@ spec:
         - mountPath: /opt/ignite/etc/ignite-config.conf
           name: config-vol
           subPath: ignite-config.conf
-        # The license will be placed at this path in the container.
-        - mountPath: /opt/ignite/etc/license.conf
-          name: license-vol
-          subPath: license.conf
         # Ignite 3 working directory.
         - mountPath: /gg9-work
           name: persistence
@@ -232,9 +223,7 @@ spec:
       - args:
         - -ec
         - |
-          apt update && apt-get install -y bind9-host
-          GG_NODES=$(host -tsrv _cluster._tcp.ignite-svc-headless | grep 'SRV record' | awk '{print $8}' | awk -F. '{print $1}' | paste -sd ',')
-          /opt/ignite3cli/bin/ignite3 cluster init --name=ignite --metastorage-group $GG_NODES --url=http://ignite-svc-headless:10300 --config-files=/opt/ignite/etc/license.conf
+          /opt/ignite3cli/bin/ignite3 cluster init --name=ignite --url=http://ignite-svc-headless:10300
         command:
         - /bin/sh
         # Specify the Docker image with the Ignite 3 CLI and its version.
@@ -242,17 +231,8 @@ spec:
         imagePullPolicy: IfNotPresent
         name: cluster-init
         resources: {}
-        volumeMounts:
-        # The license required to be mounted to cluster-init job.
-        - mountPath: /opt/ignite/etc/license.conf
-          name: license-vol
-          subPath: license.conf
       restartPolicy: Never
       terminationGracePeriodSeconds: 120
-      volumes:
-      - name: license-vol
-        configMap:
-          name: ignite-license
 
 ----
 +

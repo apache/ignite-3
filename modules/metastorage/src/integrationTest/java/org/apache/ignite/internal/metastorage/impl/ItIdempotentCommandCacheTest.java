@@ -56,6 +56,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -75,7 +76,6 @@ import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -136,8 +136,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.retryTimeout = 10000")
     private RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock.idleSyncTimeInterval = 100")
-    private MetaStorageConfiguration metaStorageConfiguration;
+    @InjectConfiguration("mock.idleSafeTimeSyncInterval = 100")
+    private SystemDistributedConfiguration systemConfiguration;
 
     @InjectExecutorService
     private ScheduledExecutorService scheduledExecutorService;
@@ -166,7 +166,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         Node(
                 TestInfo testInfo,
                 RaftConfiguration raftConfiguration,
-                MetaStorageConfiguration metaStorageConfiguration,
+                SystemDistributedConfiguration systemConfiguration,
                 Path workDir,
                 int index,
                 ScheduledExecutorService scheduledExecutorService
@@ -235,7 +235,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
+                    systemConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
@@ -422,7 +422,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         // Do the snapshot.
-        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName())));
+        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName()), false));
 
         // Restart nodes in order to trigger idempotent volatile cache initialization from snapshot.
         for (Node node : nodes) {
@@ -432,7 +432,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         // Restart cluster.
         startCluster(testInfo);
 
-        long timestampAfterRestartPhysicalLong = nodes.get(0).clockService.now().getPhysical();
+        ClockService node0ClockService = nodes.get(0).clockService;
+        long timestampAfterRestartPhysicalLong = node0ClockService.now().getPhysical();
 
         leader = leader(raftClient());
 
@@ -458,8 +459,9 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             ), willCompleteSuccessfully());
         }
 
-        HybridTimestamp evictionTimestamp = HybridTimestamp.hybridTimestamp(nodes.get(0).clockService.nowLong()
-                - (raftConfiguration.retryTimeout().value() + nodes.get(0).clockService.maxClockSkewMillis()));
+        HybridTimestamp evictionTimestamp = node0ClockService.now().subtractPhysicalTime(
+                raftConfiguration.retryTimeout().value() + node0ClockService.maxClockSkewMillis()
+        );
 
         assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(evictionTimestamp), willCompleteSuccessfully());
 
@@ -552,7 +554,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         nodes = new ArrayList<>();
 
         for (int i = 0; i < NODES_COUNT; i++) {
-            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, workDir, i, scheduledExecutorService);
+            Node node = new Node(testInfo, raftConfiguration, systemConfiguration, workDir, i, scheduledExecutorService);
             nodes.add(node);
         }
 

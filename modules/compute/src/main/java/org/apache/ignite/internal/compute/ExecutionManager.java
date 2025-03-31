@@ -49,7 +49,11 @@ public class ExecutionManager {
 
     private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
 
-    private final Map<UUID, CancellableJobExecution<?>> executions = new ConcurrentHashMap<>();
+    /** Remote executions map. */
+    private final Map<UUID, RemoteJobExecution> remoteExecutions = new ConcurrentHashMap<>();
+
+    /** Node-local executions map (including failover executions). */
+    private final Map<UUID, CancellableJobExecution<?>> localExecutions = new ConcurrentHashMap<>();
 
     ExecutionManager(ComputeConfiguration computeConfiguration, TopologyService topologyService) {
         this.computeConfiguration = computeConfiguration;
@@ -57,13 +61,24 @@ public class ExecutionManager {
     }
 
     /**
-     * Puts an execution to the cache. When the job completes, it will be evicted from the cache after some time.
+     * Puts a remote execution to the cache. When the job completes, it will be evicted from the cache after some time.
      *
      * @param jobId Job id.
      * @param execution Job execution.
      */
-    void addExecution(UUID jobId, CancellableJobExecution<?> execution) {
-        executions.put(jobId, execution);
+    void addRemoteExecution(UUID jobId, RemoteJobExecution execution) {
+        remoteExecutions.put(jobId, execution);
+        execution.resultAsync().whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId));
+    }
+
+    /**
+     * Puts a node-local execution to the cache. When the job completes, it will be evicted from the cache after some time.
+     *
+     * @param jobId Job id.
+     * @param execution Job execution.
+     */
+    void addLocalExecution(UUID jobId, CancellableJobExecution<?> execution) {
+        localExecutions.put(jobId, execution);
         execution.resultAsync().whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId));
     }
 
@@ -73,7 +88,12 @@ public class ExecutionManager {
     void start() {
         long ttlMillis = computeConfiguration.statesLifetimeMillis().value();
         String nodeName = topologyService.localMember().name();
-        cleaner.start(executions::remove, ttlMillis, nodeName);
+        cleaner.start(this::cleanExecution, ttlMillis, nodeName);
+    }
+
+    private void cleanExecution(UUID key) {
+        remoteExecutions.remove(key);
+        localExecutions.remove(key);
     }
 
     /**
@@ -90,7 +110,11 @@ public class ExecutionManager {
      * @return Job's execution result future.
      */
     public CompletableFuture<?> resultAsync(UUID jobId) {
-        JobExecution<?> execution = executions.get(jobId);
+        JobExecution<?> execution = remoteExecutions.get(jobId);
+        if (execution != null) {
+            return execution.resultAsync();
+        }
+        execution = localExecutions.get(jobId);
         if (execution != null) {
             return execution.resultAsync();
         }
@@ -104,8 +128,8 @@ public class ExecutionManager {
      * @return The set of all job states.
      */
     public CompletableFuture<List<JobState>> localStatesAsync() {
-        CompletableFuture<JobState>[] statesFutures = executions.values().stream()
-                .filter(it -> !(it instanceof RemoteJobExecution) && !(it instanceof FailSafeJobExecution))
+        CompletableFuture<JobState>[] statesFutures = localExecutions.values().stream()
+                .filter(it -> !(it instanceof FailSafeJobExecution))
                 .map(JobExecution::stateAsync)
                 .toArray(CompletableFuture[]::new);
 
@@ -122,7 +146,7 @@ public class ExecutionManager {
      * @return The current state of the job, or {@code null} if there's no job with the specified id.
      */
     public CompletableFuture<@Nullable JobState> stateAsync(UUID jobId) {
-        JobExecution<?> execution = executions.get(jobId);
+        JobExecution<?> execution = localExecutions.get(jobId);
         if (execution != null) {
             return execution.stateAsync();
         }
@@ -137,7 +161,7 @@ public class ExecutionManager {
      *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
      */
     public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
-        CancellableJobExecution<?> execution = executions.get(jobId);
+        CancellableJobExecution<?> execution = localExecutions.get(jobId);
         if (execution != null) {
             return execution.cancelAsync();
         }
@@ -152,7 +176,7 @@ public class ExecutionManager {
      *         be changed (it's already executing or completed), or {@code null} iif there's no job with the specified id.
      */
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
-        JobExecution<?> execution = executions.get(jobId);
+        JobExecution<?> execution = localExecutions.get(jobId);
         if (execution != null) {
             return execution.changePriorityAsync(newPriority);
         }
@@ -160,7 +184,12 @@ public class ExecutionManager {
     }
 
     @TestOnly
-    Set<UUID> executions() {
-        return executions.keySet();
+    Set<UUID> remoteExecutions() {
+        return remoteExecutions.keySet();
+    }
+
+    @TestOnly
+    Set<UUID> localExecutions() {
+        return localExecutions.keySet();
     }
 }

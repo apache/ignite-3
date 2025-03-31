@@ -104,7 +104,8 @@ class ZoneResourcesManager implements ManuallyCloseable {
                 txManager,
                 safeTimeTracker,
                 storageIndexTracker,
-                outgoingSnapshotsManager
+                outgoingSnapshotsManager,
+                partitionOperationsExecutor
         );
 
         var snapshotStorageFactory = new PartitionSnapshotStorageFactory(

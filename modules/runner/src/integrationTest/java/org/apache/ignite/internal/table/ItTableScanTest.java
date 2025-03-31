@@ -110,6 +110,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
     private static final int AWAIT_TIMEOUT_MILLIS = 10_000;
 
+    private static final int LONG_RUNNING_TX_TIMEOUT_MILLIS = 30_000;
+
     private SchemaDescriptor schema;
 
     private TableViewInternal table;
@@ -596,7 +598,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         int soredIndexId = getSortedIndexId();
 
-        InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
+        InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false, LONG_RUNNING_TX_TIMEOUT_MILLIS);
         PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
@@ -1048,15 +1050,27 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Transaction.
      */
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
+        // Default values for timeout is too long for the test,
+        // So the test changes them to 5 secs. As a result,
+        // implicit RW transactions have 5 secs timeout.
+        // But we want explicit transaction to be longer that implicit one,
+        // so here we set timeout to 10 seconds.
+        return startTxWithEnlistedPartition(partId, readOnly, 10_000);
+    }
+
+    /**
+     * Starts an RW transaction and enlists the specified partition in it.
+     *
+     * @param partId Partition ID.
+     * @param readOnly Read-only flag for transaction.
+     * @param timeoutMillis Transaction timeout.
+     * @return Transaction.
+     */
+    private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly, long timeoutMillis) {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(
-                // Default values for timeout is too long for the test,
-                // So the test changes them to 5 secs. As a result,
-                // implicit RW transactions have 5 secs timeout.
-                // But we want explicit transaction to be longer that implicit one,
-                // so here we set timeout to 10 seconds.
-                new TransactionOptions().timeoutMillis(10_000).readOnly(readOnly)
+                new TransactionOptions().timeoutMillis(timeoutMillis).readOnly(readOnly)
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
