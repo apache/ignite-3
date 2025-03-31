@@ -971,7 +971,6 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 clusterSvc.topologyService(),
-                threadPoolsManager.commonScheduler(),
                 indexNodeFinishedRwTransactionsChecker,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageMgr, catalogManager)

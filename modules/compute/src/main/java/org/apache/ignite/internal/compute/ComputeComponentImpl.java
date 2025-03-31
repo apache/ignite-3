@@ -148,7 +148,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
                                 DelegatingJobExecution delegatingExecution = new DelegatingJobExecution(execution);
 
                                 //noinspection DataFlowIssue Not null since the job was just submitted
-                                executionManager.addExecution(execution.state().id(), delegatingExecution);
+                                executionManager.addLocalExecution(execution.state().id(), delegatingExecution);
 
                                 return delegatingExecution;
                             });
@@ -194,7 +194,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
             DelegatingTaskExecution<I, M, T, R> result = new DelegatingTaskExecution<>(taskFuture);
 
-            result.idAsync().thenAccept(jobId -> executionManager.addExecution(
+            result.idAsync().thenAccept(jobId -> executionManager.addLocalExecution(
                     jobId,
                     new TaskToJobExecutionWrapper<>(result, topologyService.localMember())
             ));
@@ -231,7 +231,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
                     CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
                 }
 
-                executionManager.addExecution(jobId, execution);
+                executionManager.addRemoteExecution(jobId, execution);
 
                 return execution;
             });
@@ -261,7 +261,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
                         CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
                     }
 
-                    execution.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, execution));
+                    execution.idAsync().thenAccept(jobId -> executionManager.addLocalExecution(jobId, execution));
 
                     return execution;
                 });

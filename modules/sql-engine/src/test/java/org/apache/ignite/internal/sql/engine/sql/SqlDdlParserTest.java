@@ -45,6 +45,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -867,15 +868,32 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     /**
-     * Ensures that the user cannot use the TIME_WITH_LOCAL_TIME_ZONE and TIMESTAMP_WITH_LOCAL_TIME_ZONE types for table columns.
+     * Ensures that the parser throws the expected exception when attempting to use the following unsupported types for table columns.
+     *
+     * <ol>
+     *     <li>{@link SqlTypeName#TIME_TZ TIME WITH TIME ZONE}</li>
+     *     <li>{@link SqlTypeName#TIME_WITH_LOCAL_TIME_ZONE TIME WITH LOCAL TIME ZONE}</li>
+     *     <li>{@link SqlTypeName#TIMESTAMP_TZ TIMESTAMP WITH TIME ZONE}</li>
+     * </ol>
      */
     // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-21555 is implemented.
-    @Test
-    public void timeWithLocalTimeZoneIsNotSupported() {
+    @ParameterizedTest(name = "type={0}")
+    @CsvSource({
+            "TIME WITH TIME ZONE, Encountered \"WITH\"",
+            "TIME WITH LOCAL TIME ZONE, Encountered \"WITH\"",
+            "TIMESTAMP WITH TIME ZONE, Encountered \"TIME\""
+    })
+    public void unsupportedTimeZoneAwareTableColumnTypes(String typeName, String expectedError) {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
-                "Encountered \"WITH\"",
-                () -> parse("CREATE TABLE test (ts TIME WITH LOCAL TIME ZONE)")
+                expectedError,
+                () -> parse(format("CREATE TABLE test (ts {})", typeName))
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                expectedError,
+                () -> parse(format("ALTER TABLE test ADD COLUMN ts {}", typeName))
         );
     }
 

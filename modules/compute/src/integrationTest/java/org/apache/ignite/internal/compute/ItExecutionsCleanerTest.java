@@ -44,7 +44,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("resource")
 class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     private ExecutionManager localExecutionManager;
 
@@ -106,11 +105,11 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         execution.assertCompleted();
 
         // Execution is retained
-        assertThat(localExecutionManager.executions(), hasItem(jobId));
+        assertThat(localExecutionManager.localExecutions(), hasItem(jobId));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.localExecutions(), is(empty()));
 
             assertThat(localExecutionManager.resultAsync(jobId), willThrow(ComputeException.class));
         });
@@ -139,12 +138,12 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         runningExecution.assertCancelled();
 
         // All executions are retained
-        assertThat(localExecutionManager.executions(), hasItem(runningJobId));
-        assertThat(localExecutionManager.executions(), hasItem(queuedJobId));
+        assertThat(localExecutionManager.localExecutions(), hasItem(runningJobId));
+        assertThat(localExecutionManager.localExecutions(), hasItem(queuedJobId));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.localExecutions(), is(empty()));
 
             assertThat(localExecutionManager.resultAsync(runningJobId), willThrow(ComputeException.class));
             assertThat(localExecutionManager.resultAsync(queuedJobId), willThrow(ComputeException.class));
@@ -162,13 +161,13 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         execution.assertCompleted();
 
         // Execution is retained
-        assertThat(localExecutionManager.executions(), hasItem(jobId));
-        assertThat(remoteExecutionManager.executions(), hasItem(jobId));
+        assertThat(localExecutionManager.remoteExecutions(), hasItem(jobId));
+        assertThat(remoteExecutionManager.localExecutions(), hasItem(jobId));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
-            assertThat(remoteExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.remoteExecutions(), is(empty()));
+            assertThat(remoteExecutionManager.localExecutions(), is(empty()));
 
             assertThat(localExecutionManager.resultAsync(jobId), willThrow(ComputeException.class));
             assertThat(remoteExecutionManager.resultAsync(jobId), willThrow(ComputeException.class));
@@ -198,13 +197,13 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         runningExecution.assertCancelled();
 
         // All executions are retained
-        assertThat(localExecutionManager.executions(), hasItem(runningJobId));
-        assertThat(remoteExecutionManager.executions(), hasItem(queuedJobId));
+        assertThat(localExecutionManager.remoteExecutions(), hasItem(runningJobId));
+        assertThat(remoteExecutionManager.localExecutions(), hasItem(queuedJobId));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
-            assertThat(remoteExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.remoteExecutions(), is(empty()));
+            assertThat(remoteExecutionManager.localExecutions(), is(empty()));
 
             assertThat(localExecutionManager.resultAsync(runningJobId), willThrow(ComputeException.class));
             assertThat(remoteExecutionManager.resultAsync(runningJobId), willThrow(ComputeException.class));
@@ -241,14 +240,14 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         execution.assertCompleted();
 
         // Execution is retained
-        assertThat(localExecutionManager.executions(), hasItem(jobId));
+        assertThat(localExecutionManager.remoteExecutions(), hasItem(jobId));
         // Job id on the failover node is different, so just check that something is stored there
-        assertThat(failoverExecutionManager.executions(), is(not(empty())));
+        assertThat(failoverExecutionManager.localExecutions(), is(not(empty())));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
-            assertThat(failoverExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.remoteExecutions(), is(empty()));
+            assertThat(failoverExecutionManager.localExecutions(), is(empty()));
         });
 
         // Start node again for next tests

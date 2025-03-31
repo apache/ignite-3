@@ -277,6 +277,18 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         return value(columnName);
     }

@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-/** NodeFinder type. */
-public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
-    STATIC,
-    /** Uses multicast to find nodes. */
-    MULTICAST
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
+
+/** Configuration specific for Static node finder. */
+@PolymorphicConfigInstance(StaticNodeFinderConfigurationSchema.TYPE)
+public class StaticNodeFinderConfigurationSchema extends NodeFinderConfigurationSchema {
+    public static final String TYPE = "STATIC";
+
+    /** Addresses of nodes in the cluster in a host:port format. */
+    @Value(hasDefault = true)
+    public final String[] netClusterNodes = new String[0];
 }

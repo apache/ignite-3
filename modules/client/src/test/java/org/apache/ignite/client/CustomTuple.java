@@ -243,6 +243,18 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         throw new UnsupportedOperationException();
     }

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.scalecube;
 
 import static org.apache.ignite.internal.network.MulticastNodeFinder.MAX_TTL;
-import static org.apache.ignite.internal.network.MulticastNodeFinder.UNBOUNDED_TTL;
+import static org.apache.ignite.internal.network.MulticastNodeFinder.UNSPECIFIED_TTL;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -52,7 +52,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ItMulticastNodeFinderTest extends IgniteAbstractTest {
     private static final int INIT_PORT = 3344;
     private static final int MULTICAST_PORT = 20000;
-    private static final String MULTICAST_GROUP = "224.0.0.1";
+    private static final String MULTICAST_GROUP = "239.192.0.0";
 
     private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
 
@@ -77,7 +77,7 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {UNBOUNDED_TTL, MAX_TTL})
+    @ValueSource(ints = {UNSPECIFIED_TTL, MAX_TTL})
     void testFindNodes(int ttl) {
         int nodeCount = 5;
         List<NetworkAddress> addresses = findLocalAddresses(INIT_PORT, INIT_PORT + nodeCount);
