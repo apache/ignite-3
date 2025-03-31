@@ -709,7 +709,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                                     registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
                                             );
 
-                                            preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId);
+                                            preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, false);
                                         }), ioExecutor);
                             }))
                             .toArray(CompletableFuture[]::new);
@@ -824,7 +824,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
 
                     if (partitionReplicaLifecycleManager.hasLocalPartition(zonePartitionId)) {
-                        preparePartitionResourcesAndLoadToZoneReplica(table, zonePartitionId);
+                        preparePartitionResourcesAndLoadToZoneReplica(table, zonePartitionId, onNodeRecovery);
                     }
                 }
             }), ioExecutor);
@@ -849,7 +849,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param table Table.
      * @param zonePartitionId Zone Partition ID.
      */
-    private void preparePartitionResourcesAndLoadToZoneReplica(TableImpl table, ZonePartitionId zonePartitionId) {
+    private void preparePartitionResourcesAndLoadToZoneReplica(TableImpl table, ZonePartitionId zonePartitionId, boolean onNodeRecovery) {
         int partId = zonePartitionId.partitionId();
 
         int tableId = table.tableId();
@@ -940,7 +940,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     tableId,
                     createListener,
                     tablePartitionRaftListener,
-                    partitionStorageAccess
+                    partitionStorageAccess,
+                    onNodeRecovery
             );
         });
     }
