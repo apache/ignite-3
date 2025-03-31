@@ -46,7 +46,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--url", NODE_URL, "{ignite{metaStorage: {idleSyncTimeInterval: 1000}}}");
+        execute("cluster", "config", "update", "--url", NODE_URL, "{ignite{system: {idleSafeTimeSyncInterval: 1000}}}");
 
         // Then
         assertAll(
@@ -62,7 +62,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("idleSyncTimeInterval=1000")
+                () -> assertOutputContains("idleSafeTimeSyncInterval=1000")
         );
     }
 
@@ -97,7 +97,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.metaStorage.idleSyncTimeInterval=2000");
+        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.system.idleSafeTimeSyncInterval=2000");
 
         // Then
         assertAll(
@@ -113,7 +113,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("idleSyncTimeInterval=2000")
+                () -> assertOutputContains("idleSafeTimeSyncInterval=2000")
         );
     }
 

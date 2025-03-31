@@ -362,7 +362,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
                 .clusterName("cluster")
                 .clusterConfiguration("ignite {"
                         + "transaction.readWriteTimeout: " + TX_RW_TIMEOUT + ",\n"
-                        + "metaStorage.idleSyncTimeInterval: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
+                        + "system.idleSafeTimeSyncInterval: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
                         // TODO: Set dataAvailabilityTime to 5000 after IGNITE-24002 is fixed.
                         + "gc.lowWatermark.dataAvailabilityTime: 30000,\n"
                         + "gc.lowWatermark.updateInterval: 1000,\n"

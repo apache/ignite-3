@@ -159,7 +159,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -315,7 +314,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private MetaStorageConfiguration metaStorageConfiguration;
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -1329,7 +1328,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
-                    metaStorageConfiguration,
+                    systemDistributedConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );

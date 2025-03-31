@@ -38,10 +38,10 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -159,7 +159,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mockRaftManager(),
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                mockConfiguration(),
+                mockSystemConfiguration(),
                 clock,
                 RaftGroupOptionsConfigurer.EMPTY,
                 readOperationForCompactionTracker
@@ -173,7 +173,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             RaftManager raftMgr,
             KeyValueStorage storage,
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
-            MetaStorageConfiguration configuration,
+            SystemDistributedConfiguration systemConfiguration,
             HybridClock clock,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             ReadOperationForCompactionTracker readOperationForCompactionTracker
@@ -187,7 +187,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 clock,
                 raftServiceFactory,
                 new NoOpMetricManager(),
-                configuration,
+                systemConfiguration,
                 raftGroupOptionsConfigurer,
                 readOperationForCompactionTracker
         );
@@ -317,11 +317,11 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         return raftManager;
     }
 
-    private static MetaStorageConfiguration mockConfiguration() {
-        MetaStorageConfiguration configuration = mock(MetaStorageConfiguration.class, LENIENT_SETTINGS);
+    private static SystemDistributedConfiguration mockSystemConfiguration() {
+        SystemDistributedConfiguration configuration = mock(SystemDistributedConfiguration.class, LENIENT_SETTINGS);
         ConfigurationValue<Long> value = mock(ConfigurationValue.class, LENIENT_SETTINGS);
 
-        when(configuration.idleSyncTimeInterval()).thenReturn(value);
+        when(configuration.idleSafeTimeSyncInterval()).thenReturn(value);
         when(value.value()).thenReturn(50L);
 
         return configuration;

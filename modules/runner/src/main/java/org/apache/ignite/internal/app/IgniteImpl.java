@@ -159,7 +159,6 @@ import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageExtensionConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
@@ -772,7 +771,10 @@ public class IgniteImpl implements Ignite {
         eventLog = new EventLogImpl(clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog(),
                 () -> CollectionUtils.last(clusterInfo(clusterStateStorageMgr).idHistory()), name);
 
-        metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageExtensionConfiguration.KEY).metaStorage());
+        SystemDistributedConfiguration systemDistributedConfiguration =
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
+        metaStorageMgr.configure(systemDistributedConfiguration);
 
         systemDisasterRecoveryManager = new SystemDisasterRecoveryManagerImpl(
                 name,
@@ -790,7 +792,7 @@ public class IgniteImpl implements Ignite {
                 storage,
                 metaStorageMgr,
                 readOperationForCompactionTracker,
-                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                systemDistributedConfiguration
         );
 
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
@@ -934,9 +936,6 @@ public class IgniteImpl implements Ignite {
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
         schemaManager = new SchemaManager(registry, catalogManager);
-
-        SystemDistributedConfiguration systemDistributedConfiguration =
-                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
 
         distributionZoneManager = new DistributionZoneManager(
                 name,

@@ -70,7 +70,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private static final String[] DISTRIBUTED_CONFIGURATION_KEYS = {
             "ignite.eventlog",
             "ignite.gc",
-            "ignite.metaStorage",
             "ignite.metrics",
             "ignite.replication",
             "ignite.schemaSync",

@@ -27,10 +27,10 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
@@ -72,7 +72,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private final LogicalTopologyEventListener logicalTopologyEventListener = new MetaStorageLogicalTopologyEventListener();
 
-    private final CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture;
+    private final CompletableFuture<SystemDistributedConfiguration> systemConfigurationFuture;
 
     private final List<ElectionListener> electionListeners;
 
@@ -100,7 +100,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             MetaStorageLearnerManager learnerManager,
             ClusterTimeImpl clusterTime,
-            CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture,
+            CompletableFuture<SystemDistributedConfiguration> systemConfigurationFuture,
             List<ElectionListener> electionListeners,
             BooleanSupplier leaderSecondaryDutiesPaused
     ) {
@@ -110,7 +110,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         this.metaStorageSvcFut = metaStorageSvcFut;
         this.learnerManager = learnerManager;
         this.clusterTime = clusterTime;
-        this.metaStorageConfigurationFuture = metaStorageConfigurationFuture;
+        this.systemConfigurationFuture = systemConfigurationFuture;
         this.electionListeners = electionListeners;
         this.leaderSecondaryDutiesPaused = leaderSecondaryDutiesPaused;
     }
@@ -163,7 +163,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private void startSafeTimeScheduler(long term) {
         metaStorageSvcFut
-                .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
+                .thenAcceptBoth(systemConfigurationFuture, (service, metaStorageConfiguration) -> {
                     clusterTime.startSafeTimeScheduler(
                             safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, service),
                             metaStorageConfiguration,
