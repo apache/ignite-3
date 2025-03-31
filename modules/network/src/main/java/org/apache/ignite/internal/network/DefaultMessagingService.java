@@ -739,7 +739,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @param recipientNode Target cluster node.
      */
-    private @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
+    @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
         // Node name is {@code null} if the node has not been added to the topology.
         if (recipientNode.name() != null) {
             return connectionManager.nodeId().equals(recipientNode.id()) ? null : getFromCacheOrCreateResolved(recipientNode);
@@ -754,12 +754,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InetSocketAddress localAddress = connectionManager.localAddress();
         NetworkAddress recipientAddress = recipientNode.address();
 
-        RecipientInetAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, address1) -> {
+        RecipientInetAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, existingAddress) -> {
             if (staleIdDetector.isIdStale(nodeId)) {
                 return null;
             }
 
-            return address1 != null ? address1 : RecipientInetAddress.create(localAddress, recipientAddress);
+            return existingAddress != null ? existingAddress : RecipientInetAddress.create(localAddress, recipientAddress);
         });
 
         if (address == null) {
