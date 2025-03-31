@@ -29,7 +29,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import java.io.IOException;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -317,13 +316,13 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return true;
         }
 
-        if (!Objects.equals(message.productName(), productVersionSource.productName())) {
+        if (!productVersionSource.productName().equals(message.productName())) {
             handleProductNameMismatch(message);
 
             return true;
         }
 
-        if (!Objects.equals(message.productVersion(), productVersionSource.productVersion().toString())) {
+        if (!productVersionSource.productVersion().toString().equals(message.productVersion())) {
             handleProductVersionMismatch(message);
 
             return true;

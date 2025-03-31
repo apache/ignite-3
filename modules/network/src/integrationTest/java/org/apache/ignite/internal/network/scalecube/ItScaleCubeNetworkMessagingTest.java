@@ -1114,7 +1114,7 @@ class ItScaleCubeNetworkMessagingTest {
 
     @Test
     public void nodesWithDifferentProductNamesCannotCommunicate() throws Exception {
-        Map<NetworkAddress, ProductVersionSource> productVersionSourcesMap = new ConcurrentHashMap<>();
+        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, ProductVersionSource>();
         Function<NetworkAddress, ProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
                 addr,
                 k -> new ArbitraryProductVersionSource("product-" + k, IgniteProductVersion.CURRENT_VERSION)
@@ -1131,8 +1131,8 @@ class ItScaleCubeNetworkMessagingTest {
 
     @Test
     public void nodesWithDifferentVersionsCannotCommunicate() throws Exception {
-        Map<NetworkAddress, ProductVersionSource> productVersionSourcesMap = new ConcurrentHashMap<>();
-        AtomicInteger addressCounter = new AtomicInteger();
+        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, ProductVersionSource>();
+        var addressCounter = new AtomicInteger();
         Function<NetworkAddress, ProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
                 addr,
                 k -> {

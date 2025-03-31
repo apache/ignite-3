@@ -63,9 +63,9 @@ class HandshakeManagerUtils {
             Function<String, Exception> exceptionFactory
     ) {
         if (rejectionReason.logAsWarn()) {
-            LOG.warn("Rejecting handshake: " + messageText);
+            LOG.warn("Rejecting handshake: {}", messageText);
         } else {
-            LOG.debug("Rejecting handshake: " + messageText);
+            LOG.debug("Rejecting handshake: {}", messageText);
         }
 
         HandshakeRejectedMessage rejectionMessage = MESSAGE_FACTORY.handshakeRejectedMessage()
