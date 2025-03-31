@@ -82,12 +82,16 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     /** {@inheritDoc} */
     @Override
-    public void push(InRowT row) throws Exception {
+    public void push(List<InRowT> rows) throws Exception {
         assert waiting > 0 : waiting;
 
-        buff.add(converter.apply(row));
+        waiting -= rows.size();
 
-        if (--waiting == 0) {
+        for (InRowT row : rows) {
+            buff.add(converter.apply(row));
+        }
+
+        if (waiting == 0) {
             completePrefetchFuture(null);
 
             flush();

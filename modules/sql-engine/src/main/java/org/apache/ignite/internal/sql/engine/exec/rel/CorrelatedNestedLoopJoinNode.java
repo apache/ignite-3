@@ -141,8 +141,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushLeft(row);
+                public void push(List<RowT> batch) throws Exception {
+                    pushLeft(batch);
                 }
 
                 /** {@inheritDoc} */
@@ -161,8 +161,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(RowT row) throws Exception {
-                    pushRight(row);
+                public void push(List<RowT> batch) throws Exception {
+                    pushRight(batch);
                 }
 
                 /** {@inheritDoc} */
@@ -182,32 +182,32 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         throw new IndexOutOfBoundsException();
     }
 
-    private void pushLeft(RowT row) throws Exception {
+    private void pushLeft(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        waitingLeft--;
+        waitingLeft -= batch.size();
 
         if (leftInBuf == null) {
-            leftInBuf = new ArrayList<>(leftInBufferSize);
+            leftInBuf = newBatch(leftInBufferSize);
         }
 
-        leftInBuf.add(row);
+        leftInBuf.addAll(batch);
 
         onPushLeft();
     }
 
-    private void pushRight(RowT row) throws Exception {
+    private void pushRight(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
 
-        waitingRight--;
+        waitingRight -= batch.size();
 
         if (rightInBuf == null) {
-            rightInBuf = new ArrayList<>(rightInBufferSize);
+            rightInBuf = newBatch(rightInBufferSize);
         }
 
-        rightInBuf.add(row);
+        rightInBuf.addAll(batch);
 
         onPushRight();
     }
@@ -347,21 +347,14 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         assert state == State.IDLE;
 
         state = State.IN_LOOP;
-        int processed = 0;
         try {
+            List<RowT> batch = newBatch(requested);
             while (requested > 0 && rightIdx < rightInBuf.size()) {
                 if (leftIdx == leftInBuf.size()) {
                     leftIdx = 0;
                 }
 
                 while (requested > 0 && leftIdx < leftInBuf.size()) {
-                    if (processed++ > inBufSize) {
-                        // Allow others to do their job.
-                        execute(this::join);
-
-                        return;
-                    }
-
                     RowT left = leftInBuf.get(leftIdx);
                     RowT right = rightInBuf.get(rightIdx);
 
@@ -372,7 +365,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
                         RowT row = joinProjection.project(context(), left, right);
 
-                        downstream().push(row);
+                        batch.add(row);
                     }
 
                     leftIdx++;
@@ -380,6 +373,16 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
                 if (leftIdx == leftInBuf.size()) {
                     rightInBuf.set(rightIdx++, null);
+                }
+            }
+
+            if (!batch.isEmpty()) {
+                downstream().push(batch);
+
+                if (requested > 0 && rightIdx < rightInBuf.size()) {
+                    execute(this::join);
+
+                    return;
                 }
             }
         } finally {
@@ -406,21 +409,25 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 state = State.IN_LOOP;
 
                 try {
+                    List<RowT> batch = newBatch(Math.min(requested, leftInBuf.size() - notMatchedIdx));
                     while (requested > 0 && notMatchedIdx < leftInBuf.size()) {
-                        if (processed++ > inBufSize) {
-                            // Allow others to do their job.
-                            execute(this::join);
-
-                            return;
-                        }
-
                         requested--;
 
-                        downstream().push(joinProjection.project(context(), leftInBuf.get(notMatchedIdx), rightEmptyRow));
+                        batch.add(joinProjection.project(context(), leftInBuf.get(notMatchedIdx), rightEmptyRow));
 
                         leftMatched.set(notMatchedIdx);
 
                         notMatchedIdx = leftMatched.nextClearBit(notMatchedIdx + 1);
+                    }
+
+                    if (!batch.isEmpty()) {
+                        downstream().push(batch);
+
+                        if (requested > 0 && notMatchedIdx < leftInBuf.size()) {
+                            execute(this::join);
+
+                            return;
+                        }
                     }
                 } finally {
                     state = State.IDLE;

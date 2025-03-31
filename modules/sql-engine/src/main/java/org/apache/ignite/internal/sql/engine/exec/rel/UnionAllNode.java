@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -60,13 +61,13 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting--;
+        waiting -= batch.size();
 
-        downstream().push(row);
+        downstream().push(batch);
     }
 
     /** {@inheritDoc} */

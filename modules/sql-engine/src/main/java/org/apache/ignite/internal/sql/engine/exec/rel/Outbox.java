@@ -152,13 +152,15 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert waiting > 0 : waiting;
 
-        waiting--;
+        waiting -= batch.size();
 
-        if (currentNode == null || dest.targets(row).contains(currentNode)) {
-            inBuf.add(row);
+        for (RowT row : batch) {
+            if (currentNode == null || dest.targets(row).contains(currentNode)) {
+                inBuf.add(row);
+            }
         }
 
         flush();

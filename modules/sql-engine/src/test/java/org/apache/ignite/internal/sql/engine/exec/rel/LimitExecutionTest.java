@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -210,9 +211,11 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
             int r = requested.getAndAdd(rowsCnt);
 
             this.execute(() -> {
+                ArrayList<Object[]> batch = new ArrayList<>(rowsCnt);
                 for (int i = 0; i < rowsCnt; i++) {
-                    downstream().push(new Object[]{r + i});
+                    batch.add(new Object[]{r + i});
                 }
+                downstream().push(batch);
             });
         }
     }

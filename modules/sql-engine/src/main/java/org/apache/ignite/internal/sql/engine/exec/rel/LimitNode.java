@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.jetbrains.annotations.Nullable;
@@ -85,18 +86,20 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         if (waiting == NOT_WAITING) {
             return;
         }
-        ++rowsProcessed;
 
-        --waiting;
+        waiting -= batch.size();
 
-        if (rowsProcessed > offset) {
-            if (fetchNode == null || rowsProcessed <= fetch + offset) {
-                downstream().push(row);
-            }
+        int skip = offset > rowsProcessed ? offset - rowsProcessed : 0;
+        int count = fetchNode == null ? batch.size() - skip : Math.min(fetch + offset - rowsProcessed, batch.size() - skip);
+
+        rowsProcessed += batch.size();
+
+        if (count > 0) {
+            downstream().push(batch.subList(skip, skip + count));
         }
 
         if (fetch > 0 && rowsProcessed == fetch + offset && waiting > 0) {

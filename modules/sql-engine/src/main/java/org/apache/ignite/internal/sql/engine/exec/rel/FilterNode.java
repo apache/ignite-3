@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
@@ -67,14 +68,16 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting--;
+        waiting -= batch.size();
 
-        if (pred.test(row)) {
-            inBuf.add(row);
+        for (RowT row : batch) {
+            if (pred.test(row)) {
+                inBuf.add(row);
+            }
         }
 
         filter();
@@ -112,16 +115,19 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     private void filter() throws Exception {
         inLoop = true;
         try {
-            int processed = 0;
+            List<RowT> batch = newBatch();
             while (requested > 0 && !inBuf.isEmpty()) {
                 requested--;
-                downstream().push(inBuf.remove());
+                batch.add(inBuf.remove());
+            }
 
-                if (processed++ >= inBufSize) {
-                    // Allow others to do their job.
+            if (!batch.isEmpty()) {
+                downstream().push(batch);
+
+                if (requested > 0 && !inBuf.isEmpty()) {
                     execute(this::filter);
 
-                    break;
+                    return;
                 }
             }
         } finally {
