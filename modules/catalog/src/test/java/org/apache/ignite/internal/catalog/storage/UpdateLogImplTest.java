@@ -459,7 +459,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         // Wait until initial updates are applied.
-        waitForCondition(() -> metastore.appliedRevision() > 0, 500);
+        assertTrue(waitForCondition(() -> metastore.appliedRevision() > 0, 500));
     }
 
     private static class TestEntrySerializerProvider implements CatalogEntrySerializerProvider {

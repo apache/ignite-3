@@ -203,7 +203,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         NettySender sender1 = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
 
         // Wait for the channel to appear on the recipient side.
-        waitForCondition(() -> !manager2.channels().isEmpty(), 10_000);
+        assertTrue(waitForCondition(() -> !manager2.channels().isEmpty(), 10_000));
 
         NettySender sender2 = manager2.openChannelTo(manager1).get(3, TimeUnit.SECONDS);
 
