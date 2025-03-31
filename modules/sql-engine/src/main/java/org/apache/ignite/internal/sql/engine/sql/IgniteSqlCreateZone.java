@@ -146,7 +146,8 @@ public class IgniteSqlCreateZone extends SqlCreate {
 
         name.unparse(writer, leftPrec, rightPrec);
 
-        if (createOptionList != null && createOptionList.size() > 1) {
+        if (createOptionList != null && (createOptionList.size() > 1 ||
+                !((IgniteSqlZoneOption) createOptionList.get(0)).key().getSimple().equals(STORAGE_PROFILES.name()))) {
             SqlWriter.Frame frame = writer.startList("(", ")");
             for (SqlNode c : createOptionList) {
                 IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;

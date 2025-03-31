@@ -79,7 +79,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
                 5,
                 IMMEDIATE_TIMER_VALUE,
                 IMMEDIATE_TIMER_VALUE,
-                String.join(", ", ALL_STORAGE_PROFILES)
+                String.join("', '", ALL_STORAGE_PROFILES)
         ));
     }
 

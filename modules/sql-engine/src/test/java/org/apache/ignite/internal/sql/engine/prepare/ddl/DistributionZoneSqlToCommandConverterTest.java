@@ -544,10 +544,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     @Test
     public void createZoneWithInvalidStorageProfiles() {
-        String profiles = "STORAGE PROFILES";
-        String sql = "create zone test_zone STORAGE PROFILES [{}]";
+        String profiles = "STORAGE PROFILES [";
+        String sql = "create zone test_zone {} {}]";
 
-        String prefix = "create zone test_zone (";
+        String prefix = "create zone test_zone ";
+
         assertThrowsWithPos(format(sql, profiles, "1"), "1", prefix.length() + profiles.length() + 1 /* start pos*/
                 + 1 /* first symbol after bracket*/);
     }
