@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption.OPTIONS_MAPPING;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.OPTIONS_MAPPING;
 
 import java.util.List;
 import java.util.Objects;

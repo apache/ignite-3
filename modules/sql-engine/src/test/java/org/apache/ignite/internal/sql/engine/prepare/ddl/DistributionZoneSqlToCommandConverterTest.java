@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption.OPTIONS_MAPPING;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.OPTIONS_MAPPING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -125,8 +125,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     public void testCreateZoneWithConsistencyModeHighAvailability(boolean withPresent) throws SqlParseException {
         String sql = withPresent
                 ? "CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
-                        + " CONSISTENCY_MODE='" + ConsistencyMode.HIGH_AVAILABILITY.name() + "'"
-                : "CREATE ZONE test (CONSISTENCY MODE '" + ConsistencyMode.HIGH_AVAILABILITY.name() + "') "
+                        + " CONSISTENCY_MODE='" + ConsistencyMode.HIGH_AVAILABILITY + "'"
+                : "CREATE ZONE test (CONSISTENCY MODE '" + ConsistencyMode.HIGH_AVAILABILITY + "') "
                         + "STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "'] ";
 
         SqlNode node = parse(sql);

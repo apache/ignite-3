@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import java.util.Map;
+
 /**
  * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
  */
 public enum ZoneOptionEnum {
+
     /** Number of partitions. */
     PARTITIONS,
 
@@ -46,5 +49,17 @@ public enum ZoneOptionEnum {
     STORAGE_PROFILES,
 
     /** Consistency mode. */
-    CONSISTENCY_MODE
+    CONSISTENCY_MODE;
+
+    public static final Map<ZoneOptionEnum, String> OPTIONS_MAPPING = Map.of(
+            PARTITIONS, "PARTITIONS",
+            REPLICAS, "REPLICAS",
+            DISTRIBUTION_ALGORITHM, "DISTRIBUTION ALGORITHM",
+            DATA_NODES_FILTER, "NODES FILTER",
+            DATA_NODES_AUTO_ADJUST, "AUTO ADJUST",
+            DATA_NODES_AUTO_ADJUST_SCALE_UP, "AUTO SCALE UP",
+            DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "AUTO SCALE DOWN",
+            CONSISTENCY_MODE, "CONSISTENCY MODE",
+            STORAGE_PROFILES, "STORAGE PROFILES"
+    );
 }
