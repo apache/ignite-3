@@ -17,7 +17,12 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.*;
+import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.CLINCH;
+import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.CLUSTER_ID_MISMATCH;
+import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.PRODUCT_MISMATCH;
+import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.STALE_LAUNCH_ID;
+import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.STOPPING;
+import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.VERSION_MISMATCH;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,10 +48,10 @@ class HandshakeRejectionReasonTest {
 
         assertions.assertAllAsserted();
     }
-    
+
     private static class EnumMembersAssertions {
         private final Set<HandshakeRejectionReason> assertedReasons = EnumSet.noneOf(HandshakeRejectionReason.class);
-        
+
         private void assertTrueFor(HandshakeRejectionReason reason, Predicate<HandshakeRejectionReason> predicate) {
             addAndAssert(reason, toAssert -> assertTrue(predicate.test(toAssert)));
         }
@@ -61,7 +66,7 @@ class HandshakeRejectionReasonTest {
         }
 
         void assertAllAsserted() {
-            assertThat(assertedReasons, containsInAnyOrder(values()));
+            assertThat(assertedReasons, containsInAnyOrder(HandshakeRejectionReason.values()));
         }
     }
 }

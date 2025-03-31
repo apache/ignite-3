@@ -20,12 +20,16 @@ package org.apache.ignite.internal.version;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
- * Allows to obtain product name and version.
+ * {@link IgniteProductVersionSource} that takes product name and version from the properties.
  */
-public interface ProductVersionSource {
-    /** Returns product name. */
-    String productName();
+public class DefaultIgniteProductVersionSource implements IgniteProductVersionSource {
+    @Override
+    public String productName() {
+        return IgniteProductVersion.CURRENT_PRODUCT;
+    }
 
-    /** Returns product version. */
-    IgniteProductVersion productVersion();
+    @Override
+    public IgniteProductVersion productVersion() {
+        return IgniteProductVersion.CURRENT_VERSION;
+    }
 }

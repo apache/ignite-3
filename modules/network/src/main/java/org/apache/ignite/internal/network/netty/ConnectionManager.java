@@ -73,7 +73,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.version.ProductVersionSource;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -146,7 +146,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private final ChannelTypeRegistry channelTypeRegistry;
 
-    private final ProductVersionSource productVersionSource;
+    private final IgniteProductVersionSource productVersionSource;
 
     /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
     private final @Nullable SslContext clientSslContext;
@@ -173,7 +173,7 @@ public class ConnectionManager implements ChannelCreationListener {
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
             ChannelTypeRegistry channelTypeRegistry,
-            ProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource
     ) {
         this(
                 networkConfiguration,
@@ -213,7 +213,7 @@ public class ConnectionManager implements ChannelCreationListener {
             ClusterIdSupplier clusterIdSupplier,
             @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory,
             ChannelTypeRegistry channelTypeRegistry,
-            ProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource
     ) {
         this.serializationService = serializationService;
         this.nodeId = nodeId;

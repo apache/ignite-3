@@ -67,7 +67,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
-import org.apache.ignite.internal.version.ProductVersionSource;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -108,7 +108,7 @@ public class ScaleCubeClusterServiceFactory {
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureManager failureManager,
             ChannelTypeRegistry channelTypeRegistry,
-            ProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource
     ) {
         var topologyService = new ScaleCubeTopologyService();
 

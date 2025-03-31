@@ -57,7 +57,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
-import org.apache.ignite.internal.version.ProductVersionSource;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -85,7 +85,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     private final BooleanSupplier stopping;
 
-    private final ProductVersionSource productVersionSource;
+    private final IgniteProductVersionSource productVersionSource;
 
     /** Connection id. */
     private final short connectionId;
@@ -131,7 +131,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            ProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource
     ) {
         this.localNode = localNode;
         this.connectionId = connectionId;

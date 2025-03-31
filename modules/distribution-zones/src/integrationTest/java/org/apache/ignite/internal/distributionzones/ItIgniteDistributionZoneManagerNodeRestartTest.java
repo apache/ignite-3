@@ -130,7 +130,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.version.DefaultProductVersionSource;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -238,7 +238,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 new NoOpCriticalWorkerRegistry(),
                 mock(FailureManager.class),
                 defaultChannelTypeRegistry(),
-                new DefaultProductVersionSource()
+                new DefaultIgniteProductVersionSource()
         );
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);

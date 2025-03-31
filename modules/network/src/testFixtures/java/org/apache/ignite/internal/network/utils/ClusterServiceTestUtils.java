@@ -56,8 +56,8 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.version.DefaultProductVersionSource;
-import org.apache.ignite.internal.version.ProductVersionSource;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -133,7 +133,7 @@ public class ClusterServiceTestUtils {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier
     ) {
-        return clusterService(testInfo, port, nodeFinder, staleIds, clusterIdSupplier, new DefaultProductVersionSource());
+        return clusterService(testInfo, port, nodeFinder, staleIds, clusterIdSupplier, new DefaultIgniteProductVersionSource());
     }
 
     /**
@@ -154,7 +154,7 @@ public class ClusterServiceTestUtils {
             NodeFinder nodeFinder,
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier,
-            ProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource
     ) {
         String nodeName = testNodeName(testInfo, port);
 
@@ -190,7 +190,7 @@ public class ClusterServiceTestUtils {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier
     ) {
-        return clusterService(nodeName, port, nodeFinder, staleIds, clusterIdSupplier, new DefaultProductVersionSource());
+        return clusterService(nodeName, port, nodeFinder, staleIds, clusterIdSupplier, new DefaultIgniteProductVersionSource());
     }
 
     /**
@@ -210,7 +210,7 @@ public class ClusterServiceTestUtils {
             NodeFinder nodeFinder,
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier,
-            ProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource
     ) {
         ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),

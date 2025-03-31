@@ -76,7 +76,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.version.DefaultProductVersionSource;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -541,7 +541,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     new AllIdsAreFresh(),
                     withoutClusterId(),
                     defaultChannelTypeRegistry(),
-                    new DefaultProductVersionSource()
+                    new DefaultIgniteProductVersionSource()
             );
 
             manager.start();

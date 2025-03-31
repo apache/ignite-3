@@ -15,30 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.scalecube;
+package org.apache.ignite.internal.version;
 
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.version.ProductVersionSource;
 
 /**
- * {@link ProductVersionSource} that allows arbitrary product name and version to be specified.
+ * Allows to obtain product name and version.
  */
-class ArbitraryProductVersionSource implements ProductVersionSource {
-    private final String productName;
-    private final IgniteProductVersion version;
+public interface IgniteProductVersionSource {
+    /** Returns product name. */
+    String productName();
 
-    public ArbitraryProductVersionSource(String productName, IgniteProductVersion version) {
-        this.productName = productName;
-        this.version = version;
-    }
-
-    @Override
-    public String productName() {
-        return productName;
-    }
-
-    @Override
-    public IgniteProductVersion productVersion() {
-        return version;
-    }
+    /** Returns product version. */
+    IgniteProductVersion productVersion();
 }

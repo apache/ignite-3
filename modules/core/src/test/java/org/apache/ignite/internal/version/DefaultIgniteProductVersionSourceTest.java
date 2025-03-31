@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.version;
 
-import org.apache.ignite.internal.properties.IgniteProductVersion;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 
-/**
- * {@link ProductVersionSource} that takes product name and version from the properties.
- */
-public class DefaultProductVersionSource implements ProductVersionSource {
-    @Override
-    public String productName() {
-        return IgniteProductVersion.CURRENT_PRODUCT;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.junit.jupiter.api.Test;
+
+class DefaultIgniteProductVersionSourceTest {
+    @Test
+    void productNameMatchesValueFromProperties() {
+        var source = new DefaultIgniteProductVersionSource();
+
+        assertThat(source.productName(), equalTo(IgniteProductVersion.CURRENT_PRODUCT));
     }
 
-    @Override
-    public IgniteProductVersion productVersion() {
-        return IgniteProductVersion.CURRENT_VERSION;
+    @Test
+    void productVersionMatchesValueFromProperties() {
+        var source = new DefaultIgniteProductVersionSource();
+
+        assertThat(source.productVersion(), equalTo(IgniteProductVersion.CURRENT_VERSION));
     }
 }

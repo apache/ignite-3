@@ -59,7 +59,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.version.DefaultProductVersionSource;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -721,7 +721,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                new DefaultProductVersionSource()
+                new DefaultIgniteProductVersionSource()
         );
     }
 
@@ -757,7 +757,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                new DefaultProductVersionSource()
+                new DefaultIgniteProductVersionSource()
         );
     }
 

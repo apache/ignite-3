@@ -95,8 +95,8 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessag
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.version.DefaultProductVersionSource;
-import org.apache.ignite.internal.version.ProductVersionSource;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.logging.log4j.core.LogEvent;
@@ -1114,10 +1114,10 @@ class ItScaleCubeNetworkMessagingTest {
 
     @Test
     public void nodesWithDifferentProductNamesCannotCommunicate() throws Exception {
-        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, ProductVersionSource>();
-        Function<NetworkAddress, ProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
+        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, IgniteProductVersionSource>();
+        Function<NetworkAddress, IgniteProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
                 addr,
-                k -> new ArbitraryProductVersionSource("product-" + k, IgniteProductVersion.CURRENT_VERSION)
+                k -> new ArbitraryIgniteProductVersionSource("product-" + k, IgniteProductVersion.CURRENT_VERSION)
         );
         testCluster = new Cluster(2, testInfo, Cluster.normalClusterIdSupplierFactory, versionSourceFactory);
 
@@ -1131,13 +1131,13 @@ class ItScaleCubeNetworkMessagingTest {
 
     @Test
     public void nodesWithDifferentVersionsCannotCommunicate() throws Exception {
-        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, ProductVersionSource>();
+        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, IgniteProductVersionSource>();
         var addressCounter = new AtomicInteger();
-        Function<NetworkAddress, ProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
+        Function<NetworkAddress, IgniteProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
                 addr,
                 k -> {
                     IgniteProductVersion version = IgniteProductVersion.fromString("1.0." + addressCounter.getAndIncrement());
-                    return new ArbitraryProductVersionSource(IgniteProductVersion.CURRENT_PRODUCT, version);
+                    return new ArbitraryIgniteProductVersionSource(IgniteProductVersion.CURRENT_PRODUCT, version);
                 }
         );
         testCluster = new Cluster(2, testInfo, Cluster.normalClusterIdSupplierFactory, versionSourceFactory);
@@ -1330,7 +1330,7 @@ class ItScaleCubeNetworkMessagingTest {
          * @param clusterIdSupplierFactory Allows to obtain a Supplier for cluster ID by node address.
          */
         Cluster(int numOfNodes, TestInfo testInfo, Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory) {
-            this(numOfNodes, testInfo, clusterIdSupplierFactory, addr -> new DefaultProductVersionSource());
+            this(numOfNodes, testInfo, clusterIdSupplierFactory, addr -> new DefaultIgniteProductVersionSource());
         }
 
         /**
@@ -1344,7 +1344,7 @@ class ItScaleCubeNetworkMessagingTest {
                 int numOfNodes,
                 TestInfo testInfo,
                 Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory,
-                Function<NetworkAddress, ProductVersionSource> productVersionSourceFactory
+                Function<NetworkAddress, IgniteProductVersionSource> productVersionSourceFactory
         ) {
             int initialPort = INITIAL_PORT;
 
@@ -1370,10 +1370,10 @@ class ItScaleCubeNetworkMessagingTest {
                 TestInfo testInfo,
                 NetworkAddress addr,
                 Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory,
-                Function<NetworkAddress, ProductVersionSource> productVersionSourceFactory
+                Function<NetworkAddress, IgniteProductVersionSource> productVersionSourceFactory
         ) {
             ClusterIdSupplier clusterIdSupplier = clusterIdSupplierFactory.apply(addr);
-            ProductVersionSource productVersionSource = productVersionSourceFactory.apply(addr);
+            IgniteProductVersionSource productVersionSource = productVersionSourceFactory.apply(addr);
 
             return ClusterServiceTestUtils.clusterService(
                     testInfo,

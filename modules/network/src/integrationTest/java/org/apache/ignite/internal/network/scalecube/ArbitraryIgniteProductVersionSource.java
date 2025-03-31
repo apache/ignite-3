@@ -15,26 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.version;
-
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
+package org.apache.ignite.internal.network.scalecube;
 
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.junit.jupiter.api.Test;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 
-class DefaultProductVersionSourceTest {
-    @Test
-    void productNameMatchesValueFromProperties() {
-        var source = new DefaultProductVersionSource();
+/**
+ * {@link IgniteProductVersionSource} that allows arbitrary product name and version to be specified.
+ */
+class ArbitraryIgniteProductVersionSource implements IgniteProductVersionSource {
+    private final String productName;
+    private final IgniteProductVersion version;
 
-        assertThat(source.productName(), equalTo(IgniteProductVersion.CURRENT_PRODUCT));
+    public ArbitraryIgniteProductVersionSource(String productName, IgniteProductVersion version) {
+        this.productName = productName;
+        this.version = version;
     }
 
-    @Test
-    void productVersionMatchesValueFromProperties() {
-        var source = new DefaultProductVersionSource();
+    @Override
+    public String productName() {
+        return productName;
+    }
 
-        assertThat(source.productVersion(), equalTo(IgniteProductVersion.CURRENT_VERSION));
+    @Override
+    public IgniteProductVersion productVersion() {
+        return version;
     }
 }
