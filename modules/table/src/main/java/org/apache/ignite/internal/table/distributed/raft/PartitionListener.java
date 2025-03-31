@@ -307,15 +307,16 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {
-        if (lastAppliedIndex <= storage.lastAppliedIndex()) {
-            return;
-        }
-
-        assert storage.lastAppliedIndex() == 0 : String.format(
-                "Trying to initialize a non-empty storage: storageLastAppliedIndex=%d, lastAppliedIndex=%d",
+        assert storage.lastAppliedIndex() == 0 || storage.lastAppliedIndex() >= lastAppliedIndex : String.format(
+                "Trying to initialize a non-empty storage with data with a greater applied index: "
+                        + "storageLastAppliedIndex=%d, lastAppliedIndex=%d",
                 storage.lastAppliedIndex(),
                 lastAppliedIndex
         );
+
+        if (lastAppliedIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
 
         storage.runConsistently(locker -> {
             if (config != null) {
