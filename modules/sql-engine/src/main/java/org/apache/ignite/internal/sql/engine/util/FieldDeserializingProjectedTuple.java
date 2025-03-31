@@ -66,7 +66,7 @@ public class FieldDeserializingProjectedTuple extends AbstractProjectedTuple {
 
             Element element = schema.element(col);
 
-            BinaryRowConverter.appendValue(builder, element, schema.value(delegate, col));
+            BinaryRowConverter.copyColumnValue(delegate, builder, element, col);
         }
 
         delegate = new BinaryTuple(projection.length, builder.build());

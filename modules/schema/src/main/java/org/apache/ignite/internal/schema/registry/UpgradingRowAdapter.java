@@ -460,7 +460,7 @@ public class UpgradingRowAdapter implements Row {
         for (int col = 0; col < size; col++) {
             Element element = newBinaryTupleSchema.element(col);
 
-            BinaryRowConverter.appendValue(builder, element, value(col));
+            BinaryRowConverter.copyColumnValue(this, builder, element, col);
         }
 
         return new BinaryTuple(size, builder.build()).byteBuffer();
