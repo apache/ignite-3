@@ -287,8 +287,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.ThreadAssertions;
-import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
-import org.apache.ignite.internal.worker.configuration.CriticalWorkersExtensionConfiguration;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -574,9 +572,6 @@ public class IgniteImpl implements Ignite {
                 FailureProcessorExtensionConfiguration.KEY).failureHandler();
         failureManager = new FailureManager(node::shutdown, failureProcessorConfiguration);
 
-        CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry
-                .getConfiguration(CriticalWorkersExtensionConfiguration.KEY).criticalWorkers();
-
         SystemLocalConfiguration systemConfiguration = nodeConfigRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
 
         cmgWorkDir = cmgPath(systemConfiguration, workDir);
@@ -587,7 +582,7 @@ public class IgniteImpl implements Ignite {
         clusterIdService = new ClusterIdService(vaultMgr);
 
         criticalWorkerRegistry = new CriticalWorkerWatchdog(
-                criticalWorkersConfiguration,
+                systemConfiguration.criticalWorkers(),
                 threadPoolsManager.commonScheduler(),
                 failureManager
         );
@@ -597,7 +592,7 @@ public class IgniteImpl implements Ignite {
                 criticalWorkerRegistry,
                 threadPoolsManager.commonScheduler(),
                 nettyBootstrapFactory,
-                criticalWorkersConfiguration,
+                systemConfiguration.criticalWorkers(),
                 failureManager
         );
 

@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.CamelCaseKeys;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurationSchema;
 
 /** Local system configuration schema. */
 @Config
@@ -72,4 +74,8 @@ public class SystemLocalConfigurationSchema {
     @CamelCaseKeys
     @NamedConfigValue
     public SystemPropertyConfigurationSchema properties;
+
+    /** Critical workers configuration. */
+    @ConfigValue
+    public CriticalWorkersConfigurationSchema criticalWorkers;
 }

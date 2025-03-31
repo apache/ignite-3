@@ -90,7 +90,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
             "ignite.deployment",
             "ignite.nodeAttributes",
             "ignite.storage",
-            "ignite.criticalWorkers",
             "ignite.sql",
             "ignite.failureHandler",
             "ignite.system"
@@ -321,7 +320,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                         "ignite.deployment",
                         "ignite.nodeAttributes",
                         "ignite.storage",
-                        "ignite.criticalWorkers",
                         "ignite.sql",
                         "ignite.failureHandler",
                         "ignite.system"
