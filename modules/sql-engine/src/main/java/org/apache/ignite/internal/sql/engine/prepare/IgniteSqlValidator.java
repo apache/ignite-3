@@ -704,7 +704,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             checkLimitOffset(offsetFetchLimit, n, nodeName);
         } else if (n instanceof SqlDynamicParam) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) n;
-            RelDataType dynParamType = typeFactory.createSqlType(SqlTypeName.BIGINT);
+            SqlTypeName expectType = SqlTypeName.BIGINT;
+            RelDataType dynParamType = typeFactory.createSqlType(expectType);
 
             // Validate value, if present.
             if (!isUnspecified(dynamicParam)) {
@@ -717,7 +718,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 dynParamType = deriveDynamicParamType(dynamicParam);
 
                 if (!SqlTypeUtil.isNumeric(dynParamType)) {
-                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(SqlTypeName.DECIMAL.toString(),
+                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(expectType.toString(),
                             dynParamType.getSqlTypeName().toString());
                     throw newValidationError(n, err);
                 }

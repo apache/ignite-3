@@ -59,15 +59,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
         this.fetch = fetch == -1 ? 0 : fetch;
     }
 
-    /**
-     * Several cases are need to be processed.
-     *
-     * <br><ol>
-     * <li> request = 512, limit = 1, offset = not defined: need to pass 1 row and call {@link #end()}. </li>
-     * <li> request = 512, limit = 512, offset = not defined: just need to pass all rows without {@link #end()} call. </li>
-     * <li> request = 512, limit = 512, offset = 1: need to request initially 512 and further 1 row. </li>
-     * </ol>
-     */
+    /** {@inheritDoc} */
     @Override
     public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
@@ -79,6 +71,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
             return;
         }
 
+        assert requested == 0 : requested;
         requested = rowsCnt;
 
         if (fetch > 0) {
@@ -113,6 +106,10 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
             }
         }
 
+        // There several cases are possible:
+        //  1) requested = 512, limit = 1, offset = not defined: need to pass 1 row and call end()
+        //  2) requested = 512, limit = 512, offset = not defined: just need to pass all rows without end() call
+        //  3) requested = 512, limit = 512, offset = 1: need to request initially 512 and further 1 row
         if (fetch > 0 && rowsProcessed == fetch + offset && requested > 0) {
             end();
         }

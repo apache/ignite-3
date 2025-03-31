@@ -149,6 +149,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
@@ -1156,17 +1157,16 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private long validateAndGetFetchOffsetParams(RexNode node, String op) {
         SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(node);
-        Number offset = sqlScalar.get(ctx);
+        Number param = sqlScalar.get(ctx);
 
-        if (offset instanceof BigDecimal) {
-            BigDecimal offset0 = (BigDecimal) offset;
-            if (offset0.signum() == -1 || offset0.compareTo(LIMIT_UPPER) > 0) {
-                throw new SqlException(Sql.STMT_VALIDATION_ERR,
-                        "Illegal value of " + op + ". The value must be positive and less than (" + Long.MAX_VALUE + ")");
+        if (param instanceof BigDecimal) {
+            BigDecimal param0 = (BigDecimal) param;
+            if (param0.signum() == -1 || param0.compareTo(LIMIT_UPPER) > 0) {
+                throw new SqlException(Sql.STMT_VALIDATION_ERR, IgniteResource.INSTANCE.illegalFetchLimit(op).str());
             }
         }
 
-        return offset.longValue();
+        return param.longValue();
     }
 
     /**
