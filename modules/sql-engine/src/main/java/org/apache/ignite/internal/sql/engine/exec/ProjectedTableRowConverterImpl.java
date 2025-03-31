@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.BitSet;
-import java.util.List;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -42,7 +42,7 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
 
     private final BinaryTupleSchema fullTupleSchema;
 
-    private final List<VirtualColumn> virtualColumns;
+    private final Int2ObjectMap<VirtualColumn> virtualColumns;
 
     /** Constructor. */
     ProjectedTableRowConverterImpl(
@@ -50,7 +50,7 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
             BinaryTupleSchema fullTupleSchema,
             SchemaDescriptor schemaDescriptor,
             BitSet requiredColumns,
-            List<VirtualColumn> extraColumns
+            Int2ObjectMap<VirtualColumn> extraColumns
     ) {
         super(schemaRegistry, schemaDescriptor);
 
@@ -68,7 +68,7 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
             }
         }
 
-        for (VirtualColumn col : extraColumns) {
+        for (VirtualColumn col : extraColumns.values()) {
             requiredColumnsMapping[requiredIndex++] = col.columnIndex();
         }
     }

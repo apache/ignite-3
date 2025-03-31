@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
@@ -26,15 +27,15 @@ import org.apache.ignite.internal.type.NativeType;
  */
 public class VirtualColumn {
     private final int columnIndex;
-    private final NativeType type;
+    private final Element type;
     private final boolean nullable;
     @IgniteToStringExclude
     private final Object value;
 
-    VirtualColumn(int columnIndex, NativeType type, boolean nullable, Object value) {
+    public VirtualColumn(int columnIndex, NativeType type, boolean nullable, Object value) {
         this.columnIndex = columnIndex;
         this.value = value;
-        this.type = type;
+        this.type = new Element(type, nullable);
         this.nullable = nullable;
     }
 
@@ -42,7 +43,7 @@ public class VirtualColumn {
         return columnIndex;
     }
 
-    public NativeType type() {
+    public Element schemaType() {
         return type;
     }
 

@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
@@ -43,7 +42,7 @@ import org.apache.ignite.internal.sql.engine.exec.VirtualColumn;
  */
 public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializingProjectedTuple {
 
-    private final Int2ObjectMap<VirtualColumn> extraColumns;
+    private Int2ObjectMap<VirtualColumn> extraColumns;
 
     /**
      * Constructor.
@@ -57,12 +56,10 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
      * @param extraColumns Extra columns.
      */
     public ExtendedFieldDeserializingProjectedTuple(BinaryTupleSchema schema, InternalTuple delegate, int[] projection,
-            List<VirtualColumn> extraColumns) {
+            Int2ObjectMap<VirtualColumn> extraColumns) {
         super(schema, delegate, projection);
 
-        this.extraColumns = new Int2ObjectOpenHashMap<>(extraColumns.size());
-
-        extraColumns.forEach(c -> this.extraColumns.put(c.columnIndex(), c));
+        this.extraColumns = extraColumns;
     }
 
     @Override
@@ -75,10 +72,9 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
 
             newProjection[i] = i;
 
-            if (extraColumns.containsKey(col)) {
-                VirtualColumn column = extraColumns.get(col);
-
-                BinaryRowConverter.appendValue(builder, new Element(column.type(), true), column.value());
+            VirtualColumn column = extraColumns.get(col);
+            if (column != null) {
+                BinaryRowConverter.appendValue(builder, column.schemaType(), column.value());
 
                 continue;
             }
@@ -90,7 +86,7 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
 
         delegate = new BinaryTuple(projection.length, builder.build());
         projection = newProjection;
-        extraColumns.clear();
+        extraColumns = Int2ObjectMaps.emptyMap();
     }
 
     private boolean isExtraColumn(int col) {

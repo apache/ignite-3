@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.sql.engine.exec.VirtualColumn;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -120,7 +122,7 @@ class ProjectedTupleTest {
         Element e2 = ALL_TYPES_SCHEMA.element(f2);
         Element e3 = ALL_TYPES_SCHEMA.element(f3);
 
-        BinaryTupleSchema projectedSchema = BinaryTupleSchema.create(new Element[] {
+        BinaryTupleSchema projectedSchema = BinaryTupleSchema.create(new Element[]{
                 e1, e2, e3
         });
 
@@ -133,5 +135,46 @@ class ProjectedTupleTest {
         assertThat(projectedSchema.value(restored, 0), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f1)));
         assertThat(projectedSchema.value(restored, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
         assertThat(projectedSchema.value(restored, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
+    }
+
+    @Test
+    void testProjectionWithExtraColumn() {
+        int f1 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
+        int f2 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
+        int f3 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
+
+        int vColumnIdx = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
+        Object virtualColValue = ALL_TYPES_SCHEMA.value(TUPLE, vColumnIdx);
+
+        VirtualColumn virtualColumn = new VirtualColumn(
+                ALL_TYPES_SCHEMA.elementCount(),
+                specToType(ALL_TYPES_SCHEMA.element(vColumnIdx).typeSpec()),
+                true, virtualColValue);
+
+        int[] projection = {f1, virtualColumn.columnIndex(), f2, f3};
+
+        InternalTuple projectedTuple = new ExtendedFieldDeserializingProjectedTuple(ALL_TYPES_SCHEMA, TUPLE, projection,
+                Int2ObjectMaps.singleton(ALL_TYPES_SCHEMA.elementCount(), virtualColumn));
+
+        Element e1 = ALL_TYPES_SCHEMA.element(f1);
+        Element e2 = ALL_TYPES_SCHEMA.element(vColumnIdx);
+        Element e3 = ALL_TYPES_SCHEMA.element(f2);
+        Element e4 = ALL_TYPES_SCHEMA.element(f3);
+
+        BinaryTupleSchema projectedSchema = BinaryTupleSchema.create(new Element[]{
+                e1, e2, e3, e4
+        });
+
+        assertThat(projectedSchema.value(projectedTuple, 0), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f1)));
+        assertThat(projectedSchema.value(projectedTuple, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, vColumnIdx)));
+        assertThat(projectedSchema.value(projectedTuple, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
+        assertThat(projectedSchema.value(projectedTuple, 3), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
+
+        InternalTuple restored = new BinaryTuple(projection.length, projectedTuple.byteBuffer());
+
+        assertThat(projectedSchema.value(restored, 0), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f1)));
+        assertThat(projectedSchema.value(restored, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, vColumnIdx)));
+        assertThat(projectedSchema.value(restored, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
+        assertThat(projectedSchema.value(restored, 3), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
     }
 }

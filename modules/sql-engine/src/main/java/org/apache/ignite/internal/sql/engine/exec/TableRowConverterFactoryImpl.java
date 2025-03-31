@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
-import java.util.List;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -102,7 +103,13 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 fullTupleSchema,
                 schemaDescriptor,
                 requiredColumns,
-                requireVirtualColumn ? List.of(virtualColumnFactory.apply(partId)) : List.of()
+                requireVirtualColumn ? createVirtualColumns(partId) : Int2ObjectMaps.emptyMap()
         );
+    }
+
+    private Int2ObjectMap<VirtualColumn> createVirtualColumns(int partId) {
+        VirtualColumn column = virtualColumnFactory.apply(partId);
+
+        return Int2ObjectMaps.singleton(column.columnIndex(), column);
     }
 }
