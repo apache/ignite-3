@@ -570,10 +570,10 @@ void StorageProfileOption(List<SqlNode> list) :
     final SqlCharStringLiteral val;
 }
 {
-    val = SimpleStringLiteralV2() { list.add(val); }
+    val = NonEmptyCharacterStringLiteral() { list.add(val); }
 }
 
-SqlCharStringLiteral SimpleStringLiteralV2() :
+SqlCharStringLiteral NonEmptyCharacterStringLiteral() :
 {
 }
 {
@@ -581,7 +581,7 @@ SqlCharStringLiteral SimpleStringLiteralV2() :
         String val = SqlParserUtil.parseString(token.image).trim();
         if (val.isEmpty()) {
             throw SqlUtil.newContextException(getPos(),
-                RESOURCE.validationError("Empty quotation is not allowed."));
+                RESOURCE.validationError("Empty character literal is not allowed in this context."));
         }
         SqlCharStringLiteral literal = SqlLiteral.createCharString(val, getPos());
         return literal;
@@ -661,19 +661,19 @@ void ZoneElement(List<SqlNode> zoneOptions) :
           }
       )
       |
-      <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = SimpleStringLiteralV2()
+      <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = NonEmptyCharacterStringLiteral()
       {
           key = new SqlIdentifier(ZoneOptionEnum.DISTRIBUTION_ALGORITHM.name(), pos);
           zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
       }
       |
-      <NODES> { pos = getPos(); } <FILTER> option = SimpleStringLiteralV2()
+      <NODES> { pos = getPos(); } <FILTER> option = NonEmptyCharacterStringLiteral()
       {
           key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_FILTER.name(), pos);
           zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
       }
       |
-      <CONSISTENCY> { pos = getPos(); } <MODE> option = SimpleStringLiteralV2()
+      <CONSISTENCY> { pos = getPos(); } <MODE> option = NonEmptyCharacterStringLiteral()
       {
           key = new SqlIdentifier(ZoneOptionEnum.CONSISTENCY_MODE.name(), pos);
           zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
