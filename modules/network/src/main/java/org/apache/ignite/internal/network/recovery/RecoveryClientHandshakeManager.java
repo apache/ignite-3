@@ -349,39 +349,42 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleServerId(HandshakeStartMessage msg) {
-        String message = msg.serverNode().name() + ":" + msg.serverNode().id()
-                + " is stale, server should be restarted so that clients can connect";
+        String message = String.format("%s:%s is stale, server should be restarted so that clients can connect",
+                msg.serverNode().name(), msg.serverNode().id()
+        );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
     }
 
     private void handleClusterIdMismatch(HandshakeStartMessage msg) {
-        String message = msg.serverNode().name() + ":" + msg.serverNode().id()
-                + " belongs to cluster " + msg.serverClusterId() + " which is different from this one " + clusterIdSupplier.clusterId()
-                + ", connection rejected; should CMG/MG repair be finished?";
+        String message = String.format(
+                "%s:%s belongs to cluster %s which is different from this one %s, connection rejected; should CMG/MG repair be finished?",
+                msg.serverNode().name(), msg.serverNode().id(), msg.serverClusterId(), clusterIdSupplier.clusterId()
+        );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.CLUSTER_ID_MISMATCH, HandshakeException::new);
     }
 
     private void handleProductNameMismatch(HandshakeStartMessage msg) {
-        String message = msg.serverNode().name() + ":" + msg.serverNode().id()
-                + " runs product '" + msg.productName() + "' which is different from this one '"
-                + productVersionSource.productName() + "', connection rejected";
+        String message = String.format("%s:%s runs product '%s' which is different from this one '%s', connection rejected",
+                msg.serverNode().name(), msg.serverNode().id(), msg.productName(), productVersionSource.productName()
+        );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.PRODUCT_MISMATCH, HandshakeException::new);
     }
 
     private void handleProductVersionMismatch(HandshakeStartMessage msg) {
-        String message = msg.serverNode().name() + ":" + msg.serverNode().id()
-                + " runs product version '" + msg.productVersion() + "' which is different from this one '"
-                + productVersionSource.productVersion() + "', connection rejected";
+        String message = String.format("%s:%s runs product version '%s' which is different from this one '%s', connection rejected",
+                msg.serverNode().name(), msg.serverNode().id(), msg.productVersion(), productVersionSource.productVersion()
+        );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.VERSION_MISMATCH, HandshakeException::new);
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartMessage msg) {
-        String message = msg.serverNode().name() + ":" + msg.serverNode().id() + " tried to establish a connection with " + localNode.name()
-                + ", but it's stopping";
+        String message = String.format("%s:%s tried to establish a connection with %s, but it's stopping",
+                msg.serverNode().name(), msg.serverNode().id(), localNode.name()
+        );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
     }

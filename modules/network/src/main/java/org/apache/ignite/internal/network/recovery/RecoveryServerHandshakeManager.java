@@ -249,15 +249,17 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleClientId(HandshakeStartResponseMessage msg) {
-        String message = msg.clientNode().name() + ":" + msg.clientNode().id()
-                + " is stale, client should be restarted to be allowed to connect";
+        String message = String.format("%s:%s is stale, client should be restarted to be allowed to connect",
+                msg.clientNode().name(), msg.clientNode().id()
+        );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {
-        String message = msg.clientNode().name() + ":" + msg.clientNode().id() + " tried to establish a connection with " + localNode.name()
-                + ", but it's stopping";
+        String message = String.format("%s:%s tried to establish a connection with %s, but it's stopping",
+                msg.clientNode().name(), msg.clientNode().id(), localNode.name()
+        );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
     }
