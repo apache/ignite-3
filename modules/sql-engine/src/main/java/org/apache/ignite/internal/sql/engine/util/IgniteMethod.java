@@ -59,6 +59,9 @@ public enum IgniteMethod {
     /** See {@link IgniteSqlFunctions#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlFunctions.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
 
+    /** See {@link IgniteSqlFunctions#toTimestampLtzExact(Object)}. **/
+    TO_TIMESTAMP_WLTZ_EXACT(IgniteSqlFunctions.class, "toTimestampLtzExact", Object.class),
+
     /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)}. */
     PARSE_INTERVAL_YEAR_MONTH(SqlParserUtil.class, "intervalToMonths", String.class, SqlIntervalQualifier.class),
 

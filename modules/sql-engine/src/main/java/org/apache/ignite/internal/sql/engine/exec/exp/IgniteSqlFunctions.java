@@ -25,6 +25,9 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -33,7 +36,9 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -45,6 +50,15 @@ import org.jetbrains.annotations.Nullable;
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
+    private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, LocalDate.class);
+    private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, LocalDate.class);
+
+    private static final long TIMESTAMP_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MIN, LocalDateTime.class);
+    private static final long TIMESTAMP_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MAX, LocalDateTime.class);
+
+    private static final long TIMESTAMP_LTZ_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MIN, Instant.class);
+    private static final long TIMESTAMP_LTZ_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MAX, Instant.class);
+
     /**
      * Default constructor.
      */
@@ -343,6 +357,71 @@ public class IgniteSqlFunctions {
         }
     }
 
+    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
+    public static Integer toDateExact(Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Integer : object.getClass();
+
+        return toDateExact((int) object);
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
+    public static Integer toDateExact(long longDate) {
+        return toDateExact(Math.toIntExact(longDate));
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
+    public static Integer toDateExact(int intDate) {
+        if (intDate < DATE_MIN_INTERNAL || intDate > DATE_MAX_INTERNAL) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
+        }
+
+        return intDate;
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static Long toTimestampExact(Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampExact((long) object);
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static long toTimestampExact(long ts) {
+        if (ts < TIMESTAMP_MIN_INTERNAL || ts > TIMESTAMP_MAX_INTERNAL) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.TIMESTAMP + " out of range");
+        }
+
+        return ts;
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static Long toTimestampLtzExact(Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampLtzExact((long) object);
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static long toTimestampLtzExact(long ts) {
+        if (ts < TIMESTAMP_LTZ_MIN_INTERNAL || ts > TIMESTAMP_LTZ_MAX_INTERNAL) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE + " out of range");
+        }
+
+        return ts;
+    }
+
     // LN, LOG, LOG10, LOG2
 
     /** SQL {@code LOG(number, number2)} function applied to double values. */
@@ -481,7 +560,8 @@ public class IgniteSqlFunctions {
         // A second offset calculation is required to handle DST transition period correctly.
         int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
 
-        return timestamp - offset;
+        // After adjusting to UTC, you need to make sure that the value matches the allowed values.
+        return toTimestampLtzExact(timestamp - offset);
     }
 
     /**

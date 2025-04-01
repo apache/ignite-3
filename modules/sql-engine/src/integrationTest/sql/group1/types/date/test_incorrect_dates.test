@@ -88,3 +88,14 @@ INSERT INTO dates VALUES (date '1000000000-01-01')
 statement error: Invalid DATE value, '1000000000-01-01'
 INSERT INTO dates VALUES ('1000000000-01-01'::DATE)
 
+statement error: Illegal DATE literal '0000-01-01': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '0000-01-01')
+
+statement error: Value of YEAR field is out of range in '0000-01-01'
+INSERT INTO dates VALUES ('0000-01-01'::DATE)
+
+statement error: Year out of range: [10000]
+INSERT INTO dates VALUES (date '10000-01-01')
+
+statement error: Invalid DATE value, '10000-00-01'
+INSERT INTO dates VALUES ('10000-00-01'::DATE)

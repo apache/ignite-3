@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.marshaller.testobjects;
 
-import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 
 /**
  * Test object.
@@ -63,8 +62,7 @@ public class TestObjectWithAllTypes {
         obj.dateCol = LocalDate.ofYearDay(1990 + rnd.nextInt(50), 1 + rnd.nextInt(360));
         obj.timeCol = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60));
         obj.dateTimeCol = LocalDateTime.of(obj.dateCol, obj.timeCol);
-        obj.timestampCol = Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
-                .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), 6));
+        obj.timestampCol = (Instant) SchemaTestUtils.generateRandomValue(rnd, NativeTypes.timestamp(6));
 
         obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
         obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
