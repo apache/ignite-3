@@ -59,15 +59,15 @@ import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUti
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /** Manages table partitions assignments (excluding rebalance, see {@link DistributionZoneRebalanceEngine}). */
-public class TableAssignmentsManager {
-    private static final IgniteLogger LOG = Loggers.forClass(TableAssignmentsManager.class);
+public class TableAssignmentsService {
+    private static final IgniteLogger LOG = Loggers.forClass(TableAssignmentsService.class);
 
     private final MetaStorageManager metaStorageMgr;
     private final CatalogService catalogService;
     private final DistributionZoneManager distributionZoneManager;
 
     /** Constructor. */
-    public TableAssignmentsManager(
+    public TableAssignmentsService(
             MetaStorageManager metaStorageMgr,
             CatalogService catalogService,
             DistributionZoneManager distributionZoneManager
@@ -78,15 +78,15 @@ public class TableAssignmentsManager {
     }
 
     CompletableFuture<List<Assignments>> createAndWriteTableAssignmentsToMetastorage(
-            CatalogTableDescriptor tableDescriptor,
+            int tableId,
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
             int catalogVersion
     ) {
         CompletableFuture<List<Assignments>> assignments =
-                getOrCreateAssignments(tableDescriptor, zoneDescriptor, causalityToken, catalogVersion);
+                getOrCreateAssignments(tableId, zoneDescriptor, causalityToken, catalogVersion);
 
-        return writeTableAssignmentsToMetastore(tableDescriptor.id(), zoneDescriptor.consistencyMode(), assignments);
+        return writeTableAssignmentsToMetastore(tableId, zoneDescriptor.consistencyMode(), assignments);
     }
 
     /**
@@ -140,12 +140,11 @@ public class TableAssignmentsManager {
      * the meta storage local assignments instead of calculation of the new ones.
      */
     private CompletableFuture<List<Assignments>> getOrCreateAssignments(
-            CatalogTableDescriptor tableDescriptor,
+            int tableId,
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
             int catalogVersion
     ) {
-        int tableId = tableDescriptor.id();
         CompletableFuture<List<Assignments>> assignmentsFuture;
 
         if (partitionAssignmentsGetLocally(metaStorageMgr, tableId, 0, causalityToken) != null) {
@@ -169,8 +168,7 @@ public class TableAssignmentsManager {
                     );
 
             assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
-                    "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, revision={}]",
-                    tableDescriptor.name(),
+                    "Assignments calculated from data nodes [tableId={}, assignments={}, revision={}]",
                     tableId,
                     Assignments.assignmentListToString(assignmentsList),
                     causalityToken

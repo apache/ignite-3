@@ -404,7 +404,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertThat(tblManagerFut, willCompleteSuccessfully());
 
-        TableAssignmentsManager assignmentsManager = new TableAssignmentsManager(msm, catalogManager, distributionZoneManager);
+        var assignmentsService = new TableAssignmentsService(msm, catalogManager, distributionZoneManager);
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
         List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));
 
@@ -412,7 +412,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
         var outerExceptionMsg = "Outer future is interrupted";
         assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
-        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = assignmentsManager
+        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = assignmentsService
                 .writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
@@ -424,7 +424,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
         when(msm.invoke(any(), anyList(), anyList())).thenReturn(invokeTimeoutFuture);
         writtenAssignmentsFuture =
-                assignmentsManager.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
+                assignmentsService.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }

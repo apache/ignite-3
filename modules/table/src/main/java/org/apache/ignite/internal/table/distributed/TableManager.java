@@ -439,7 +439,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final EventListener<ChangeLowWatermarkEventParameters> onLowWatermarkChangedListener = this::onLwmChanged;
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onTablePrimaryReplicaExpired;
-    private final TableAssignmentsManager assignmentsManager;
+    private final TableAssignmentsService assignmentsService;
 
     /**
      * Creates a new table manager.
@@ -606,7 +606,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Integer::parseInt
         );
 
-        assignmentsManager = new TableAssignmentsManager(metaStorageMgr, catalogService, distributionZoneManager);
+        assignmentsService = new TableAssignmentsService(metaStorageMgr, catalogService, distributionZoneManager);
     }
 
     @Override
@@ -1652,8 +1652,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, catalogVersion);
 
             CompletableFuture<List<Assignments>> stableAssignmentsFutureAfterInvoke =
-                    assignmentsManager.createAndWriteTableAssignmentsToMetastorage(
-                            tableDescriptor,
+                    assignmentsService.createAndWriteTableAssignmentsToMetastorage(
+                            tableId,
                             zoneDescriptor,
                             causalityToken,
                             catalogVersion
@@ -2579,7 +2579,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return supplyAsync(() -> {
             Assignments pendingAssignments =
-                    assignmentsManager.getPendingAssignmentsFromMetastorage(stableAssignmentsWatchEvent, tablePartitionId, revision);
+                    assignmentsService.getPendingAssignmentsFromMetastorage(stableAssignmentsWatchEvent, tablePartitionId, revision);
 
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
