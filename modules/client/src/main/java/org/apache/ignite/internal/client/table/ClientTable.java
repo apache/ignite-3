@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -487,13 +488,14 @@ public class ClientTable implements Table {
 
                     return ClientLazyTransaction.ensureStarted(tx, ch, forCrd).thenCompose(tx0 -> {
                         @Nullable PartitionMapping forOp = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema,
-                                false);
+                                tx0 == null); // Force coordinator mode for implicit transactions.
 
                         WriteContext ctx = new WriteContext();
                         ctx.pm = forOp;
 
                         return ch.serviceAsync(opCode,
-                                        (opChannel) -> tx0 == null || tx0.isReadOnly() || forOp == null ? nullCompletedFuture()
+                                        (opChannel) -> tx0 == null || tx0.isReadOnly() || forOp == null ||
+                                                !opChannel.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING) ? nullCompletedFuture()
                                                 : tx0.enlistFuture(opChannel, ctx),
                                         w -> writer.accept(schema, w, ctx),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),

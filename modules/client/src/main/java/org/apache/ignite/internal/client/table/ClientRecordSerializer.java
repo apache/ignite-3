@@ -137,7 +137,7 @@ public class ClientRecordSerializer<R> {
             WriteContext ctx,
             TuplePart part
     ) {
-        out.out().packInt(tableId); // TODO move to writeTx
+        out.out().packInt(tableId);
         writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
 

@@ -181,7 +181,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
 
         @Override
         public UUID id() {
-            return UUID.fromString(id + "");
+            return new UUID(id, 0);
         }
 
         @Override

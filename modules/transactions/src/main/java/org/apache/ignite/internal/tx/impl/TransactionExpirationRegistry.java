@@ -164,9 +164,11 @@ class TransactionExpirationRegistry {
             } else {
                 InternalTransaction tx0 = (InternalTransaction) txOrSet;
 
-                assert tx0.id().equals(tx.id());
+                if (tx0.id().equals(tx.id())) {
+                    return null;
+                }
 
-                return null;
+                return tx0;
             }
         });
     }
