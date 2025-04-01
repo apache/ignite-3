@@ -89,14 +89,14 @@ void write_args(protocol::writer &writer, const std::vector<primitive> &args) {
     writer.write_binary(args_data);
 }
 
-void add_action(cancellation_token &token, node_connection &connection, std::int64_t req_id) {
+void add_action(cancellation_token &token, const std::shared_ptr<node_connection> &connection, std::int64_t req_id) {
     auto writer_func = [req_id](protocol::writer &writer) {
         writer.write(req_id);
     };
 
     cancellation_token_impl &token_impl = static_cast<cancellation_token_impl&>(token);
-    token_impl.add_action(connection.get_logger(), [req_id, &connection, writer_func] (ignite_callback<void> callback) {
-        connection.perform_request<void>(protocol::client_operation::SQL_CANCEL_EXEC,
+    token_impl.add_action(connection->get_logger(), [req_id, connection, writer_func] (ignite_callback<void> callback) {
+        connection->perform_request<void>(protocol::client_operation::SQL_CANCEL_EXEC,
             writer_func, [] (protocol::reader&){}, std::move(callback));
     });
 }
@@ -134,7 +134,7 @@ void sql_impl::execute_async(transaction *tx, cancellation_token *token, const s
         std::move(callback));
 
     if (token) {
-        add_action(*token, *res.first, res.second);
+        add_action(*token, res.first, res.second);
     }
 }
 
@@ -151,7 +151,7 @@ void sql_impl::execute_script_async(cancellation_token *token, const sql_stateme
         protocol::client_operation::SQL_EXEC_SCRIPT, nullptr, writer_func, std::move(callback));
 
     if (token) {
-        add_action(*token, *res.first, res.second);
+        add_action(*token, res.first, res.second);
     }
 }
 
