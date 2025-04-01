@@ -272,14 +272,73 @@ public class TypeUtils {
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
-            var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, nativeTypeSpec);
-            return customType != null ? customType : val;
+            return SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, nativeTypeSpec);
         }
     }
 
     /**
-     * FromInternal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Converts the given value to its presentation used by the execution engine.
+     */
+    public static Object toInternal(Object val, NativeTypeSpec spec) {
+        switch (spec) {
+            case INT8:
+                return SqlFunctions.toByte(val);
+            case INT16:
+                return SqlFunctions.toShort(val);
+            case INT32:
+                return SqlFunctions.toInt(val);
+            case INT64:
+                return SqlFunctions.toLong(val);
+            case FLOAT:
+                return SqlFunctions.toFloat(val);
+            case DOUBLE:
+                return SqlFunctions.toDouble(val);
+            case DECIMAL:
+                return SqlFunctions.toBigDecimal(val);
+            case STRING:
+                return val;
+            case BYTES: {
+                if (val instanceof String) {
+                    return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
+                } else if (val instanceof byte[]) {
+                    return new ByteString((byte[]) val);
+                } else {
+                    assert val instanceof ByteString : "Expected ByteString but got " + val + ", type=" + val.getClass().getTypeName();
+                    return val;
+                }
+            }
+            case DATE:
+                return (int) ((LocalDate) val).toEpochDay();
+            case TIME:
+                return (int) (TimeUnit.NANOSECONDS.toMillis(((LocalTime) val).toNanoOfDay()));
+            case DATETIME: {
+                var dt = (LocalDateTime) val;
+
+                return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
+            }
+            case TIMESTAMP: {
+                var timeStamp = (Instant) val;
+
+                return timeStamp.toEpochMilli();
+            }
+            case BOOLEAN:
+                return SqlFunctions.toBoolean(val);
+            // case DURATION:
+            //     return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
+            //             + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
+            // case PREIOD:
+            //     return (int) ((Period) val).toTotalMonths();
+            case UUID:
+                // Fallthrough. UUID is a custom type.
+            default: {
+                var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, spec);
+                return customType != null ? customType : val;
+            }
+        }
+    }
+
+    /**
+     * Converts the value from its presentation used by the execution engine.
      */
     public static @Nullable Object fromInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
@@ -302,8 +361,70 @@ public class TypeUtils {
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
-            var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, nativeTypeSpec);
-            return customType != null ? customType : val;
+            return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, nativeTypeSpec);
+        }
+    }
+
+    /**
+     * Converts the value from its presentation used by the execution engine.
+     */
+    public static @Nullable Object fromInternal(@Nullable Object val, NativeTypeSpec spec) {
+        if (val == null) {
+            return null;
+        }
+        switch (spec) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE: {
+                assert val instanceof Number;
+                return val;
+            }
+            case DECIMAL: {
+                assert val instanceof BigDecimal;
+                return val;
+            }
+            case STRING: {
+                assert val instanceof String;
+                return val;
+            }
+            case BYTES:
+                return ((ByteString) val).getBytes();
+            case DATE: {
+                assert val instanceof Integer;
+                return LocalDate.ofEpochDay((Integer) val);
+            }
+            case TIME: {
+                assert val instanceof Integer;
+                return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(Long.valueOf((Integer) val)));
+            }
+            case DATETIME: {
+                assert val instanceof Long;
+                return LocalDateTime.ofInstant(Instant.ofEpochMilli((Long) val), ZoneOffset.UTC);
+            }
+            case TIMESTAMP: {
+                assert val instanceof Long;
+                return Instant.ofEpochMilli((Long) val);
+            }
+            case BOOLEAN: {
+                assert val instanceof Boolean;
+                return val;
+            }
+            // case DURATION: {
+            //     assert val instanceof Long;
+            //    return Duration.ofMillis((Long) val);
+            // }
+            // case PREIOD: {
+            //     assert val instanceof Integer;
+            //     return Period.of((Integer) val / 12, (Integer) val % 12, 0);
+            //     }
+            case UUID:
+                // Fallthrough. UUID is a custom type.
+            default: {
+                return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, spec);
+            }
         }
     }
 

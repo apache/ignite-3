@@ -372,8 +372,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         } else {
             BaseTypeSpec baseTypeSpec = (BaseTypeSpec) typeSpec;
             NativeType nativeType = baseTypeSpec.nativeType();
-            Class<?> type = Commons.nativeTypeToClass(nativeType);
-            return TypeUtils.toInternal(value, type);
+            return TypeUtils.toInternal(value, nativeType.spec());
         }
     }
 }
