@@ -63,10 +63,9 @@ public:
      *
      * @return @c true if the cancellation was requested.
      */
-    bool is_cancelled() const { return m_cancelled; }
+    bool is_cancelled() const { return m_cancelled.load(); }
 
 private:
-
     /**
      * Set cancellation result.
      * @param res Result to set.
@@ -77,7 +76,7 @@ private:
     std::mutex m_mutex{};
 
     /** Cancel flag. */
-    bool m_cancelled{false};
+    std::atomic<bool> m_cancelled{false};
 
     /** Result. */
     std::optional<ignite_result<void>> m_result{std::nullopt};

@@ -42,7 +42,7 @@ void cancellation_token_impl::cancel_async(ignite_callback<void> callback) {
         return;
     }
 
-    m_cancelled = true;
+    m_cancelled.store(true);
     m_callbacks.push_back(std::move(callback));
 
     if (m_actions.empty()) {
