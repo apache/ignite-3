@@ -54,6 +54,7 @@ set(PUBLIC_HEADERS
     ignite_client_authenticator.h
     ignite_client_configuration.h
     ignite_logger.h
+    ssl_mode.h
     type_mapping.h
     compute/broadcast_execution.h
     compute/broadcast_job_target.h
@@ -65,6 +66,7 @@ set(PUBLIC_HEADERS
     compute/job_state.h
     compute/job_status.h
     compute/job_target.h
+    detail/compute/job_target_type.h
     detail/type_mapping_utils.h
     network/cluster_node.h
     sql/column_metadata.h
