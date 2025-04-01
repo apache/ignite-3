@@ -27,6 +27,8 @@
 
 using namespace ignite;
 
+const std::string LONG_QUERY{"SELECT * FROM system_range(0, 10000000000)"};
+
 /**
  * Test suite.
  */
@@ -538,7 +540,7 @@ TEST_F(sql_test, cancel_statement) {
     EXPECT_THROW(
     {
         try {
-            execute_and_cancel(m_client.get_sql(), nullptr, "SELECT * FROM system_range(0, 10000000000)");
+            execute_and_cancel(m_client.get_sql(), nullptr, LONG_QUERY);
         } catch (const ignite_error &e) {
             EXPECT_EQ(e.get_status_code(), error::code::EXECUTION_CANCELLED);
             EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The query was cancelled while executing"));
@@ -553,7 +555,7 @@ TEST_F(sql_test, cancel_statement_tx) {
     EXPECT_THROW(
     {
         try {
-            execute_and_cancel(m_client.get_sql(), &tx, "SELECT * FROM system_range(0, 10000000000)");
+            execute_and_cancel(m_client.get_sql(), &tx, LONG_QUERY);
         } catch (const ignite_error &e) {
             EXPECT_EQ(e.get_status_code(), error::code::EXECUTION_CANCELLED);
             EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The query was cancelled while executing"));
@@ -585,11 +587,9 @@ TEST_F(sql_test, cancel_multiple_queries_using_same_token) {
     auto handle = cancel_handle::create();
     auto token = handle->get_token();
 
-    std::string query = "SELECT * FROM system_range(0, 10000000000)";
-
     std::array<result_set, 3> results;
     for (int i = 0; i < 3; i++) {
-        results[i] = m_client.get_sql().execute(nullptr,token.get(), {query}, {});
+        results[i] = m_client.get_sql().execute(nullptr,token.get(), {LONG_QUERY}, {});
         results[i].fetch_next_page();
     }
 
@@ -610,5 +610,36 @@ TEST_F(sql_test, cancel_multiple_queries_using_same_token) {
         },
         ignite_error);
     }
+}
+
+TEST_F(sql_test, cancel_query_multiple_times) {
+    auto handle = cancel_handle::create();
+    auto token = handle->get_token();
+
+    auto res = m_client.get_sql().execute(nullptr,token.get(), {LONG_QUERY}, {});
+
+    handle->cancel();
+    handle->cancel();
+    handle->cancel();
+    handle->cancel();
+
+    EXPECT_THROW(
+    {
+        try {
+            while (res.has_more_pages()) {
+                res.fetch_next_page();
+            }
+        } catch (const ignite_error &e) {
+            EXPECT_EQ(e.get_status_code(), error::code::EXECUTION_CANCELLED);
+            EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The query was cancelled while executing"));
+            throw;
+        }
+    },
+    ignite_error);
+
+    handle->cancel();
+    handle->cancel();
+    handle->cancel();
+    handle->cancel();
 }
 
