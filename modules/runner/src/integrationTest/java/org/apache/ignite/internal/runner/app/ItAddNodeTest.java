@@ -94,7 +94,7 @@ public class ItAddNodeTest extends IgniteAbstractTest {
 
             nodes.add(node2);
         } finally {
-            IgniteUtils.closeAll(nodes.stream());
+            IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
         }
     }
 }
