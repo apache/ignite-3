@@ -22,6 +22,14 @@
 namespace ignite
 {
 
+void cancellation_token_impl::set_cancellation_result(ignite_result<void> &&res) {
+    std::lock_guard guard(m_mutex);
+    m_result = std::move(res);
+    for (auto &cb : m_callbacks) {
+        cb(ignite_result<void>{*m_result});
+    }
+}
+
 void cancellation_token_impl::cancel_async(ignite_callback<void> callback) {
     std::lock_guard guard(m_mutex);
 
@@ -47,50 +55,43 @@ void cancellation_token_impl::cancel_async(ignite_callback<void> callback) {
 
     auto results = std::make_shared<std::vector<ignite_result<void>>>();
     auto results_mutex = std::make_shared<std::mutex>();
-    auto expected_results = m_actions.size();
+    auto action_callback =
+        [self = shared_from_this(), results, results_mutex, expected_results = m_actions.size()]
+        (ignite_result<void> res) {
+            std::lock_guard guard(*results_mutex);
+            results->push_back(std::move(res));
+
+            if (results->size() == expected_results) {
+                // We've received all results and need to report it now to all the callbacks.
+                bool error_found{false};
+                std::stringstream msg_builder;
+                for (auto &result : *results) {
+                    if (!result.has_error()) {
+                        continue;
+                    }
+
+                    if (!error_found) {
+                        msg_builder << "One or more cancel actions failed: " << result.error().what_str();
+                        error_found = true;
+                        continue;
+                    }
+
+                    msg_builder << ", " << result.error().what_str();
+                }
+
+                // It's actually OK to hold lock on results_mutex mutex here even if we don't need it anymore as the
+                // last callback is this one, and no one is going to access results or wait on mutex anyway.
+
+                if (error_found) {
+                    self->set_cancellation_result(ignite_error{msg_builder.str()});
+                } else {
+                    self->set_cancellation_result({});
+                }
+            }
+        };
+
     for (auto &action : m_actions) {
-        action([this, results, results_mutex, expected_results] (ignite_result<void> res) {
-            bool all_done{false};
-            { // Mutex locking scope
-                std::lock_guard guard0(*results_mutex);
-                results->push_back(std::move(res));
-                all_done = results->size() == expected_results;
-
-                if (all_done) {
-                    bool error_found{false};
-                    std::stringstream msg_builder;
-                    for (auto &result : *results) {
-                        if (!result.has_error()) {
-                            continue;
-                        }
-
-                        if (!error_found) {
-                            msg_builder << "One or more cancel actions failed: " << result.error().what_str();
-                            error_found = true;
-                            continue;
-                        }
-
-                        msg_builder << ", " << result.error().what_str();
-                    }
-
-                    { // Result mutex locking scope.
-                        std::lock_guard guard1(m_mutex);
-                        if (error_found) {
-                            m_result = {ignite_error(msg_builder.str())};
-                        } else {
-                            m_result = ignite_result<void>{};
-                        }
-                    }
-                }
-            }
-
-            if (all_done) {
-                std::lock_guard guard0(m_mutex);
-                for (auto &cb : m_callbacks) {
-                    cb(ignite_result<void>{*m_result});
-                }
-            }
-        });
+        action(action_callback);
     }
 }
 

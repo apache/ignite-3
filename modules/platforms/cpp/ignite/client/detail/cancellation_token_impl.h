@@ -66,6 +66,13 @@ public:
     bool is_cancelled() const { return m_cancelled; }
 
 private:
+
+    /**
+     * Set cancellation result.
+     * @param res Result to set.
+     */
+    void set_cancellation_result(ignite_result<void> &&res);
+
     /** Mutex. */
     std::mutex m_mutex{};
 
