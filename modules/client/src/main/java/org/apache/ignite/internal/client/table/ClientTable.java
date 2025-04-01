@@ -494,9 +494,9 @@ public class ClientTable implements Table {
                         ctx.pm = forOp;
 
                         return ch.serviceAsync(opCode,
-                                        (opChannel) -> tx0 == null || tx0.isReadOnly() || forOp == null
-                                                || !opChannel.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING) ? nullCompletedFuture()
-                                                : tx0.enlistFuture(opChannel, ctx),
+                                        (opCh) -> tx0 == null || tx0.isReadOnly() || forOp == null
+                                                || !opCh.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING) ? nullCompletedFuture()
+                                                : tx0.enlistFuture(opCh, ctx),
                                         w -> writer.accept(schema, w, ctx),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
                                         resolvePreferredNode(tx0, forOp),
