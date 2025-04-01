@@ -86,7 +86,6 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -619,7 +618,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, NativeTypeSpec.BYTES));
+        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, new byte[]{(byte) 1, (byte) 2});
         fillTestCase("VARBINARY", "'0102'", testItems, false, ctx);
         fillTestCase("VARBINARY", "1", testItems, false, ctx);
 
