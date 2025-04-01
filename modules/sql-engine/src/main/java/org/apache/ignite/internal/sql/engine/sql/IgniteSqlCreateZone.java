@@ -77,8 +77,6 @@ public class IgniteSqlCreateZone extends SqlCreate {
         for (SqlNode c : createOptionList) {
             IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
             if (opt.key().getSimple().equals(STORAGE_PROFILES.name())) {
-                profiles = SqlNodeList.of(opt.getParserPosition(), new ArrayList<>());
-
                 assert opt.value() instanceof SqlCharStringLiteral : opt.value();
 
                 String profilesStr = ((SqlCharStringLiteral) opt.value()).getValueAs(String.class);
