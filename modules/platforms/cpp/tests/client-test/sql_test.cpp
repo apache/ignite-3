@@ -503,3 +503,22 @@ TEST_F(sql_test, timezone_passed) {
 
     EXPECT_NE(ts0.get<ignite_date_time>(), ts1.get<ignite_date_time>());
 }
+
+TEST_F(sql_test, cancel_query_before_execution) {
+    auto handle = cancel_handle::create();
+    auto token = handle->get_token();
+    handle->cancel();
+
+    EXPECT_THROW(
+    {
+        try {
+            m_client.get_sql().execute(nullptr, token.get(), {"SELECT 1"}, {});
+        } catch (const ignite_error &e) {
+            EXPECT_EQ(e.get_status_code(), error::code::EXECUTION_CANCELLED);
+            EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The query was cancelled while executing"));
+            throw;
+        }
+    },
+    ignite_error);
+}
+

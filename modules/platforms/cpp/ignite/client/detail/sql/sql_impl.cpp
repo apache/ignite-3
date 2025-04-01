@@ -103,6 +103,14 @@ void add_action(cancellation_token &token, node_connection &connection, std::int
 
 void sql_impl::execute_async(transaction *tx, cancellation_token *token, const sql_statement &statement,
     std::vector<primitive> &&args, ignite_callback<result_set> &&callback) {
+    if (token) {
+        auto &token_impl = static_cast<cancellation_token_impl&>(*token);
+        if (token_impl.is_cancelled()) {
+            callback(ignite_error{error::code::EXECUTION_CANCELLED, "The query was cancelled while executing."});
+            return;
+        }
+    }
+
     auto tx0 = tx ? tx->m_impl : nullptr;
 
     auto writer_func = [this, &statement, &args, &tx0](protocol::writer &writer) {

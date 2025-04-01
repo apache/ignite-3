@@ -34,7 +34,16 @@ void cancellation_token_impl::cancel_async(ignite_callback<void> callback) {
         return;
     }
 
+    m_cancelled = true;
     m_callbacks.push_back(std::move(callback));
+
+    if (m_actions.empty()) {
+        m_result = ignite_result<void>{};
+        for (auto &cb : m_callbacks) {
+            cb(ignite_result<void>{*m_result});
+        }
+        return;
+    }
 
     auto results = std::make_shared<std::vector<ignite_result<void>>>();
     auto results_mutex = std::make_shared<std::mutex>();
@@ -69,7 +78,7 @@ void cancellation_token_impl::cancel_async(ignite_callback<void> callback) {
                         if (error_found) {
                             m_result = {ignite_error(msg_builder.str())};
                         } else {
-                            m_result = {};
+                            m_result = ignite_result<void>{};
                         }
                     }
                 }
