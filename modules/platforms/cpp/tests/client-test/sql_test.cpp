@@ -504,6 +504,37 @@ TEST_F(sql_test, timezone_passed) {
     EXPECT_NE(ts0.get<ignite_date_time>(), ts1.get<ignite_date_time>());
 }
 
+/**
+ * Execute and cancel request.
+ * @param sql SQL facade.
+ * @param query Query.
+ * @return Result set.
+ */
+result_set execute_and_cancel(sql sql, const std::string &query) {
+    auto handle = cancel_handle::create();
+    auto token = handle->get_token();
+
+    auto promise = std::make_shared<std::promise<result_set>>();
+    sql.execute_async(nullptr, token.get(), {query}, {}, result_promise_setter(promise));
+
+    handle->cancel();
+    return promise->get_future().get();
+}
+
+TEST_F(sql_test, cancel_statement) {
+    EXPECT_THROW(
+    {
+        try {
+            execute_and_cancel(m_client.get_sql(), "SELECT * FROM system_range(0, 10000000000)");
+        } catch (const ignite_error &e) {
+            EXPECT_EQ(e.get_status_code(), error::code::EXECUTION_CANCELLED);
+            EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The query was cancelled while executing"));
+            throw;
+        }
+    },
+    ignite_error);
+}
+
 TEST_F(sql_test, cancel_query_before_execution) {
     auto handle = cancel_handle::create();
     auto token = handle->get_token();
