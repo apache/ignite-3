@@ -30,6 +30,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -776,6 +778,29 @@ public class TxManagerTest extends IgniteAbstractTest {
         txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         doReturn(null).when(localRwTxCounter).inUpdateRwTxCountLock(any());
+    }
+
+    @Test
+    void testReadWithExplicitTimestamp() {
+        HybridTimestamp now = clockService.now();
+
+        HybridTimestamp readTimestampInThePast = now.subtractPhysicalTime(100_000);
+
+        InternalTxOptions optionsWithExplicitReadTimestamp = InternalTxOptions.builder()
+                .readTimestamp(readTimestampInThePast)
+                .build();
+
+        InternalTxOptions defaultOptions = InternalTxOptions.defaults();
+
+        InternalTransaction tx1 = txManager.beginExplicitRo(hybridTimestampTracker, defaultOptions);
+        InternalTransaction tx2 = txManager.beginExplicitRo(hybridTimestampTracker, optionsWithExplicitReadTimestamp);
+
+        assertThat(tx1.readTimestamp(), is(greaterThanOrEqualTo(now.subtractPhysicalTime(roReadTimestampSkew()))));
+        assertThat(tx2.readTimestamp(), is(readTimestampInThePast));
+    }
+
+    private long roReadTimestampSkew() {
+        return idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis();
     }
 
     private InternalTransaction prepareTransaction() {
