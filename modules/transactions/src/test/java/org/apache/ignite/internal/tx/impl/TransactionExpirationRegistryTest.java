@@ -159,8 +159,6 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
     void removesTransactionOnUnregister() {
         registry.register(tx1, 1000);
 
-        HybridClock clock = new TestHybridClock(() -> 0);
-
         lenient().when(tx1.getTimeout()).thenReturn(1000L);
 
         registry.unregister(tx1);

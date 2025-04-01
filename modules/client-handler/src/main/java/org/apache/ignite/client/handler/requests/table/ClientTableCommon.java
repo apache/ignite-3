@@ -59,8 +59,8 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.table.TupleHelper;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
