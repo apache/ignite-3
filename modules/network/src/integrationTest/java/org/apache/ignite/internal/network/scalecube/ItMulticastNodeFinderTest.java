@@ -43,6 +43,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -76,14 +77,13 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         finders.clear();
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {UNSPECIFIED_TTL, MAX_TTL})
-    void testFindNodes(int ttl) {
+    @RepeatedTest(25)
+    void testFindNodes() {
         int nodeCount = 5;
         List<NetworkAddress> addresses = findLocalAddresses(INIT_PORT, INIT_PORT + nodeCount);
 
         for (int i = 0; i < addresses.size(); i++) {
-            NodeFinder finder = startMulticastNodeFinder(addresses.get(i), ttl);
+            NodeFinder finder = startMulticastNodeFinder(addresses.get(i), -1);
             finders.add(finder);
             services.add(startNetwork(addresses.get(i), finder));
         }
@@ -102,12 +102,12 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         assertThat(services.get(idx2).stopAsync(new ComponentContext()), willCompleteSuccessfully());
         finders.get(idx2).close();
 
-        NodeFinder nodeFinder0 = startMulticastNodeFinder(addresses.get(idx0), ttl);
+        NodeFinder nodeFinder0 = startMulticastNodeFinder(addresses.get(idx0), -1);
         ClusterService svc0 = startNetwork(addresses.get(idx0), nodeFinder0);
         finders.set(idx0, nodeFinder0);
         services.set(idx0, svc0);
 
-        NodeFinder nodeFinder2 = startMulticastNodeFinder(addresses.get(idx2), ttl);
+        NodeFinder nodeFinder2 = startMulticastNodeFinder(addresses.get(idx2), -1);
         ClusterService svc2 = startNetwork(addresses.get(idx2), nodeFinder2);
         finders.set(idx2, nodeFinder2);
         services.set(idx2, svc2);
