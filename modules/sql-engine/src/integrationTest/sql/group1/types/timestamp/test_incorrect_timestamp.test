@@ -92,3 +92,21 @@ INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00-00-00')
 statement error: Invalid DATE value, '1900-1-1 00-00-00'
 INSERT INTO timestamp_t VALUES ('1900-1-1 00-00-00'::timestamp)
 
+# year = 0 (out of range)
+statement error: Illegal TIMESTAMP literal '0000-01-01 01:01:01': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '0000-01-01 01:01:01')
+
+statement error: Value of YEAR field is out of range in '0000-01-01'
+INSERT INTO timestamp_t VALUES ('0000-01-01'::TIMESTAMP)
+
+# year = 10000 (out of range)
+# TODO https://issues.apache.org/jira/browse/IGNITE-24984 This should be parser error
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (timestamp '10000-01-01 01:01:01')
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-24984 This should be parser error
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (timestamp '10000-01-01')
+
+statement error: Invalid DATE value, '10000-00-01 01:01:01'
+INSERT INTO timestamp_t VALUES ('10000-00-01 01:01:01'::TIMESTAMP)

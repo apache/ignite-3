@@ -36,7 +36,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Year;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
+import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
 import java.util.Random;
 import java.util.UUID;
@@ -400,22 +400,18 @@ public abstract class AbstractImmutableTupleTest {
             case DECIMAL:
                 return BigDecimal.valueOf(rnd.nextInt(), 5);
             case DATE: {
-                Year year = Year.of(rnd.nextInt(20_000) - 10000);
+                Year year = Year.of(1 + rnd.nextInt(9998));
                 return LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
             }
             case TIME:
                 return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
                         rnd.nextInt(1_000_000) * 1000);
-            case DATETIME: {
-                Year year = Year.of(rnd.nextInt(20_000) - 10000);
-                LocalDate localDate = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
-                LocalTime localTime = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                        rnd.nextInt(1_000) * 1000_000);
-                return LocalDateTime.of(localDate, localTime);
-            }
+            case DATETIME:
+                return LocalDateTime.ofInstant(generateInstant(rnd), ZoneOffset.UTC);
+
             case TIMESTAMP:
-                return Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
-                        .plusNanos(rnd.nextInt(1_000_000_000));
+                return generateInstant(rnd);
+
             case UUID:
                 return new UUID(rnd.nextLong(), rnd.nextLong());
 
@@ -439,5 +435,14 @@ public abstract class AbstractImmutableTupleTest {
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
         }
+    }
+
+    private static Instant generateInstant(Random rnd) {
+        long minTs = LocalDateTime.of(LocalDate.of(1, 1, 1), LocalTime.MIN)
+                .minusSeconds(ZoneOffset.MIN.getTotalSeconds()).toInstant(ZoneOffset.UTC).toEpochMilli();
+        long maxTs = LocalDateTime.of(LocalDate.of(9999, 12, 31), LocalTime.MAX)
+                .minusSeconds(ZoneOffset.MAX.getTotalSeconds()).toInstant(ZoneOffset.UTC).toEpochMilli();
+
+        return Instant.ofEpochMilli(minTs + (long) (rnd.nextDouble() * (maxTs - minTs)));
     }
 }

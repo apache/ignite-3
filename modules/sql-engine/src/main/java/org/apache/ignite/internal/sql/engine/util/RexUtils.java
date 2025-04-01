@@ -1249,23 +1249,29 @@ public class RexUtils {
     public static @Nullable Object literalValue(ExecutionContext<?> context, RexLiteral literal, Class<?> type) {
         RelDataType dataType = literal.getType();
 
+        if (literal.isNull()) {
+            return null;
+        }
+
         if (SqlTypeUtil.isNumeric(dataType)) {
             Number value = (Number) literal.getValue();
-            if (value == null) {
-                return null;
-            }
 
             return convertNumericLiteral(dataType, value, type);
-        } else {
-            Object val = literal.getValueAs(type);
-
-            // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
-            if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-                return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) context.get(Variable.TIME_ZONE.camelName));
-            }
-
-            return val;
         }
+
+        Object val = literal.getValueAs(type);
+
+        // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+        if (literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+            return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) context.get(Variable.TIME_ZONE.camelName));
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24984 Remove this block.
+        if (literal.getTypeName() == SqlTypeName.TIMESTAMP) {
+            return IgniteSqlFunctions.toTimestampExact((long) val);
+        }
+
+        return val;
     }
 
     private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {

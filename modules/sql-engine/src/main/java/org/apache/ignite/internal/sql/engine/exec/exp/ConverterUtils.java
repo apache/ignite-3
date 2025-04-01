@@ -190,6 +190,33 @@ public class ConverterUtils {
                 Expressions.constant(targetType.getScale()));
     }
 
+    private static Expression convertToDate(Expression operand, RelDataType targetType) {
+        assert targetType.getSqlTypeName() == SqlTypeName.DATE;
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                "toDateExact",
+                operand
+        );
+    }
+
+    private static Expression convertToTimestamp(Expression operand, RelDataType targetType) {
+        String methodName;
+
+        if (targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP) {
+            methodName = "toTimestampExact";
+        } else {
+            assert targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE : targetType;
+
+            methodName = "toTimestampLtzExact";
+        }
+
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                methodName,
+                operand
+        );
+    }
+
     /**
      * Convert {@code operand} to {@code targetType}.
      *
@@ -200,9 +227,17 @@ public class ConverterUtils {
     public static Expression convert(Expression operand, RelDataType targetType) {
         if (SqlTypeUtil.isDecimal(targetType)) {
             return convertToDecimal(operand, targetType);
-        } else {
-            return convert(operand, Commons.typeFactory().getJavaClass(targetType));
         }
+
+        if (SqlTypeUtil.isDate(targetType)) {
+            return convertToDate(operand, targetType);
+        }
+
+        if (SqlTypeUtil.isTimestamp(targetType)) {
+            return convertToTimestamp(operand, targetType);
+        }
+
+        return convert(operand, Commons.typeFactory().getJavaClass(targetType));
     }
 
     /**

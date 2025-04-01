@@ -774,21 +774,27 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // Since this type implies a local timezone, its explicit indication seems redundant,
       // so we prohibit the user from explicitly setting a timezone.
       return
-          Expressions.call(
-                  BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                  operand,
-                  Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+              Expressions.call(
+                      IgniteMethod.TO_TIMESTAMP_WLTZ_EXACT.method(),
+                      Expressions.call(
+                              BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                              operand,
+                              Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
+              );
 
     case DATE:
       return
-          Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-              RexImpTable.optimize2(operand,
-                  Expressions.call(
-                      BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                      Expressions.multiply(
-                          Expressions.convert_(operand, long.class),
-                          Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)))),
-              Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+              Expressions.call(
+                      IgniteMethod.TO_TIMESTAMP_WLTZ_EXACT.method(),
+                      Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                              RexImpTable.optimize2(operand,
+                                      Expressions.call(
+                                              BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
+                                              Expressions.multiply(
+                                                      Expressions.convert_(operand, long.class),
+                                                      Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)))),
+                              Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
+              );
 
     case TIME:
       return
@@ -817,13 +823,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     case TIMESTAMP:
       return
-          Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-              RexImpTable.optimize2(operand,
-                  Expressions.call(
-                          IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
-                          operand,
-                          Expressions.constant(targetType.getPrecision()))),
-              Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+              Expressions.call(
+                      IgniteMethod.TO_TIMESTAMP_WLTZ_EXACT.method(),
+                      Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                          RexImpTable.optimize2(operand,
+                              Expressions.call(
+                                      IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                                      operand,
+                                      Expressions.constant(targetType.getPrecision()))),
+                          Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
+              );
 
     default:
       return defaultExpression.get();
@@ -938,6 +947,14 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       javaClass = int.class;
       break;
     case TIMESTAMP:
+      // TODO https://issues.apache.org/jira/browse/IGNITE-24984 Remove this block
+      Object tsValue = literal.getValueAs(Long.class);
+
+      return Expressions.call(
+              IgniteSqlFunctions.class,
+              "toTimestampExact",
+              constant(tsValue, long.class)
+      );
     case INTERVAL_DAY:
     case INTERVAL_DAY_HOUR:
     case INTERVAL_DAY_MINUTE:

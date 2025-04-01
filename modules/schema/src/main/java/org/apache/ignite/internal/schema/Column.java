@@ -19,9 +19,13 @@ package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.jetbrains.annotations.Nullable;
@@ -210,7 +214,7 @@ public class Column {
         if (objType != null && type.mismatch(objType)) {
             boolean specMatches = objType.spec() == type.spec();
 
-            if (specMatches &&  type instanceof VarlenNativeType) {
+            if (specMatches && type instanceof VarlenNativeType) {
                 String error = format("Value too long [column='{}', type={}]", name, type.displayName());
                 throw new InvalidTypeException(error);
             } else {
@@ -220,6 +224,25 @@ public class Column {
                 );
                 throw new InvalidTypeException(error);
             }
+        }
+
+        if (val == null) {
+            return;
+        }
+
+        if (type.spec() == NativeTypeSpec.DATE) {
+            checkBounds((LocalDate) val, SchemaUtils.DATE_MIN, SchemaUtils.DATE_MAX);
+        } else if (type.spec() == NativeTypeSpec.DATETIME) {
+            checkBounds((LocalDateTime) val, SchemaUtils.DATETIME_MIN, SchemaUtils.DATETIME_MAX);
+        } else if (type.spec() == NativeTypeSpec.TIMESTAMP) {
+            checkBounds((Instant) val, SchemaUtils.TIMESTAMP_MIN, SchemaUtils.TIMESTAMP_MAX);
+        }
+    }
+
+    private <T extends Comparable<T>> void checkBounds(T value, T min, T max) {
+        if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
+            throw new ValueOutOfBoundsException(format("Value is out of allowed range"
+                    + " (column='{}', min='{}', max='{}').", name, min, max));
         }
     }
 

@@ -37,5 +37,6 @@ dependencies {
     testImplementation libs.jmh.core
 
     testFixturesApi project(':ignite-api')
+    testFixturesApi(testFixtures(project(':ignite-schema')))
     testFixturesImplementation testFixtures(project(':ignite-core'))
 }
