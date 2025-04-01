@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
+import java.util.EnumMap;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
@@ -32,38 +31,33 @@ final class SafeCustomTypeInternalConversion {
 
     static final SafeCustomTypeInternalConversion INSTANCE = new SafeCustomTypeInternalConversion(Commons.typeFactory());
 
-    private final Map<NativeTypeSpec, Class<?>> internalTypes;
+    private final EnumMap<NativeTypeSpec, Class<?>> internalTypes = new EnumMap<>(NativeTypeSpec.class);
 
     private SafeCustomTypeInternalConversion(IgniteTypeFactory typeFactory) {
         // IgniteCustomType: We can automatically compute val -> internal type mapping
         // by using type specs from the type factory.
         var customTypes = typeFactory.getCustomTypeSpecs();
 
-        internalTypes = customTypes.values()
-                .stream()
-                .map(t -> Map.entry(t.nativeType().spec(), t.storageType()))
-                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+        for (IgniteCustomTypeSpec t : customTypes.values()) {
+            internalTypes.put(t.nativeType().spec(), t.storageType());
+        }
     }
 
     @Nullable
     Object tryConvertToInternal(Object val, NativeTypeSpec storageType) {
         Class<?> internalType = internalTypes.get(storageType);
-        if (internalType == null) {
-            return null;
-        }
 
-        assert internalType.isInstance(val) : storageTypeMismatch(val, internalType);
+        assert internalType == null || internalType.isInstance(val) : storageTypeMismatch(val, internalType);
+
         return val;
     }
 
     @Nullable
     Object tryConvertFromInternal(Object val, NativeTypeSpec storageType) {
         Class<?> internalType = internalTypes.get(storageType);
-        if (internalType == null) {
-            return null;
-        }
 
-        assert internalType.isInstance(val) : storageTypeMismatch(val, internalType);
+        assert internalType == null || internalType.isInstance(val) : storageTypeMismatch(val, internalType);
+
         return val;
     }
 
