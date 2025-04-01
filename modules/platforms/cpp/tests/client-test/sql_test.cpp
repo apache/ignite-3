@@ -509,13 +509,14 @@ TEST_F(sql_test, timezone_passed) {
 /**
  * Execute and cancel request.
  * @param sql SQL facade.
+ * @pagram tx Transaction.
  * @param query Query.
  * @param token Cancellation token.
  * @return Result set.
  */
-std::future<result_set> execute_fut(sql sql, const std::string &query, cancellation_token *token) {
+std::future<result_set> execute_fut(sql sql, transaction *tx, const std::string &query, cancellation_token *token) {
     auto promise = std::make_shared<std::promise<result_set>>();
-    sql.execute_async(nullptr, token, {query}, {}, result_promise_setter(promise));
+    sql.execute_async(tx, token, {query}, {}, result_promise_setter(promise));
 
     return promise->get_future();
 }
@@ -523,6 +524,7 @@ std::future<result_set> execute_fut(sql sql, const std::string &query, cancellat
 /**
  * Execute and cancel request.
  * @param sql SQL facade.
+ * @pagram tx Transaction.
  * @param query Query.
  * @return Result set.
  */
@@ -530,7 +532,7 @@ result_set execute_and_cancel(sql sql, transaction *tx, const std::string &query
     auto handle = cancel_handle::create();
     auto token = handle->get_token();
 
-    auto fut = execute_fut(sql, query, token.get());
+    auto fut = execute_fut(sql, tx, query, token.get());
 
     handle->cancel();
     return fut.get();
