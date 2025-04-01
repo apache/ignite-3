@@ -35,7 +35,7 @@ public class SystemDistributedConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public long idleSafeTimeSyncInterval = 250;
+    public long idleSafeTimeSyncIntervalMillis = 250;
 
     /** System properties. */
     @CamelCaseKeys

@@ -29,15 +29,15 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Interval between checkpoints in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public long interval = 180_000;
+    public long intervalMillis = 180_000;
 
     /**
-     * Max deviation (in percent) of intervals between checkpoints. If this is 20 and {@link #interval} is 1000, then the effective
+     * Max deviation (in percent) of intervals between checkpoints. If this is 20 and {@link #intervalMillis} is 1000, then the effective
      * checkpoint interval values will be between 900 and 1100.
      */
     @Range(min = 0, max = 100)
     @Value(hasDefault = true)
-    public int intervalDeviation = 40;
+    public int intervalDeviationPercent = 40;
 
     /** Delay before executing a checkpoint triggered by RAFT. */
     @Range(min = 0)
@@ -57,12 +57,12 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public long readLockTimeout = 10_000;
+    public long readLockTimeoutMillis = 10_000;
 
     /** Threshold for logging (if greater than zero) read lock holders in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public long logReadLockThresholdTimeout = 0;
+    public long logReadLockThresholdTimeoutMillis = 0;
 
     /** Use an asynchronous file I/O operations provider. */
     @Value(hasDefault = true)

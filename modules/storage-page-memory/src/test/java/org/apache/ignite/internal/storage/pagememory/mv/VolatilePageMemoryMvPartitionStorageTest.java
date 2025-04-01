@@ -71,6 +71,6 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
 
     @Override
     int pageSize() {
-        return engine.configuration().pageSize().value();
+        return engine.configuration().pageSizeBytes().value();
     }
 }

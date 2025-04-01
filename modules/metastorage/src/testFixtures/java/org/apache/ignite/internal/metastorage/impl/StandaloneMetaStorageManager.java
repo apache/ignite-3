@@ -321,7 +321,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         SystemDistributedConfiguration configuration = mock(SystemDistributedConfiguration.class, LENIENT_SETTINGS);
         ConfigurationValue<Long> value = mock(ConfigurationValue.class, LENIENT_SETTINGS);
 
-        when(configuration.idleSafeTimeSyncInterval()).thenReturn(value);
+        when(configuration.idleSafeTimeSyncIntervalMillis()).thenReturn(value);
         when(value.value()).thenReturn(50L);
 
         return configuration;

@@ -343,7 +343,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testLeaseRenew() throws Exception {
         assertThat(
-                replicationConfiguration.change(change -> change.changeLeaseAgreementAcceptanceTimeLimit(200)),
+                replicationConfiguration.change(change -> change.changeLeaseAgreementAcceptanceTimeLimitMillis(200)),
                 willCompleteSuccessfully()
         );
 
@@ -375,7 +375,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testLeaseholderUpdate() throws Exception {
         assertThat(
-                replicationConfiguration.change(change -> change.changeLeaseAgreementAcceptanceTimeLimit(200)),
+                replicationConfiguration.change(change -> change.changeLeaseAgreementAcceptanceTimeLimitMillis(200)),
                 willCompleteSuccessfully()
         );
 

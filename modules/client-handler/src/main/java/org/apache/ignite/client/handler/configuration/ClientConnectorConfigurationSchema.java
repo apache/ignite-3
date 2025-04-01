@@ -41,12 +41,12 @@ public class ClientConnectorConfigurationSchema {
     /** Connect timeout. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final int connectTimeout = 5000;
+    public final int connectTimeoutMillis = 5000;
 
     /** Idle timeout. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final long idleTimeout = 0;
+    public final long idleTimeoutMillis = 0;
 
     /** Server exception stack trace visibility. */
     @Value(hasDefault = true)

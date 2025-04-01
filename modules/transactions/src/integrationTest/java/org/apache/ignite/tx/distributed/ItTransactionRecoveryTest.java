@@ -141,7 +141,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         builder.clusterConfiguration("ignite {\n"
                 + "  \"transaction\": {\n"
-                + "  \"abandonedCheckTs\": 600000\n"
+                + "  \"abandonedCheckTsMillis\": 600000\n"
                 + "  \"attemptsObtainLock\": 0\n"
                 + "  }\n"
                 + "}\n");
@@ -250,7 +250,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         unwrapIgniteImpl(node(0)).clusterConfiguration()
                 .getConfiguration(TransactionExtensionConfiguration.KEY).transaction()
-                .change(transactionChange -> transactionChange.changeAbandonedCheckTs(1));
+                .change(transactionChange -> transactionChange.changeAbandonedCheckTsMillis(1));
 
         assertTrue(waitForCondition(() -> {
             runConflictingTransaction(node(0), node(0).transactions().begin());

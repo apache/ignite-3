@@ -54,7 +54,7 @@ public class NodeFinderFactory {
                 return new MulticastNodeFinder(
                         multicastConfig.group(),
                         multicastConfig.port(),
-                        multicastConfig.resultWaitTime(),
+                        multicastConfig.resultWaitTimeMillis(),
                         multicastConfig.ttl(),
                         nodeName,
                         localAddress

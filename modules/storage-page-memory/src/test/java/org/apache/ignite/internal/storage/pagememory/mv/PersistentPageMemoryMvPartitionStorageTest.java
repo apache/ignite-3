@@ -103,7 +103,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
     @Override
     int pageSize() {
-        return engine.configuration().pageSize().value();
+        return engine.configuration().pageSizeBytes().value();
     }
 
     @Test

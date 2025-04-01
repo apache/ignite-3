@@ -798,13 +798,13 @@ public class IgniteImpl implements Ignite {
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
-        clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkew().value());
+        clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkewMillis().value());
 
         idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
                 name,
                 threadPoolsManager.commonScheduler(),
                 metaStorageMgr::evictIdempotentCommandsCache,
-                raftConfiguration.retryTimeout(),
+                raftConfiguration.retryTimeoutMillis(),
                 clockService,
                 1,
                 1,
@@ -1288,11 +1288,11 @@ public class IgniteImpl implements Ignite {
     }
 
     private static LongSupplier delayDurationMsSupplier(SchemaSynchronizationConfiguration schemaSyncConfig) {
-        return () -> schemaSyncConfig.delayDuration().value();
+        return () -> schemaSyncConfig.delayDurationMillis().value();
     }
 
     private static LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier(ReplicationConfiguration replicationConfig) {
-        return () -> replicationConfig.idleSafeTimePropagationDuration().value();
+        return () -> replicationConfig.idleSafeTimePropagationDurationMillis().value();
     }
 
     private AuthenticationManager createAuthenticationManager() {
@@ -2078,7 +2078,7 @@ public class IgniteImpl implements Ignite {
 
     /**
      * Converts the entire configuration from the registry to a HOCON string without spaces, comments and quotes. For example,
-     * "ignite{clientConnector{connectTimeout=5000,idleTimeout=0}}".
+     * "ignite{clientConnector{connectTimeoutMillis=5000,idleTimeoutMillis=0}}".
      */
     private static String convertToHoconString(ConfigurationRegistry configRegistry) {
         return HoconConverter.represent(configRegistry.superRoot(), List.of()).render(ConfigRenderOptions.concise().setJson(false));

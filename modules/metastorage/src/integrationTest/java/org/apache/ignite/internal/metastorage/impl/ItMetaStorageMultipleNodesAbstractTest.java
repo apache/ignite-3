@@ -98,7 +98,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     /**
      * Large interval to effectively disable idle safe time propagation.
      */
-    @InjectConfiguration("mock.idleSafeTimeSyncInterval=1000000")
+    @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis=1000000")
     private SystemDistributedConfiguration systemConfiguration;
 
     private TestInfo testInfo;
@@ -315,7 +315,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     }
 
     final void enableIdleSafeTimeSync() {
-        CompletableFuture<Void> updateIdleSafeTimeSyncIntervalFuture = systemConfiguration.idleSafeTimeSyncInterval().update(100L);
+        CompletableFuture<Void> updateIdleSafeTimeSyncIntervalFuture = systemConfiguration.idleSafeTimeSyncIntervalMillis().update(100L);
 
         assertThat(updateIdleSafeTimeSyncIntervalFuture, willCompleteSuccessfully());
     }

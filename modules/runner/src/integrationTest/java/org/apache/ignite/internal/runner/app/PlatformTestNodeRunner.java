@@ -142,7 +142,7 @@ public class PlatformTestNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "ignite {\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"idleTimeout\":6000,\""
+                    + "  \"clientConnector\":{\"port\": 10942,\"idleTimeoutMillis\":6000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
@@ -154,7 +154,7 @@ public class PlatformTestNodeRunner {
                     + "}",
 
             NODE_NAME2, "ignite {\n"
-                    + "  \"clientConnector\":{\"port\": 10943,\"idleTimeout\":6000,"
+                    + "  \"clientConnector\":{\"port\": 10943,\"idleTimeoutMillis\":6000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
@@ -168,7 +168,7 @@ public class PlatformTestNodeRunner {
             NODE_NAME3, "ignite {\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10944,"
-                    + "    \"idleTimeout\":6000,"
+                    + "    \"idleTimeoutMillis\":6000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
                     + "    \"ssl\": {\n"
                     + "      enabled: true,\n"
@@ -190,7 +190,7 @@ public class PlatformTestNodeRunner {
             NODE_NAME4, "ignite {\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10945,"
-                    + "    \"idleTimeout\":6000,"
+                    + "    \"idleTimeoutMillis\":6000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
                     + "    \"ssl\": {\n"
                     + "      enabled: true,\n"

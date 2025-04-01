@@ -109,7 +109,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {},\n"
-            + "  raft: { responseTimeout: 30000 },"
+            + "  raft: { responseTimeoutMillis: 30000 },"
             + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
@@ -141,10 +141,10 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
-                + "      txnResourceTtl: 0"
+                + "      txnResourceTtlMillis: 0"
                 + "  },"
                 + "  replication: {"
-                + "      rpcTimeout: 30000"
+                + "      rpcTimeoutMillis: 30000"
                 + "  },"
                 + "}");
     }
@@ -819,7 +819,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private void setTxResourceTtl(long ttl) {
         TransactionConfiguration transactionConfiguration = anyNode().clusterConfiguration()
                 .getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
-        CompletableFuture<Void> changeFuture = transactionConfiguration.change(c -> c.changeTxnResourceTtl(ttl));
+        CompletableFuture<Void> changeFuture = transactionConfiguration.change(c -> c.changeTxnResourceTtlMillis(ttl));
 
         assertThat(changeFuture, willCompleteSuccessfully());
     }

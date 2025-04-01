@@ -197,7 +197,7 @@ public class TestServer implements AutoCloseable {
         clientConnectorConfiguration.change(
                 local -> local
                         .changePort(port != null ? port : getFreePort())
-                        .changeIdleTimeout(idleTimeout)
+                        .changeIdleTimeoutMillis(idleTimeout)
                         .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 

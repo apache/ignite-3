@@ -181,7 +181,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
         VolatilePageMemoryProfileConfiguration storageProfileConfiguration =
                 (VolatilePageMemoryProfileConfiguration) storageConfig.profiles().get(name);
 
-        int pageSize = engineConfig.pageSize().value();
+        int pageSize = engineConfig.pageSizeBytes().value();
 
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
                 storageProfileConfiguration,

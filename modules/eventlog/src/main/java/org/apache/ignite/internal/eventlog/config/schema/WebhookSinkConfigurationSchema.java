@@ -42,12 +42,12 @@ public class WebhookSinkConfigurationSchema extends SinkConfigurationSchema {
     public String protocol = "http/json";
 
     /**
-     * When size of a batch is greater than {@link #batchSize} or it's lifetime is greater than the given value batch will be sent
+     * When size of a batch is greater than {@link #batchSize} or its lifetime is greater than the given value batch will be sent
      * to a webhook.
      */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public long batchSendFrequency = 10_000;
+    public long batchSendFrequencyMillis = 10_000;
 
     /** Maximum batch size for packet with events, in milliseconds. */
     @Value(hasDefault = true)

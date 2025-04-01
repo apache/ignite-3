@@ -80,7 +80,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
-            @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
+            @InjectConfiguration("mock.profiles.default {engine = rocksdb, sizeBytes = 16777216, writeBufferSizeBytes = 67108864}")
             StorageConfiguration storageConfiguration,
             @InjectExecutorService
             ScheduledExecutorService scheduledExecutor

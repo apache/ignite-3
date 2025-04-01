@@ -33,7 +33,7 @@ public class SchemaSynchronizationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
-    public long delayDuration = 500;
+    public long delayDurationMillis = 500;
 
     /**
      * Max physical clock skew (ms) that is tolerated by the cluster. If difference between physical clocks of 2 nodes of a cluster
@@ -42,5 +42,5 @@ public class SchemaSynchronizationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
-    public long maxClockSkew = 500;
+    public long maxClockSkewMillis = 500;
 }

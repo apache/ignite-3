@@ -306,10 +306,10 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "    }\n"
                 + "  }\n"
                 + "}\n"
-                + "ignite.schemaSync.delayDuration: 100,\n"
-                + "ignite.schemaSync.maxClockSkew: 7,\n"
-                + "ignite.system.idleSafeTimeSyncInterval: 10,\n"
-                + "ignite.replication.idleSafeTimePropagationDuration: 100";
+                + "ignite.schemaSync.delayDurationMillis: 100,\n"
+                + "ignite.schemaSync.maxClockSkewMillis: 7,\n"
+                + "ignite.system.idleSafeTimeSyncIntervalMillis: 10,\n"
+                + "ignite.replication.idleSafeTimePropagationDurationMillis: 100";
 
         String expectedSentContent = "{\n"
                 + "  \"metaStorageNodes\": [\n"
