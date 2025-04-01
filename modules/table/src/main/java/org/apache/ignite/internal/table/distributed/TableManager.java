@@ -3005,7 +3005,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.streamerReceiverRunner = runner;
     }
 
-    private Set<TableImpl> zoneTables(int zoneId) {
+    public Set<TableImpl> zoneTables(int zoneId) {
         return tablesPerZone.computeIfAbsent(zoneId, id -> new HashSet<>());
     }
 
