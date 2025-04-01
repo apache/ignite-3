@@ -29,6 +29,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TransactionIds;
 
 class TransactionExpirationRegistry {
     private static final IgniteLogger LOG = Loggers.forClass(TransactionExpirationRegistry.class);
@@ -63,7 +64,7 @@ class TransactionExpirationRegistry {
     }
 
     void register(InternalTransaction tx) {
-        register(tx, physicalExpirationTimeMillis(tx.startTimestamp(), tx.getTimeout()));
+        register(tx, physicalExpirationTimeMillis(TransactionIds.beginTimestamp(tx.id()), tx.getTimeout()));
     }
 
     void register(InternalTransaction tx, long txExpirationTime) {
@@ -150,7 +151,7 @@ class TransactionExpirationRegistry {
     }
 
     void unregister(InternalTransaction tx) {
-        unregister(tx, physicalExpirationTimeMillis(tx.startTimestamp(), tx.getTimeout()));
+        unregister(tx, physicalExpirationTimeMillis(TransactionIds.beginTimestamp(tx.id()), tx.getTimeout()));
     }
 
     void unregister(InternalTransaction tx, long expirationTime) {
