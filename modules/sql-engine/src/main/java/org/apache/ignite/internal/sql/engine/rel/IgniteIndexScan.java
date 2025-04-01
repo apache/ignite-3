@@ -26,6 +26,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
@@ -70,6 +71,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
      * @param idxName Index name.
      * @param type Type of the index.
      * @param collation Index columns collation.
+     * @param hints Propagated hints.
      * @param proj Projects.
      * @param cond Filters.
      * @param searchBounds Index search conditions.
@@ -82,12 +84,13 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             String idxName,
             IgniteIndex.Type type,
             RelCollation collation,
+            List<RelHint> hints,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
             @Nullable ImmutableBitSet requiredCols
     ) {
-        this(-1L, cluster, traits, tbl, idxName, type, collation, proj, cond, searchBounds, requiredCols);
+        this(-1L, cluster, traits, tbl, idxName, type, collation, hints, proj, cond, searchBounds, requiredCols);
     }
 
     /**
@@ -100,6 +103,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
      * @param idxName Index name.
      * @param type Type of the index.
      * @param collation Index columns collation.
+     * @param hints Propagated hints.
      * @param proj Projects.
      * @param cond Filters.
      * @param searchBounds Index search conditions.
@@ -113,12 +117,13 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             String idxName,
             IgniteIndex.Type type,
             RelCollation collation,
+            List<RelHint> hints,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
             @Nullable ImmutableBitSet requiredCols
     ) {
-        super(cluster, traits, List.of(), tbl, idxName, type, proj, cond, searchBounds, requiredCols);
+        super(cluster, traits, hints, tbl, idxName, type, proj, cond, searchBounds, requiredCols);
 
         this.sourceId = sourceId;
         this.collation = collation;
@@ -154,14 +159,14 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     @Override
     public IgniteRel clone(long sourceId) {
         return new IgniteIndexScan(sourceId, getCluster(), getTraitSet(), getTable(),
-                idxName, type, collation, projects, condition, searchBounds, requiredColumns);
+                idxName, type, collation, getHints(), projects, condition, searchBounds, requiredColumns);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteIndexScan(sourceId, cluster, getTraitSet(), getTable(),
-                idxName, type, collation, projects, condition, searchBounds, requiredColumns);
+                idxName, type, collation, getHints(), projects, condition, searchBounds, requiredColumns);
     }
 
     /** {@inheritDoc} */

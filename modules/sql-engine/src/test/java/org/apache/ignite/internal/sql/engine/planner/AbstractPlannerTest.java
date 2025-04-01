@@ -770,6 +770,24 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 });
     }
 
+    /**
+     * Predicate builder for any "Index scan" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteIndexScan> isAnyIndexScan(String tableName) {
+        return isInstanceOf(IgniteIndexScan.class).and(
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
+
+                    if (!tableName.equalsIgnoreCase(scanTableName)) {
+                        lastErrorMsg = "Unexpected table name [exp=" + tableName + ", act=" + scanTableName + ']';
+
+                        return false;
+                    }
+
+                    return true;
+                });
+    }
+
     protected void clearTraits(RelNode rel) {
         IgniteTestUtils.setFieldValue(rel, AbstractRelNode.class, "traitSet", RelTraitSet.createEmpty());
         rel.getInputs().forEach(this::clearTraits);

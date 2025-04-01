@@ -19,14 +19,20 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.FORCE_INDEX;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.NO_INDEX;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
@@ -68,11 +74,13 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -159,6 +167,8 @@ public final class PlannerHelper {
                 RelNode simpleOperation = planner.transform(PlannerPhase.HEP_TO_SIMPLE_KEY_VALUE_OPERATION, rel.getTraitSet(), rel);
 
                 if (simpleOperation instanceof IgniteRel) {
+                    validateIndexesFromHints((IgniteRel) simpleOperation, hints);
+
                     return (IgniteRel) simpleOperation;
                 }
             }
@@ -189,6 +199,8 @@ public final class PlannerHelper {
 
             result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
+            validateIndexesFromHints(result, hints);
+
             if (!root.isRefTrivial()) {
                 List<RexNode> projects = new ArrayList<>();
                 RexBuilder rexBuilder = result.getCluster().getRexBuilder();
@@ -213,6 +225,45 @@ public final class PlannerHelper {
             }
 
             throw ex;
+        }
+    }
+
+    private static void validateIndexesFromHints(IgniteRel rel, Hints hints) {
+        List<String> noIdxParams = hints.params(NO_INDEX);
+        List<String> forceIdxParams = hints.params(FORCE_INDEX);
+
+        if (!noIdxParams.isEmpty() || !forceIdxParams.isEmpty()) {
+            Set<String> indexes = new HashSet<>();
+
+            IgniteRelShuttle shuttle = new IgniteRelShuttle() {
+                @Override
+                public IgniteRel visit(IgniteTableScan rel) {
+                    IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
+
+                    indexes.addAll(igniteTable.indexes().keySet());
+
+                    return rel;
+                }
+
+                @Override
+                public IgniteRel visit(IgniteIndexScan rel) {
+                    IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
+
+                    indexes.addAll(igniteTable.indexes().keySet());
+
+                    return rel;
+                }
+            };
+
+            rel.accept(shuttle);
+
+            List<String> indexNamesFromHints = Stream.concat(noIdxParams.stream(), forceIdxParams.stream())
+                    .filter(name -> !indexes.contains(name))
+                    .collect(Collectors.toList());
+
+            if (!indexNamesFromHints.isEmpty()) {
+                throw new SqlException(STMT_VALIDATION_ERR, "Hints mentioned indexes " + indexNamesFromHints + " were not found.");
+            }
         }
     }
 
