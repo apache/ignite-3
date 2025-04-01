@@ -23,7 +23,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -46,7 +45,7 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
         assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
         assertFalse(createZone.ifNotExists());
         assertNotNull(createZone.createOptionList());
-        assertNull(createZone.storageProfiles());
+        assertNotNull(createZone.storageProfiles());
         expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" STORAGE PROFILES['p']");
 
         // Fully qualified name.
@@ -73,7 +72,7 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
 
         assertTrue(createZone.ifNotExists());
         assertNotNull(createZone.createOptionList());
-        assertNull(createZone.storageProfiles());
+        assertNotNull(createZone.storageProfiles());
 
         expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\" STORAGE PROFILES['p']");
     }

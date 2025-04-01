@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +34,6 @@ import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.SqlWriter.FrameTypeEnum;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -75,33 +72,26 @@ public class IgniteSqlCreateZone extends SqlCreate {
             SqlIdentifier name,
             SqlNodeList createOptionList
     ) {
-        SqlNodeList profiles = null;
+        SqlNodeList profiles = SqlNodeList.of(pos, new ArrayList<>());
 
         for (SqlNode c : createOptionList) {
             IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
             if (opt.key().getSimple().equals(STORAGE_PROFILES.name())) {
-                if (profiles != null) {
-                    throw new SqlException(STMT_VALIDATION_ERR,
-                            format("Duplicate zone option has been specified [option={}]", STORAGE_PROFILES));
-                }
                 profiles = SqlNodeList.of(opt.getParserPosition(), new ArrayList<>());
+
                 assert opt.value() instanceof SqlCharStringLiteral : opt.value();
+
                 String profilesStr = ((SqlCharStringLiteral) opt.value()).getValueAs(String.class);
                 String[] profilesStrings = profilesStr.split("\\s*,\\s*");
 
                 for (String p : profilesStrings) {
-                    if (p.isBlank()) {
-                        throw new SqlException(STMT_VALIDATION_ERR, "Empty character literal is not allowed in this context");
+                    if (!p.isBlank()) {
+                        profiles.add(SqlLiteral.createCharString(p, null, opt.getParserPosition()));
                     }
-                    profiles.add(SqlLiteral.createCharString(p, null, opt.getParserPosition()));
                 }
 
                 break;
             }
-        }
-
-        if (profiles == null || profiles.isEmpty()) {
-            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
         }
 
         return new IgniteSqlCreateZone(pos, ifNotExists, name, createOptionList, profiles);
@@ -146,8 +136,8 @@ public class IgniteSqlCreateZone extends SqlCreate {
 
         name.unparse(writer, leftPrec, rightPrec);
 
-        if (createOptionList != null && (createOptionList.size() > 1 ||
-                !((IgniteSqlZoneOption) createOptionList.get(0)).key().getSimple().equals(STORAGE_PROFILES.name()))) {
+        if (createOptionList != null && (createOptionList.size() > 1
+                || !((IgniteSqlZoneOption) createOptionList.get(0)).key().getSimple().equals(STORAGE_PROFILES.name()))) {
             SqlWriter.Frame frame = writer.startList("(", ")");
             for (SqlNode c : createOptionList) {
                 IgniteSqlZoneOption opt = (IgniteSqlZoneOption) c;
@@ -160,14 +150,16 @@ public class IgniteSqlCreateZone extends SqlCreate {
             writer.endList(frame);
         }
 
-        writer.keyword("STORAGE PROFILES");
+        if (!storageProfiles.isEmpty()) {
+            writer.keyword("STORAGE PROFILES");
 
-        SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
-        for (SqlNode c : storageProfiles) {
-            writer.sep(",");
-            c.unparse(writer, 0, 0);
+            SqlWriter.Frame frame = writer.startList(FrameTypeEnum.SIMPLE, "[", "]");
+            for (SqlNode c : storageProfiles) {
+                writer.sep(",");
+                c.unparse(writer, 0, 0);
+            }
+            writer.endList(frame);
         }
-        writer.endList(frame);
     }
 
     /**

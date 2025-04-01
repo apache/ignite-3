@@ -186,7 +186,7 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleDown),
-                STORAGE_PROFILES, new DdlOptionInfo<>(String[].class, null,
+                STORAGE_PROFILES, new DdlOptionInfo<>(String[].class, this::checkNonEmptyStringArray,
                         (builder, params) -> builder.storageProfilesParams(fillStorageProfiles(params))),
                 CONSISTENCY_MODE, new DdlOptionInfo<>(String.class, this::checkEmptyString,
                         (builder, params) -> builder.consistencyModeParams(parseConsistencyMode(params)))
@@ -954,6 +954,12 @@ public class DdlSqlToCommandConverter {
     private void checkPositiveNumber(int num) {
         if (num < 0) {
             throw new SqlException(STMT_VALIDATION_ERR, "Must be positive:" + num);
+        }
+    }
+
+    private void checkNonEmptyStringArray(String[] in) {
+        if (in.length == 0) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Option cannot be empty");
         }
     }
 

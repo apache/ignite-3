@@ -239,10 +239,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             expectOptionValidationError("CREATE ZONE test with partitions=-1, storage_profiles='p'", "PARTITION");
             expectOptionValidationError("CREATE ZONE test with replicas=-1, storage_profiles='p'", "REPLICAS");
             assertThrowsWithPos("CREATE ZONE test with replicas=FALL, storage_profiles='p'", "FALL", 32);
-            assertThrowsParseException("CREATE ZONE test with storage_profiles='' ",
-                    "Empty character literal is not allowed in this context");
-            assertThrowsParseException("CREATE ZONE test with storage_profiles=' ' ",
-                    "Empty character literal is not allowed in this context");
+            expectOptionValidationError("CREATE ZONE test with storage_profiles='' ", "STORAGE_PROFILES");
+            expectOptionValidationError("CREATE ZONE test with storage_profiles=' ' ", "STORAGE_PROFILES");
         } else {
             assertThrowsWithPos("CREATE ZONE test (partitions -1)", "-", 30);
             assertThrowsWithPos("CREATE ZONE test (replicas -1)", "-", 28);
@@ -278,11 +276,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     @ParameterizedTest(name = "with syntax = {0}")
     @ValueSource(booleans = {true, false})
-    public void testCreateZoneWithoutStorageProfileOptionShouldThrowError(boolean withPresent) {
+    public void testCreateZoneWithoutStorageProfileOptionShouldThrowError(boolean withPresent) throws SqlParseException {
         assertThrowsWithPos("CREATE ZONE test", "<EOF>", 16);
 
         if (withPresent) {
-            assertThrowsParseException("CREATE ZONE test with replicas=1", ZoneOptionEnum.STORAGE_PROFILES + " option cannot be null");
+            expectOptionValidationError("CREATE ZONE test with replicas=1", "STORAGE_PROFILES");
         } else {
             assertThrowsWithPos("CREATE ZONE test (replicas 1)", "<EOF>", 29);
         }
