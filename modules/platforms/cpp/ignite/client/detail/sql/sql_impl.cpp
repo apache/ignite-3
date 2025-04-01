@@ -95,7 +95,7 @@ void add_action(cancellation_token &token, node_connection &connection, std::int
     };
 
     cancellation_token_impl &token_impl = static_cast<cancellation_token_impl&>(token);
-    token_impl.add_action(connection.get_logger(), [&] (ignite_callback<void> callback) {
+    token_impl.add_action(connection.get_logger(), [req_id, &connection, writer_func] (ignite_callback<void> callback) {
         connection.perform_request<void>(protocol::client_operation::SQL_CANCEL_EXEC,
             writer_func, [] (protocol::reader&){}, std::move(callback));
     });

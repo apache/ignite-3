@@ -508,24 +508,52 @@ TEST_F(sql_test, timezone_passed) {
  * Execute and cancel request.
  * @param sql SQL facade.
  * @param query Query.
+ * @param token Cancellation token.
  * @return Result set.
  */
-result_set execute_and_cancel(sql sql, const std::string &query) {
+std::future<result_set> execute_fut(sql sql, const std::string &query, cancellation_token *token) {
+    auto promise = std::make_shared<std::promise<result_set>>();
+    sql.execute_async(nullptr, token, {query}, {}, result_promise_setter(promise));
+
+    return promise->get_future();
+}
+
+/**
+ * Execute and cancel request.
+ * @param sql SQL facade.
+ * @param query Query.
+ * @return Result set.
+ */
+result_set execute_and_cancel(sql sql, transaction *tx, const std::string &query) {
     auto handle = cancel_handle::create();
     auto token = handle->get_token();
 
-    auto promise = std::make_shared<std::promise<result_set>>();
-    sql.execute_async(nullptr, token.get(), {query}, {}, result_promise_setter(promise));
+    auto fut = execute_fut(sql, query, token.get());
 
     handle->cancel();
-    return promise->get_future().get();
+    return fut.get();
 }
 
 TEST_F(sql_test, cancel_statement) {
     EXPECT_THROW(
     {
         try {
-            execute_and_cancel(m_client.get_sql(), "SELECT * FROM system_range(0, 10000000000)");
+            execute_and_cancel(m_client.get_sql(), nullptr, "SELECT * FROM system_range(0, 10000000000)");
+        } catch (const ignite_error &e) {
+            EXPECT_EQ(e.get_status_code(), error::code::EXECUTION_CANCELLED);
+            EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The query was cancelled while executing"));
+            throw;
+        }
+    },
+    ignite_error);
+}
+
+TEST_F(sql_test, cancel_statement_tx) {
+    auto tx = m_client.get_transactions().begin();
+    EXPECT_THROW(
+    {
+        try {
+            execute_and_cancel(m_client.get_sql(), &tx, "SELECT * FROM system_range(0, 10000000000)");
         } catch (const ignite_error &e) {
             EXPECT_EQ(e.get_status_code(), error::code::EXECUTION_CANCELLED);
             EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The query was cancelled while executing"));
@@ -551,5 +579,36 @@ TEST_F(sql_test, cancel_query_before_execution) {
         }
     },
     ignite_error);
+}
+
+TEST_F(sql_test, cancel_multiple_queries_using_same_token) {
+    auto handle = cancel_handle::create();
+    auto token = handle->get_token();
+
+    std::string query = "SELECT * FROM system_range(0, 10000000000)";
+
+    std::array<result_set, 3> results;
+    for (int i = 0; i < 3; i++) {
+        results[i] = m_client.get_sql().execute(nullptr,token.get(), {query}, {});
+        results[i].fetch_next_page();
+    }
+
+    handle->cancel();
+
+    for (int i = 0; i < 3; i++) {
+        EXPECT_THROW(
+        {
+            try {
+                while (results[i].has_more_pages()) {
+                    results[i].fetch_next_page();
+                }
+            } catch (const ignite_error &e) {
+                EXPECT_EQ(e.get_status_code(), error::code::EXECUTION_CANCELLED);
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The query was cancelled while executing"));
+                throw;
+            }
+        },
+        ignite_error);
+    }
 }
 

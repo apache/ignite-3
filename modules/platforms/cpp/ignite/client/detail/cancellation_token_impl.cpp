@@ -117,4 +117,5 @@ void cancellation_token_impl::add_action(std::shared_ptr<ignite_logger> logger,
 
     m_actions.push_back(std::move(action));
 }
+
 } // namespace ignite
