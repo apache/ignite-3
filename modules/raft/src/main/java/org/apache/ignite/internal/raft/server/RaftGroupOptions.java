@@ -60,7 +60,7 @@ public class RaftGroupOptions {
     private int maxClockSkewMs;
 
     /**
-     * If the group is declared as a system group, significant threads are dedicated specifically for that one.
+     * If the group is declared as a system group, certain threads are dedicated specifically for that one.
      */
     private boolean isSystemGroup = false;
 

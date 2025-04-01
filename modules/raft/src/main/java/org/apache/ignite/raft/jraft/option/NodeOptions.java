@@ -297,7 +297,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private @Nullable Long externallyEnforcedConfigIndex;
 
     /**
-     * If the group is declared as a system group, significant threads are dedicated specifically for that one.
+     * If the group is declared as a system group, certain threads are dedicated specifically for that one.
      */
     private boolean isSystemGroup = false;
 

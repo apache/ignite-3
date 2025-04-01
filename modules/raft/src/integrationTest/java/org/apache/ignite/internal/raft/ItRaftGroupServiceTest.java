@@ -216,6 +216,12 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
     }
 
+    /**
+     * The test starts a system RAFT group and checks that heartbeats of the group are passing through the network
+     * without coalescing with others.
+     *
+     * @throws InterruptedException If fails.
+     */
     @Test
     public void testSystemRaftGroupHeartbeat() throws InterruptedException {
         PeersAndLearners configuration = nodes.stream()
@@ -249,6 +255,11 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         latch.await(10, TimeUnit.SECONDS);
     }
 
+    /**
+     * The test is checking if the heartbeats of the plain RAFT group are coalesced.
+     *
+     * @throws InterruptedException If fails.
+     */
     @Test
     public void testRaftGroupHeartbeat() throws InterruptedException {
         assertThat(nodes.get(0).raftGroupService.refreshLeader(), willCompleteSuccessfully());
