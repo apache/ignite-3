@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -114,7 +115,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         CatalogSchemaDescriptor schema = manager.activeCatalog(clock.nowLong()).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schema);
-        long schemaCausalityToken = schema.updateToken();
+        HybridTimestamp schemaTimestamp = schema.updateTimestamp();
 
         tryApplyAndExpectApplied(command);
 
@@ -126,7 +127,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         assertNotNull(schema);
 
         // Assert that creation of the system view updates token for the descriptor.
-        assertTrue(systemSchema.updateToken() > schemaCausalityToken);
+        assertTrue(systemSchema.updateTimestamp().longValue() > schemaTimestamp.longValue());
     }
 
     @ParameterizedTest

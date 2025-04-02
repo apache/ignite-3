@@ -103,7 +103,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     ClockService clockService;
 
-    private MetaStorageManager metastore;
+    protected MetaStorageManager metastore;
 
     UpdateLog updateLog;
 

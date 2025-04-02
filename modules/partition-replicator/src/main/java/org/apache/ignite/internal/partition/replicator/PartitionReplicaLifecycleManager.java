@@ -687,7 +687,7 @@ public class PartitionReplicaLifecycleManager extends
 
             int zoneId = zonePartitionId.zoneId();
 
-            return distributionZoneMgr.dataNodes(zoneDescriptor.updateToken(), catalog.version(), zoneId)
+            return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), zoneId)
                     .thenApply(dataNodes -> calculateAssignmentForPartition(
                             dataNodes,
                             zonePartitionId.partitionId(),
@@ -834,7 +834,7 @@ public class PartitionReplicaLifecycleManager extends
             Catalog catalog = catalogService.catalog(catalogVersion);
             long assignmentsTimestamp = catalog.time();
 
-            return distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+            return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes -> calculateAssignments(dataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas())
                             .stream()
                             .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
@@ -925,9 +925,7 @@ public class PartitionReplicaLifecycleManager extends
 
                 CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
 
-                long causalityToken = zoneDescriptor.updateToken();
-
-                return distributionZoneMgr.dataNodes(causalityToken, catalog.version(), replicaGrpId.zoneId())
+                return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), replicaGrpId.zoneId())
                         .thenCompose(dataNodes -> handleReduceChanged(
                                 metaStorageMgr,
                                 dataNodes,
@@ -942,7 +940,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Handles the {@link org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil#STABLE_ASSIGNMENTS_PREFIX} update event.
+     * Handles the {@link ZoneRebalanceUtil#STABLE_ASSIGNMENTS_PREFIX} update event.
      *
      * @param evt Event.
      */
