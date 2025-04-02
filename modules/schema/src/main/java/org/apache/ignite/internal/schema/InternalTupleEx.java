@@ -17,37 +17,18 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.lang.InternalTuple;
 
 /**
- * Utility for access to binary tuple elements as typed values and with schema knowledge that allows to read
- * elements as objects.
+ * Interface that provides a method to copy value (maybe raw) of the given column directly into a tuple builder.
  */
-public class BinaryTuple extends BinaryTupleReader implements InternalTupleEx {
+ public interface InternalTupleEx extends InternalTuple {
     /**
-     * Constructor.
+     * Copy value of the given column.
      *
-     * @param elementCount Number of tuple elements.
-     * @param bytes Binary tuple.
+     * @param builder Binary tuple builder to copy value to.
+     * @param columnIndex Column index.
      */
-    public BinaryTuple(int elementCount, byte[] bytes) {
-        super(elementCount, bytes);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param elementCount Number of tuple elements.
-     * @param buffer Buffer with a binary tuple.
-     */
-    public BinaryTuple(int elementCount, ByteBuffer buffer) {
-        super(elementCount, buffer);
-    }
-
-    @Override
-    public void copyValue(BinaryTupleBuilder builder, int columnIndex) {
-        copyRawValue(builder, columnIndex);
-    }
+    void copyValue(BinaryTupleBuilder builder, int columnIndex);
 }

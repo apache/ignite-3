@@ -457,7 +457,7 @@ public class UpgradingRowAdapter implements Row {
         var builder = new BinaryTupleBuilder(size);
 
         for (int col = 0; col < size; col++) {
-            copyRawValue(builder, col);
+            copyValue(builder, col);
         }
 
         return new BinaryTuple(size, builder.build()).byteBuffer();
@@ -465,14 +465,14 @@ public class UpgradingRowAdapter implements Row {
 
     /** {@inheritDoc} */
     @Override
-    public void copyRawValue(BinaryTupleBuilder builder, int colIdx) {
+    public void copyValue(BinaryTupleBuilder builder, int colIdx) {
         int mappedId = mapColumn(colIdx);
 
         if (mappedId < 0) {
             Column column = mapper.mappedColumn(colIdx);
             BinaryRowConverter.appendValue(builder, newBinaryTupleSchema.element(colIdx), column.defaultValue());
         } else {
-            row.copyRawValue(builder, mappedId);
+            row.copyValue(builder, mappedId);
         }
     }
 

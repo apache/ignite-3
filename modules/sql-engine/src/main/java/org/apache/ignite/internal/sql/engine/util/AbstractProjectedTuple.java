@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.InternalTupleEx;
 
 /**
  * Projected Tuple is a facade that creates projection of the given tuple.
@@ -44,8 +45,8 @@ import org.apache.ignite.internal.lang.InternalTuple;
  *     - or even repeat some fields with mapping [0, 0, 0] to get equivalent tuple ['foo', 'foo', 'foo']
  * </pre>
  */
-abstract class AbstractProjectedTuple implements InternalTuple {
-    protected InternalTuple delegate;
+abstract class AbstractProjectedTuple implements InternalTupleEx {
+    protected InternalTupleEx delegate;
     protected int[] projection;
 
     private boolean normalized = false;
@@ -59,7 +60,7 @@ abstract class AbstractProjectedTuple implements InternalTuple {
      *         tuple.
      */
     AbstractProjectedTuple(
-            InternalTuple delegate,
+            InternalTupleEx delegate,
             int[] projection
     ) {
         this.delegate = delegate;

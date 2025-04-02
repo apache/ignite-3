@@ -68,7 +68,6 @@ public class UpgradeRowBenchmark extends AbstractMultiNodeBenchmark {
 
         sql = publicIgnite.sql();
 
-
         try (ResultSet<SqlRow> rs = sql.execute(null, format("ALTER TABLE {} ADD COLUMN new_col INT DEFAULT 42", TABLE_NAME));) {
             while (rs.hasNext()) {
                 rs.next();
@@ -80,6 +79,16 @@ public class UpgradeRowBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     public void selectAll(Blackhole bh) {
         try (var rs = sql.execute(null, "SELECT * FROM usertable")) {
+            while (rs.hasNext()) {
+                bh.consume(rs.next());
+            }
+        }
+    }
+
+    /** Benchmark that measures performance of `SELECT` query with projection over entire table. */
+    @Benchmark
+    public void selectAllProjected(Blackhole bh) {
+        try (var rs = sql.execute(null, "SELECT field1, field2, field3 FROM usertable")) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }

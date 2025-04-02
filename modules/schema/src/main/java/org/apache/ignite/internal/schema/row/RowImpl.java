@@ -22,7 +22,6 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
@@ -39,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
  */
-public class RowImpl extends BinaryTupleReader implements Row, BinaryRowEx {
+public class RowImpl extends BinaryTupleReader implements Row {
     /** Schema descriptor. */
     private final SchemaDescriptor schema;
 
@@ -138,14 +137,8 @@ public class RowImpl extends BinaryTupleReader implements Row, BinaryRowEx {
 
     /** {@inheritDoc} */
     @Override
-    public void copyRawValue(BinaryTupleBuilder builder, int columnIndex) {
-        fetch(columnIndex, (index, begin, end) -> {
-            if (begin == end) {
-                builder.appendNull();
-            } else {
-                builder.appendElementBytes(row.tupleSlice(), begin, end - begin);
-            }
-        });
+    public void copyValue(BinaryTupleBuilder builder, int columnIndex) {
+        copyRawValue(builder, columnIndex);
     };
 
     /** {@inheritDoc} */

@@ -26,11 +26,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.InternalTupleEx;
 import org.apache.ignite.internal.sql.engine.exec.VirtualColumn;
 
 /**
@@ -55,7 +55,7 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
      *         tuple.
      * @param extraColumns Extra columns.
      */
-    public ExtendedFieldDeserializingProjectedTuple(BinaryTupleSchema schema, InternalTuple delegate, int[] projection,
+    public ExtendedFieldDeserializingProjectedTuple(BinaryTupleSchema schema, InternalTupleEx delegate, int[] projection,
             Int2ObjectMap<VirtualColumn> extraColumns) {
         super(schema, delegate, projection);
 
@@ -64,24 +64,37 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
 
     @Override
     protected void normalize() {
-        var builder = new BinaryTupleBuilder(projection.length, 32, false);
+        int estimatedValueSize = 32;
+
+        if (delegate instanceof BinaryTuple) {
+            // Estimate total data size.
+            var stats = new Sink() {
+                int estimatedValueSize = 0;
+
+                @Override
+                public void nextElement(int index, int begin, int end) {
+                    estimatedValueSize += end - begin;
+                }
+            };
+
+
+            for (int columnIndex : projection) {
+                if (extraColumns.containsKey(columnIndex)) {
+                    stats.estimatedValueSize += 8;
+                    continue;
+                }
+                ((BinaryTuple) delegate).fetch(columnIndex, stats);
+            }
+            estimatedValueSize = stats.estimatedValueSize;
+        }
+
+        var builder = new BinaryTupleBuilder(projection.length, estimatedValueSize, false);
         var newProjection = new int[projection.length];
 
         for (int i = 0; i < projection.length; i++) {
-            int col = projection[i];
+            copyValue(builder, i);
 
             newProjection[i] = i;
-
-            VirtualColumn column = extraColumns.get(col);
-            if (column != null) {
-                BinaryRowConverter.appendValue(builder, column.schemaType(), column.value());
-
-                continue;
-            }
-
-            Element element = schema.element(col);
-
-            BinaryRowConverter.copyColumnValue(delegate, builder, element, col);
         }
 
         delegate = new BinaryTuple(projection.length, builder.build());
@@ -301,5 +314,18 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
             return extraColumn(col).value();
         }
         return super.timestampValue(col);
+    }
+
+    @Override
+    public void copyValue(BinaryTupleBuilder builder, int columnIndex) {
+        int col = projection[columnIndex];
+
+        if (extraColumns.containsKey(col)) {
+            VirtualColumn virtualColumn = extraColumns.get(col);
+            BinaryRowConverter.appendValue(builder, virtualColumn.schemaType(), virtualColumn.value());
+            return;
+        }
+
+        delegate.copyValue(builder, col);
     }
 }

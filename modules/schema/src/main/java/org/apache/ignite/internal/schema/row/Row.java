@@ -18,19 +18,18 @@
 package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
-import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.InternalTupleEx;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
  * Schema-aware row interface.
  */
-public interface Row extends SchemaAware, BinaryRowEx, InternalTuple, BinaryTupleContainer {
+public interface Row extends SchemaAware, BinaryRowEx, InternalTupleEx, BinaryTupleContainer {
     /**
      * Creates a row from a given {@code BinaryRow}.
      *
@@ -68,12 +67,4 @@ public interface Row extends SchemaAware, BinaryRowEx, InternalTuple, BinaryTupl
      * @return {@code true} if the row contains only key columns.
      */
     boolean keyOnly();
-
-    /**
-     * Copy raw value of the given columns.
-     *
-     * @param builder Tuple builder to copy value to.
-     * @param col Column index.
-     */
-    void copyRawValue(BinaryTupleBuilder builder, int col);
 }

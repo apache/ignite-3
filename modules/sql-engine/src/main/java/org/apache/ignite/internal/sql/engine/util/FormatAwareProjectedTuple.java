@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.InternalTupleEx;
 
 /**
  * A projected tuple that aware of the format of delegate.
@@ -46,15 +45,14 @@ public class FormatAwareProjectedTuple extends AbstractProjectedTuple {
      *         tuple.
      */
     public FormatAwareProjectedTuple(InternalTuple delegate, int[] projection) {
-        super(delegate, projection);
+        super((InternalTupleEx) delegate, projection);
     }
 
     @Override
     protected void normalize() {
         int[] newProjection = new int[projection.length];
-        ByteBuffer tupleBuffer = delegate.byteBuffer();
 
-        BinaryTupleParser parser = new BinaryTupleParser(delegate.elementCount(), tupleBuffer);
+        assert delegate instanceof BinaryTuple : "Expected BinaryTuple, but got " + delegate.getClass();
 
         // Estimate total data size.
         var stats = new Sink() {
@@ -67,27 +65,23 @@ public class FormatAwareProjectedTuple extends AbstractProjectedTuple {
         };
 
         for (int columnIndex : projection) {
-            parser.fetch(columnIndex, stats);
+            ((BinaryTuple) delegate).fetch(columnIndex, stats);
         }
 
         // Now compose the tuple.
         BinaryTupleBuilder builder = new BinaryTupleBuilder(projection.length, stats.estimatedValueSize);
 
         for (int i = 0; i < projection.length; i++) {
-            int columnIndex = projection[i];
-
-            parser.fetch(columnIndex, (index, begin, end) -> {
-                if (begin == end) {
-                    builder.appendNull();
-                } else {
-                    builder.appendElementBytes(tupleBuffer, begin, end - begin);
-                }
-            });
-
-            newProjection[i] = columnIndex;
+            copyValue(builder, i);
+            newProjection[i] = projection[i];
         }
 
         delegate = new BinaryTuple(projection.length, builder.build());
         projection = newProjection;
+    }
+
+    @Override
+    public void copyValue(BinaryTupleBuilder builder, int columnIndex) {
+        delegate.copyValue(builder, projection[columnIndex]);
     }
 }
