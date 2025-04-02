@@ -56,7 +56,7 @@ public:
     /**
      * Constructor.
      *
-     * @param statusCode Status code.
+     * @param code Status code.
      * @param message Message.
      */
     explicit ignite_error(error::code code, std::string message) noexcept
@@ -66,7 +66,7 @@ public:
     /**
      * Constructor.
      *
-     * @param statusCode Status code.
+     * @param code Status code.
      * @param message Message.
      * @param cause Error cause.
      */
@@ -76,12 +76,12 @@ public:
         , m_cause(std::move(cause)) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
-     * Get error message.
+     * Get an error message.
      */
     [[nodiscard]] char const *what() const noexcept override { return m_message.c_str(); }
 
     /**
-     * Get error message as std::string.
+     * Get an error message as std::string.
      */
     [[nodiscard]] const std::string &what_str() const noexcept { return m_message; }
 
@@ -108,7 +108,7 @@ public:
     [[nodiscard]] std::int32_t get_flags() const noexcept { return m_flags; }
 
     /**
-     * Add an extra information.
+     * Add extra information.
      *
      * @tparam T Extra type.
      * @param key Key.
@@ -120,7 +120,7 @@ public:
     }
 
     /**
-     * Get an extra information by the key.
+     * Get extra information by the key.
      *
      * @return Extra.
      */
