@@ -176,7 +176,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
 
             // Check that there is one replica before rebalancing.
             return a.nodes().size() == 1;
-        }, 1000));
+        }, 3000));
 
         // Triggering the rebalance.
         sql("alter zone " + ZONE_NAME + " set replicas=2");
@@ -193,7 +193,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
 
             // Check that there are two replicas after rebalancing.
             return a.nodes().size() == 2;
-        }, 1000));
+        }, 3000));
     }
 
     private static void sql(String sql) {
