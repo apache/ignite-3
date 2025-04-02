@@ -115,6 +115,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -873,75 +874,29 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 if (raftNodeId.groupId() instanceof TablePartitionId) {
                     var tablePartitionId = (TablePartitionId) raftNodeId.groupId();
 
-                    if (!containsOrEmpty(tablePartitionId.partitionId(), request.partitionIds())) {
-                        return;
-                    }
-
-                    Catalog catalog = catalogManager.catalog(catalogVersion);
-                    assert catalog != null : "Catalog is not found for version: " + catalogVersion;
-
-                    CatalogTableDescriptor tableDescriptor = catalog.table(tablePartitionId.tableId());
-                    // Only tables that belong to a specific catalog version will be returned.
-                    if (tableDescriptor == null || !containsOrEmpty(tableDescriptor.zoneId(), request.zoneIds())) {
-                        return;
-                    }
-
-                    // Since the raft service starts after registering a new table, we don't need to wait or write additional asynchronous
-                    // code.
-                    TableViewInternal tableViewInternal = tableManager.cachedTable(tablePartitionId.tableId());
-                    // Perhaps the table began to be stopped or destroyed.
-                    if (tableViewInternal == null) {
-                        return;
-                    }
-
-                    MvPartitionStorage partitionStorage = tableViewInternal.internalTable().storage()
-                            .getMvPartition(tablePartitionId.partitionId());
-                    // Perhaps the partition began to be stopped or destroyed.
-                    if (partitionStorage == null) {
-                        return;
-                    }
-
-                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
-                            LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
-
-                    statesList.add(PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
-                            .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
-                            .state(localPartitionStateWithLogIndex.state)
-                            .logIndex(localPartitionStateWithLogIndex.logIndex)
-                            .estimatedRows(partitionStorage.estimatedSize())
-                            .build()
+                    LocalPartitionStateMessage message = handleStateRequestForTable(
+                            request,
+                            raftGroupService,
+                            tablePartitionId,
+                            catalogVersion
                     );
+
+                    if (message != null) {
+                        statesList.add(message);
+                    }
                 } else if (raftNodeId.groupId() instanceof ZonePartitionId) {
                     var zonePartitionId = (ZonePartitionId) raftNodeId.groupId();
 
-                    if (!containsOrEmpty(zonePartitionId.partitionId(), request.partitionIds())) {
-                        return;
-                    }
-
-                    Catalog catalog = catalogManager.catalog(catalogVersion);
-                    assert catalog != null : "Catalog is not found for version: " + catalogVersion;
-
-                    CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.partitionId());
-                    // Only zones that belong to a specific catalog version will be returned.
-                    if (zoneDescriptor == null || !containsOrEmpty(zoneDescriptor.id(), request.zoneIds())) {
-                        return;
-                    }
-
-                    long estimatedSize = tableManager.zoneTables(zonePartitionId.zoneId()).stream()
-                            .map(tableImpl -> tableImpl.internalTable().storage().getMvPartition(zonePartitionId.partitionId()))
-                            .filter(Objects::nonNull)
-                            .mapToLong(MvPartitionStorage::estimatedSize)
-                            .sum();
-                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
-                            LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
-
-                    statesList.add(PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
-                            .zonePartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
-                            .state(localPartitionStateWithLogIndex.state)
-                            .logIndex(localPartitionStateWithLogIndex.logIndex)
-                            .estimatedRows(estimatedSize)
-                            .build()
+                    LocalPartitionStateMessage message = handleStateRequestForZone(
+                            request,
+                            raftGroupService,
+                            zonePartitionId,
+                            catalogVersion
                     );
+                    
+                    if (message != null) {
+                        statesList.add(message);
+                    }
                 }
             });
 
@@ -951,6 +906,89 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
+    }
+
+    private @Nullable LocalPartitionStateMessage handleStateRequestForZone(
+            LocalPartitionStatesRequest request,
+            RaftGroupService raftGroupService,
+            ZonePartitionId zonePartitionId,
+            int catalogVersion
+    ) {
+        if (!containsOrEmpty(zonePartitionId.partitionId(), request.partitionIds())) {
+            return null;
+        }
+
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+        assert catalog != null : "Catalog is not found for version: " + catalogVersion;
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.partitionId());
+        // Only zones that belong to a specific catalog version will be returned.
+        if (zoneDescriptor == null || !containsOrEmpty(zoneDescriptor.id(), request.zoneIds())) {
+            return null;
+        }
+
+        LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
+                LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
+
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
+                .zonePartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
+                .state(localPartitionStateWithLogIndex.state)
+                .logIndex(localPartitionStateWithLogIndex.logIndex)
+                .estimatedRows(calculateEstimatedSize(zonePartitionId))
+                .build();
+    }
+
+    private long calculateEstimatedSize(ZonePartitionId zonePartitionId) {
+        return tableManager.zoneTables(zonePartitionId.zoneId()).stream()
+                .map(tableImpl -> tableImpl.internalTable().storage().getMvPartition(zonePartitionId.partitionId()))
+                .filter(Objects::nonNull)
+                .mapToLong(MvPartitionStorage::estimatedSize)
+                .sum();
+    }
+
+    private @Nullable LocalPartitionStateMessage handleStateRequestForTable(
+            LocalPartitionStatesRequest request,
+            RaftGroupService raftGroupService,
+            TablePartitionId tablePartitionId,
+            int catalogVersion
+    ) {
+        if (!containsOrEmpty(tablePartitionId.partitionId(), request.partitionIds())) {
+            return null;
+        }
+
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+        assert catalog != null : "Catalog is not found for version: " + catalogVersion;
+
+        CatalogTableDescriptor tableDescriptor = catalog.table(tablePartitionId.tableId());
+        // Only tables that belong to a specific catalog version will be returned.
+        if (tableDescriptor == null || !containsOrEmpty(tableDescriptor.zoneId(), request.zoneIds())) {
+            return null;
+        }
+
+        // Since the raft service starts after registering a new table, we don't need to wait or write additional asynchronous
+        // code.
+        TableViewInternal tableViewInternal = tableManager.cachedTable(tablePartitionId.tableId());
+        // Perhaps the table began to be stopped or destroyed.
+        if (tableViewInternal == null) {
+            return null;
+        }
+
+        MvPartitionStorage partitionStorage = tableViewInternal.internalTable().storage()
+                .getMvPartition(tablePartitionId.partitionId());
+        // Perhaps the partition began to be stopped or destroyed.
+        if (partitionStorage == null) {
+            return null;
+        }
+
+        LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
+                LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
+
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
+                .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
+                .state(localPartitionStateWithLogIndex.state)
+                .logIndex(localPartitionStateWithLogIndex.logIndex)
+                .estimatedRows(partitionStorage.estimatedSize())
+                .build();
     }
 
     private static <T> boolean containsOrEmpty(T item, Collection<T> collection) {
