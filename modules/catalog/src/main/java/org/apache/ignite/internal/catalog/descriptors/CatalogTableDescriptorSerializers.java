@@ -105,7 +105,7 @@ public class CatalogTableDescriptorSerializers {
                     colocationColumns,
                     schemaVersions,
                     storageProfile,
-                    // Here we use the initial timestamp because it's old storage. This value will be processed by data nodes manager.
+                    // Here we use the initial timestamp because it's old storage.
                     INITIAL_TIMESTAMP
             );
         }

@@ -66,7 +66,7 @@ public class CatalogSystemViewDescriptorSerializers {
             byte sysViewTypeId = input.readByte();
             SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
 
-            // Here we use the initial timestamp because it's old storage. This value will be processed by data nodes manager.
+            // Here we use the initial timestamp because it's old storage.
             return new CatalogSystemViewDescriptor(id, schemaId, name, columns, sysViewType, INITIAL_TIMESTAMP);
         }
 

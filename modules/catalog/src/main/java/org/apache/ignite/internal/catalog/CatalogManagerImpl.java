@@ -42,7 +42,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
@@ -77,15 +76,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public static final String DEFAULT_ZONE_NAME = "Default";
 
     private static final int MAX_RETRY_COUNT = 10;
-
-    /**
-     * Initial update timestamp for a catalog descriptor, this token is valid only before the first call of
-     * {@link UpdateEntry#applyUpdate(Catalog, HybridTimestamp)}.
-     *
-     * <p>After that {@link CatalogObjectDescriptor#updateTimestamp()} will be initialised with a timestamp from
-     * {@link UpdateEntry#applyUpdate(Catalog, HybridTimestamp)}
-     */
-    public static final HybridTimestamp INITIAL_TIMESTAMP = HybridTimestamp.MIN_VALUE;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogManagerImpl.class);

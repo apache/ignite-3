@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
@@ -69,7 +69,7 @@ public class CatalogSchemaDescriptorSerializers {
             CatalogIndexDescriptor[] indexes = readArray(indexSerializeHelper, input, CatalogIndexDescriptor.class);
             CatalogSystemViewDescriptor[] systemViews = readArray(viewDescriptorSerializer, input, CatalogSystemViewDescriptor.class);
 
-            // Here we use the initial timestamp because it's old storage. This value will be processed by data nodes manager.
+            // Here we use the initial timestamp because it's old storage.
             return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, INITIAL_TIMESTAMP);
         }
 

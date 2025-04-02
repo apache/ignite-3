@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readStringCollection;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
@@ -57,7 +57,7 @@ public class CatalogHashIndexDescriptorSerializers {
             boolean isCreatedWithTable = input.readBoolean();
             List<String> columns = readStringCollection(input, ArrayList::new);
 
-            // Here we use the initial timestamp because it's old storage. This value will be processed by data nodes manager.
+            // Here we use the initial timestamp because it's old storage.
             return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, INITIAL_TIMESTAMP, isCreatedWithTable);
         }
 
