@@ -1356,7 +1356,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId tablePartitionId,
             Long assignmentsTimestamp
     ) {
-        return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
+        return orStopManagerFuture(waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
             int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
 
             CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
@@ -1375,7 +1375,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             zoneDescriptor.replicas()
                     )
             );
-        });
+        }));
     }
 
     private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
