@@ -52,17 +52,12 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<ITable?> GetTableAsync(string name)
-        {
-            return await GetTableInternalAsync(name).ConfigureAwait(false);
-        }
+        public async Task<ITable?> GetTableAsync(string name) =>
+            await GetTableAsync(QualifiedName.Parse(name)).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public Task<ITable?> GetTableAsync(QualifiedName name)
-        {
-            // TODO: Implement qualified name support.
-            throw new System.NotImplementedException();
-        }
+        public async Task<ITable?> GetTableAsync(QualifiedName name) =>
+            await GetTableInternalAsync(name).ConfigureAwait(false);
 
         /// <inheritdoc/>
         public async Task<IList<ITable>> GetTablesAsync()
@@ -106,14 +101,14 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="name">Name.</param>
         /// <returns>Table.</returns>
-        internal async Task<Table?> GetTableInternalAsync(string name)
+        internal async Task<Table?> GetTableInternalAsync(QualifiedName name)
         {
             IgniteArgumentCheck.NotNull(name);
 
-            using var writer = ProtoCommon.GetMessageWriter();
-            writer.MessageWriter.Write(name);
-
             // TODO: ClientOp.TABLE_GET_QUALIFIED
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(name.CanonicalName);
+
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
