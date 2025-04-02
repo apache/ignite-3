@@ -215,7 +215,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public HybridTimestamp startTimestamp() {
+        public HybridTimestamp schemaTimestamp() {
             return null;
         }
 

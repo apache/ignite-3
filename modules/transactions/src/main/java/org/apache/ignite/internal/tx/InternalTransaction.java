@@ -91,12 +91,12 @@ public interface InternalTransaction extends Transaction {
     @Nullable HybridTimestamp readTimestamp();
 
     /**
-     * Returns a timestamp that corresponds to the starting moment of the transaction.
+     * Returns a timestamp of the schema corresponding to the transaction.
      * For RW transactions, this is the beginTimestamp; for RO transactions, it's {@link #readTimestamp()}.
      *
      * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
      */
-    HybridTimestamp startTimestamp();
+    HybridTimestamp schemaTimestamp();
 
     /**
      * Get the transaction coordinator inconsistent ID.
