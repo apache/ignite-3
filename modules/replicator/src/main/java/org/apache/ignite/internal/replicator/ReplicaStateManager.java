@@ -111,7 +111,7 @@ class ReplicaStateManager {
                         context.unreserve();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                            executeDeferredReplicaStop(replicationGroupId, context);
+                            executeDeferredReplicaStop(context);
                         }
                     }
                 }
@@ -143,7 +143,7 @@ class ReplicaStateManager {
                             context.unreserve();
 
                             if (context.replicaState == ReplicaState.RESTART_PLANNED) {
-                                executeDeferredReplicaStop(parameters.groupId(), context);
+                                executeDeferredReplicaStop(context);
                             }
                         }
                     }
@@ -342,20 +342,27 @@ class ReplicaStateManager {
         synchronized (context) {
             // TODO IGNITE-23702: proper sync with waiting of expiration event, and proper deferred stop after cancellation of
             //     reservation made by a lease that was not negotiated.
-            context.deferredStopReadyFuture = leaseExpirationTime == null
-                    ? new CompletableFuture<>()
-                    : clockService.waitFor(leaseExpirationTime);
+
+            // No parallel actions affected this, continue.
+            if (context.reservedForPrimary) {
+                context.deferredStopReadyFuture = leaseExpirationTime == null
+                        ? new CompletableFuture<>()
+                        : clockService.waitFor(leaseExpirationTime);
+            } else {
+                // context.unreserve() has been called in parallel, no need to wait.
+                context.deferredStopReadyFuture = CompletableFuture.completedFuture(null);
+            }
 
             return context.deferredStopReadyFuture
                     .thenCompose(unused -> stopReplica(groupId, context, deferredStopOperation));
         }
     }
 
-    private static void executeDeferredReplicaStop(ReplicationGroupId groupId, ReplicaStateContext context) {
-        assert context.deferredStopReadyFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
-
-        context.deferredStopReadyFuture.complete(null);
-        context.deferredStopReadyFuture = null;
+    private static void executeDeferredReplicaStop(ReplicaStateContext context) {
+        if (context.deferredStopReadyFuture != null) {
+            context.deferredStopReadyFuture.complete(null);
+            context.deferredStopReadyFuture = null;
+        }
     }
 
     /**
