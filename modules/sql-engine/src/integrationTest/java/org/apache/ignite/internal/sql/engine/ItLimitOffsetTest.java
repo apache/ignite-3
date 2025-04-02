@@ -56,6 +56,9 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
                 () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", new BigDecimal(-1)));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
                 () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (Object) null));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
