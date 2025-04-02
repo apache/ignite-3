@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;

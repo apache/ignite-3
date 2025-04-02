@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;

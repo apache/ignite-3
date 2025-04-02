@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;

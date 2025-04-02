@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
