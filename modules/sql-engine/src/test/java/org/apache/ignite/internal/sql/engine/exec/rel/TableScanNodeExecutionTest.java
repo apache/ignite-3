@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -115,6 +116,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
     @InjectExecutorService
     private ScheduledExecutorService commonExecutor;
 
@@ -176,6 +180,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
+                    systemDistributedConfiguration,
                     clusterService,
                     replicaSvc,
                     HeapLockManager.smallInstance(),

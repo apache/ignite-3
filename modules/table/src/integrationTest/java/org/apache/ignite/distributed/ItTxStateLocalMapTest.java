@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -69,6 +70,9 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
 
     private final TestInfo testInfo;
@@ -98,6 +102,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfig,
                 txConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 NODES,
                 NODES,

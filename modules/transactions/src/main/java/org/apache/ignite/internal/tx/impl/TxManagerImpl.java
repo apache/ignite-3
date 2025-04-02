@@ -62,6 +62,8 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -128,14 +130,21 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemViewProvider {
-    /** Expirarion trigger frequency. */
-    public static final long EXPIRE_FREQ_MILLIS = 1000;
+    private static final String ABANDONED_CHECK_TS_PROP = "txnAbandonedCheckTs";
+
+    private static final long ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE = 5_000;
+
+    /** Expiration trigger frequency. */
+    private static final long EXPIRE_FREQ_MILLIS = 1000;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
 
     /** Transaction configuration. */
     private final TransactionConfiguration txConfig;
+
+    /** Transaction configuration. */
+    private final SystemDistributedConfiguration systemCfg;
 
     /** Lock manager. */
     private final LockManager lockManager;
@@ -230,6 +239,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * Test-only constructor.
      *
      * @param txConfig Transaction configuration.
+     * @param systemCfg System configuration.
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
@@ -245,6 +255,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @TestOnly
     public TxManagerImpl(
             TransactionConfiguration txConfig,
+            SystemDistributedConfiguration systemCfg,
             ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
@@ -261,6 +272,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this(
                 clusterService.nodeName(),
                 txConfig,
+                systemCfg,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaService,
@@ -283,6 +295,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * The constructor.
      *
      * @param txConfig Transaction configuration.
+     * @param systemCfg System configuration.
      * @param messagingService Messaging service.
      * @param topologyService Topology service.
      * @param replicaService Replica service.
@@ -300,6 +313,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     public TxManagerImpl(
             String nodeName,
             TransactionConfiguration txConfig,
+            SystemDistributedConfiguration systemCfg,
             MessagingService messagingService,
             TopologyService topologyService,
             ReplicaService replicaService,
@@ -317,6 +331,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             FailureProcessor failureProcessor
     ) {
         this.txConfig = txConfig;
+        this.systemCfg = systemCfg;
         this.lockManager = lockManager;
         this.clockService = clockService;
         this.transactionIdGenerator = transactionIdGenerator;
@@ -955,7 +970,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());
 
-            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
+            orphanDetector.start(txStateVolatileStorage,
+                    () -> longProperty(systemCfg, ABANDONED_CHECK_TS_PROP, ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE));
 
             txCleanupRequestSender.start();
 
@@ -1224,5 +1240,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             return null;
         });
+    }
+
+    private static long longProperty(SystemDistributedConfiguration systemProperties, String name, long defaultValue) {
+        SystemPropertyView property = systemProperties.properties().value().get(name);
+
+        return property == null ? defaultValue : Long.parseLong(property.propertyValue());
     }
 }

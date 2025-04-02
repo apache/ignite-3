@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
@@ -102,6 +103,9 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration
     private static ReplicationConfiguration replicationConfiguration;
 
     @BeforeAll
@@ -134,6 +138,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
         intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration,
+                systemDistributedConfiguration,
                 replicationConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
