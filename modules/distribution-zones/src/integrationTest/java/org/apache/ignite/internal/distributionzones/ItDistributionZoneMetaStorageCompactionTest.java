@@ -21,7 +21,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -151,7 +153,6 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
 
-        int zoneId = ignite.catalogManager().activeCatalog(ignite.clock().now().longValue()).zone(ZONE_NAME).id();
         int tableId = ignite.catalogManager().activeCatalog(ignite.clock().now().longValue()).tables()
                 .stream()
                 .filter(t -> t.name().equals(TABLE_NAME))
@@ -163,11 +164,16 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
 
         // Wait for the rebalancing to finish.
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Entry> entryFut = metaStorageManager.get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, 0)));
+            CompletableFuture<Entry> entryFut = metaStorageManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, 0)));
             assertThat(entryFut, willCompleteSuccessfully());
 
             Entry e = entryFut.join();
-            return e.tombstone();
+
+            assertNotNull(e.value());
+            Assignments a = Assignments.fromBytes(e.value());
+
+            // Check that there are two replicas after rebalancing.
+            return a.nodes().size() == 2;
         }, 1000));
     }
 

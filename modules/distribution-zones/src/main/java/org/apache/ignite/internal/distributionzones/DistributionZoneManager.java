@@ -412,8 +412,9 @@ public class DistributionZoneManager extends
                             newTopology.version()
                     );
                 } else {
-                    LOG.info(
-                            "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
+                    LOG.debug(
+                            "Failed to update distribution zones' logical topology and version keys due to concurrent update ["
+                                    + "topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
