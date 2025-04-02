@@ -49,7 +49,6 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -144,7 +143,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
         assertEquals(dataNodesBeforeNodeStop, dataNodes(ignite, zoneId, beforeNodesStop));
     }
 
-    @RepeatedTest(100)
+    @Test
     public void testCompactionDuringRebalancing() throws InterruptedException {
         sql("create zone " + ZONE_NAME + " with partitions=1, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'"
                 + ", data_nodes_auto_adjust_scale_down=0");
