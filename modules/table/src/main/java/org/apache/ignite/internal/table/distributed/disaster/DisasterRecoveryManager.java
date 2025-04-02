@@ -872,12 +872,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             raftManager.forEach((raftNodeId, raftGroupService) -> {
                 if (raftNodeId.groupId() instanceof TablePartitionId) {
-                    var tablePartitionId = (TablePartitionId) raftNodeId.groupId();
-
                     LocalPartitionStateMessage message = handleStateRequestForTable(
                             request,
                             raftGroupService,
-                            tablePartitionId,
+                            (TablePartitionId) raftNodeId.groupId(),
                             catalogVersion
                     );
 
@@ -885,15 +883,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         statesList.add(message);
                     }
                 } else if (raftNodeId.groupId() instanceof ZonePartitionId) {
-                    var zonePartitionId = (ZonePartitionId) raftNodeId.groupId();
-
                     LocalPartitionStateMessage message = handleStateRequestForZone(
                             request,
                             raftGroupService,
-                            zonePartitionId,
+                            (ZonePartitionId) raftNodeId.groupId(),
                             catalogVersion
                     );
-                    
+
                     if (message != null) {
                         statesList.add(message);
                     }
