@@ -917,7 +917,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         Catalog catalog = catalogManager.catalog(catalogVersion);
         assert catalog != null : "Catalog is not found for version: " + catalogVersion;
 
-        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.partitionId());
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
         // Only zones that belong to a specific catalog version will be returned.
         if (zoneDescriptor == null || !containsOrEmpty(zoneDescriptor.id(), request.zoneIds())) {
             return null;
