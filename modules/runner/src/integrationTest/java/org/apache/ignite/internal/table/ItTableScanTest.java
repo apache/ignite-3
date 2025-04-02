@@ -122,7 +122,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     protected void configureInitParameters(InitParametersBuilder builder) {
         // Set a short timeout for the test because it uses defaultTimeouts for implicit transactions,
         // It is too long to wait for 30 seconds (default value for Read-Write Transactions).
-        builder.clusterConfiguration("{ignite.transaction.readWriteTimeoutMillis: 5000}");
+        builder.clusterConfiguration("{ignite.transaction.readWriteTimeout: 5000}");
     }
 
     @BeforeEach

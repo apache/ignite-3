@@ -100,7 +100,7 @@ public class ItTransactionsVacuumTest extends ItAbstractColocationTest {
      * @param ttl Time-to-live value.
      */
     private void updateTxnResourceTtl(long ttl) {
-        CompletableFuture<?> updateFuture = txConfiguration.change(change -> change.changeTxnResourceTtlMillis(ttl));
+        CompletableFuture<?> updateFuture = txConfiguration.change(change -> change.changeTxnResourceTtl(ttl));
 
         assertThat(updateFuture, willSucceedFast());
     }

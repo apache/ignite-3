@@ -50,7 +50,7 @@ public class KillTransactionTest extends ClusterPerClassIntegrationTest {
     protected void configureInitParameters(InitParametersBuilder builder) {
         super.configureInitParameters(builder);
 
-        builder.clusterConfiguration("ignite.transaction.txnResourceTtlMillis=0");
+        builder.clusterConfiguration("ignite.transaction.txnResourceTtl=0");
     }
 
     @Test

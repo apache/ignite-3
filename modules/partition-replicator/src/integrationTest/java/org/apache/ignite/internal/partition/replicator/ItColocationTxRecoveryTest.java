@@ -45,7 +45,7 @@ class ItColocationTxRecoveryTest extends ItAbstractColocationTest {
      */
     @Test
     void abandonedTransactionGetsAbortedOnTouch() throws Exception {
-        assertThat(txConfiguration.abandonedCheckTsMillis().update(600_000L), willCompleteSuccessfully());
+        assertThat(txConfiguration.abandonedCheckTs().update(600_000L), willCompleteSuccessfully());
 
         startCluster(3);
 

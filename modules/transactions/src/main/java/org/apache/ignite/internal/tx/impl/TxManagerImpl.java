@@ -441,7 +441,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
-        long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeoutMillis().value());
+        long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeout().value());
 
         var transaction = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
 
@@ -491,7 +491,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeoutMillis().value());
+            long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeout().value());
 
             var transaction = new ReadOnlyTransactionImpl(
                     this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture
@@ -914,7 +914,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());
 
-            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTsMillis());
+            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
             txCleanupRequestSender.start();
 
@@ -1023,7 +1023,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         return txStateVolatileStorage.vacuum(
                 vacuumObservationTimestamp,
-                txConfig.txnResourceTtlMillis().value(),
+                txConfig.txnResourceTtl().value(),
                 persistentTxStateVacuumizer::vacuumPersistentTxStates);
     }
 

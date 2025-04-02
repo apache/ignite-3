@@ -141,7 +141,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
-                + "      txnResourceTtlMillis: 0"
+                + "      txnResourceTtl: 0"
                 + "  },"
                 + "  replication: {"
                 + "      rpcTimeoutMillis: 30000"
@@ -819,7 +819,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private void setTxResourceTtl(long ttl) {
         TransactionConfiguration transactionConfiguration = anyNode().clusterConfiguration()
                 .getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
-        CompletableFuture<Void> changeFuture = transactionConfiguration.change(c -> c.changeTxnResourceTtlMillis(ttl));
+        CompletableFuture<Void> changeFuture = transactionConfiguration.change(c -> c.changeTxnResourceTtl(ttl));
 
         assertThat(changeFuture, willCompleteSuccessfully());
     }

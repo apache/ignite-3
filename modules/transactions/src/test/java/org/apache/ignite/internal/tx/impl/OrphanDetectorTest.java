@@ -135,7 +135,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         txStateMetaStorage.start();
 
-        orphanDetector.start(txStateMetaStorage, txConfiguration.abandonedCheckTsMillis());
+        orphanDetector.start(txStateMetaStorage, txConfiguration.abandonedCheckTs());
     }
 
     @AfterEach

@@ -268,11 +268,11 @@ bin/ignite3 cluster config show > cluster-config.txt
 {
   "ignite" : {
     "transaction" : {
-      "abandonedCheckTsMillis" : 5000,
+      "abandonedCheckTs" : 5000,
       "attemptsObtainLock" : 3,
-      "implicitTransactionTimeoutMillis" : 3000,
-      "rpcTimeoutMillis" : 60000,
-      "txnResourceTtlMillis" : 30000
+      "implicitTransactionTimeout" : 3000,
+      "rpcTimeout" : 60000,
+      "txnResourceTtl" : 30000
     }
   }
 }
@@ -282,11 +282,11 @@ bin/ignite3 cluster config show > cluster-config.txt
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 
-|abandonedCheckTsMillis|5000|The amount of time after which the transaction is considered abandoned.|Yes|Yes|0 - inf
+|abandonedCheckTs|5000|The amount of time after which the transaction is considered abandoned.|Yes|Yes|0 - inf
 |attemptsObtainLock|3|The number of attempts to obtain a lock. After this number of attempts, a lock conflict exception is thrown on the transaction.| Yes | Yes | 0 - inf
-|implicitTransactionTimeoutMillis|3000|Timeout for implicit transactions. Used for key-value table APIs invoked with `null` instead of an explicit transaction instance. Must be greater than `rpcTimeoutMillis`.| Yes | Yes | 0 - inf
-|rpcTimeoutMillis|6000|Timeout for the transaction operation. Used for table API operations.| Yes | Yes | 0 - inf
-|txnResourceTtlMillis|30000|Time to live for transaction resources (transaction states, transaction nodes, open cursors, etc.). Should be higher than the lag to spread the actual transaction information across clusters. Otherwise, some transaction operations might take more time to find out the state from the persistence storage). Must be greater than `rpcTimeoutMillis`.| Yes | Yes | 0 - inf
+|implicitTransactionTimeout|3000|Timeout for implicit transactions. Used for key-value table APIs invoked with `null` instead of an explicit transaction instance. Must be greater than `rpcTimeout`.| Yes | Yes | 0 - inf
+|rpcTimeout|6000|Timeout for the transaction operation. Used for table API operations.| Yes | Yes | 0 - inf
+|txnResourceTtl|30000|Time to live for transaction resources (transaction states, transaction nodes, open cursors, etc.). Should be higher than the lag to spread the actual transaction information across clusters. Otherwise, some transaction operations might take more time to find out the state from the persistence storage). Must be greater than `rpcTimeout`.| Yes | Yes | 0 - inf
 |======
 
 == System Configuration

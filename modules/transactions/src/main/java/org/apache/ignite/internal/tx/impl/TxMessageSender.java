@@ -141,7 +141,7 @@ public class TxMessageSender {
                         .timestamp(clockService.now())
                         .groups(toPartitionMessages(enlistedPartitionGroups))
                         .build(),
-                transactionConfiguration.rpcTimeoutMillis().value());
+                transactionConfiguration.rpcTimeout().value());
     }
 
     /**
@@ -226,7 +226,7 @@ public class TxMessageSender {
                                 .readTimestamp(timestamp)
                                 .txId(txId)
                                 .build(),
-                        transactionConfiguration.rpcTimeoutMillis().value())
+                        transactionConfiguration.rpcTimeout().value())
                 .thenApply(resp -> {
                     assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
