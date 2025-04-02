@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FL
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon.OffsetWriteFunction;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.InternalTuple;
@@ -106,11 +107,10 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
             );
         }
 
-        int[] dataBeginOffsetHolder = new int[1];
-        int[] dataEndOffsetHolder = new int[1];
+        int[] dataOffsetHolder = new int[2];
 
-        tuple.fetch(0, (index, begin, end) -> dataBeginOffsetHolder[0] = begin);
-        tuple.fetch(tuple.elementCount() - 1, (index, begin, end) -> dataEndOffsetHolder[0] = end);
+        tuple.fetch(0, (index, begin, end) -> dataOffsetHolder[0] = begin);
+        tuple.fetch(tuple.elementCount() - 1, (index, begin, end) -> dataOffsetHolder[1] = end);
 
         ByteBuffer tupleBuffer = tuple.byteBuffer();
 
@@ -124,27 +124,18 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
 
         ByteBuffer prefixBuffer = ByteBuffer.allocate(newTupleSize)
                 .order(ORDER)
-                .put(tupleBuffer.duplicate().limit(dataBeginOffsetHolder[0])); // header
+                .put(tupleBuffer.duplicate().limit(dataOffsetHolder[0])); // header
 
-        int payloadEndPosition = dataEndOffsetHolder[0] - dataBeginOffsetHolder[0];
+        int payloadEndPosition = dataOffsetHolder[1] - dataOffsetHolder[0];
+        OffsetWriteFunction offsetWriteFunction = BinaryTupleCommon.offsetWriteFunction(entrySize);
         for (int idx = tuple.elementCount(); idx < numElements; idx++) {
-            switch (entrySize) {
-                case Byte.BYTES:
-                    prefixBuffer.put((byte) payloadEndPosition);
-                    break;
-                case Short.BYTES:
-                    prefixBuffer.putShort((short) payloadEndPosition);
-                    break;
-                case Integer.BYTES:
-                    prefixBuffer.putInt(payloadEndPosition);
-                    break;
-                default:
-                    assert false;
-            }
+            int pos = prefixBuffer.position();
+            offsetWriteFunction.offset(prefixBuffer, pos, payloadEndPosition);
+            prefixBuffer.position(pos + entrySize);
         }
 
         prefixBuffer
-                .put(tupleBuffer.slice().position(dataBeginOffsetHolder[0]).limit(dataEndOffsetHolder[0])) // payload
+                .put(tupleBuffer.slice().position(dataOffsetHolder[0]).limit(dataOffsetHolder[1])) // payload
                 .putInt(tuple.elementCount())
                 .flip();
 
@@ -156,14 +147,13 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
     private static BinaryTuplePrefix truncateTuple(int numElements, BinaryTuple tuple) {
         assert numElements < tuple.elementCount();
 
-        int[] dataBeginOffsetHolder = new int[1];
-        int[] dataEndOffsetHolder = new int[1];
+        int[] dataOffsetHolder = new int[2];
 
-        tuple.fetch(0, (index, begin, end) -> dataBeginOffsetHolder[0] = begin);
-        tuple.fetch(numElements - 1, (index, begin, end) -> dataEndOffsetHolder[0] = end);
+        tuple.fetch(0, (index, begin, end) -> dataOffsetHolder[0] = begin);
+        tuple.fetch(numElements - 1, (index, begin, end) -> dataOffsetHolder[1] = end);
 
         BinaryTuplePrefixBuilder builder = new BinaryTuplePrefixBuilder(
-                numElements, numElements, dataEndOffsetHolder[0] - dataBeginOffsetHolder[0]
+                numElements, numElements, dataOffsetHolder[1] - dataOffsetHolder[0]
         );
 
         for (int i = 0; i < numElements; i++) {

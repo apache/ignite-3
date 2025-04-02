@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon.OffsetReadFunction;
 import org.apache.ignite.internal.util.ByteUtils;
 
 /**
@@ -69,6 +70,9 @@ public class BinaryTupleParser {
     /** Binary tuple. */
     private final ByteBuffer buffer;
 
+    /** Offset calculation function. */
+    private final OffsetReadFunction offsetFunc;
+
     /**
      * Constructor.
      *
@@ -87,13 +91,15 @@ public class BinaryTupleParser {
         entryBase = BinaryTupleCommon.HEADER_SIZE;
         entrySize = 1 << (flags & BinaryTupleCommon.VARSIZE_MASK);
         valueBase = entryBase + entrySize * numElements;
+
+        offsetFunc = BinaryTupleCommon.offsetReadFunction(entrySize);
     }
 
     /**
      * Returns the binary tuple size in bytes.
      */
     public int size() {
-        return valueBase + getOffset(valueBase - entrySize);
+        return valueBase + offsetFunc.offset(buffer, valueBase - entrySize);
     }
 
     /**
@@ -122,12 +128,9 @@ public class BinaryTupleParser {
 
         int entry = entryBase + index * entrySize;
 
-        int offset = valueBase;
-        if (index > 0) {
-            offset += getOffset(entry - entrySize);
-        }
+        int offset = valueBase + ((index > 0) ? offsetFunc.offset(buffer, entry - entrySize) : 0);
 
-        int nextOffset = valueBase + getOffset(entry);
+        int nextOffset = valueBase + offsetFunc.offset(buffer, entry);
         if (nextOffset < offset) {
             throw new BinaryTupleFormatException("Corrupted offset table");
         }
@@ -145,7 +148,7 @@ public class BinaryTupleParser {
         int offset = valueBase;
 
         for (int i = 0; i < numElements; i++) {
-            int nextOffset = valueBase + getOffset(entry);
+            int nextOffset = valueBase + offsetFunc.offset(buffer, entry);
             if (nextOffset < offset) {
                 throw new BinaryTupleFormatException("Corrupted offset table");
             }
@@ -505,32 +508,6 @@ public class BinaryTupleParser {
     }
 
     /**
-     * Gets an entry from the value offset table.
-     *
-     * @param index Byte index of the table entry.
-     * @return Entry value.
-     */
-    private int getOffset(int index) {
-        switch (entrySize) {
-            case Byte.BYTES:
-                return Byte.toUnsignedInt(buffer.get(index));
-            case Short.BYTES:
-                return Short.toUnsignedInt(buffer.getShort(index));
-            case Integer.BYTES: {
-                int offset = buffer.getInt(index);
-                if (offset < 0) {
-                    throw new BinaryTupleFormatException("Unsupported offset table size");
-                }
-                return offset;
-            }
-            case Long.BYTES:
-                throw new BinaryTupleFormatException("Unsupported offset table size");
-            default:
-                throw new BinaryTupleFormatException("Invalid offset table size");
-        }
-    }
-
-    /**
      * Gets array of bytes from a given range in the buffer.
      */
     private byte[] getBytes(int begin, int end) {
@@ -560,17 +537,23 @@ public class BinaryTupleParser {
         long time = Integer.toUnsignedLong(buffer.getInt(offset));
 
         int nanos;
-        if (length == 4) {
-            nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
-            time >>>= 10;
-        } else if (length == 5) {
-            time |= Byte.toUnsignedLong(buffer.get(offset + 4)) << 32;
-            nanos = ((int) time & ((1 << 20) - 1)) * 1000;
-            time >>>= 20;
-        } else {
-            time |= Short.toUnsignedLong(buffer.getShort(offset + 4)) << 32;
-            nanos = ((int) time & ((1 << 30) - 1));
-            time >>>= 30;
+        switch (length) {
+            case 4: {
+                nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
+                time >>>= 10;
+                break;
+            }
+            case 5: {
+                time |= Byte.toUnsignedLong(buffer.get(offset + 4)) << 32;
+                nanos = ((int) time & ((1 << 20) - 1)) * 1000;
+                time >>>= 20;
+                break;
+            }
+            default: {
+                time |= Short.toUnsignedLong(buffer.getShort(offset + 4)) << 32;
+                nanos = ((int) time & ((1 << 30) - 1));
+                time >>>= 30;
+            }
         }
 
         int second = ((int) time) & 63;
